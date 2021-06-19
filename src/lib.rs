@@ -63,7 +63,6 @@ pub fn eval(text: &str) -> BoxResult<f32> {
         numbers[idx] = (bin_ops[idx].f)(numbers[idx], numbers[idx+1]);
         numbers.remove(idx+1);
     }
-    assert_eq!(numbers.len(), 1);
     Ok(numbers[0])    
 }
 
@@ -134,5 +133,7 @@ mod tests {
     fn test_eval() {
         assert_float_eq(eval(&"1.3+0.7").unwrap(), 2.0);
         assert_float_eq(eval(&"1.3+0.7*2").unwrap(), 2.7);
+        assert_float_eq(eval(&"1.3+0.7*2-1").unwrap(), 1.7);
+        assert_float_eq(eval(&"1.3+0.7*2-1/10").unwrap(), 2.6);
     }
 }
