@@ -49,18 +49,19 @@ fn priorized_indices(bin_ops: &Vec<BinaryOperator<f32>>) -> Vec<usize> {
     indices
 }
 
-type BoxResult<T> = Result<T,Box<Error>>;
+type BoxResult<T> = Result<T,Box<dyn Error>>;
 
 pub fn eval(text: &str) -> BoxResult<f32> {
     let bin_ops = find_operators::<f32>(text); 
     let mut numbers = find_numbers(text)?;
-    if bin_ops.len() != numbers.len() - 1 {
-        bail!("We expect exactly one number more than operator.");
+
+    if numbers.len() == 0 || bin_ops.len() != numbers.len() - 1 {
+        bail!("Numbers/operators mismatch. {}/{}.", numbers.len(), bin_ops.len());
     };
     let indices = priorized_indices(&bin_ops);
+
     let mut num_inds = indices.clone();
-    for i in 0..indices.len() {
-        let op_idx = indices[i];
+    for (i, &op_idx) in indices.iter().enumerate() {
         let num_idx = num_inds[i];
         numbers[num_idx] = (bin_ops[op_idx].f)(numbers[num_idx], numbers[num_idx+1]);
         numbers.remove(num_idx+1);
@@ -142,5 +143,7 @@ mod tests {
         assert_float_eq(eval(&"1.3+0.7*2").unwrap(), 2.7);
         assert_float_eq(eval(&"1.3+0.7*2-1").unwrap(), 1.7);
         assert_float_eq(eval(&"1.3+0.7*2-1/10").unwrap(), 2.6);
+        assert!(eval(&"1.3+0.7**2-1/10").is_err());
+        assert!(eval(&"").is_err());
     }
 }
