@@ -61,9 +61,9 @@ pub fn eval(text: &str) -> BoxResult<f32> {
     let indices = priorized_indices(&bin_ops);
 
     let mut num_inds = indices.clone();
-    for (i, &op_idx) in indices.iter().enumerate() {
+    for (i, &bin_op_idx) in indices.iter().enumerate() {
         let num_idx = num_inds[i];
-        numbers[num_idx] = (bin_ops[op_idx].f)(numbers[num_idx], numbers[num_idx+1]);
+        numbers[num_idx] = (bin_ops[bin_op_idx].f)(numbers[num_idx], numbers[num_idx+1]);
         numbers.remove(num_idx+1);
         for j in num_inds.iter_mut() {
             if *j > num_idx {
