@@ -58,10 +58,17 @@ pub fn eval(text: &str) -> BoxResult<f32> {
         bail!("We expect exactly one number more than operator.");
     };
     let indices = priorized_indices(&bin_ops);
+    let mut num_inds = indices.clone();
     for i in 0..indices.len() {
-        let idx = indices[i];
-        numbers[idx] = (bin_ops[idx].f)(numbers[idx], numbers[idx+1]);
-        numbers.remove(idx+1);
+        let op_idx = indices[i];
+        let num_idx = num_inds[i];
+        numbers[num_idx] = (bin_ops[op_idx].f)(numbers[num_idx], numbers[num_idx+1]);
+        numbers.remove(num_idx+1);
+        for j in num_inds.iter_mut() {
+            if *j > num_idx {
+                *j = *j - 1;
+            }
+        }
     }
     Ok(numbers[0])    
 }
