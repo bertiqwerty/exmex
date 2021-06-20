@@ -1,8 +1,7 @@
 use simple_error::bail;
 use num::Float;
 use regex::Regex;
-use std::{cmp, error::Error, num::ParseFloatError, str::FromStr};
-use std::cmp::Ordering;
+use std::{error::Error, num::ParseFloatError};
 
 fn find_numbers(text: &str) -> Result<Vec<f32>, ParseFloatError> {
     let re = Regex::new("\\.?[0-9]+(\\.[0-9]+)?").unwrap();
@@ -45,7 +44,9 @@ fn find_operators<T: Float>(text: &str) -> Vec<BinaryOperator<T>> {
 
 fn priorized_indices(bin_ops: &Vec<BinaryOperator<f32>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| bin_ops[*i2].priority.partial_cmp(&bin_ops[*i1].priority).unwrap());
+    indices.sort_by(
+        |i1, i2| bin_ops[*i2].priority.partial_cmp(&bin_ops[*i1].priority).unwrap()
+    );
     indices
 }
 
