@@ -77,7 +77,6 @@ pub fn eval(text: &str) -> BoxResult<f32> {
 
 #[cfg(test)]
 mod tests {
-    use num::Float;
 
     use crate::{eval, find_numbers, find_op, find_operators, make_binary_operators, priorized_indices};
     fn assert_float_eq(f1: f32, f2: f32) {
