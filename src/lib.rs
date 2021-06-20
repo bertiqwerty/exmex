@@ -1,6 +1,6 @@
-use simple_error::bail;
 use num::Float;
 use regex::Regex;
+use simple_error::bail;
 use std::{error::Error, num::ParseFloatError};
 
 fn find_numbers(text: &str) -> Result<Vec<f32>, ParseFloatError> {
@@ -44,43 +44,52 @@ fn find_operators<T: Float>(text: &str) -> Vec<BinaryOperator<T>> {
 
 fn priorized_indices(bin_ops: &Vec<BinaryOperator<f32>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
-    indices.sort_by(
-        |i1, i2| bin_ops[*i2].priority.partial_cmp(&bin_ops[*i1].priority).unwrap()
-    );
+    indices.sort_by(|i1, i2| {
+        bin_ops[*i2]
+            .priority
+            .partial_cmp(&bin_ops[*i1].priority)
+            .unwrap()
+    });
     indices
 }
 
-type BoxResult<T> = Result<T,Box<dyn Error>>;
+type BoxResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn eval(text: &str) -> BoxResult<f32> {
-    let bin_ops = find_operators::<f32>(text); 
+    let bin_ops = find_operators::<f32>(text);
     let mut numbers = find_numbers(text)?;
 
     if numbers.len() == 0 || bin_ops.len() != numbers.len() - 1 {
-        bail!("Numbers/operators mismatch. {}/{}.", numbers.len(), bin_ops.len());
+        bail!(
+            "Numbers/operators mismatch. {}/{}.",
+            numbers.len(),
+            bin_ops.len()
+        );
     };
     let indices = priorized_indices(&bin_ops);
 
     let mut num_inds = indices.clone();
     for (i, &bin_op_idx) in indices.iter().enumerate() {
         let num_idx = num_inds[i];
-        numbers[num_idx] = (bin_ops[bin_op_idx].f)(numbers[num_idx], numbers[num_idx+1]);
-        numbers.remove(num_idx+1);
+        numbers[num_idx] = (bin_ops[bin_op_idx].f)(numbers[num_idx], numbers[num_idx + 1]);
+        numbers.remove(num_idx + 1);
         for j in num_inds.iter_mut() {
             if *j > num_idx {
                 *j = *j - 1;
             }
         }
     }
-    Ok(numbers[0])    
+    Ok(numbers[0])
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{eval, find_numbers, find_op, find_operators, make_binary_operators, priorized_indices};
+    use crate::{
+        eval, find_numbers, find_op, find_operators, make_binary_operators, priorized_indices,
+    };
     fn assert_float_eq(f1: f32, f2: f32) {
-        if (f1-f2).abs() >= 1e-5 {
+        if (f1 - f2).abs() >= 1e-5 {
             panic!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
         }
     }
@@ -131,10 +140,19 @@ mod tests {
     }
 
     #[test]
-    fn test_prio(){
-        assert_eq!(priorized_indices(&find_operators::<f32>("1+2*3")), vec![1, 0]);
-        assert_eq!(priorized_indices(&find_operators::<f32>("1+2*3+4/6")), vec![1, 3, 0, 2]);
-        assert_eq!(priorized_indices(&find_operators::<f32>("1*2*3+7-8")), vec![0, 1, 2, 3]);
+    fn test_prio() {
+        assert_eq!(
+            priorized_indices(&find_operators::<f32>("1+2*3")),
+            vec![1, 0]
+        );
+        assert_eq!(
+            priorized_indices(&find_operators::<f32>("1+2*3+4/6")),
+            vec![1, 3, 0, 2]
+        );
+        assert_eq!(
+            priorized_indices(&find_operators::<f32>("1*2*3+7-8")),
+            vec![0, 1, 2, 3]
+        );
     }
 
     #[test]
