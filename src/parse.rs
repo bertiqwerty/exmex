@@ -139,12 +139,12 @@ mod tests {
         assert_eq!(
             find_parantheses("4/(3*(4+5)) * (4-5)"),
             vec![
-                Paran::OPEN(0),
-                Paran::OPEN(3),
-                Paran::CLOSE(7),
-                Paran::CLOSE(8),
-                Paran::OPEN(12),
-                Paran::CLOSE(16)
+                Paran::OPEN(2),
+                Paran::OPEN(5),
+                Paran::CLOSE(9),
+                Paran::CLOSE(10),
+                Paran::OPEN(14),
+                Paran::CLOSE(18)
             ]
         );
     }

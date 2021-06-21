@@ -21,7 +21,7 @@ fn priorized_indices<T: Float>(bin_ops: &Vec<BinaryOperator<T>>) -> Vec<usize> {
 fn eval_expression<T: Float>(exp: &Expression<T>) -> T {
     let indices = priorized_indices(&exp.bin_ops);
     let mut numbers = exp
-        .numbers
+        .nodes
         .iter()
         .map(|n| match n {
             Node::EXP(e) => eval_expression(e),
@@ -48,40 +48,21 @@ type BoxResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn eval(text: &str) -> BoxResult<f32> {
     let exp = parse_flat_exp::<f32>(&text)?;
-    if exp.numbers.len() == 0 || exp.bin_ops.len() != exp.numbers.len() - 1 {
+    if exp.nodes.len() == 0 || exp.bin_ops.len() != exp.nodes.len() - 1 {
         bail!(
             "Numbers/operators mismatch. {}/{}.",
-            exp.numbers.len(),
+            exp.nodes.len(),
             exp.bin_ops.len()
         );
     };
     Ok(eval_expression(&exp))
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Paran {
-    OPEN(usize),
-    CLOSE(usize),
-}
-
-fn find_parantheses(text: &str) -> Vec<Paran> {
-    text.chars()
-        .enumerate()
-        .filter(|(_, c)| *c == '(' || *c == ')')
-        .map(|(i, c)| {
-            if c == '(' {
-                Paran::OPEN(i)
-            } else {
-                Paran::CLOSE(i)
-            }
-        })
-        .collect::<Vec<_>>()
-}
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{Paran, eval, find_parantheses, priorized_indices, types::BinaryOperator, util::assert_float_eq};
+    use crate::{eval, priorized_indices, types::BinaryOperator, util::assert_float_eq};
     #[test]
     fn test_prio() {
         assert_eq!(
@@ -149,25 +130,5 @@ mod tests {
         assert_float_eq(eval(&"1.3+0.7*2-1/10").unwrap(), 2.6);
         assert!(eval(&"1.3+0.7**2-1/10").is_err());
         assert!(eval(&"").is_err());
-    }
-
-    #[test]
-    fn test_find_parans() {
-        assert_eq!(
-            find_parantheses("()"),
-            vec![Paran::OPEN(0), Paran::CLOSE(1)]
-        );
-        assert_eq!(find_parantheses(""), vec![]);
-        assert_eq!(
-            find_parantheses("(3*(4+5)) * (4-5)"),
-            vec![
-                Paran::OPEN(0),
-                Paran::OPEN(3),
-                Paran::CLOSE(7),
-                Paran::CLOSE(8),
-                Paran::OPEN(12),
-                Paran::CLOSE(16)
-            ]
-        );
     }
 }
