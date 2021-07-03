@@ -45,10 +45,9 @@ fn eval_expression<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
 type BoxResult<T> = Result<T, Box<dyn Error>>;
 
 pub fn eval(text: &str) -> BoxResult<f32> {
-    let exp = parse::parse(text);
+    let exp = parse::parse(text)?;
     Ok(eval_expression(&exp))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -115,6 +114,7 @@ mod tests {
 
     #[test]
     fn test_eval() {
+        assert_float_eq(eval(&"11.3").unwrap(), 11.3);
         assert_float_eq(eval(&"11.3+0.7").unwrap(), 12.0);
         assert_float_eq(eval(&"31.3+0.7*2").unwrap(), 32.7);
         assert_float_eq(eval(&"1.3+0.7*2-1").unwrap(), 1.7);
@@ -125,5 +125,13 @@ mod tests {
         assert_float_eq(eval(&"1.3+0.7*(2-1/10)").unwrap(), 2.63);
         assert_float_eq(eval(&"0-1*(1.3+0.7*(2-1/10))").unwrap(), -2.63);
         assert_float_eq(eval(&"0-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
+    }
+
+    #[test]
+    fn test_error_handling() {
+        assert!(eval(&"").is_err());
+        assert!(eval(&"5+5-(").is_err());
+        assert!(eval(&")2*(5+5)*3-2)*2").is_err());
+        assert!(eval(&"2*(5+5))").is_err());
     }
 }
