@@ -1,16 +1,17 @@
 use num::Float;
 
-pub enum Node<'a, T: Float> {
-    EXP(&'a Expression<'a, T>),
-    NUM(T),
+#[derive(Debug)]
+pub enum Node<T: Float> {
+    Expr(Expression<T>),
+    Num(T),
 }
-
-pub struct Expression<'a, T: Float> {
-    pub nodes: Vec<Node<'a, T>>,
+#[derive(Debug)]
+pub struct Expression<T: Float> {
+    pub nodes: Vec<Node<T>>,
     pub bin_ops: Vec<BinaryOperator<T>>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct BinaryOperator<T: Copy> {
     pub f: fn(T, T) -> T,
     pub priority: i16,
