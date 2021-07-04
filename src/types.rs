@@ -8,11 +8,15 @@ pub enum Node<T: Float> {
 #[derive(Debug)]
 pub struct Expression<T: Float> {
     pub nodes: Vec<Node<T>>,
-    pub bin_ops: Vec<BinaryOperator<T>>,
+    pub bin_ops: Vec<BinOp<T>>,
+    pub unary_op: Option<fn(T) -> T>
 }
 
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct BinaryOperator<T: Copy> {
-    pub f: fn(T, T) -> T,
-    pub priority: i16,
+pub struct BinOp<T: Copy> {
+    pub op: fn(T, T) -> T,
+    pub prio: i16,
 }
+
+
