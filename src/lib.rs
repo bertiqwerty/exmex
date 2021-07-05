@@ -35,9 +35,9 @@ fn eval_expression<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
         numbers[num_idx] = (exp.bin_ops[bin_op_idx].op)(num_1, num_2);
         numbers.remove(num_idx + 1);
         // reduce indices after removed position
-        for num_ind in num_inds.iter_mut() {
-            if *num_ind > num_idx {
-                *num_ind = *num_ind - 1;
+        for num_idx_after in num_inds.iter_mut() {
+            if *num_idx_after > num_idx {
+                *num_idx_after = *num_idx_after - 1;
             }
         }
     }
