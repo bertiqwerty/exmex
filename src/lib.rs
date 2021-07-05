@@ -135,10 +135,8 @@ mod tests {
         assert_float_eq(eval(&"-1*(1.3+(-0.7)*(2-1/10))").unwrap(), 0.03);
         assert_float_eq(eval(&"-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
         assert_float_eq(eval(&"sin(3.14159265358979)").unwrap(), 0.0);
-        assert_float_eq(eval(&"0-sin(3.14159265358979)").unwrap(), 0.0);
-        assert_float_eq(eval(&"-sin(3.14159265358979)").unwrap(), 0.0);
-        assert_float_eq(eval(&"2-sin(3.14159265358979)").unwrap(), 2.0);
-        assert_float_eq(eval(&"3-sin(3.14159265358979/2)").unwrap(), 2.0);
+        assert_float_eq(eval(&"0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
+        assert_float_eq(eval(&"-sin(3.14159265358979 / 2)").unwrap(), -1.0);
         assert_float_eq(eval(&"3-(-1+sin(1.5707963267948966)*2)").unwrap(), 2.0);
         assert_float_eq(eval(&"3-(-1+sin(cos(-3.14159265358979))*2)").unwrap(), 5.6829419696157935);
         assert_float_eq(eval(&"-(-1+((-3.14159265358979)/5)*2)").unwrap(), 2.256637061435916);
@@ -147,8 +145,7 @@ mod tests {
         assert_float_eq(eval(&"-cos(3.14159265358979)").unwrap(), 1.0);
         assert_float_eq(eval(&"1+sin(-cos(-3.14159265358979))").unwrap(), 1.8414709848078965);
         assert_float_eq(eval(&"-1+sin(-cos(-3.14159265358979))").unwrap(), -0.1585290151921035);
-        assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)))").unwrap(), 0.1585290151921035);
-        assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)/5))").unwrap(), 0.8013306692049388);
+        assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)/5)*2)").unwrap(), 0.6026613384098776);
         assert_float_eq(eval(&"sin(-(2))*2").unwrap(), -1.8185948536513634);
         assert_float_eq(eval(&"sin(sin(2))*2").unwrap(), 1.5781446871457767);
         assert_float_eq(eval(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
