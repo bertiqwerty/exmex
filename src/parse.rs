@@ -238,7 +238,7 @@ where
         EvilToken::Paran(p) => {
             if p == forbidden {
                 Err(EvilParseError {
-                    msg: "A number cannot be on the right of a closing paran or on the left of an opening paran.".to_string(),
+                    msg: "Wlog, a number cannot be on the right of a closing paran.".to_string(),
                 })
             } else {
                 Ok(0)
@@ -350,7 +350,7 @@ mod tests {
 
         test("", "empty string.");
         test("++", "The last element cannot be an operator.");
-        test("12 (", "number cannot be on the right of a closing");
+        test("12 (", "Wlog, a number cannot be on the right of a closing paran");
         test("++)", "closing parantheses until");
         test(")12-(1+1) / (", "closing parantheses until position");
         test("12-()+(", "Wlog an opening paran");
