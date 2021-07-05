@@ -7,7 +7,7 @@ use std::str::FromStr;
 
 use crate::types::BinOp;
 use crate::types::{Expression, Node};
-use crate::util::apply_uops;
+use crate::util::apply_unary_ops;
 
 type VecOps<'a, T> = Vec<(&'a str, OperatorToken<T>)>;
 
@@ -144,7 +144,7 @@ where
                 }
             },
             EvilToken::Num(n) => {
-                Ok((Node::Num(apply_uops(&uops, n)), n_uops + 1))
+                Ok((Node::Num(apply_unary_ops(&uops, n)), n_uops + 1))
             }
             EvilToken::Op(_) => {                
                 Err(EvilParseError{msg: "A unary operator cannot be followed by a binary operator.".to_string()})                

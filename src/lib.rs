@@ -1,5 +1,5 @@
 use num::Float;
-use util::apply_uops;
+use util::apply_unary_ops;
 use std::error::Error;
 mod parse;
 mod types;
@@ -41,7 +41,7 @@ fn eval_expression<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
             }
         }
     }
-    apply_uops(&exp.unary_ops, numbers[0])
+    apply_unary_ops(&exp.unary_ops, numbers[0])
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
