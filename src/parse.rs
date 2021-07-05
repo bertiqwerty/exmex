@@ -100,7 +100,7 @@ where
         .collect()
 }
 
-fn make_expression<T>(tokens: &[EvilToken<T>], unary_op: Option<fn(T) -> T>) -> Result<(Expression<T>, usize), EvilParseError>
+fn make_expression<T>(tokens: &[EvilToken<T>], unary_op: Vec<fn(T) -> T>) -> Result<(Expression<T>, usize), EvilParseError>
 where
     T: Float + FromStr + std::fmt::Debug
 {
@@ -116,7 +116,7 @@ where
     let mut result = Expression::<T> {
         bin_ops: Vec::<BinOp<T>>::new(),
         nodes: Vec::<Node<T>>::new(),
-        unary_op: unary_op
+        unary_ops: unary_op
     };
     let process_unary = |i: usize, uo| {
         match tokens[i+1] {
@@ -124,12 +124,12 @@ where
                 ParanToken::Close => {
                     Err(
                         EvilParseError{
-                            msg: "I do not understand a Closing paran after an operator.".to_string()
+                            msg: "I do not understand a closing paran after an operator.".to_string()
                         }
                     )
                 }
                 ParanToken::Open => {
-                    let (expr, i_forward) = make_expression::<T>(&tokens[i+2..], Some(uo))?;
+                    let (expr, i_forward) = make_expression::<T>(&tokens[i+2..], vec![uo])?;
                     Ok((Node::Expr(expr), i_forward + 2))
                 }
             },
@@ -139,10 +139,28 @@ where
             EvilToken::Op(op) => {
                 match op.unary_op {
                     Some(uo2) => {
-                        let (expr, i_forward) = make_expression::<T>(&tokens[i+1..], Some(uo2))?;
-                        Ok((Node::Expr(expr), i_forward + 1))
+                        match tokens[i+2] {
+                            EvilToken::Paran(p) => match p {
+                                ParanToken::Close => {
+                                    Err(
+                                        EvilParseError{
+                                            msg: "I do not understand a closing paran after an operator.".to_string()
+                                        }
+                                    )
+                                }
+                                ParanToken::Open => {
+                                    let (expr, i_forward) = make_expression::<T>(&tokens[i+3..], vec![uo, uo2])?;
+                                    Ok((Node::Expr(expr), i_forward + 3))
+                                }
+                            }
+                            _ => Err(
+                                EvilParseError{
+                                    msg: "If a unary operators follows a unary operator, e.g., -sin, we expect an ( as next token.".to_string()
+                                }
+                            )
+                        }
                     },
-                    None => Err(EvilParseError{msg: "A unary operator cannot be followed by an operator.".to_string()})
+                    None => Err(EvilParseError{msg: "A unary operator cannot be followed by a binary operator.".to_string()})
                 }
             }
         }
@@ -195,7 +213,7 @@ where
             EvilToken::Paran(p) => match p {
                 ParanToken::Open => {
                     i += 1;
-                    let (expr, i_forward) = make_expression::<T>(&tokens[i..], None)?;
+                    let (expr, i_forward) = make_expression::<T>(&tokens[i..], vec![])?;
                     result.nodes.push(Node::Expr(expr));
                     i += i_forward;
                 }
@@ -206,6 +224,7 @@ where
             },
         }
     }
+
     Ok((result, i))
 }
 
@@ -314,7 +333,7 @@ where
 {
     let elts = apply_regexes::<T>(text);
     check_preconditions(&elts[..])?;
-    let (expr, _) = make_expression(&elts[0..], None)?;
+    let (expr, _) = make_expression(&elts[0..], vec![])?;
     Ok(expr)
 }
 

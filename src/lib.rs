@@ -33,16 +33,18 @@ fn eval_expression<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
         let num_2 = numbers[num_idx + 1];
         numbers[num_idx] = (exp.bin_ops[bin_op_idx].op)(num_1, num_2);
         numbers.remove(num_idx + 1);
-        for j in num_inds.iter_mut() {
-            if *j > num_idx {
-                *j = *j - 1;
+        // reduce indices after removed position
+        for num_ind in num_inds.iter_mut() {
+            if *num_ind > num_idx {
+                *num_ind = *num_ind - 1;
             }
         }
     }
-    match exp.unary_op {
-        Some(uo) => uo(numbers[0]),
-        None => numbers[0]
+    let mut result = numbers[0];
+    for uo in exp.unary_ops.iter().rev() {
+        result = uo(result);
     }
+    result
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
@@ -120,6 +122,7 @@ mod tests {
         assert_float_eq(eval(&"11.3").unwrap(), 11.3);
         assert_float_eq(eval(&"+11.3").unwrap(), 11.3);
         assert_float_eq(eval(&"-11.3").unwrap(), -11.3);
+        assert_float_eq(eval(&"(-11.3)").unwrap(), -11.3);
         assert_float_eq(eval(&"11.3+0.7").unwrap(), 12.0);
         assert_float_eq(eval(&"31.3+0.7*2").unwrap(), 32.7);
         assert_float_eq(eval(&"1.3+0.7*2-1").unwrap(), 1.7);
@@ -141,8 +144,16 @@ mod tests {
         assert_float_eq(eval(&"-(-1+((-3.14159265358979)/5)*2)").unwrap(), 2.256637061435916);
         assert_float_eq(eval(&"-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(), 1.0);
         assert_float_eq(eval(&"-(-1+sin(cos(-3.14159265358979)/5)*2)").unwrap(), 1.3973386615901224);
-        // assert_float_eq(eval(&"(-cos(-3.14159265358979))*2").unwrap(), 2.0);
-        // assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)/5)*2)").unwrap(), 0.60266133840987);
+        assert_float_eq(eval(&"-cos(3.14159265358979)").unwrap(), 1.0);
+        assert_float_eq(eval(&"1+sin(-cos(-3.14159265358979))").unwrap(), 1.8414709848078965);
+        assert_float_eq(eval(&"-1+sin(-cos(-3.14159265358979))").unwrap(), -0.1585290151921035);
+        assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)))").unwrap(), 0.1585290151921035);
+        assert_float_eq(eval(&"-(-1+sin(-cos(-3.14159265358979)/5))").unwrap(), 0.8013306692049388);
+        assert_float_eq(eval(&"sin(-(2))*2").unwrap(), -1.8185948536513634);
+        assert_float_eq(eval(&"sin(sin(2))*2").unwrap(), 1.5781446871457767);
+        assert_float_eq(eval(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
+        assert_float_eq(eval(&"-sin(2)*2").unwrap(), -1.8185948536513634);
+        assert_float_eq(eval(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
     }
 
     #[test]

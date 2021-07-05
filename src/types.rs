@@ -9,7 +9,9 @@ pub enum Node<T: Float> {
 pub struct Expression<T: Float> {
     pub nodes: Vec<Node<T>>,
     pub bin_ops: Vec<BinOp<T>>,
-    pub unary_op: Option<fn(T) -> T>
+    // the last unary operator is applied first to the result
+    // of the evaluation of nodes and binary operators
+    pub unary_ops: Vec<fn(T) -> T>  
 }
 
 
