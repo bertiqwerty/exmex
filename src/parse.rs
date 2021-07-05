@@ -88,15 +88,12 @@ where
                 } else if c == ')' {
                     ParanToken::Close
                 } else {
-                    panic!(
-                        "Internal error. Paran {} is neither ( not ). Check the paran-regex.",
-                        c
-                    );
+                    panic!("Fatal. Paran {} is neither ( nor ). Check the paran-regex.", c);
                 })
             } else if matches.matched(2) {
                 EvilToken::<T>::Op(find_op(elt_str, &ops))
             } else {
-                panic!("Internal regex mismatch!");
+                panic!("Fatal. Internal regex mismatch!");
             }
         })
         .collect()
