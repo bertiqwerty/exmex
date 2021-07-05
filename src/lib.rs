@@ -1,4 +1,5 @@
 use num::Float;
+use util::apply_uops;
 use std::error::Error;
 mod parse;
 mod types;
@@ -40,11 +41,7 @@ fn eval_expression<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
             }
         }
     }
-    let mut result = numbers[0];
-    for uo in exp.unary_ops.iter().rev() {
-        result = uo(result);
-    }
-    result
+    apply_uops(&exp.unary_ops, numbers[0])
 }
 
 type BoxResult<T> = Result<T, Box<dyn Error>>;
@@ -152,7 +149,9 @@ mod tests {
         assert_float_eq(eval(&"-sin(2)*2").unwrap(), -1.8185948536513634);
         assert_float_eq(eval(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
         assert_float_eq(eval(&"--(1)").unwrap(), 1.0);
-
+        assert_float_eq(eval(&"--1").unwrap(), 1.0);
+        assert_float_eq(eval(&"----1").unwrap(), 1.0);
+        assert_float_eq(eval(&"---1").unwrap(), -1.0);
     }
 
     #[test]

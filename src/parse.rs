@@ -2,10 +2,12 @@ use num::Float;
 use regex::{Regex, RegexSet};
 use std::error::Error;
 use std::fmt;
+use std::iter::once;
 use std::str::FromStr;
 
 use crate::types::BinOp;
 use crate::types::{Expression, Node};
+use crate::util::apply_uops;
 
 type VecOps<'a, T> = Vec<(&'a str, OperatorToken<T>)>;
 
@@ -113,13 +115,21 @@ where
             None => Err(EvilParseError { msg: "Expected binary operator but there was None.".to_string() })
         }
     }
-    let mut result = Expression::<T> {
-        bin_ops: Vec::<BinOp<T>>::new(),
-        nodes: Vec::<Node<T>>::new(),
-        unary_ops: unary_op
-    };
+    
+    // this closure handles the case that a token is a unary operator and accesses the 
+    // variable tokens from the outer scope
     let process_unary = |i: usize, uo| {
-        match tokens[i+1] {
+        
+        // gather subsequent unary operators at the beginning
+        let uops = once(uo).chain((i+1..tokens.len()).map(|j| {
+            match tokens[j] {
+                EvilToken::Op(op) => op.unary_op,
+                _ => None
+            }
+        }).take_while(|uo_| uo_.is_some()).flatten()).collect::<Vec<_>>();
+        let n_uops = uops.len();
+        
+        match tokens[i + n_uops] {
             EvilToken::Paran(p) => match p {
                 ParanToken::Close => {
                     Err(
@@ -129,62 +139,47 @@ where
                     )
                 }
                 ParanToken::Open => {
-                    let (expr, i_forward) = make_expression::<T>(&tokens[i+2..], vec![uo])?;
-                    Ok((Node::Expr(expr), i_forward + 2))
+                    let (expr, i_forward) = make_expression::<T>(&tokens[i + n_uops + 1..], uops)?;
+                    Ok((Node::Expr(expr), i_forward + n_uops + 1))
                 }
             },
-            EvilToken::Num(n) => {                                            
-                Ok((Node::Num(uo(n)), 2))
+            EvilToken::Num(n) => {
+                Ok((Node::Num(apply_uops(&uops, n)), n_uops + 1))
             }
-            EvilToken::Op(op) => {
-                match op.unary_op {
-                    Some(uo2) => {
-                        match tokens[i+2] {
-                            EvilToken::Paran(p) => match p {
-                                ParanToken::Close => {
-                                    Err(
-                                        EvilParseError{
-                                            msg: "I do not understand a closing paran after an operator.".to_string()
-                                        }
-                                    )
-                                }
-                                ParanToken::Open => {
-                                    let (expr, i_forward) = make_expression::<T>(&tokens[i+3..], vec![uo, uo2])?;
-                                    Ok((Node::Expr(expr), i_forward + 3))
-                                }
-                            }
-                            _ => Err(
-                                EvilParseError{
-                                    msg: "If a unary operator follows a unary operator, e.g., -sin, we expect an ( as next token.".to_string()
-                                }
-                            )
-                        }
-                    },
-                    None => Err(EvilParseError{msg: "A unary operator cannot be followed by a binary operator.".to_string()})
-                }
+            EvilToken::Op(_) => {                
+                Err(EvilParseError{msg: "A unary operator cannot be followed by a binary operator.".to_string()})                
             }
         }
     };
 
-    let mut i: usize = 0;
-    while i < tokens.len() {
-        match tokens[i] {
+    let mut result = Expression::<T> {
+        bin_ops: Vec::<BinOp<T>>::new(),
+        nodes: Vec::<Node<T>>::new(),
+        unary_ops: unary_op
+    };
+
+    // The main loop checks one token after the next whereby sub-expressions are
+    // handled recursively. Thereby, the token-position-index idx_tkn is increased 
+    // according to the length of the sub-expression.
+    let mut idx_tkn: usize = 0;
+    while idx_tkn < tokens.len() {
+        match tokens[idx_tkn] {
             EvilToken::Op(b) => {
                 match b.unary_op {
                     None => {
                         result.bin_ops.push(unpack_binop(b.bin_op)?);
-                        i += 1;
+                        idx_tkn += 1;
                     },
                     Some(uo) => {
-                        if i == 0 {
-                            let (node, i_forward) = process_unary(i, uo)?;
+                        if idx_tkn == 0 {
+                            let (node, idx_forward) = process_unary(idx_tkn, uo)?;
                             result.nodes.push(node);
-                            i += i_forward;
+                            idx_tkn += idx_forward;
                         } else {
-                            match tokens[i-1] {
+                            match tokens[idx_tkn-1] {
                                 EvilToken::Num(_) => {
                                     result.bin_ops.push(unpack_binop(b.bin_op)?);
-                                    i += 1;
+                                    idx_tkn += 1;
                                 },
                                 EvilToken::Paran(p) => match p {
                                     ParanToken::Open => {
@@ -193,13 +188,13 @@ where
                                     },
                                     ParanToken::Close => {
                                         result.bin_ops.push(unpack_binop(b.bin_op)?);
-                                        i += 1;
+                                        idx_tkn += 1;
                                     },
                                 },
                                 EvilToken::Op(_) => {
-                                    let (node, i_forward) = process_unary(i, uo)?;
+                                    let (node, idx_forward) = process_unary(idx_tkn, uo)?;
                                     result.nodes.push(node);
-                                    i += i_forward;
+                                    idx_tkn += idx_forward;
                                 }
                             }
                         }
@@ -208,24 +203,23 @@ where
             }
             EvilToken::Num(n) => {
                 result.nodes.push(Node::Num(n));
-                i += 1;
+                idx_tkn += 1;
             }
             EvilToken::Paran(p) => match p {
                 ParanToken::Open => {
-                    i += 1;
-                    let (expr, i_forward) = make_expression::<T>(&tokens[i..], vec![])?;
+                    idx_tkn += 1;
+                    let (expr, i_forward) = make_expression::<T>(&tokens[idx_tkn..], vec![])?;
                     result.nodes.push(Node::Expr(expr));
-                    i += i_forward;
+                    idx_tkn += i_forward;
                 }
                 ParanToken::Close => {
-                    i += 1;
+                    idx_tkn += 1;
                     break;
                 }
             },
         }
     }
-
-    Ok((result, i))
+    Ok((result, idx_tkn))
 }
 
 fn check_preconditions<T>(expr_elts: &[EvilToken<T>]) -> Result<u8, EvilParseError>
@@ -363,7 +357,6 @@ mod tests {
         test("12-() ())", "Wlog an opening paran");
         test("12-(3-4)*2+ (1/2))", "closing parantheses until");
         test("12-(3-4)*2+ ((1/2)", "Parantheses mismatch.");
-        test("--1", "e.g., -sin, we expect an (");
     }
 
     
