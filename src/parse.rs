@@ -66,10 +66,10 @@ fn apply_regexes<T: Float + FromStr>(text: &str) -> Vec<EvilToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let (ops, pattern_bin_ops) = make_operators::<T>();
+    let (ops, pattern_ops) = make_operators::<T>();
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_parans = r"\(|\)";
-    let patterns = [pattern_nums, pattern_parans, pattern_bin_ops.as_str()];
+    let patterns = [pattern_nums, pattern_parans, pattern_ops.as_str()];
     let pattern_any = patterns.join("|");
     let any = Regex::new(pattern_any.as_str()).unwrap();
 
