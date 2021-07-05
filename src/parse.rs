@@ -155,7 +155,7 @@ where
                             }
                             _ => Err(
                                 EvilParseError{
-                                    msg: "If a unary operators follows a unary operator, e.g., -sin, we expect an ( as next token.".to_string()
+                                    msg: "If a unary operator follows a unary operator, e.g., -sin, we expect an ( as next token.".to_string()
                                 }
                             )
                         }
@@ -363,6 +363,7 @@ mod tests {
         test("12-() ())", "Wlog an opening paran");
         test("12-(3-4)*2+ (1/2))", "closing parantheses until");
         test("12-(3-4)*2+ ((1/2)", "Parantheses mismatch.");
+        test("--1", "e.g., -sin, we expect an (");
     }
 
     

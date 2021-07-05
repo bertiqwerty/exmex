@@ -154,6 +154,8 @@ mod tests {
         assert_float_eq(eval(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
         assert_float_eq(eval(&"-sin(2)*2").unwrap(), -1.8185948536513634);
         assert_float_eq(eval(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
+        assert_float_eq(eval(&"--(1)").unwrap(), 1.0);
+
     }
 
     #[test]
