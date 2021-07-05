@@ -117,7 +117,7 @@ where
     // variable tokens from the outer scope
     let process_unary = |i: usize, uo| {
         
-        // gather subsequent unary operators at the beginning
+        // gather subsequent unary operators from the beginning
         let uops = once(uo).chain((i+1..tokens.len()).map(|j| {
             match tokens[j] {
                 EvilToken::Op(op) => op.unary_op,

@@ -152,6 +152,7 @@ mod tests {
         assert_float_eq(eval(&"--1").unwrap(), 1.0);
         assert_float_eq(eval(&"----1").unwrap(), 1.0);
         assert_float_eq(eval(&"---1").unwrap(), -1.0);
+        assert_float_eq(eval(&"3-(4-2/3+(1-2*2))").unwrap(), 2.666666666666666);
     }
 
     #[test]
