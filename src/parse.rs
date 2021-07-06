@@ -34,6 +34,7 @@ fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
         ("tan", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.tan()) }),
         ("exp", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.exp()) }),
         ("log", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.ln()) }),
+        ("log2", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.log2()) }),
     ]
     .iter()
     .cloned()
@@ -53,13 +54,13 @@ pub struct OperatorPair<T: Copy> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum EvilToken<T: Float + FromStr> {
+enum ParsedToken<T: Float + FromStr> {
     Num(T),
     Paran(Paran),
     Op(OperatorPair<T>),
 }
 
-fn apply_regexes<T: Float + FromStr>(text: &str) -> Vec<EvilToken<T>>
+fn apply_regexes<T: Float + FromStr>(text: &str) -> Vec<ParsedToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
@@ -74,21 +75,30 @@ where
     }).collect::<Vec<_>>().join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_parans = r"\(|\)";
-    let patterns = [pattern_nums, pattern_parans, pattern_ops.as_str()];
+    let patterns = [pattern_ops.as_str(), pattern_nums, pattern_parans];
     let pattern_any = patterns.join("|");
     let any = Regex::new(pattern_any.as_str()).unwrap();
 
     let which_one = RegexSet::new(&patterns).unwrap();
+    
     any.captures_iter(text)
         .map(|c| c[0].to_string())
         .map(|elt_string| {
             let elt_str = elt_string.as_str();
             let matches = which_one.matches(elt_str);
             if matches.matched(0) {
-                EvilToken::<T>::Num(elt_str.parse::<T>().unwrap())
+                let wrapped_op_token = ops.iter().find(|(op_name, _)| op_name == &elt_str);
+                ParsedToken::<T>::Op(match wrapped_op_token {
+                    Some((_, op_token)) => *op_token,
+                    None => {
+                        panic!("Fatal. Could not find operator {}.", elt_str);
+                    }
+                })
             } else if matches.matched(1) {
+                ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
+            } else if matches.matched(2) {
                 let c = elt_str.chars().next().unwrap();
-                EvilToken::<T>::Paran(if c == '(' {
+                ParsedToken::<T>::Paran(if c == '(' {
                     Paran::Open
                 } else if c == ')' {
                     Paran::Close
@@ -98,14 +108,6 @@ where
                         c
                     );
                 })
-            } else if matches.matched(2) {
-                let wrapped_op_token = ops.iter().find(|(op_name, _)| op_name == &elt_str);
-                EvilToken::<T>::Op(match wrapped_op_token {
-                    Some((_, op_token)) => *op_token,
-                    None => {
-                        panic!("Fatal. Could not find operator {}.", elt_str);
-                    }
-                })
             } else {
                 panic!("Fatal. Internal regex mismatch!");
             }
@@ -114,7 +116,7 @@ where
 }
 
 fn make_expression<T>(
-    tokens: &[EvilToken<T>],
+    tokens: &[ParsedToken<T>],
     unary_op: Vec<fn(T) -> T>,
 ) -> Result<(Expression<T>, usize), EvilParseError>
 where
@@ -140,7 +142,7 @@ where
             .chain(
                 (i + 1..tokens.len())
                     .map(|j| match tokens[j] {
-                        EvilToken::Op(op) => op.unary_op,
+                        ParsedToken::Op(op) => op.unary_op,
                         _ => None,
                     })
                     .take_while(|uo_| uo_.is_some())
@@ -150,7 +152,7 @@ where
         let n_uops = uops.len();
 
         match tokens[i + n_uops] {
-            EvilToken::Paran(p) => match p {
+            ParsedToken::Paran(p) => match p {
                 Paran::Close => Err(EvilParseError {
                     msg: "I do not understand a closing paran after an operator.".to_string(),
                 }),
@@ -159,8 +161,8 @@ where
                     Ok((Node::Expr(expr), i_forward + n_uops + 1))
                 }
             },
-            EvilToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, n)), n_uops + 1)),
-            EvilToken::Op(_) => Err(EvilParseError {
+            ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, n)), n_uops + 1)),
+            ParsedToken::Op(_) => Err(EvilParseError {
                 msg: "A unary operator cannot be followed by a binary operator.".to_string(),
             }),
         }
@@ -178,7 +180,7 @@ where
     let mut idx_tkn: usize = 0;
     while idx_tkn < tokens.len() {
         match tokens[idx_tkn] {
-            EvilToken::Op(b) => match b.unary_op {
+            ParsedToken::Op(b) => match b.unary_op {
                 None => {
                     result.bin_ops.push(unpack_binop(b.bin_op)?);
                     idx_tkn += 1;
@@ -190,11 +192,11 @@ where
                         idx_tkn += idx_forward;
                     } else {
                         match tokens[idx_tkn - 1] {
-                            EvilToken::Num(_) => {
+                            ParsedToken::Num(_) => {
                                 result.bin_ops.push(unpack_binop(b.bin_op)?);
                                 idx_tkn += 1;
                             }
-                            EvilToken::Paran(p) => match p {
+                            ParsedToken::Paran(p) => match p {
                                 Paran::Open => {
                                     let msg = "Opening paran next to operator must not occur here."
                                         .to_string();
@@ -205,7 +207,7 @@ where
                                     idx_tkn += 1;
                                 }
                             },
-                            EvilToken::Op(_) => {
+                            ParsedToken::Op(_) => {
                                 let (node, idx_forward) = process_unary(idx_tkn, uo)?;
                                 result.nodes.push(node);
                                 idx_tkn += idx_forward;
@@ -214,11 +216,11 @@ where
                     }
                 }
             },
-            EvilToken::Num(n) => {
+            ParsedToken::Num(n) => {
                 result.nodes.push(Node::Num(n));
                 idx_tkn += 1;
             }
-            EvilToken::Paran(p) => match p {
+            ParsedToken::Paran(p) => match p {
                 Paran::Open => {
                     idx_tkn += 1;
                     let (expr, i_forward) = make_expression::<T>(&tokens[idx_tkn..], vec![])?;
@@ -235,7 +237,7 @@ where
     Ok((result, idx_tkn))
 }
 
-fn check_preconditions<T>(expr_elts: &[EvilToken<T>]) -> Result<u8, EvilParseError>
+fn check_preconditions<T>(expr_elts: &[ParsedToken<T>]) -> Result<u8, EvilParseError>
 where
     T: Float + FromStr + std::fmt::Debug,
 {
@@ -245,10 +247,10 @@ where
         });
     };
     let num_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
-        EvilToken::Num(_) => Err(EvilParseError {
+        ParsedToken::Num(_) => Err(EvilParseError {
             msg: "A number cannot be next to a number.".to_string(),
         }),
-        EvilToken::Paran(p) => {
+        ParsedToken::Paran(p) => {
             if p == forbidden {
                 Err(EvilParseError {
                     msg: "Wlog, a number cannot be on the right of a closing paran.".to_string(),
@@ -260,7 +262,7 @@ where
         _ => Ok(0),
     };
     let binop_pred_succ = |idx: usize| match expr_elts[idx] {
-        EvilToken::Op(op) => {
+        ParsedToken::Op(op) => {
             if op.unary_op == None {
                 Err(EvilParseError {
                     msg: "A binary operator cannot be next to a binary operator.".to_string(),
@@ -272,7 +274,7 @@ where
         _ => Ok(0),
     };
     let paran_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
-        EvilToken::Paran(p) => {
+        ParsedToken::Paran(p) => {
             if p == forbidden {
                 Err(EvilParseError {
                     msg: "Wlog an opening paran cannot be next to a closing paran.".to_string(),
@@ -289,7 +291,7 @@ where
         .enumerate()
         .map(|(i, expr_elt)| -> Result<usize, EvilParseError> {
             match expr_elt {
-                EvilToken::Num(_) => {
+                ParsedToken::Num(_) => {
                     if i < expr_elts.len() - 1 {
                         num_pred_succ(i + 1, Paran::Open)?;
                     }
@@ -298,7 +300,7 @@ where
                     }
                     Ok(0)
                 }
-                EvilToken::Paran(p) => {
+                ParsedToken::Paran(p) => {
                     if i < expr_elts.len() - 1 {
                         match p {
                             Paran::Open => paran_pred_succ(i + 1, Paran::Close)?,
@@ -317,7 +319,7 @@ where
                     }
                     Ok(0)
                 }
-                EvilToken::Op(_) => {
+                ParsedToken::Op(_) => {
                     if i < expr_elts.len() - 1 {
                         binop_pred_succ(i + 1)?;
                         Ok(0)
