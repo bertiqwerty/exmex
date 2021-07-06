@@ -23,7 +23,7 @@ Custom operators are defined as a vector of two-element-tuples. The first elemen
 
 ## Priorities and Parantheses
 
-In Evil-Express-land, unary operators always have higher priority than binary operators, e.g., 
+In Exexpress-land, unary operators always have higher priority than binary operators, e.g., 
 `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parantheses. 
 For instance `"---1"` will evalute to `-1`. 
 If you want to be on the safe side, we suggest using parantheses.
