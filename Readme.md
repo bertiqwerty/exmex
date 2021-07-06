@@ -19,7 +19,7 @@ let custom_ops = [
 let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
 let val = eval_expr::<f32>(&expr);  // == 4.0/3.0
 ```
-Custom operators are defined as a vector of two-element-tuples. The first element is the `&str` that represents the operator in the to be parsed string, e.g., `**` in the example above. The second element is an instance of the struct `OperatorPair<T>` that has a binary and a unary operator of type `Option<fn(T, T) -> T>` and `Option<fn(T) -> T>`, respectively, as members. This means, operators can be both, binary and unary such as `-` as defined in the list of default operators.
+Custom operators are defined as a vector of two-element-tuples. The first element is the `&str` that represents the operator in the to be parsed string, e.g., `**` in the example above. The second element is an instance of the struct `OperatorPair<T>` that has a binary and a unary operator of type `Option<BinOp<T>>` and `Option<fn(T) -> T>`, respectively, as members. `BinOp` contains in addition to the operator of type `fn(T, T) -> T` a priority. Operators can be both, binary and unary such as `-` as defined in the list of default operators.
 
 ## Priorities and Parantheses
 
