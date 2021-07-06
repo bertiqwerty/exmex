@@ -9,7 +9,7 @@ use crate::expression::BinOp;
 use crate::expression::{Expression, Node};
 use crate::util::apply_unary_ops;
 
-type VecOps<'a, T> = Vec<(&'a str, Operator<T>)>;
+type VecOps<'a, T> = Vec<(&'a str, OperatorPair<T>)>;
 
 #[derive(Debug)]
 pub struct EvilParseError {
@@ -22,31 +22,28 @@ impl fmt::Display for EvilParseError {
 }
 impl Error for EvilParseError {}
 
-fn make_default_operators<'a, T: Float>() -> (VecOps<'a, T>, String) {
-    (
-        [
-            ("*", Operator { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
-            ("/", Operator { bin_op: Some(BinOp{op: |a, b| a / b, prio: 1}), unary_op: None }),
-            ("+", Operator { bin_op: Some(BinOp{op: |a, b| a + b, prio: 0}), unary_op: Some(|a: T| a) }),
-            ("-", Operator { bin_op: Some(BinOp{op: |a, b| a - b, prio: 0}), unary_op: Some(|a: T| (-a)) }),
-            ("sin", Operator { bin_op: None, unary_op: Some(|a: T| a.sin()) }),
-            ("cos", Operator { bin_op: None, unary_op: Some(|a: T| a.cos()) }),
-        ]
-        .iter()
-        .cloned()
-        .collect(),
-        r"cos|sin|[*/+\-]".to_string(),
-    )
+fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
+    [
+        ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
+        ("/", OperatorPair { bin_op: Some(BinOp{op: |a, b| a / b, prio: 1}), unary_op: None }),
+        ("+", OperatorPair { bin_op: Some(BinOp{op: |a, b| a + b, prio: 0}), unary_op: Some(|a: T| a) }),
+        ("-", OperatorPair { bin_op: Some(BinOp{op: |a, b| a - b, prio: 0}), unary_op: Some(|a: T| (-a)) }),
+        ("sin", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.sin()) }),
+        ("cos", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.cos()) }),
+    ]
+    .iter()
+    .cloned()
+    .collect()
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum ParanToken {
+enum Paran {
     Open,
     Close,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Operator<T: Copy> {
+pub struct OperatorPair<T: Copy> {
     pub bin_op: Option<BinOp<T>>,
     pub unary_op: Option<fn(T) -> T>,
 }
@@ -54,15 +51,23 @@ pub struct Operator<T: Copy> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum EvilToken<T: Float + FromStr> {
     Num(T),
-    Paran(ParanToken),
-    Op(Operator<T>),
+    Paran(Paran),
+    Op(OperatorPair<T>),
 }
 
 fn apply_regexes<T: Float + FromStr>(text: &str) -> Vec<EvilToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let (ops, pattern_ops) = make_default_operators::<T>();
+    let regex_escapes = r"|?^*+.\";
+    let ops = make_default_operators::<T>();
+    let pattern_ops = ops.iter().map(|(s, _)| {
+        if regex_escapes.contains(s) {
+            format!("\\{}", s)
+        } else {
+            s.to_string()
+        }
+    }).collect::<Vec<_>>().join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_parans = r"\(|\)";
     let patterns = [pattern_nums, pattern_parans, pattern_ops.as_str()];
@@ -80,9 +85,9 @@ where
             } else if matches.matched(1) {
                 let c = elt_str.chars().next().unwrap();
                 EvilToken::<T>::Paran(if c == '(' {
-                    ParanToken::Open
+                    Paran::Open
                 } else if c == ')' {
-                    ParanToken::Close
+                    Paran::Close
                 } else {
                     panic!(
                         "Fatal. Paran {} is neither ( nor ). Check the paran-regex.",
@@ -142,10 +147,10 @@ where
 
         match tokens[i + n_uops] {
             EvilToken::Paran(p) => match p {
-                ParanToken::Close => Err(EvilParseError {
+                Paran::Close => Err(EvilParseError {
                     msg: "I do not understand a closing paran after an operator.".to_string(),
                 }),
-                ParanToken::Open => {
+                Paran::Open => {
                     let (expr, i_forward) = make_expression::<T>(&tokens[i + n_uops + 1..], uops)?;
                     Ok((Node::Expr(expr), i_forward + n_uops + 1))
                 }
@@ -186,12 +191,12 @@ where
                                 idx_tkn += 1;
                             }
                             EvilToken::Paran(p) => match p {
-                                ParanToken::Open => {
+                                Paran::Open => {
                                     let msg = "Opening paran next to operator must not occur here."
                                         .to_string();
                                     return Err(EvilParseError { msg: msg });
                                 }
-                                ParanToken::Close => {
+                                Paran::Close => {
                                     result.bin_ops.push(unpack_binop(b.bin_op)?);
                                     idx_tkn += 1;
                                 }
@@ -210,13 +215,13 @@ where
                 idx_tkn += 1;
             }
             EvilToken::Paran(p) => match p {
-                ParanToken::Open => {
+                Paran::Open => {
                     idx_tkn += 1;
                     let (expr, i_forward) = make_expression::<T>(&tokens[idx_tkn..], vec![])?;
                     result.nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
-                ParanToken::Close => {
+                Paran::Close => {
                     idx_tkn += 1;
                     break;
                 }
@@ -235,7 +240,7 @@ where
             msg: "Cannot parse empty string.".to_string(),
         });
     };
-    let num_pred_succ = |idx: usize, forbidden: ParanToken| match expr_elts[idx] {
+    let num_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
         EvilToken::Num(_) => Err(EvilParseError {
             msg: "A number cannot be next to a number.".to_string(),
         }),
@@ -262,7 +267,7 @@ where
         }
         _ => Ok(0),
     };
-    let paran_pred_succ = |idx: usize, forbidden: ParanToken| match expr_elts[idx] {
+    let paran_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
         EvilToken::Paran(p) => {
             if p == forbidden {
                 Err(EvilParseError {
@@ -282,23 +287,23 @@ where
             match expr_elt {
                 EvilToken::Num(_) => {
                     if i < expr_elts.len() - 1 {
-                        num_pred_succ(i + 1, ParanToken::Open)?;
+                        num_pred_succ(i + 1, Paran::Open)?;
                     }
                     if i > 0 {
-                        num_pred_succ(i - 1, ParanToken::Close)?;
+                        num_pred_succ(i - 1, Paran::Close)?;
                     }
                     Ok(0)
                 }
                 EvilToken::Paran(p) => {
                     if i < expr_elts.len() - 1 {
                         match p {
-                            ParanToken::Open => paran_pred_succ(i + 1, ParanToken::Close)?,
-                            ParanToken::Close => paran_pred_succ(i + 1, ParanToken::Open)?,
+                            Paran::Open => paran_pred_succ(i + 1, Paran::Close)?,
+                            Paran::Close => paran_pred_succ(i + 1, Paran::Open)?,
                         };
                     }
                     open_paran_cnt += match p {
-                        ParanToken::Close => -1,
-                        ParanToken::Open => 1,
+                        Paran::Close => -1,
+                        Paran::Open => 1,
                     };
                     if open_paran_cnt < 0 {
                         return Err(EvilParseError {
