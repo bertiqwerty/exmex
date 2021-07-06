@@ -31,6 +31,9 @@ fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
         ("-", OperatorPair { bin_op: Some(BinOp{op: |a, b| a - b, prio: 0}), unary_op: Some(|a: T| (-a)) }),
         ("sin", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.sin()) }),
         ("cos", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.cos()) }),
+        ("tan", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.tan()) }),
+        ("exp", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.exp()) }),
+        ("log", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.ln()) }),
     ]
     .iter()
     .cloned()
