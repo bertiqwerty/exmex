@@ -1,24 +1,33 @@
-use parse::EvilParseError;
+use parse::ExParseError;
 mod parse;
 mod expression;
 mod util;
 use expression::eval_expr;
 
 
-pub fn eval_str(text: &str) -> Result<f32, EvilParseError> {
-    let exp = parse::parse(text)?;
+pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
+    let exp = parse::parse_with_default_ops(text)?;
     Ok(eval_expr(&exp))
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{eval_str};
+    use crate::{eval_str, expression::{BinOp, eval_expr}, parse::{OperatorPair, parse}, util::tests::assert_float_eq};
 
-    pub fn assert_float_eq(f1: f32, f2: f32) {
-        if (f1 - f2).abs() >= 1e-5 {
-            panic!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
-        }
+    #[test]
+    fn test_custom_ops() {
+        let custom_ops = [
+            ("**", OperatorPair { bin_op: Some(BinOp{op: |a: f32, b| a.powf(b), prio: 2}), unary_op: None }),
+            ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
+            ("invert", OperatorPair { bin_op: None, unary_op: Some(|a: f32| 1.0/a )}),
+        ]
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
+        let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
+        let val = eval_expr::<f32>(&expr);
+        assert_float_eq(val, 4.0/3.0);
     }
 
     #[test]

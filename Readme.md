@@ -1,6 +1,27 @@
-# Evil Express
+# Exexpress
 
-This is an extendable parser for mathematical expressions.
+Exexpress is an extendable expression evaluator for mathematical expressions.
+
+## Extendability
+We have a list of predifined operators, namely 
+`^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`.
+
+If you do not like the pre-defined operators, you can define your own unary and binary operators as shown in the following.
+```
+let custom_ops = [
+    ("**", OperatorPair { bin_op: Some(BinOp{op: |a: f32, b| a.powf(b), prio: 2}), unary_op: None }),
+    ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
+    ("invert", OperatorPair { bin_op: None, unary_op: Some(|a: f32| 1.0/a )}),
+]
+.iter()
+.cloned()
+.collect::<Vec<_>>();
+let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
+let val = eval_expr::<f32>(&expr);  // == 4.0/3.0
+```
+You need a vector of tuples. The first element is the `&str` that represents the operator in the to be parsed string. The second element is an instance of the struct `OperatorPair` that has an optional binary and an optional unary operator. Operators can also be both, binary and unary such `+` or `-` in the default operators.
+
+## Priorities and Parantheses
 
 In Evil-Express-land, unary operators always have higher priority than binary operators, e.g., 
 `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parantheses. 

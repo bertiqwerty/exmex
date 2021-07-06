@@ -12,15 +12,15 @@ use crate::util::apply_unary_ops;
 type VecOps<'a, T> = Vec<(&'a str, OperatorPair<T>)>;
 
 #[derive(Debug)]
-pub struct EvilParseError {
+pub struct ExParseError {
     pub msg: String,
 }
-impl fmt::Display for EvilParseError {
+impl fmt::Display for ExParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.msg)
     }
 }
-impl Error for EvilParseError {}
+impl Error for ExParseError {}
 
 fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
     [
@@ -60,23 +60,23 @@ enum ParsedToken<T: Float + FromStr> {
     Op(OperatorPair<T>),
 }
 
-fn apply_regexes<T: Float + FromStr  + std::fmt::Debug>(text: &str) -> Vec<ParsedToken<T>>
+fn apply_regexes<T: Float + FromStr>(text: &str, ops_in: VecOps<T>) -> Vec<ParsedToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let regex_escapes = r"|?^*+.\";
+    let regex_escapes = r"\|?^*+.";
     
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
-    let mut ops_tmp = make_default_operators::<T>();
+    let mut ops_tmp = ops_in;
     ops_tmp.sort_by(|o1, o2| o2.0.partial_cmp(o1.0).unwrap());
     let ops = ops_tmp;  // from now on const
 
     let pattern_ops = ops.iter().map(|(s, _)| {
-        if regex_escapes.contains(s) {
-            format!("\\{}", s)
-        } else {
-            s.to_string()
+        let mut s_tmp = s.to_string();
+        for c in regex_escapes.chars() {
+            s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
         }
+        s_tmp
     }).collect::<Vec<_>>().join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_parans = r"\(|\)";
@@ -123,17 +123,17 @@ where
 fn make_expression<T>(
     tokens: &[ParsedToken<T>],
     unary_op: Vec<fn(T) -> T>,
-) -> Result<(Expression<T>, usize), EvilParseError>
+) -> Result<(Expression<T>, usize), ExParseError>
 where
     T: Float + FromStr + std::fmt::Debug,
 {
-    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> Result<BinOp<S>, EvilParseError>
+    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> Result<BinOp<S>, ExParseError>
     where
         S: Float + FromStr + std::fmt::Debug,
     {
         match bo {
             Some(bo) => Ok(bo),
-            None => Err(EvilParseError {
+            None => Err(ExParseError {
                 msg: "Expected binary operator but there was None.".to_string(),
             }),
         }
@@ -158,7 +158,7 @@ where
 
         match tokens[i + n_uops] {
             ParsedToken::Paran(p) => match p {
-                Paran::Close => Err(EvilParseError {
+                Paran::Close => Err(ExParseError {
                     msg: "I do not understand a closing paran after an operator.".to_string(),
                 }),
                 Paran::Open => {
@@ -167,7 +167,7 @@ where
                 }
             },
             ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, n)), n_uops + 1)),
-            ParsedToken::Op(_) => Err(EvilParseError {
+            ParsedToken::Op(_) => Err(ExParseError {
                 msg: "A unary operator cannot be followed by a binary operator.".to_string(),
             }),
         }
@@ -205,7 +205,7 @@ where
                                 Paran::Open => {
                                     let msg = "Opening paran next to operator must not occur here."
                                         .to_string();
-                                    return Err(EvilParseError { msg: msg });
+                                    return Err(ExParseError { msg: msg });
                                 }
                                 Paran::Close => {
                                     result.bin_ops.push(unpack_binop(b.bin_op)?);
@@ -242,22 +242,22 @@ where
     Ok((result, idx_tkn))
 }
 
-fn check_preconditions<T>(expr_elts: &[ParsedToken<T>]) -> Result<u8, EvilParseError>
+fn check_preconditions<T>(expr_elts: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
     T: Float + FromStr + std::fmt::Debug,
 {
     if expr_elts.len() == 0 {
-        return Err(EvilParseError {
+        return Err(ExParseError {
             msg: "Cannot parse empty string.".to_string(),
         });
     };
     let num_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
-        ParsedToken::Num(_) => Err(EvilParseError {
+        ParsedToken::Num(_) => Err(ExParseError {
             msg: "A number cannot be next to a number.".to_string(),
         }),
         ParsedToken::Paran(p) => {
             if p == forbidden {
-                Err(EvilParseError {
+                Err(ExParseError {
                     msg: "Wlog, a number cannot be on the right of a closing paran.".to_string(),
                 })
             } else {
@@ -269,7 +269,7 @@ where
     let binop_pred_succ = |idx: usize| match expr_elts[idx] {
         ParsedToken::Op(op) => {
             if op.unary_op == None {
-                Err(EvilParseError {
+                Err(ExParseError {
                     msg: "A binary operator cannot be next to a binary operator.".to_string(),
                 })
             } else {
@@ -281,7 +281,7 @@ where
     let paran_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
         ParsedToken::Paran(p) => {
             if p == forbidden {
-                Err(EvilParseError {
+                Err(ExParseError {
                     msg: "Wlog an opening paran cannot be next to a closing paran.".to_string(),
                 })
             } else {
@@ -294,7 +294,7 @@ where
     expr_elts
         .iter()
         .enumerate()
-        .map(|(i, expr_elt)| -> Result<usize, EvilParseError> {
+        .map(|(i, expr_elt)| -> Result<usize, ExParseError> {
             match expr_elt {
                 ParsedToken::Num(_) => {
                     if i < expr_elts.len() - 1 {
@@ -317,7 +317,7 @@ where
                         Paran::Open => 1,
                     };
                     if open_paran_cnt < 0 {
-                        return Err(EvilParseError {
+                        return Err(ExParseError {
                             msg: format!("To many closing parantheses until position {}.", i)
                                 .to_string(),
                         });
@@ -329,7 +329,7 @@ where
                         binop_pred_succ(i + 1)?;
                         Ok(0)
                     } else {
-                        Err(EvilParseError {
+                        Err(ExParseError {
                             msg: "The last element cannot be an operator.".to_string(),
                         })
                     }
@@ -338,7 +338,7 @@ where
         })
         .collect::<Result<Vec<_>, _>>()?;
     if open_paran_cnt != 0 {
-        Err(EvilParseError {
+        Err(ExParseError {
             msg: "Parantheses mismatch.".to_string(),
         })
     } else {
@@ -346,25 +346,35 @@ where
     }
 }
 
-pub fn parse<T>(text: &str) -> Result<Expression<T>, EvilParseError>
+pub fn parse<T>(text: &str, ops: VecOps<T>) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
     T: Float + FromStr + std::fmt::Debug,
 {
-    let elts = apply_regexes::<T>(text);
+    let elts = apply_regexes::<T>(text, ops);
     check_preconditions(&elts[..])?;
     let (expr, _) = make_expression(&elts[0..], vec![])?;
     Ok(expr)
 }
 
+pub fn parse_with_default_ops<T>(text: &str) -> Result<Expression<T>, ExParseError>
+where
+    <T as std::str::FromStr>::Err: std::fmt::Debug,
+    T: Float + FromStr + std::fmt::Debug,
+{
+    let ops = make_default_operators::<T>();
+    Ok(parse(&text, ops)?)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::parse::{apply_regexes, check_preconditions};
+    use crate::{parse::{apply_regexes, check_preconditions, make_default_operators}};
 
     #[test]
     fn test_preconditions() {
         fn test(text: &str, msg_part: &str) {
-            let elts = apply_regexes::<f32>(text);
+            let ops = make_default_operators::<f32>();
+            let elts = apply_regexes::<f32>(text, ops);
             let err = check_preconditions(&elts[..]);
             match err {
                 Ok(_) => assert!(false),
@@ -388,4 +398,6 @@ mod tests {
         test("12-(3-4)*2+ (1/2))", "closing parantheses until");
         test("12-(3-4)*2+ ((1/2)", "Parantheses mismatch.");
     }
+
+
 }
