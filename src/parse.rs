@@ -60,12 +60,17 @@ enum ParsedToken<T: Float + FromStr> {
     Op(OperatorPair<T>),
 }
 
-fn apply_regexes<T: Float + FromStr>(text: &str) -> Vec<ParsedToken<T>>
+fn apply_regexes<T: Float + FromStr  + std::fmt::Debug>(text: &str) -> Vec<ParsedToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
     let regex_escapes = r"|?^*+.\";
-    let ops = make_default_operators::<T>();
+    
+    // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
+    let mut ops_tmp = make_default_operators::<T>();
+    ops_tmp.sort_by(|o1, o2| o2.0.partial_cmp(o1.0).unwrap());
+    let ops = ops_tmp;  // from now on const
+
     let pattern_ops = ops.iter().map(|(s, _)| {
         if regex_escapes.contains(s) {
             format!("\\{}", s)

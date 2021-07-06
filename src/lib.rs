@@ -66,6 +66,7 @@ mod tests {
         assert_float_eq(eval_str(&"3-(4-2/3+(1-2*2))").unwrap(), 2.666666666666666);
         assert_float_eq(eval_str(&"log(log(2))*tan(2)+exp(1.5)").unwrap(), 5.2825344122094045);
         assert_float_eq(eval_str(&"log(log2(2))*tan(2)+exp(1.5)").unwrap(), 4.4816890703380645);
+        assert_float_eq(eval_str(&"log2(2)").unwrap(), 1.0);
 
     }
 
