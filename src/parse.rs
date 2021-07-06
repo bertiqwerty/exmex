@@ -24,6 +24,7 @@ impl Error for EvilParseError {}
 
 fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
     [
+        ("^", OperatorPair { bin_op: Some(BinOp{op: |a:T, b| a.powf(b), prio: 2}), unary_op: None }),
         ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
         ("/", OperatorPair { bin_op: Some(BinOp{op: |a, b| a / b, prio: 1}), unary_op: None }),
         ("+", OperatorPair { bin_op: Some(BinOp{op: |a, b| a + b, prio: 0}), unary_op: Some(|a: T| a) }),

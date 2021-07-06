@@ -23,6 +23,8 @@ mod tests {
 
     #[test]
     fn test_eval() {
+        assert_float_eq(eval_str(&"2*3^2").unwrap(), 18.0);
+        assert_float_eq(eval_str(&"-3^2").unwrap(), 9.0);
         assert_float_eq(eval_str(&"11.3").unwrap(), 11.3);
         assert_float_eq(eval_str(&"+11.3").unwrap(), 11.3);
         assert_float_eq(eval_str(&"-11.3").unwrap(), -11.3);
@@ -55,6 +57,8 @@ mod tests {
         assert_float_eq(eval_str(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
         assert_float_eq(eval_str(&"-sin(2)*2").unwrap(), -1.8185948536513634);
         assert_float_eq(eval_str(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
+        assert_float_eq(eval_str(&"sin(-sin(2)^2)*2").unwrap(), 1.4715655294841483);
+        assert_float_eq(eval_str(&"sin(-sin(2)*-sin(2))*2").unwrap(), 1.4715655294841483);
         assert_float_eq(eval_str(&"--(1)").unwrap(), 1.0);
         assert_float_eq(eval_str(&"--1").unwrap(), 1.0);
         assert_float_eq(eval_str(&"----1").unwrap(), 1.0);
