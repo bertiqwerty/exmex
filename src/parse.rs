@@ -34,6 +34,13 @@ enum ParsedToken<T: Float + FromStr> {
     Var(String),
 }
 
+/// Parses tokens of a text with regexes and returns them as a vector
+///
+/// # Arguments
+///
+/// * `text` - text to be parsed
+/// * `ops_in` - vector of operator-pairs
+///
 fn apply_regexes<T: Float + FromStr>(text: &str, ops_in: VecOps<T>) -> Vec<ParsedToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
@@ -94,10 +101,7 @@ where
                 } else if c == ')' {
                     Paran::Close
                 } else {
-                    panic!(
-                        "Paran {} is neither ( nor ). Check the paran-regex.",
-                        c
-                    );
+                    panic!("Paran {} is neither ( nor ). Check the paran-regex.", c);
                 })
             } else {
                 panic!("Internal regex mismatch!");
@@ -106,10 +110,18 @@ where
         .collect()
 }
 
+/// Returns an expression that is created recursively and can be evaluated
+///
+/// # Arguments
+///
+/// * `parsed_tokens` - parsed tokens created with [`apply_regexes`]
+/// * `parsed_vars` - elements of `parsed_tokens` that are variables
+/// * `unary_ops` - unary operators of the expression to be build
+///
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
-    unary_op: Vec<fn(T) -> T>,
+    unary_ops: Vec<fn(T) -> T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
     T: Float + FromStr + std::fmt::Debug,
@@ -184,7 +196,7 @@ where
     let mut result = Expression::<T> {
         bin_ops: Vec::<BinOp<T>>::new(),
         nodes: Vec::<Node<T>>::new(),
-        unary_ops: unary_op,
+        unary_ops,
     };
 
     // The main loop checks one token after the next whereby sub-expressions are
@@ -259,16 +271,22 @@ where
     Ok((result, idx_tkn))
 }
 
-fn check_preconditions<T>(expr_elts: &[ParsedToken<T>]) -> Result<u8, ExParseError>
+/// Tries to give useful error messages for invalid constellations of the parsed tokens
+///
+/// # Arguments
+///
+/// * `parsed_tokens` - parsed tokens
+///
+fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
     T: Float + FromStr + std::fmt::Debug,
 {
-    if expr_elts.len() == 0 {
+    if parsed_tokens.len() == 0 {
         return Err(ExParseError {
             msg: "Cannot parse empty string.".to_string(),
         });
     };
-    let num_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
+    let num_pred_succ = |idx: usize, forbidden: Paran| match parsed_tokens[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
             msg: "A number/variable cannot be next to a number/variable.".to_string(),
         }),
@@ -284,7 +302,7 @@ where
         }
         _ => Ok(0),
     };
-    let binop_pred_succ = |idx: usize| match expr_elts[idx] {
+    let binop_pred_succ = |idx: usize| match parsed_tokens[idx] {
         ParsedToken::Op(op) => {
             if op.unary_op == None {
                 Err(ExParseError {
@@ -296,7 +314,7 @@ where
         }
         _ => Ok(0),
     };
-    let paran_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
+    let paran_pred_succ = |idx: usize, forbidden: Paran| match parsed_tokens[idx] {
         ParsedToken::Paran(p) => {
             if p == forbidden {
                 Err(ExParseError {
@@ -309,13 +327,13 @@ where
         _ => Ok(0),
     };
     let mut open_paran_cnt = 0i8;
-    expr_elts
+    parsed_tokens
         .iter()
         .enumerate()
         .map(|(i, expr_elt)| -> Result<usize, ExParseError> {
             match expr_elt {
                 ParsedToken::Num(_) | ParsedToken::Var(_) => {
-                    if i < expr_elts.len() - 1 {
+                    if i < parsed_tokens.len() - 1 {
                         num_pred_succ(i + 1, Paran::Open)?;
                     }
                     if i > 0 {
@@ -324,7 +342,7 @@ where
                     Ok(0)
                 }
                 ParsedToken::Paran(p) => {
-                    if i < expr_elts.len() - 1 {
+                    if i < parsed_tokens.len() - 1 {
                         match p {
                             Paran::Open => paran_pred_succ(i + 1, Paran::Close)?,
                             Paran::Close => paran_pred_succ(i + 1, Paran::Open)?,
@@ -343,7 +361,7 @@ where
                     Ok(0)
                 }
                 ParsedToken::Op(_) => {
-                    if i < expr_elts.len() - 1 {
+                    if i < parsed_tokens.len() - 1 {
                         binop_pred_succ(i + 1)?;
                         Ok(0)
                     } else {
@@ -364,6 +382,7 @@ where
     }
 }
 
+/// Parses a string and a vector of operators into an expression that can be evaluated
 pub fn parse<T>(text: &str, ops: VecOps<T>) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
@@ -383,6 +402,7 @@ where
     Ok(expr)
 }
 
+/// Parses a string into an expression that can be evaluated using default operators
 pub fn parse_with_default_ops<T>(text: &str) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,

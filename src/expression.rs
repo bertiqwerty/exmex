@@ -23,9 +23,18 @@ fn prioritized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     indices
 }
 
-pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) -> T {
-    let indices = prioritized_indices(&exp.bin_ops);
-    let mut numbers = exp
+/// Evaluates an expression with the given variable values and returns the computed result.
+///
+/// # Arguments
+///
+/// * `expr` - expression to be evaluated
+/// * `vars` - values of the variables of the expression, the n-th value corresponds to
+///            the n-th variable as given in the string that has been parsed to this expression.
+///            Thereby, only the first occurrence of the variable in the string is relevant.
+///
+pub fn eval_expr<T: Float + std::fmt::Debug>(expr: &Expression<T>, vars: &[T]) -> T {
+    let indices = prioritized_indices(&expr.bin_ops);
+    let mut numbers = expr
         .nodes
         .iter()
         .map(|n| match n {
@@ -39,7 +48,7 @@ pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) ->
         let num_idx = num_inds[i];
         let num_1 = numbers[num_idx];
         let num_2 = numbers[num_idx + 1];
-        numbers[num_idx] = (exp.bin_ops[bin_op_idx].op)(num_1, num_2);
+        numbers[num_idx] = (expr.bin_ops[bin_op_idx].op)(num_1, num_2);
         numbers.remove(num_idx + 1);
         // reduce indices after removed position
         for num_idx_after in num_inds.iter_mut() {
@@ -48,7 +57,7 @@ pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) ->
             }
         }
     }
-    apply_unary_ops(&exp.unary_ops, numbers[0])
+    apply_unary_ops(&expr.unary_ops, numbers[0])
 }
 
 #[cfg(test)]

@@ -5,8 +5,15 @@ pub mod tests {
         }
     }
 }
-pub fn apply_unary_ops<T>(uops: &Vec<fn(T) -> T>, n: T) -> T {
-    let mut result = n;
+
+/// Applies unary operators one after the other starting with the last.
+/// # Arguments
+///
+/// * `uops` - unary operators to be applied
+/// * `x` - number the unary operators are applied to
+///
+pub fn apply_unary_ops<T>(uops: &Vec<fn(T) -> T>, x: T) -> T {
+    let mut result = x;
     // rev, since the last uop is applied first by convention
     for uo in uops.iter().rev() {
         result = uo(result);
