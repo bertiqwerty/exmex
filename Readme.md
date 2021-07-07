@@ -36,7 +36,7 @@ To evaluate this expression we can pass a slice with the values of the variables
 ```
 eval_expr::<f32>(&expr, &[2.5, 3.7])  // 14.992794866624788
 ```
-The index `n` of the number in the slice corresponds to the  
+The `n`-th number in the slice corresponds to the  
 `n`-th variable. Thereby only the first occurence of the variables is relevant. In this 
 example, we have `x=2.5` and `y=3.7`.
 
