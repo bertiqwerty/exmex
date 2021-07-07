@@ -139,7 +139,7 @@ where
         }
     };
     // this closure handles the case that a token is a unary operator and accesses the
-    // variable tokens from the outer scope
+    // variable 'tokens' from the outer scope
     let process_unary = |i: usize, uo| {
         // gather subsequent unary operators from the beginning
         let uops = once(uo)
