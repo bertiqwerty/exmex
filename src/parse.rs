@@ -24,17 +24,98 @@ impl Error for ExParseError {}
 
 fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
     vec![
-        ("^", OperatorPair { bin_op: Some(BinOp{op: |a:T, b| a.powf(b), prio: 2}), unary_op: None }),
-        ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
-        ("/", OperatorPair { bin_op: Some(BinOp{op: |a, b| a / b, prio: 1}), unary_op: None }),
-        ("+", OperatorPair { bin_op: Some(BinOp{op: |a, b| a + b, prio: 0}), unary_op: Some(|a: T| a) }),
-        ("-", OperatorPair { bin_op: Some(BinOp{op: |a, b| a - b, prio: 0}), unary_op: Some(|a: T| (-a)) }),
-        ("sin", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.sin()) }),
-        ("cos", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.cos()) }),
-        ("tan", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.tan()) }),
-        ("exp", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.exp()) }),
-        ("log", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.ln()) }),
-        ("log2", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.log2()) }),
+        (
+            "^",
+            OperatorPair {
+                bin_op: Some(BinOp {
+                    op: |a: T, b| a.powf(b),
+                    prio: 2,
+                }),
+                unary_op: None,
+            },
+        ),
+        (
+            "*",
+            OperatorPair {
+                bin_op: Some(BinOp {
+                    op: |a, b| a * b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+        ),
+        (
+            "/",
+            OperatorPair {
+                bin_op: Some(BinOp {
+                    op: |a, b| a / b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+        ),
+        (
+            "+",
+            OperatorPair {
+                bin_op: Some(BinOp {
+                    op: |a, b| a + b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a: T| a),
+            },
+        ),
+        (
+            "-",
+            OperatorPair {
+                bin_op: Some(BinOp {
+                    op: |a, b| a - b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a: T| (-a)),
+            },
+        ),
+        (
+            "sin",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.sin()),
+            },
+        ),
+        (
+            "cos",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.cos()),
+            },
+        ),
+        (
+            "tan",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.tan()),
+            },
+        ),
+        (
+            "exp",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.exp()),
+            },
+        ),
+        (
+            "log",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.ln()),
+            },
+        ),
+        (
+            "log2",
+            OperatorPair {
+                bin_op: None,
+                unary_op: Some(|a: T| a.log2()),
+            },
+        ),
     ]
 }
 
@@ -62,19 +143,23 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
     let regex_escapes = r"\|?^*+.";
-    
+
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in;
     ops_tmp.sort_by(|o1, o2| o2.0.partial_cmp(o1.0).unwrap());
-    let ops = ops_tmp;  // from now on const
+    let ops = ops_tmp; // from now on const
 
-    let pattern_ops = ops.iter().map(|(s, _)| {
-        let mut s_tmp = s.to_string();
-        for c in regex_escapes.chars() {
-            s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
-        }
-        s_tmp
-    }).collect::<Vec<_>>().join("|");
+    let pattern_ops = ops
+        .iter()
+        .map(|(s, _)| {
+            let mut s_tmp = s.to_string();
+            for c in regex_escapes.chars() {
+                s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
+            }
+            s_tmp
+        })
+        .collect::<Vec<_>>()
+        .join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_parans = r"\(|\)";
     let patterns = [pattern_ops.as_str(), pattern_nums, pattern_parans];
@@ -82,7 +167,7 @@ where
     let any = Regex::new(pattern_any.as_str()).unwrap();
 
     let which_one = RegexSet::new(&patterns).unwrap();
-    
+
     any.captures_iter(text)
         .map(|c| c[0].to_string())
         .map(|elt_string| {
@@ -365,7 +450,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse::{apply_regexes, check_preconditions, make_default_operators}};
+    use crate::parse::{apply_regexes, check_preconditions, make_default_operators};
 
     #[test]
     fn test_preconditions() {
@@ -395,6 +480,4 @@ mod tests {
         test("12-(3-4)*2+ (1/2))", "closing parantheses until");
         test("12-(3-4)*2+ ((1/2)", "Parantheses mismatch.");
     }
-
-
 }

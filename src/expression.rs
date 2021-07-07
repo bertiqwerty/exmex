@@ -13,9 +13,8 @@ pub struct Expression<T: Float> {
     pub bin_ops: Vec<BinOp<T>>,
     // the last unary operator is applied first to the result
     // of the evaluation of nodes and binary operators
-    pub unary_ops: Vec<fn(T) -> T>  
+    pub unary_ops: Vec<fn(T) -> T>,
 }
-
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct BinOp<T: Copy> {
@@ -25,12 +24,7 @@ pub struct BinOp<T: Copy> {
 
 fn priorized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| {
-        bin_ops[*i2]
-            .prio
-            .partial_cmp(&bin_ops[*i1].prio)
-            .unwrap()
-    });
+    indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
     indices
 }
 
@@ -63,7 +57,7 @@ pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
 
 #[cfg(test)]
 mod test {
-    use crate::expression::{BinOp, priorized_indices};
+    use crate::expression::{priorized_indices, BinOp};
 
     #[test]
     fn test_prio() {
