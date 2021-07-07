@@ -82,7 +82,7 @@ where
                 ParsedToken::<T>::Op(match wrapped_op {
                     Some((_, op)) => *op,
                     None => {
-                        panic!("Fatal. Could not find operator {}.", elt_str);
+                        panic!("Could not find operator {}.", elt_str);
                     }
                 })
             } else if matches.matched(2) {
@@ -95,12 +95,12 @@ where
                     Paran::Close
                 } else {
                     panic!(
-                        "Fatal. Paran {} is neither ( nor ). Check the paran-regex.",
+                        "Paran {} is neither ( nor ). Check the paran-regex.",
                         c
                     );
                 })
             } else {
-                panic!("Fatal. Internal regex mismatch!");
+                panic!("Internal regex mismatch!");
             }
         })
         .collect()
@@ -134,7 +134,7 @@ where
         match idx {
             Some((i, _)) => i,
             None => {
-                panic!("Fatal. I don't know variable {}", name)
+                panic!("I don't know variable {}", name)
             }
         }
     };
