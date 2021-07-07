@@ -1,5 +1,5 @@
-use crate::operators::{BinOp, OperatorPair, VecOps, make_default_operators};
 use crate::expression::{Expression, Node};
+use crate::operators::{make_default_operators, BinOp, OperatorPair, VecOps};
 use crate::util::apply_unary_ops;
 use itertools::Itertools;
 use num::Float;
@@ -76,7 +76,7 @@ where
             let elt_str = elt_string.as_str();
             let matches = which_one.matches(elt_str);
             if matches.matched(0) {
-                ParsedToken::<T>::Var(elt_str[1..elt_str.len()-1].to_string())
+                ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
             } else if matches.matched(1) {
                 let wrapped_op = ops.iter().find(|(op_name, _)| op_name == &elt_str);
                 ParsedToken::<T>::Op(match wrapped_op {

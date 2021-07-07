@@ -122,7 +122,6 @@ mod tests {
         let expr = parse::<f32>("2^2*1/({berti}) + zer0(4)", extended_operators).unwrap();
         let val = eval_expr::<f32>(&expr, &[4.0]);
         assert_float_eq(val, 1.0);
-    
     }
 
     #[test]

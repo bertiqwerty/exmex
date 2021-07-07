@@ -14,7 +14,6 @@ pub struct BinOp<T: Copy> {
 
 pub type VecOps<'a, T> = Vec<(&'a str, OperatorPair<T>)>;
 
-
 pub fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
     vec![
         (
