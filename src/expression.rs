@@ -17,14 +17,14 @@ pub struct Expression<T: Float> {
     pub unary_ops: Vec<fn(T) -> T>,
 }
 
-fn priorized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
+fn prioritized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
     indices
 }
 
 pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) -> T {
-    let indices = priorized_indices(&exp.bin_ops);
+    let indices = prioritized_indices(&exp.bin_ops);
     let mut numbers = exp
         .nodes
         .iter()
@@ -53,12 +53,12 @@ pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) ->
 
 #[cfg(test)]
 mod test {
-    use crate::expression::{priorized_indices, BinOp};
+    use crate::expression::{prioritized_indices, BinOp};
 
     #[test]
     fn test_prio() {
         assert_eq!(
-            priorized_indices(&vec![
+            prioritized_indices(&vec![
                 BinOp {
                     op: |_, _| 0.0,
                     prio: 0
@@ -71,7 +71,7 @@ mod test {
             vec![1, 0]
         );
         assert_eq!(
-            priorized_indices(&vec![
+            prioritized_indices(&vec![
                 BinOp {
                     op: |_, _| 0.0,
                     prio: 0
@@ -92,7 +92,7 @@ mod test {
             vec![1, 3, 0, 2]
         );
         assert_eq!(
-            priorized_indices(&vec![
+            prioritized_indices(&vec![
                 BinOp {
                     op: |_, _| 0.0,
                     prio: 1
