@@ -1,15 +1,13 @@
+use crate::operators::{BinOp, OperatorPair, VecOps, make_default_operators};
+use crate::expression::{Expression, Node};
+use crate::util::apply_unary_ops;
+use itertools::Itertools;
 use num::Float;
 use regex::{Regex, RegexSet};
 use std::error::Error;
 use std::fmt;
 use std::iter::once;
 use std::str::FromStr;
-
-use crate::expression::BinOp;
-use crate::expression::{Expression, Node};
-use crate::util::apply_unary_ops;
-
-type VecOps<'a, T> = Vec<(&'a str, OperatorPair<T>)>;
 
 #[derive(Debug)]
 pub struct ExParseError {
@@ -22,113 +20,10 @@ impl fmt::Display for ExParseError {
 }
 impl Error for ExParseError {}
 
-fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
-    vec![
-        (
-            "^",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a: T, b| a.powf(b),
-                    prio: 2,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "*",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a * b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "/",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a / b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "+",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a + b,
-                    prio: 0,
-                }),
-                unary_op: Some(|a: T| a),
-            },
-        ),
-        (
-            "-",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a - b,
-                    prio: 0,
-                }),
-                unary_op: Some(|a: T| (-a)),
-            },
-        ),
-        (
-            "sin",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.sin()),
-            },
-        ),
-        (
-            "cos",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.cos()),
-            },
-        ),
-        (
-            "tan",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.tan()),
-            },
-        ),
-        (
-            "exp",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.exp()),
-            },
-        ),
-        (
-            "log",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.ln()),
-            },
-        ),
-        (
-            "log2",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.log2()),
-            },
-        ),
-    ]
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Paran {
     Open,
     Close,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct OperatorPair<T: Copy> {
-    pub bin_op: Option<BinOp<T>>,
-    pub unary_op: Option<fn(T) -> T>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -136,13 +31,14 @@ enum ParsedToken<T: Float + FromStr> {
     Num(T),
     Paran(Paran),
     Op(OperatorPair<T>),
+    Var(String),
 }
 
 fn apply_regexes<T: Float + FromStr>(text: &str, ops_in: VecOps<T>) -> Vec<ParsedToken<T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
-    let regex_escapes = r"\|?^*+.";
+    let regex_escapes_ops = r"\|?^*+.";
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in;
@@ -153,7 +49,7 @@ where
         .iter()
         .map(|(s, _)| {
             let mut s_tmp = s.to_string();
-            for c in regex_escapes.chars() {
+            for c in regex_escapes_ops.chars() {
                 s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
             }
             s_tmp
@@ -161,8 +57,14 @@ where
         .collect::<Vec<_>>()
         .join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
+    let pattern_var = r"\{[a-zA-Z_]+[a-zA-Z_0-9]*\}";
     let pattern_parans = r"\(|\)";
-    let patterns = [pattern_ops.as_str(), pattern_nums, pattern_parans];
+    let patterns = [
+        pattern_var,
+        pattern_ops.as_str(),
+        pattern_nums,
+        pattern_parans,
+    ];
     let pattern_any = patterns.join("|");
     let any = Regex::new(pattern_any.as_str()).unwrap();
 
@@ -174,6 +76,8 @@ where
             let elt_str = elt_string.as_str();
             let matches = which_one.matches(elt_str);
             if matches.matched(0) {
+                ParsedToken::<T>::Var(elt_str[1..elt_str.len()-1].to_string())
+            } else if matches.matched(1) {
                 let wrapped_op = ops.iter().find(|(op_name, _)| op_name == &elt_str);
                 ParsedToken::<T>::Op(match wrapped_op {
                     Some((_, op)) => *op,
@@ -181,9 +85,9 @@ where
                         panic!("Fatal. Could not find operator {}.", elt_str);
                     }
                 })
-            } else if matches.matched(1) {
-                ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
             } else if matches.matched(2) {
+                ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
+            } else if matches.matched(3) {
                 let c = elt_str.chars().next().unwrap();
                 ParsedToken::<T>::Paran(if c == '(' {
                     Paran::Open
@@ -203,7 +107,8 @@ where
 }
 
 fn make_expression<T>(
-    tokens: &[ParsedToken<T>],
+    parsed_tokens: &[ParsedToken<T>],
+    parsed_vars: &[String],
     unary_op: Vec<fn(T) -> T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
@@ -221,14 +126,26 @@ where
         }
     }
 
+    let find_var_index = |name: &str| {
+        let idx = parsed_vars
+            .iter()
+            .enumerate()
+            .find(|(_, n)| n.as_str() == name);
+        match idx {
+            Some((i, _)) => i,
+            None => {
+                panic!("Fatal. I don't know variable {}", name)
+            }
+        }
+    };
     // this closure handles the case that a token is a unary operator and accesses the
     // variable tokens from the outer scope
     let process_unary = |i: usize, uo| {
         // gather subsequent unary operators from the beginning
         let uops = once(uo)
             .chain(
-                (i + 1..tokens.len())
-                    .map(|j| match tokens[j] {
+                (i + 1..parsed_tokens.len())
+                    .map(|j| match parsed_tokens[j] {
                         ParsedToken::Op(op) => op.unary_op,
                         _ => None,
                     })
@@ -238,17 +155,26 @@ where
             .collect::<Vec<_>>();
         let n_uops = uops.len();
 
-        match tokens[i + n_uops] {
+        match &parsed_tokens[i + n_uops] {
             ParsedToken::Paran(p) => match p {
                 Paran::Close => Err(ExParseError {
                     msg: "I do not understand a closing paran after an operator.".to_string(),
                 }),
                 Paran::Open => {
-                    let (expr, i_forward) = make_expression::<T>(&tokens[i + n_uops + 1..], uops)?;
+                    let (expr, i_forward) =
+                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uops)?;
                     Ok((Node::Expr(expr), i_forward + n_uops + 1))
                 }
             },
-            ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, n)), n_uops + 1)),
+            ParsedToken::Var(name) => {
+                let expr = Expression {
+                    nodes: vec![Node::Var(find_var_index(&name))],
+                    bin_ops: vec![],
+                    unary_ops: uops,
+                };
+                Ok((Node::Expr(expr), n_uops + 1))
+            }
+            ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
             ParsedToken::Op(_) => Err(ExParseError {
                 msg: "A unary operator cannot be followed by a binary operator.".to_string(),
             }),
@@ -265,21 +191,25 @@ where
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
     // according to the length of the sub-expression.
     let mut idx_tkn: usize = 0;
-    while idx_tkn < tokens.len() {
-        match tokens[idx_tkn] {
+    while idx_tkn < parsed_tokens.len() {
+        match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(b) => match b.unary_op {
                 None => {
                     result.bin_ops.push(unpack_binop(b.bin_op)?);
                     idx_tkn += 1;
                 }
                 Some(uo) => {
+                    // might the operator be unary?
                     if idx_tkn == 0 {
+                        // if the first element is an operator it must be unary
                         let (node, idx_forward) = process_unary(idx_tkn, uo)?;
                         result.nodes.push(node);
                         idx_tkn += idx_forward;
                     } else {
-                        match tokens[idx_tkn - 1] {
-                            ParsedToken::Num(_) => {
+                        // decide type of operator based on predecessor
+                        match parsed_tokens[idx_tkn - 1] {
+                            ParsedToken::Num(_) | ParsedToken::Var(_) => {
+                                // number or variable as predecessor means binary operator
                                 result.bin_ops.push(unpack_binop(b.bin_op)?);
                                 idx_tkn += 1;
                             }
@@ -304,13 +234,18 @@ where
                 }
             },
             ParsedToken::Num(n) => {
-                result.nodes.push(Node::Num(n));
+                result.nodes.push(Node::Num(*n));
+                idx_tkn += 1;
+            }
+            ParsedToken::Var(name) => {
+                result.nodes.push(Node::Var(find_var_index(&name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paran(p) => match p {
                 Paran::Open => {
                     idx_tkn += 1;
-                    let (expr, i_forward) = make_expression::<T>(&tokens[idx_tkn..], vec![])?;
+                    let (expr, i_forward) =
+                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, vec![])?;
                     result.nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
@@ -335,12 +270,13 @@ where
     };
     let num_pred_succ = |idx: usize, forbidden: Paran| match expr_elts[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
-            msg: "A number cannot be next to a number.".to_string(),
+            msg: "A number/variable cannot be next to a number/variable.".to_string(),
         }),
         ParsedToken::Paran(p) => {
             if p == forbidden {
                 Err(ExParseError {
-                    msg: "Wlog, a number cannot be on the right of a closing paran.".to_string(),
+                    msg: "Wlog, a number/variable cannot be on the right of a closing paran."
+                        .to_string(),
                 })
             } else {
                 Ok(0)
@@ -378,7 +314,7 @@ where
         .enumerate()
         .map(|(i, expr_elt)| -> Result<usize, ExParseError> {
             match expr_elt {
-                ParsedToken::Num(_) => {
+                ParsedToken::Num(_) | ParsedToken::Var(_) => {
                     if i < expr_elts.len() - 1 {
                         num_pred_succ(i + 1, Paran::Open)?;
                     }
@@ -433,9 +369,17 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
     T: Float + FromStr + std::fmt::Debug,
 {
-    let elts = apply_regexes::<T>(text, ops);
-    check_preconditions(&elts[..])?;
-    let (expr, _) = make_expression(&elts[0..], vec![])?;
+    let parsed_tokens = apply_regexes::<T>(text, ops);
+    let parsed_vars = parsed_tokens
+        .iter()
+        .filter_map(|pt| match pt {
+            ParsedToken::Var(name) => Some(name.clone()),
+            _ => None,
+        })
+        .unique()
+        .collect::<Vec<_>>();
+    check_preconditions(&parsed_tokens[..])?;
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, vec![])?;
     Ok(expr)
 }
 
@@ -470,8 +414,8 @@ mod tests {
         test("", "empty string.");
         test("++", "The last element cannot be an operator.");
         test(
-            "12 (",
-            "Wlog, a number cannot be on the right of a closing paran",
+            "{12} (",
+            "Wlog, a number/variable cannot be on the right of a closing paran",
         );
         test("++)", "closing parantheses until");
         test(")12-(1+1) / (", "closing parantheses until position");

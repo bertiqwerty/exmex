@@ -1,5 +1,5 @@
 [package]
-name = "evilexpress"
+name = "exexpress"
 version = "0.1.0"
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2018"
@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 regex = "1"
 num = "0.4"
+itertools = "0.10.1"
+ 

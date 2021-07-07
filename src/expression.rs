@@ -1,11 +1,12 @@
 use num::Float;
 
-use crate::util::apply_unary_ops;
+use crate::{operators::BinOp, util::apply_unary_ops};
 
 #[derive(Debug)]
 pub enum Node<T: Float> {
     Expr(Expression<T>),
     Num(T),
+    Var(usize),
 }
 #[derive(Debug)]
 pub struct Expression<T: Float> {
@@ -16,26 +17,21 @@ pub struct Expression<T: Float> {
     pub unary_ops: Vec<fn(T) -> T>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct BinOp<T: Copy> {
-    pub op: fn(T, T) -> T,
-    pub prio: i16,
-}
-
 fn priorized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
     indices
 }
 
-pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>) -> T {
+pub fn eval_expr<T: Float + std::fmt::Debug>(exp: &Expression<T>, vars: &[T]) -> T {
     let indices = priorized_indices(&exp.bin_ops);
     let mut numbers = exp
         .nodes
         .iter()
         .map(|n| match n {
-            Node::Expr(e) => eval_expr(e),
+            Node::Expr(e) => eval_expr(e, &vars),
             Node::Num(n) => *n,
+            Node::Var(idx) => vars[*idx],
         })
         .collect::<Vec<T>>();
     let mut num_inds = indices.clone();

@@ -2,22 +2,62 @@ use parse::ExParseError;
 mod expression;
 mod parse;
 mod util;
+mod operators;
 use expression::eval_expr;
 
 pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
     let exp = parse::parse_with_default_ops(text)?;
-    Ok(eval_expr(&exp))
+    let empty_vec: Vec<f32> = vec![];
+    Ok(eval_expr(&exp, &empty_vec))
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        eval_str,
-        expression::{eval_expr, BinOp},
-        parse::{parse, OperatorPair},
-        util::tests::assert_float_eq,
-    };
+    use crate::{eval_str, expression::{eval_expr}, operators::{BinOp, OperatorPair, make_default_operators}, parse::{parse}, util::tests::assert_float_eq};
+
+    #[test]
+    fn test_variables() {
+        let operators = make_default_operators::<f32>();
+        
+        let to_be_parsed = "5*{x} + 4*{y} + 3*{x}";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[1.0, 0.0]), 8.0);
+        
+        let to_be_parsed = "5*{x} + 4*{y}";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[0.0, 1.0]), 4.0);
+        
+        let to_be_parsed = "5*{x} + 4*{y} + {x}^2";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[2.5, 3.7]), 33.55);
+        assert_float_eq(eval_expr::<f32>(&expr, &[12.0, 9.3]), 241.2);
+        
+        let to_be_parsed = "2*(4*{x} + {y}^2)";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[2.0, 3.0]), 34.0);
+
+        let to_be_parsed = "sin({myvar_25})";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
+
+        let to_be_parsed = "((sin({myvar_25})))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
+
+        let to_be_parsed = "(0 * {myvar_25} + cos({X}))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[1.5707963267948966, 3.141592653589793]), -1.0);
+
+        let to_be_parsed = "(-{X}^2)";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[1.0]), 1.0);
+
+        let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq(eval_expr::<f32>(&expr, &[2.5, 3.7]), 14.992794866624788);
+
+    }
 
     #[test]
     fn test_custom_ops() {
@@ -51,7 +91,7 @@ mod tests {
             ),
         ];
         let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
-        let val = eval_expr::<f32>(&expr);
+        let val = eval_expr::<f32>(&expr, &vec![]);
         assert_float_eq(val, 4.0 / 3.0);
     }
 
