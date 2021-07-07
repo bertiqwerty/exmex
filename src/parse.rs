@@ -23,7 +23,7 @@ impl fmt::Display for ExParseError {
 impl Error for ExParseError {}
 
 fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
-    [
+    vec![
         ("^", OperatorPair { bin_op: Some(BinOp{op: |a:T, b| a.powf(b), prio: 2}), unary_op: None }),
         ("*", OperatorPair { bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}), unary_op: None }),
         ("/", OperatorPair { bin_op: Some(BinOp{op: |a, b| a / b, prio: 1}), unary_op: None }),
@@ -36,9 +36,6 @@ fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
         ("log", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.ln()) }),
         ("log2", OperatorPair { bin_op: None, unary_op: Some(|a: T| a.log2()) }),
     ]
-    .iter()
-    .cloned()
-    .collect()
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
