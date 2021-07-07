@@ -6,7 +6,7 @@ Exexpress is an extendable expression evaluator for mathematical expressions.
 We have a list of predifined operators, namely 
 `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`.
 
-If you do not like the pre-defined operators, you can define your own unary and binary operators as shown in the following.
+If we do not need the pre-defined operators, we can define your own unary and binary operators as shown in the following.
 ```
 let custom_ops = vec![
     ("**", OperatorPair { bin_op: Some(BinOp{op: |a: f32, b| a.powf(b), prio: 2}), unary_op: None }),
@@ -17,6 +17,15 @@ let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
 let val = eval_expr::<f32>(&expr, &vec![]);  // == 4.0/3.0
 ```
 Custom operators are defined as a vector of two-element-tuples. The first element is the `&str` that represents the operator in the to be parsed string, e.g., `**` in the example above. The second element is an instance of the struct `OperatorPair<T>` that has a binary and a unary operator of type `Option<BinOp<T>>` and `Option<fn(T) -> T>`, respectively, as members. `BinOp` contains in addition to the operator of type `fn(T, T) -> T` a priority. Operators can be both, binary and unary such as `-` as defined in the list of default operators.
+
+We can also extend the predefined default operators, e.g., via
+```
+let extended_operators = make_default_operators::<f32>()
+    .iter()
+    .cloned()
+    .chain(once(new_op))
+    .collect::<Vec<_>>();
+```
 
 ## Priorities and Parantheses
 
