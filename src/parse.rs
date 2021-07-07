@@ -176,7 +176,7 @@ where
             if matches.matched(0) {
                 let wrapped_op_token = ops.iter().find(|(op_name, _)| op_name == &elt_str);
                 ParsedToken::<T>::Op(match wrapped_op_token {
-                    Some((_, op_token)) => *op_token,
+                    Some((_, op_pair)) => *op_pair,
                     None => {
                         panic!("Fatal. Could not find operator {}.", elt_str);
                     }
