@@ -104,7 +104,7 @@ mod tests {
         let val = eval_expr::<f32>(&expr, &vec![]);
         assert_float_eq(val, 4.0 / 3.0);
 
-        let new_op = (
+        let zero_mapper = (
             "zer0",
             OperatorPair {
                 bin_op: Some(BinOp {
@@ -117,9 +117,9 @@ mod tests {
         let extended_operators = make_default_operators::<f32>()
             .iter()
             .cloned()
-            .chain(once(new_op))
+            .chain(once(zero_mapper))
             .collect::<Vec<_>>();
-        let expr = parse::<f32>("2^2*1/({berti})", extended_operators).unwrap();
+        let expr = parse::<f32>("2^2*1/({berti}) + zer0(4)", extended_operators).unwrap();
         let val = eval_expr::<f32>(&expr, &[4.0]);
         assert_float_eq(val, 1.0);
     
