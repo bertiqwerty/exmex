@@ -22,13 +22,13 @@ impl fmt::Display for ExParseError {
 }
 impl Error for ExParseError {}
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 enum Paren {
     Open,
     Close,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq)]
 enum ParsedToken<'a, T: Float + FromStr> {
     Num(T),
     Paren(Paren),
