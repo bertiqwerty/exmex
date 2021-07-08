@@ -2,7 +2,8 @@ use num::Float;
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct OperatorPair<T: Copy> {
+pub struct Operator<'a, T: Copy> {
+    pub repr: &'a str,
     pub bin_op: Option<BinOp<T>>,
     pub unary_op: Option<fn(T) -> T>,
 }
@@ -14,106 +15,78 @@ pub struct BinOp<T: Copy> {
     pub prio: i16,
 }
 
-/// A list of user defined operators. The first element is a string that represents
-/// the symbol of the operator in the string to-be-parsed. The second element is
-/// the operator that is represented by the string. A string can represent both, 
-/// a unary and a binary operator such as `-`.
-pub type VecOps<'a, T> = Vec<(&'a str, OperatorPair<T>)>;
-
 /// Returns the default operators as `VecOps<'a, T>`.
-pub fn make_default_operators<'a, T: Float>() -> VecOps<'a, T> {
+pub fn make_default_operators<'a, T: Float>() -> Vec<Operator<'a, T>> {
     vec![
-        (
-            "^",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a: T, b| a.powf(b),
-                    prio: 2,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "*",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a * b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "/",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a / b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-        ),
-        (
-            "+",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a + b,
-                    prio: 0,
-                }),
-                unary_op: Some(|a: T| a),
-            },
-        ),
-        (
-            "-",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |a, b| a - b,
-                    prio: 0,
-                }),
-                unary_op: Some(|a: T| (-a)),
-            },
-        ),
-        (
-            "sin",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.sin()),
-            },
-        ),
-        (
-            "cos",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.cos()),
-            },
-        ),
-        (
-            "tan",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.tan()),
-            },
-        ),
-        (
-            "exp",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.exp()),
-            },
-        ),
-        (
-            "log",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.ln()),
-            },
-        ),
-        (
-            "log2",
-            OperatorPair {
-                bin_op: None,
-                unary_op: Some(|a: T| a.log2()),
-            },
-        ),
+        Operator {
+            repr: "^",
+            bin_op: Some(BinOp {
+                op: |a: T, b| a.powf(b),
+                prio: 2,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "*",
+            bin_op: Some(BinOp {
+                op: |a, b| a * b,
+                prio: 1,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "/",
+            bin_op: Some(BinOp {
+                op: |a, b| a / b,
+                prio: 1,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "+",
+            bin_op: Some(BinOp {
+                op: |a, b| a + b,
+                prio: 0,
+            }),
+            unary_op: Some(|a: T| a),
+        },
+        Operator {
+            repr: "-",
+            bin_op: Some(BinOp {
+                op: |a, b| a - b,
+                prio: 0,
+            }),
+            unary_op: Some(|a: T| (-a)),
+        },
+        Operator {
+            repr: "sin",
+            bin_op: None,
+            unary_op: Some(|a: T| a.sin()),
+        },
+        Operator {
+            repr: "cos",
+            bin_op: None,
+            unary_op: Some(|a: T| a.cos()),
+        },
+        Operator {
+            repr: "tan",
+            bin_op: None,
+            unary_op: Some(|a: T| a.tan()),
+        },
+        Operator {
+            repr: "exp",
+            bin_op: None,
+            unary_op: Some(|a: T| a.exp()),
+        },
+        Operator {
+            repr: "log",
+            bin_op: None,
+            unary_op: Some(|a: T| a.ln()),
+        },
+        Operator {
+            repr: "log2",
+            bin_op: None,
+            unary_op: Some(|a: T| a.log2()),
+        },
     ]
 }

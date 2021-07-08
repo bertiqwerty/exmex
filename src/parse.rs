@@ -1,5 +1,5 @@
 use crate::expression::{Expression, Node};
-use crate::operators::{make_default_operators, BinOp, OperatorPair, VecOps};
+use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::apply_unary_ops;
 use itertools::Itertools;
 use num::Float;
@@ -9,6 +9,8 @@ use std::fmt;
 use std::iter::once;
 use std::str::FromStr;
 
+/// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an 
+/// exception, so thrown needs to be understood figuratively.
 #[derive(Debug)]
 pub struct ExParseError {
     pub msg: String,
@@ -27,10 +29,10 @@ enum Paran {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-enum ParsedToken<T: Float + FromStr> {
+enum ParsedToken<'a, T: Float + FromStr> {
     Num(T),
     Paran(Paran),
-    Op(OperatorPair<T>),
+    Op(Operator<'a, T>),
     Var(String),
 }
 
@@ -41,7 +43,7 @@ enum ParsedToken<T: Float + FromStr> {
 /// * `text` - text to be parsed
 /// * `ops_in` - vector of operator-pairs
 ///
-fn apply_regexes<T: Float + FromStr>(text: &str, ops_in: VecOps<T>) -> Vec<ParsedToken<T>>
+fn apply_regexes<'a, T: Float + FromStr>(text: &str, ops_in: Vec<Operator<'a, T>>) -> Vec<ParsedToken<'a, T>>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
@@ -49,13 +51,13 @@ where
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in;
-    ops_tmp.sort_by(|o1, o2| o2.0.partial_cmp(o1.0).unwrap());
+    ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
 
     let pattern_ops = ops
         .iter()
-        .map(|(s, _)| {
-            let mut s_tmp = s.to_string();
+        .map(|op| {
+            let mut s_tmp = op.repr.to_string();
             for c in regex_escapes_ops.chars() {
                 s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
             }
@@ -85,9 +87,9 @@ where
             if matches.matched(0) {
                 ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
             } else if matches.matched(1) {
-                let wrapped_op = ops.iter().find(|(op_name, _)| op_name == &elt_str);
+                let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
                 ParsedToken::<T>::Op(match wrapped_op {
-                    Some((_, op)) => *op,
+                    Some(op) => *op,
                     None => {
                         panic!("Could not find operator {}.", elt_str);
                     }
@@ -383,7 +385,7 @@ where
 }
 
 /// Parses a string and a vector of operators into an expression that can be evaluated
-pub fn parse<T>(text: &str, ops: VecOps<T>) -> Result<Expression<T>, ExParseError>
+pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
     T: Float + FromStr + std::fmt::Debug,

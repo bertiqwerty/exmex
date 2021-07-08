@@ -7,7 +7,7 @@ pub use expression::{eval_expr, Expression};
 
 pub use parse::{parse, parse_with_default_ops, ExParseError};
 
-pub use operators::{make_default_operators, BinOp, OperatorPair, VecOps};
+pub use operators::{make_default_operators, BinOp, Operator};
 
 pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
     let exp = parse::parse_with_default_ops(text)?;
@@ -23,7 +23,7 @@ mod tests {
     use crate::{
         eval_str,
         expression::eval_expr,
-        operators::{make_default_operators, BinOp, OperatorPair},
+        operators::{make_default_operators, BinOp, Operator},
         parse::parse,
         util::tests::assert_float_eq,
     };
@@ -76,48 +76,40 @@ mod tests {
     #[test]
     fn test_custom_ops() {
         let custom_ops = vec![
-            (
-                "**",
-                OperatorPair {
-                    bin_op: Some(BinOp {
-                        op: |a: f32, b| a.powf(b),
-                        prio: 2,
-                    }),
-                    unary_op: None,
-                },
-            ),
-            (
-                "*",
-                OperatorPair {
-                    bin_op: Some(BinOp {
-                        op: |a, b| a * b,
-                        prio: 1,
-                    }),
-                    unary_op: None,
-                },
-            ),
-            (
-                "invert",
-                OperatorPair {
-                    bin_op: None,
-                    unary_op: Some(|a: f32| 1.0 / a),
-                },
-            ),
+            Operator {
+                repr: "**",
+                bin_op: Some(BinOp {
+                    op: |a: f32, b| a.powf(b),
+                    prio: 2,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "*",
+                bin_op: Some(BinOp {
+                    op: |a, b| a * b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "invert",
+                bin_op: None,
+                unary_op: Some(|a: f32| 1.0 / a),
+            },
         ];
         let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
         let val = eval_expr::<f32>(&expr, &vec![]);
         assert_float_eq(val, 4.0 / 3.0);
 
-        let zero_mapper = (
-            "zer0",
-            OperatorPair {
-                bin_op: Some(BinOp {
-                    op: |_: f32, _| 0.0,
-                    prio: 2,
-                }),
-                unary_op: Some(|_| 0.0),
-            },
-        );
+        let zero_mapper = Operator {
+            repr: "zer0",
+            bin_op: Some(BinOp {
+                op: |_: f32, _| 0.0,
+                prio: 2,
+            }),
+            unary_op: Some(|_| 0.0),
+        };
         let extended_operators = make_default_operators::<f32>()
             .iter()
             .cloned()
