@@ -7,12 +7,12 @@ Exexpress is an extendable expression evaluator for mathematical expressions.
 Add
 ```
 [dependencies]
-rand = { git = "https://github.com/bertiqwerty/exexpress.git" } 
+exexpress = { git = "https://github.com/bertiqwerty/exexpress.git" } 
 ```
 or
 ```
 [dependencies]
-rand = { git = "git@github.com:bertiqwerty/exexpress.git" } 
+exexpress = { git = "git@github.com:bertiqwerty/exexpress.git" } 
 ```
 to your `Cargo.toml`.
 
