@@ -1,9 +1,12 @@
-use parse::ExParseError;
 mod expression;
 mod operators;
 mod parse;
 mod util;
-use expression::eval_expr;
+pub use expression::{eval_expr, Expression};
+
+pub use parse::{parse, parse_with_default_ops, ExParseError};
+
+pub use operators::{make_default_operators, BinOp, VecOps};
 
 pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
     let exp = parse::parse_with_default_ops(text)?;
@@ -126,6 +129,8 @@ mod tests {
 
     #[test]
     fn test_eval() {
+        optick::start_capture();
+
         assert_float_eq(eval_str(&"2*3^2").unwrap(), 18.0);
         assert_float_eq(eval_str(&"-3^2").unwrap(), 9.0);
         assert_float_eq(eval_str(&"11.3").unwrap(), 11.3);
@@ -200,6 +205,8 @@ mod tests {
             4.4816890703380645,
         );
         assert_float_eq(eval_str(&"log2(2)").unwrap(), 1.0);
+        optick::stop_capture("expressions");
+
     }
 
     #[test]

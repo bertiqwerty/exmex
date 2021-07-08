@@ -1,6 +1,6 @@
 [package]
 name = "exexpress"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2018"
 
