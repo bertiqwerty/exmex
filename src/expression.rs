@@ -8,6 +8,9 @@ pub enum Node<T: Float> {
     Num(T),
     Var(usize),
 }
+
+/// This is the core data type and the result of parsing a string. This expression
+/// can have sub-expressions and is evaluated recursively. 
 #[derive(Debug)]
 pub struct Expression<T: Float> {
     pub nodes: Vec<Node<T>>,

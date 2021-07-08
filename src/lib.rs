@@ -7,7 +7,7 @@ pub use expression::{eval_expr, Expression};
 
 pub use parse::{parse, parse_with_default_ops, ExParseError};
 
-pub use operators::{make_default_operators, BinOp, VecOps};
+pub use operators::{make_default_operators, BinOp, OperatorPair, VecOps};
 
 pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
     let exp = parse::parse_with_default_ops(text)?;
