@@ -22,7 +22,7 @@ impl fmt::Display for ExParseError {
 }
 impl Error for ExParseError {}
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum Paren {
     Open,
     Close,
@@ -221,7 +221,7 @@ where
                         idx_tkn += idx_forward;
                     } else {
                         // decide type of operator based on predecessor
-                        match parsed_tokens[idx_tkn - 1] {
+                        match &parsed_tokens[idx_tkn - 1] {
                             ParsedToken::Num(_) | ParsedToken::Var(_) => {
                                 // number or variable as predecessor means binary operator
                                 result.bin_ops.push(unpack_binop(b.bin_op)?);
@@ -288,12 +288,12 @@ where
             msg: "Cannot parse empty string.".to_string(),
         });
     };
-    let num_pred_succ = |idx: usize, forbidden: Paren| match parsed_tokens[idx] {
+    let num_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
             msg: "A number/variable cannot be next to a number/variable.".to_string(),
         }),
         ParsedToken::Paren(p) => {
-            if p == forbidden {
+            if p == &forbidden {
                 Err(ExParseError {
                     msg: "Wlog, a number/variable cannot be on the right of a closing parenthesis."
                         .to_string(),
@@ -316,9 +316,9 @@ where
         }
         _ => Ok(0),
     };
-    let paren_pred_succ = |idx: usize, forbidden: Paren| match parsed_tokens[idx] {
+    let paren_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
         ParsedToken::Paren(p) => {
-            if p == forbidden {
+            if p == &forbidden {
                 Err(ExParseError {
                     msg: "Wlog an opening paren cannot be next to a closing paren.".to_string(),
                 })
