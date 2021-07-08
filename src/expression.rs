@@ -2,11 +2,14 @@ use num::Float;
 
 use crate::{operators::BinOp, util::apply_unary_ops};
 
+/// Nodes are inputs for binary operators. A node can be an expression, a number, or
+/// a variable.
 #[derive(Debug)]
 pub enum Node<T: Float> {
     Expr(Expression<T>),
     Num(T),
-    /// Variable where the integer points to its index.
+    /// The contained integer points to the index of the variable in the slice of 
+    /// variables passed to [`eval_expr`](eval_expr).
     Var(usize),
 }
 

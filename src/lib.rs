@@ -64,6 +64,7 @@ pub use parse::{parse, parse_with_default_ops, ExParseError};
 
 pub use operators::{make_default_operators, BinOp, Operator};
 
+/// Parses a string, evaluates a string, and returns the resulting number. 
 pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
     let expr = parse::parse_with_default_ops(text)?;
     Ok(eval_expr(&expr, &vec![]))
