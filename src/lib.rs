@@ -3,7 +3,7 @@ mod operators;
 mod parse;
 mod util;
 
-pub use expression::{eval_expr, Expression};
+pub use expression::{eval_expr, Expression, Node};
 
 pub use parse::{parse, parse_with_default_ops, ExParseError};
 

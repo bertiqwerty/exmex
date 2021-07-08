@@ -6,17 +6,59 @@ use crate::{operators::BinOp, util::apply_unary_ops};
 pub enum Node<T: Float> {
     Expr(Expression<T>),
     Num(T),
+    /// Variable where the integer points to its index.
     Var(usize),
 }
 
-/// This is the core data type and the result of parsing a string. This expression
-/// can have sub-expressions and is evaluated recursively. 
+/// Core data type and the result of parsing a string. 
+/// 
+/// Usually, you would create an expression with the `parse` function. 
+/// 
+/// ```
+/// use exexpress::{eval_expr, parse_with_default_ops};
+///
+/// // create an expression by parsing a string
+/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})").unwrap();
+/// let result_parsed = eval_expr::<f32>(&expr_parsed, &[2.0]); 
+/// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-7);
+/// ```
+/// The second argument &[2.0] in the call of `eval_expr` specifies the we want to 
+/// evaluate the expression for the value 2.0 of our only variable `{x}`. Variables need
+/// to be within curly brackets in the string to-be-parsed.
+///
+/// You can also create the expression directly. In this case you have to make sure that
+/// you have `n+1` nodes for `n` binary operators. The binary operators are
+/// applied to the nodes. The order in the `nodes`-vector determines
+/// for which binary operator a node is used as input. More precisely, 
+/// nodes `i` and `i+1` are the input of the binary operator `i` with the highest 
+/// priority. After the calculation with the highest priority, the result is put into
+/// a node, the number of nodes an operators is reduced by 1 and the operator with
+/// the next highest priority is considered, etc.
+/// ```
+/// use exexpress::{eval_expr, BinOp, Expression, Node};
+/// // create an expression directly
+/// let expr_directly = Expression {
+///     bin_ops: vec![
+///         BinOp {
+///             op: |a: f32, b: f32| a + b,
+///             prio: 0
+///         }
+///     ],
+///     nodes: vec![Node::Num(1.0), Node::Var(0)],
+///     unary_ops: vec![|a: f32| a.sin()]
+/// };
+/// let result_directly = eval_expr::<f32>(&expr_directly, &[2.0]);
+/// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-7);
+/// ```
 #[derive(Debug)]
 pub struct Expression<T: Float> {
+    /// Nodes can be numbers, variables, or other expressions. 
     pub nodes: Vec<Node<T>>,
+    /// Binary operators applied to the nodes according to their priority.
     pub bin_ops: Vec<BinOp<T>>,
-    // the last unary operator is applied first to the result
-    // of the evaluation of nodes and binary operators
+    /// Unary operators are applied to the result of evaluating all nodes with all
+    /// binary operators. The last unary operator is applied first to the result
+    /// of the evaluation of nodes and binary operators
     pub unary_ops: Vec<fn(T) -> T>,
 }
 
