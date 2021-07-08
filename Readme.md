@@ -1,6 +1,7 @@
 # Exexpress
 
-Exexpress is an extendable expression evaluator for mathematical expressions.
+Exexpress parses and evaluates mathematical expressions. Thereby, library users can
+define their own unary and binary operators.
 
 ## Installation
 
