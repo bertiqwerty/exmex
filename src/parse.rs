@@ -23,7 +23,7 @@ impl fmt::Display for ExParseError {
 impl Error for ExParseError {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum Paran {
+enum Paren {
     Open,
     Close,
 }
@@ -31,7 +31,7 @@ enum Paran {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum ParsedToken<'a, T: Float + FromStr> {
     Num(T),
-    Paran(Paran),
+    Paren(Paren),
     Op(Operator<'a, T>),
     Var(String),
 }
@@ -67,12 +67,12 @@ where
         .join("|");
     let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_var = r"\{[a-zA-Z_]+[a-zA-Z_0-9]*\}";
-    let pattern_parans = r"\(|\)";
+    let pattern_parens = r"\(|\)";
     let patterns = [
         pattern_var,
         pattern_ops.as_str(),
         pattern_nums,
-        pattern_parans,
+        pattern_parens,
     ];
     let pattern_any = patterns.join("|");
     let any = Regex::new(pattern_any.as_str()).unwrap();
@@ -98,12 +98,12 @@ where
                 ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
             } else if matches.matched(3) {
                 let c = elt_str.chars().next().unwrap();
-                ParsedToken::<T>::Paran(if c == '(' {
-                    Paran::Open
+                ParsedToken::<T>::Paren(if c == '(' {
+                    Paren::Open
                 } else if c == ')' {
-                    Paran::Close
+                    Paren::Close
                 } else {
-                    panic!("Paran {} is neither ( nor ). Check the paran-regex.", c);
+                    panic!("Paren {} is neither ( nor ). Check the paren-regex.", c);
                 })
             } else {
                 panic!("Internal regex mismatch!");
@@ -170,11 +170,11 @@ where
         let n_uops = uops.len();
 
         match &parsed_tokens[i + n_uops] {
-            ParsedToken::Paran(p) => match p {
-                Paran::Close => Err(ExParseError {
-                    msg: "I do not understand a closing paran after an operator.".to_string(),
+            ParsedToken::Paren(p) => match p {
+                Paren::Close => Err(ExParseError {
+                    msg: "I do not understand a closing parenthesis after an operator.".to_string(),
                 }),
-                Paran::Open => {
+                Paren::Open => {
                     let (expr, i_forward) =
                         make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uops)?;
                     Ok((Node::Expr(expr), i_forward + n_uops + 1))
@@ -227,13 +227,13 @@ where
                                 result.bin_ops.push(unpack_binop(b.bin_op)?);
                                 idx_tkn += 1;
                             }
-                            ParsedToken::Paran(p) => match p {
-                                Paran::Open => {
-                                    let msg = "Opening paran next to operator must not occur here."
+                            ParsedToken::Paren(p) => match p {
+                                Paren::Open => {
+                                    let msg = "Opening parenthesis next to operator must not occur here."
                                         .to_string();
                                     return Err(ExParseError { msg: msg });
                                 }
-                                Paran::Close => {
+                                Paren::Close => {
                                     result.bin_ops.push(unpack_binop(b.bin_op)?);
                                     idx_tkn += 1;
                                 }
@@ -255,15 +255,15 @@ where
                 result.nodes.push(Node::Var(find_var_index(&name)));
                 idx_tkn += 1;
             }
-            ParsedToken::Paran(p) => match p {
-                Paran::Open => {
+            ParsedToken::Paren(p) => match p {
+                Paren::Open => {
                     idx_tkn += 1;
                     let (expr, i_forward) =
                         make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, vec![])?;
                     result.nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
-                Paran::Close => {
+                Paren::Close => {
                     idx_tkn += 1;
                     break;
                 }
@@ -288,14 +288,14 @@ where
             msg: "Cannot parse empty string.".to_string(),
         });
     };
-    let num_pred_succ = |idx: usize, forbidden: Paran| match parsed_tokens[idx] {
+    let num_pred_succ = |idx: usize, forbidden: Paren| match parsed_tokens[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
             msg: "A number/variable cannot be next to a number/variable.".to_string(),
         }),
-        ParsedToken::Paran(p) => {
+        ParsedToken::Paren(p) => {
             if p == forbidden {
                 Err(ExParseError {
-                    msg: "Wlog, a number/variable cannot be on the right of a closing paran."
+                    msg: "Wlog, a number/variable cannot be on the right of a closing parenthesis."
                         .to_string(),
                 })
             } else {
@@ -316,11 +316,11 @@ where
         }
         _ => Ok(0),
     };
-    let paran_pred_succ = |idx: usize, forbidden: Paran| match parsed_tokens[idx] {
-        ParsedToken::Paran(p) => {
+    let paren_pred_succ = |idx: usize, forbidden: Paren| match parsed_tokens[idx] {
+        ParsedToken::Paren(p) => {
             if p == forbidden {
                 Err(ExParseError {
-                    msg: "Wlog an opening paran cannot be next to a closing paran.".to_string(),
+                    msg: "Wlog an opening paren cannot be next to a closing paren.".to_string(),
                 })
             } else {
                 Ok(0)
@@ -328,7 +328,7 @@ where
         }
         _ => Ok(0),
     };
-    let mut open_paran_cnt = 0i8;
+    let mut open_paren_cnt = 0i8;
     parsed_tokens
         .iter()
         .enumerate()
@@ -336,27 +336,27 @@ where
             match expr_elt {
                 ParsedToken::Num(_) | ParsedToken::Var(_) => {
                     if i < parsed_tokens.len() - 1 {
-                        num_pred_succ(i + 1, Paran::Open)?;
+                        num_pred_succ(i + 1, Paren::Open)?;
                     }
                     if i > 0 {
-                        num_pred_succ(i - 1, Paran::Close)?;
+                        num_pred_succ(i - 1, Paren::Close)?;
                     }
                     Ok(0)
                 }
-                ParsedToken::Paran(p) => {
+                ParsedToken::Paren(p) => {
                     if i < parsed_tokens.len() - 1 {
                         match p {
-                            Paran::Open => paran_pred_succ(i + 1, Paran::Close)?,
-                            Paran::Close => paran_pred_succ(i + 1, Paran::Open)?,
+                            Paren::Open => paren_pred_succ(i + 1, Paren::Close)?,
+                            Paren::Close => paren_pred_succ(i + 1, Paren::Open)?,
                         };
                     }
-                    open_paran_cnt += match p {
-                        Paran::Close => -1,
-                        Paran::Open => 1,
+                    open_paren_cnt += match p {
+                        Paren::Close => -1,
+                        Paren::Open => 1,
                     };
-                    if open_paran_cnt < 0 {
+                    if open_paren_cnt < 0 {
                         return Err(ExParseError {
-                            msg: format!("To many closing parantheses until position {}.", i)
+                            msg: format!("To many closing parentheses until position {}.", i)
                                 .to_string(),
                         });
                     }
@@ -375,9 +375,9 @@ where
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if open_paran_cnt != 0 {
+    if open_paren_cnt != 0 {
         Err(ExParseError {
-            msg: "Parantheses mismatch.".to_string(),
+            msg: "Parentheses mismatch.".to_string(),
         })
     } else {
         Ok(0)
@@ -437,13 +437,13 @@ mod tests {
         test("++", "The last element cannot be an operator.");
         test(
             "{12} (",
-            "Wlog, a number/variable cannot be on the right of a closing paran",
+            "Wlog, a number/variable cannot be on the right of a closing paren",
         );
-        test("++)", "closing parantheses until");
-        test(")12-(1+1) / (", "closing parantheses until position");
-        test("12-()+(", "Wlog an opening paran");
-        test("12-() ())", "Wlog an opening paran");
-        test("12-(3-4)*2+ (1/2))", "closing parantheses until");
-        test("12-(3-4)*2+ ((1/2)", "Parantheses mismatch.");
+        test("++)", "closing parentheses until");
+        test(")12-(1+1) / (", "closing parentheses until position");
+        test("12-()+(", "Wlog an opening paren");
+        test("12-() ())", "Wlog an opening paren");
+        test("12-(3-4)*2+ (1/2))", "closing parentheses until");
+        test("12-(3-4)*2+ ((1/2)", "Parentheses mismatch.");
     }
 }

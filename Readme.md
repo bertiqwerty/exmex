@@ -39,12 +39,12 @@ let expr = parse::<f32>("2^2*1/({berti}) + zer0(4)", extended_operators).unwrap(
 let val = eval_expr::<f32>(&expr, &[4.0]);  // 1.0
 ```
 
-## Priorities and Parantheses
+## Priorities and Parentheses
 
 In Exexpress-land, unary operators always have higher priority than binary operators, e.g., 
-`-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parantheses. 
+`-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses. 
 For instance `"---1"` will evalute to `-1`. 
-If you want to be on the safe side, we suggest using parantheses.
+If you want to be on the safe side, we suggest using parentheses.
 
 ## Variables
 
