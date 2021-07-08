@@ -41,7 +41,7 @@ pub struct BinOp<T: Copy> {
     pub prio: i16,
 }
 
-/// Returns the default operators as `VecOps<'a, T>`.
+/// Returns the default operators.
 pub fn make_default_operators<'a, T: Float>() -> Vec<Operator<'a, T>> {
     vec![
         Operator {
