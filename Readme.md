@@ -7,12 +7,7 @@ Exexpress is an extendable expression evaluator for mathematical expressions.
 Add
 ```
 [dependencies]
-exexpress = { git = "https://github.com/bertiqwerty/exexpress.git" } 
-```
-or
-```
-[dependencies]
-exexpress = { git = "git@github.com:bertiqwerty/exexpress.git" } 
+exexpress = { git = "https://github.com/bertiqwerty/exexpress.git", branch = "main" } 
 ```
 to your `Cargo.toml`.
 
