@@ -15,16 +15,16 @@ to your `Cargo.toml`.
 ## Basic Usage
 To simply parse a string there is
 ```
-let result = eval_str("sin(73)");
+let result = eval_str::<f32>("sin(73)");
 ```
 To create an expression with variables that represents a mathematical function you can
 use curly brackets as in
 ```
-let expr = parse::parse_with_default_ops("2*{x}^3-4/{z}").unwrap();
+let expr = parse::<f32>::parse_with_default_ops("2*{x}^3-4/{z}").unwrap();
 ```
 To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```
-let value = eval_expr(&expr, &[5.3, 0.5]);
+let value = eval_expr::<f32>(&expr, &[5.3, 0.5]);
 ```
 Besides predefined operators, you can pass custom operators to the 
 function `parse` to create an expression. 
