@@ -1,10 +1,10 @@
-pub mod tests {
-    pub fn assert_float_eq(f1: f32, f2: f32) {
-        if (f1 - f2).abs() >= 1e-6 {
-            panic!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
-        }
+#[cfg(test)]
+pub fn assert_float_eq(f1: f32, f2: f32) {
+    if (f1 - f2).abs() >= 1e-6 {
+        panic!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
     }
 }
+
 
 /// Applies unary operators one after the other starting with the last.
 /// # Arguments

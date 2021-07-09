@@ -17,13 +17,19 @@ pub enum Node<T: Float> {
 /// 
 /// Usually, you would create an expression with the `parse` function. 
 /// 
-/// ```
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
 /// use exexpress::{eval_expr, parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
-/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})").unwrap();
+/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})")?;
 /// let result_parsed = eval_expr::<f32>(&expr_parsed, &[2.0]); 
-/// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-7);
+/// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
+/// #
+/// #     Ok(())
+/// # }
 /// ```
 /// The second argument &[2.0] in the call of `eval_expr` specifies the we want to 
 /// evaluate the expression for the value 2.0 of our only variable `{x}`. Variables need
@@ -37,7 +43,10 @@ pub enum Node<T: Float> {
 /// priority. After the calculation with the highest priority, the result is put into
 /// a node, the number of nodes an operators is reduced by 1 and the operator with
 /// the next highest priority is considered, etc.
-/// ```
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
 /// use exexpress::{eval_expr, BinOp, Expression, Node};
 /// // create an expression directly
 /// let expr_directly = Expression {
@@ -51,7 +60,10 @@ pub enum Node<T: Float> {
 ///     unary_ops: vec![|a: f32| a.sin()]
 /// };
 /// let result_directly = eval_expr::<f32>(&expr_directly, &[2.0]);
-/// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-7);
+/// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
+/// #
+/// #     Ok(())
+/// # }
 /// ```
 #[derive(Debug)]
 pub struct Expression<T: Float> {

@@ -4,7 +4,10 @@
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. These are
 //! defined in [`make_default_operators`](make_default_operators).
 //! Library users can also define a different set of operators as shown in the following.
-//! ```
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
 //! use exexpress::{eval_expr, parse, BinOp, Operator};
 //! let custom_ops = vec![
 //!     Operator {
@@ -25,6 +28,9 @@
 //! ];
 //! let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
 //! assert!((eval_expr::<f32>(&expr, &vec![]) - (4.0/3.0 as f32)).abs() < 1e-6);
+//! #
+//! #     Ok(())
+//! # }
 //! ```
 //! Operators are instances of the struct
 //! [`Operator`](Operator) that has its representation, a binary and a unary operator of
@@ -44,11 +50,17 @@
 //! ## Variables
 //! To add variables we can use curly brackets as shown in the following expression.
 //! Variables' values are passed as slices to [`eval_expr`](eval_expr).
-//! ```
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
 //! use exexpress::{eval_expr, make_default_operators, parse};
 //! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
-//! let expr = parse::<f32>(to_be_parsed, make_default_operators::<f32>()).unwrap();
+//! let expr = parse::<f32>(to_be_parsed, make_default_operators::<f32>())?;
 //! assert!((eval_expr::<f32>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f32).abs() < 1e-6);
+//! #
+//! #     Ok(())
+//! # }
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
 //! first occurence of the variables is relevant. In this example, we have `x=2.5` and `y=3.7`.
@@ -80,7 +92,7 @@ mod tests {
         expression::eval_expr,
         operators::{make_default_operators, BinOp, Operator},
         parse::parse,
-        util::tests::assert_float_eq,
+        util::assert_float_eq,
     };
 
     #[test]
