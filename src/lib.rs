@@ -56,8 +56,8 @@
 //! #
 //! use exexpress::{eval_expr, make_default_operators, parse};
 //! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
-//! let expr = parse::<f32>(to_be_parsed, make_default_operators::<f32>())?;
-//! assert!((eval_expr::<f32>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f32).abs() < 1e-6);
+//! let expr = parse::<f64>(to_be_parsed, make_default_operators::<f64>())?;
+//! assert!((eval_expr::<f64>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
