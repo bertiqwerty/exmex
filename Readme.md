@@ -42,7 +42,7 @@ let ops = vec![
     },
 ];
 let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
-let result = eval_expr(&expr, &[0.25]);  // 2.0
+let result = eval_expr::<f32>(&expr, &[0.25]);  // 2.0
 ```
 
 ## Documentation
