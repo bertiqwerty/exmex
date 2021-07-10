@@ -7,7 +7,7 @@ pub enum Node<T: Copy> {
     Expr(Expression<T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
-    /// variables passed to [`eval_expr`](eval_expr).
+    /// variables passed to [`eval`](Expression::eval).
     Var(usize),
 }
 
@@ -19,17 +19,17 @@ pub enum Node<T: Copy> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{eval_expr, parse_with_default_ops};
+/// use exmex::{parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
 /// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})")?;
-/// let result_parsed = eval_expr::<f32>(&expr_parsed, &[2.0]);
+/// let result_parsed = expr_parsed.eval(&[2.0]);
 /// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument &[2.0] in the call of `eval_expr` specifies the we want to
+/// The second argument &[2.0] in the call of [`eval`](Expression::eval) specifies the we want to
 /// evaluate the expression for the value 2.0 of our only variable `{x}`. Variables need
 /// to be within curly brackets in the string to-be-parsed.
 ///
@@ -45,7 +45,7 @@ pub enum Node<T: Copy> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{eval_expr, BinOp, Expression, Node};
+/// use exmex::{BinOp, Expression, Node};
 /// // create an expression directly
 /// let expr_directly = Expression {
 ///     bin_ops: vec![
@@ -57,7 +57,7 @@ pub enum Node<T: Copy> {
 ///     nodes: vec![Node::Num(1.0), Node::Var(0)],
 ///     unary_ops: vec![|a: f32| a.sin()]
 /// };
-/// let result_directly = eval_expr::<f32>(&expr_directly, &[2.0]);
+/// let result_directly = expr_directly.eval(&[2.0]);
 /// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
 /// #
 /// #     Ok(())
@@ -81,41 +81,44 @@ fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     indices
 }
 
-/// Evaluates an expression with the given variable values and returns the computed result.
-///
-/// # Arguments
-///
-/// * `expr` - expression to be evaluated
-/// * `vars` - values of the variables of the expression, the n-th value corresponds to
-///            the n-th variable as given in the string that has been parsed to this expression.
-///            Thereby, only the first occurrence of the variable in the string is relevant.
-///
-pub fn eval_expr<T: Copy + std::fmt::Debug>(expr: &Expression<T>, vars: &[T]) -> T {
-    let indices = prioritized_indices(&expr.bin_ops);
-    let mut numbers = expr
-        .nodes
-        .iter()
-        .map(|n| match n {
-            Node::Expr(e) => eval_expr(e, &vars),
-            Node::Num(n) => *n,
-            Node::Var(idx) => vars[*idx],
-        })
-        .collect::<Vec<T>>();
-    let mut num_inds = indices.clone();
-    for (i, &bin_op_idx) in indices.iter().enumerate() {
-        let num_idx = num_inds[i];
-        let num_1 = numbers[num_idx];
-        let num_2 = numbers[num_idx + 1];
-        numbers[num_idx] = (expr.bin_ops[bin_op_idx].op)(num_1, num_2);
-        numbers.remove(num_idx + 1);
-        // reduce indices after removed position
-        for num_idx_after in num_inds.iter_mut() {
-            if *num_idx_after > num_idx {
-                *num_idx_after = *num_idx_after - 1;
+impl<T: Copy + std::fmt::Debug> Expression<T> {
+    
+    /// Evaluates an expression with the given variable values and returns the computed result.
+    ///
+    /// # Arguments
+    ///
+    /// * `expr` - expression to be evaluated
+    /// * `vars` - values of the variables of the expression, the n-th value corresponds to
+    ///            the n-th variable as given in the string that has been parsed to this expression.
+    ///            Thereby, only the first occurrence of the variable in the string is relevant.
+    ///
+    pub fn eval(&self, vars: &[T]) -> T {
+        let indices = prioritized_indices(&self.bin_ops);
+        let mut numbers = self
+            .nodes
+            .iter()
+            .map(|n| match n {
+                Node::Expr(e) => e.eval(&vars),
+                Node::Num(n) => *n,
+                Node::Var(idx) => vars[*idx],
+            })
+            .collect::<Vec<T>>();
+        let mut num_inds = indices.clone();
+        for (i, &bin_op_idx) in indices.iter().enumerate() {
+            let num_idx = num_inds[i];
+            let num_1 = numbers[num_idx];
+            let num_2 = numbers[num_idx + 1];
+            numbers[num_idx] = (self.bin_ops[bin_op_idx].op)(num_1, num_2);
+            numbers.remove(num_idx + 1);
+            // reduce indices after removed position
+            for num_idx_after in num_inds.iter_mut() {
+                if *num_idx_after > num_idx {
+                    *num_idx_after = *num_idx_after - 1;
+                }
             }
         }
+        apply_unary_ops(&self.unary_ops, numbers[0])
     }
-    apply_unary_ops(&expr.unary_ops, numbers[0])
 }
 
 #[cfg(test)]
