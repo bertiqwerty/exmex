@@ -359,6 +359,9 @@ mod tests {
             4.4816890703380645,
         );
         assert_float_eq_f64(eval_str(&"log2(2)").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str(&"2^log2(2)").unwrap(), 2.0);
+        assert_float_eq_f64(eval_str(&"2^(cos(0)+2)").unwrap(), 8.0);
+        assert_float_eq_f64(eval_str(&"2^cos(0)+2").unwrap(), 4.0);
     }
 
     #[test]
