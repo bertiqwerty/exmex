@@ -8,7 +8,8 @@ Users can define their own operators and work with non-float data.
 Add
 ```
 [dependencies]
-exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" } 
+# ...
+exmex = "0.4.0"
 ```
 to your `Cargo.toml`.
 
