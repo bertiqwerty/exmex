@@ -10,14 +10,15 @@
 //! #
 //! use exexpress::{eval_expr, parse, BinOp, Operator};
 //! let custom_ops = vec![
+//! 
 //!     Operator {
-//!         repr:"**",
+//!         repr:"**",  // Python-fans can use ** instead of ^ for power
 //!         bin_op: Some(BinOp{op: |a: f32, b| a.powf(b), prio: 2}),
 //!         unary_op: None
 //!     },
 //!     Operator {
-//!         repr: "*",
-//!         bin_op: Some(BinOp{op: |a, b| a * b, prio: 1}),
+//!         repr: r"_|",
+//!         bin_op: Some(BinOp{op: |a, b| a.hypot(b), prio: 1}),
 //!         unary_op: None
 //!     },
 //!     Operator {
@@ -26,8 +27,10 @@
 //!         unary_op: Some(|a: f32| 1.0/a )
 //!     },
 //! ];
-//! let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
-//! assert!((eval_expr::<f32>(&expr, &vec![]) - (4.0/3.0 as f32)).abs() < 1e-6);
+//! let expr = parse::<f32>(r"2**2_|invert(3)", custom_ops).unwrap();
+//! let result = eval_expr::<f32>(&expr, &vec![]);
+//! let reference = ((4.0 as f32).powf(2.0) + (1.0 / 3.0 as f32).powf(2.0)).sqrt(); 
+//! assert!((result - reference).abs() < 1e-6);
 //! #
 //! #     Ok(())
 //! # }
