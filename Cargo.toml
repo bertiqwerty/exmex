@@ -10,9 +10,11 @@ homepage = "https://github.com/bertiqwerty/exmex/"
 readme = "README.md"
 keywords = ["math", "parse", "parser", "mathematical", "expression", "eval", "evaluator", "formula"]
 categories = ["parser-implementations"]
+include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 regex = "1"
 num = "0.4"
 itertools = "0.10.1"
+
  
