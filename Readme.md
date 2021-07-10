@@ -46,7 +46,8 @@ let result = eval_expr::<f32>(&expr, &[0.25]);  // 2.0
 ```
 
 ## Documentation
-More documentation and examples can be generated via
+More documentation and examples also with integer and boolean data types can be 
+generated via
 ```
 cargo doc
 ```
