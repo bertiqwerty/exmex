@@ -24,7 +24,7 @@ use num::Float;
 /// ```
 ///
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct Operator<'a, T: Copy> {
+pub struct Operator<'a, T> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     pub repr: &'a str,
     /// Binary operator that contains a priority besides a function pointer, if available.
@@ -36,7 +36,7 @@ pub struct Operator<'a, T: Copy> {
 
 /// A binary operator that consists of a function pointer and a priority.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct BinOp<T: Copy> {
+pub struct BinOp<T> {
     /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
     pub op: fn(T, T) -> T,
     /// Priority of the binary operation. A binary operation with a
