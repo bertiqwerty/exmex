@@ -15,7 +15,7 @@ to your `Cargo.toml`.
 ## Basic Usage
 To simply parse a string there is
 ```
-let result = eval_str::<f32>("sin(73)");
+let result = eval_str("sin(73)");
 ```
 To create an expression with variables that represents a mathematical function you can
 use curly brackets as in
@@ -33,16 +33,16 @@ let ops = vec![
     Operator {
         repr: "invert",
         bin_op: None,
-        unary_op: Some(|a: f32| 1.0 / a),
+        unary_op: Some(|a: f64| 1.0 / a),
     },
     Operator {
         repr: "sqrt",
         bin_op: None,
-        unary_op: Some(|a: f32| a.sqrt()),
+        unary_op: Some(|a: f64| a.sqrt()),
     },
 ];
-let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
-let result = eval_expr::<f32>(&expr, &[0.25]);  // 2.0
+let expr = parse::<f64>("sqrt(invert({a}))", ops)?;
+let result = eval_expr::<f64>(&expr, &[0.25]);  // 2.0
 ```
 
 ## Documentation
