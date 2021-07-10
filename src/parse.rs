@@ -203,11 +203,11 @@ where
                 }
             },
             ParsedToken::Var(name) => {
-                let expr = Expression {
-                    nodes: vec![Node::Var(find_var_index(&name))],
-                    bin_ops: vec![],
-                    unary_ops: uops,
-                };
+                let expr = Expression::new(
+                    vec![Node::Var(find_var_index(&name))],
+                    vec![],
+                    uops,
+                )?;
                 Ok((Node::Expr(expr), n_uops + 1))
             }
             ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
@@ -217,11 +217,8 @@ where
         }
     };
 
-    let mut result = Expression::<T> {
-        bin_ops: Vec::<BinOp<T>>::new(),
-        nodes: Vec::<Node<T>>::new(),
-        unary_ops,
-    };
+    let mut bin_ops = Vec::<BinOp<T>>::new();
+    let mut nodes = Vec::<Node<T>>::new();
 
     // The main loop checks one token after the next whereby sub-expressions are
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
@@ -231,7 +228,7 @@ where
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(b) => match b.unary_op {
                 None => {
-                    result.bin_ops.push(unpack_binop(b.bin_op)?);
+                    bin_ops.push(unpack_binop(b.bin_op)?);
                     idx_tkn += 1;
                 }
                 Some(uo) => {
@@ -239,14 +236,14 @@ where
                     if idx_tkn == 0 {
                         // if the first element is an operator it must be unary
                         let (node, idx_forward) = process_unary(idx_tkn, uo)?;
-                        result.nodes.push(node);
+                        nodes.push(node);
                         idx_tkn += idx_forward;
                     } else {
                         // decide type of operator based on predecessor
                         match &parsed_tokens[idx_tkn - 1] {
                             ParsedToken::Num(_) | ParsedToken::Var(_) => {
                                 // number or variable as predecessor means binary operator
-                                result.bin_ops.push(unpack_binop(b.bin_op)?);
+                                bin_ops.push(unpack_binop(b.bin_op)?);
                                 idx_tkn += 1;
                             }
                             ParsedToken::Paren(p) => match p {
@@ -257,13 +254,13 @@ where
                                     return Err(ExParseError { msg: msg });
                                 }
                                 Paren::Close => {
-                                    result.bin_ops.push(unpack_binop(b.bin_op)?);
+                                    bin_ops.push(unpack_binop(b.bin_op)?);
                                     idx_tkn += 1;
                                 }
                             },
                             ParsedToken::Op(_) => {
                                 let (node, idx_forward) = process_unary(idx_tkn, uo)?;
-                                result.nodes.push(node);
+                                nodes.push(node);
                                 idx_tkn += idx_forward;
                             }
                         }
@@ -271,11 +268,11 @@ where
                 }
             },
             ParsedToken::Num(n) => {
-                result.nodes.push(Node::Num(*n));
+                nodes.push(Node::Num(*n));
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                result.nodes.push(Node::Var(find_var_index(&name)));
+                nodes.push(Node::Var(find_var_index(&name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {
@@ -283,7 +280,7 @@ where
                     idx_tkn += 1;
                     let (expr, i_forward) =
                         make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, vec![])?;
-                    result.nodes.push(Node::Expr(expr));
+                    nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
                 Paren::Close => {
@@ -293,7 +290,7 @@ where
             },
         }
     }
-    Ok((result, idx_tkn))
+    Ok((Expression::new(nodes, bin_ops, unary_ops)?, idx_tkn))
 }
 
 /// Tries to give useful error messages for invalid constellations of the parsed tokens

@@ -1,4 +1,4 @@
-use crate::{operators::BinOp, util::apply_unary_ops};
+use crate::{ExParseError, operators::BinOp, util::apply_unary_ops};
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
@@ -47,16 +47,16 @@ pub enum Node<T: Copy> {
 /// #
 /// use exmex::{BinOp, Expression, Node};
 /// // create an expression directly
-/// let expr_directly = Expression {
-///     bin_ops: vec![
+/// let expr_directly = Expression::new(
+///     vec![Node::Num(1.0), Node::Var(0)],
+///     vec![
 ///         BinOp {
 ///             op: |a: f32, b: f32| a + b,
 ///             prio: 0
 ///         }
 ///     ],
-///     nodes: vec![Node::Num(1.0), Node::Var(0)],
-///     unary_ops: vec![|a: f32| a.sin()]
-/// };
+///     vec![|a: f32| a.sin()]
+/// )?;
 /// let result_directly = expr_directly.eval(&[2.0]);
 /// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
 /// #
@@ -66,13 +66,13 @@ pub enum Node<T: Copy> {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Expression<T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
-    pub nodes: Vec<Node<T>>,
+    nodes: Vec<Node<T>>,
     /// Binary operators applied to the nodes according to their priority.
-    pub bin_ops: Vec<BinOp<T>>,
+    bin_ops: Vec<BinOp<T>>,
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
-    pub unary_ops: Vec<fn(T) -> T>,
+    unary_ops: Vec<fn(T) -> T>,
 }
 
 fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
@@ -82,7 +82,6 @@ fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
 }
 
 impl<T: Copy + std::fmt::Debug> Expression<T> {
-    
     /// Evaluates an expression with the given variable values and returns the computed result.
     ///
     /// # Arguments
@@ -118,6 +117,25 @@ impl<T: Copy + std::fmt::Debug> Expression<T> {
             }
         }
         apply_unary_ops(&self.unary_ops, numbers[0])
+    }
+
+    /// Creates a flat expression, i.e., without any kind of recursion, and checks 
+    /// whether the number of nodes is by one larger than the number of binary 
+    /// operators. 
+    pub fn new(
+        nodes: Vec<Node<T>>,
+        bin_ops: Vec<BinOp<T>>,
+        unary_ops: Vec<fn(T) -> T>,
+    ) -> Result<Expression<T>, ExParseError> {
+        if nodes.len() != bin_ops.len() + 1 {
+            Err(ExParseError{msg: "mismatch between number of nodes and binary operators".to_string()})
+        } else {
+            Ok(Expression {
+                nodes: nodes,
+                bin_ops: bin_ops,
+                unary_ops: unary_ops,
+            })
+        }
     }
 }
 
