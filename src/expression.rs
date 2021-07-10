@@ -1,22 +1,21 @@
-use num::Float;
-
 use crate::{operators::BinOp, util::apply_unary_ops};
+use num::Float;
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
-#[derive(Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Node<T: Float> {
     Expr(Expression<T>),
     Num(T),
-    /// The contained integer points to the index of the variable in the slice of 
+    /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval_expr`](eval_expr).
     Var(usize),
 }
 
-/// Core data type and the result of parsing a string. 
-/// 
-/// Usually, you would create an expression with the `parse` function. 
-/// 
+/// Core data type and the result of parsing a string.
+///
+/// Usually, you would create an expression with the `parse` function.
+///
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -25,21 +24,21 @@ pub enum Node<T: Float> {
 ///
 /// // create an expression by parsing a string
 /// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})")?;
-/// let result_parsed = eval_expr::<f32>(&expr_parsed, &[2.0]); 
+/// let result_parsed = eval_expr::<f32>(&expr_parsed, &[2.0]);
 /// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument &[2.0] in the call of `eval_expr` specifies the we want to 
+/// The second argument &[2.0] in the call of `eval_expr` specifies the we want to
 /// evaluate the expression for the value 2.0 of our only variable `{x}`. Variables need
 /// to be within curly brackets in the string to-be-parsed.
 ///
 /// You can also create the expression directly. In this case you have to make sure that
 /// you have `n+1` nodes for `n` binary operators. The binary operators are
 /// applied to the nodes. The order in the `nodes`-vector determines
-/// for which binary operator a node is used as input. More precisely, 
-/// nodes `i` and `i+1` are the input of the binary operator `i` with the highest 
+/// for which binary operator a node is used as input. More precisely,
+/// nodes `i` and `i+1` are the input of the binary operator `i` with the highest
 /// priority. After the calculation with the highest priority, the result is put into
 /// a node, the number of nodes an operators is reduced by 1 and the operator with
 /// the next highest priority is considered, etc.
@@ -65,9 +64,9 @@ pub enum Node<T: Float> {
 /// #     Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Expression<T: Float> {
-    /// Nodes can be numbers, variables, or other expressions. 
+    /// Nodes can be numbers, variables, or other expressions.
     pub nodes: Vec<Node<T>>,
     /// Binary operators applied to the nodes according to their priority.
     pub bin_ops: Vec<BinOp<T>>,

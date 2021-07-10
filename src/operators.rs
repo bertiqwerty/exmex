@@ -23,7 +23,7 @@ use num::Float;
 /// ];
 /// ```
 ///
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Copy> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     pub repr: &'a str,
@@ -35,7 +35,7 @@ pub struct Operator<'a, T: Copy> {
 }
 
 /// A binary operator that consists of a function pointer and a priority.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOp<T: Copy> {
     pub op: fn(T, T) -> T,
     pub prio: i16,
