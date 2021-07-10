@@ -9,6 +9,8 @@ use std::fmt;
 use std::iter::once;
 use std::str::FromStr;
 
+const NUMBER_REGEX_PATTERN: &str = r"\.?[0-9]+(\.[0-9]+)?";
+
 /// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
 #[derive(Debug)]
@@ -46,6 +48,7 @@ enum ParsedToken<'a, T: Copy + FromStr> {
 fn apply_regexes<'a, T: Copy + FromStr>(
     text: &str,
     ops_in: Vec<Operator<'a, T>>,
+    number_regex_pattern: &str,
 ) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
@@ -68,13 +71,12 @@ where
         })
         .collect::<Vec<_>>()
         .join("|");
-    let pattern_nums = r"\.?[0-9]+(\.[0-9]+)?";
     let pattern_var = r"\{[a-zA-Z_]+[a-zA-Z_0-9]*\}";
     let pattern_parens = r"\(|\)";
     let patterns = [
         pattern_var,
         pattern_ops.as_str(),
-        pattern_nums,
+        number_regex_pattern,
         pattern_parens,
     ];
     let pattern_any = patterns.join("|");
@@ -411,7 +413,21 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
     T: Copy + FromStr + std::fmt::Debug,
 {
-    let parsed_tokens = apply_regexes::<T>(text, ops)?;
+    parse_with_number_pattern::<T>(text, ops, NUMBER_REGEX_PATTERN)
+}
+
+/// Parses a string and a vector of operators and a regex pattern that defines the looks
+/// of a number into an expression that can be evaluated.
+pub fn parse_with_number_pattern<'a, T>(
+    text: &str,
+    ops: Vec<Operator<'a, T>>,
+    number_regex_pattern: &str,
+) -> Result<Expression<T>, ExParseError>
+where
+    <T as std::str::FromStr>::Err: std::fmt::Debug,
+    T: Copy + FromStr + std::fmt::Debug,
+{
+    let parsed_tokens = apply_regexes::<T>(text, ops, number_regex_pattern)?;
     let parsed_vars = parsed_tokens
         .iter()
         .filter_map(|pt| match pt {
@@ -438,7 +454,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse::{apply_regexes, check_preconditions, make_default_operators},
+        parse::{apply_regexes, check_preconditions, make_default_operators, NUMBER_REGEX_PATTERN},
         ExParseError,
     };
 
@@ -446,7 +462,7 @@ mod tests {
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = apply_regexes::<f32>(text, ops);
+        let elts = apply_regexes::<f32>(text, ops, NUMBER_REGEX_PATTERN);
         assert!(elts.is_err());
     }
 
@@ -463,7 +479,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = apply_regexes::<f32>(text, ops);
+            let elts = apply_regexes::<f32>(text, ops, NUMBER_REGEX_PATTERN);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);

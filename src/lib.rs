@@ -51,20 +51,63 @@
 //!     },
 //! ];
 //! let to_be_parsed = "19 % 5 / 2";
-//! let expr = parse::<i32>(to_be_parsed, ops).unwrap();
+//! let expr = parse::<i32>(to_be_parsed, ops)?;
 //! assert_eq!(eval_expr::<i32>(&expr, &[1, 0]), 2);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
+//!
+//! ### Operators
+//!
 //! Operators are instances of the struct
-//! [`Operator`](Operator) that has its representation, a binary and a unary operator of
-//! type `Option<BinOp<T>>` and `Option<fn(T) -> T>`, respectively, as members. `BinOp`
-//! contains in addition to the operator of type `fn(T, T) -> T` a priority. Operators
+//! [`Operator`](Operator) that has its representation in the field 
+//! [`repr`](Operator::repr), a binary and a unary operator of
+//! type [`Option<BinOp<T>>`](Operator::bin_op) and 
+//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as 
+//! members. [`BinOp`](BinOp)
+//! contains in addition to the operator [`op`](BinOp::op) of type `fn(T, T) -> T` an 
+//! integer [`prio`](BinOp::prio). Operators
 //! can be both, binary and unary such as `-` as defined in the list of default
 //! operators. Note that we expect a unary operator to be always on the left of a
-//! number. Further, we expect the data type of the numbers to be floating point, e.g.,
-//! `f16` or `f64`.
+//! number.
+//!
+//! ### Data Types of Numbers
+//!
+//! You can use any type that implements [`Copy`](core::marker::Copy) and 
+//! [`FromStr`](std::str::FromStr). In case you do not pass a number that matches the 
+//! regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a suitable regex and use the 
+//! function [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
+//! [`parse`](parse::parse). Here is an example for `bool`.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exexpress::{eval_expr, parse_with_number_pattern, BinOp, Operator};
+//! let ops = vec![
+//!     Operator {
+//!         repr: "&&",
+//!         bin_op: Some(BinOp{op: |a: bool, b: bool| a && b, prio: 1}),
+//!         unary_op: None,
+//!     },
+//!     Operator {
+//!         repr: "||",
+//!         bin_op: Some(BinOp{op: |a: bool, b: bool| a || b, prio: 1}),
+//!         unary_op: None,
+//!     },
+//!     Operator {
+//!         repr: "!",
+//!         bin_op: None,
+//!         unary_op: Some(|a: bool| !a),
+//!     },
+//! ];
+//! let to_be_parsed = "!(true && false)";
+//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops, "(true|false)")?;
+//! assert_eq!(eval_expr::<bool>(&expr, &[]), true);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //!
 //! ## Priorities and Parentheses
 //! In Exexpress-land, unary operators always have higher priority than binary operators, e.g.,
@@ -80,7 +123,7 @@ mod util;
 
 pub use expression::{eval_expr, Expression, Node};
 
-pub use parse::{parse, parse_with_default_ops, ExParseError};
+pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
 
 pub use operators::{make_default_operators, BinOp, Operator};
 
@@ -99,29 +142,39 @@ mod tests {
         eval_str,
         expression::eval_expr,
         operators::{make_default_operators, BinOp, Operator},
-        parse::parse,
+        parse::{parse, parse_with_number_pattern},
         util::{assert_float_eq_f32, assert_float_eq_f64},
     };
 
     #[test]
-    fn test_integer () {
+    fn test_bool() {
         let ops = vec![
             Operator {
-                repr: "%",
-                bin_op: Some(BinOp{op: |a: i32, b: i32| a % b, prio: 1}),
+                repr: "&&",
+                bin_op: Some(BinOp {
+                    op: |a: bool, b: bool| a && b,
+                    prio: 1,
+                }),
                 unary_op: None,
             },
             Operator {
-                repr: "/",
-                bin_op: Some(BinOp{op: |a: i32, b: i32| a / b, prio: 1}),
+                repr: "||",
+                bin_op: Some(BinOp {
+                    op: |a: bool, b: bool| a || b,
+                    prio: 1,
+                }),
                 unary_op: None,
             },
+            Operator {
+                repr: "!",
+                bin_op: None,
+                unary_op: Some(|a: bool| !a),
+            },
         ];
-        let to_be_parsed = "19 % 5 / 2";
-        let expr = parse::<i32>(to_be_parsed, ops).unwrap();
-        assert_eq!(eval_expr::<i32>(&expr, &[1, 0]), 2);
+        let to_be_parsed = "!(true && false)";
+        let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops, "(true|false)").unwrap();
+        assert_eq!(eval_expr::<bool>(&expr, &[]), true);
     }
-
     #[test]
     fn test_variables() {
         let operators = make_default_operators::<f32>();

@@ -37,7 +37,12 @@ pub struct Operator<'a, T: Copy> {
 /// A binary operator that consists of a function pointer and a priority.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOp<T: Copy> {
+    /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
     pub op: fn(T, T) -> T,
+    /// Priority of the binary operation. A binary operation with a
+    /// higher number will be executed first. For instance, in a sane world `*`
+    /// has a higher priority than `+`. However, in Exexpress land you could also define
+    /// this differently.
     pub prio: i16,
 }
 
