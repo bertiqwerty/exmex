@@ -61,12 +61,12 @@
 //! ### Operators
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator) that has its representation in the field 
+//! [`Operator`](Operator) that has its representation in the field
 //! [`repr`](Operator::repr), a binary and a unary operator of
-//! type [`Option<BinOp<T>>`](Operator::bin_op) and 
-//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as 
+//! type [`Option<BinOp<T>>`](Operator::bin_op) and
+//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as
 //! members. [`BinOp`](BinOp)
-//! contains in addition to the operator [`op`](BinOp::op) of type `fn(T, T) -> T` an 
+//! contains in addition to the operator [`op`](BinOp::op) of type `fn(T, T) -> T` an
 //! integer [`prio`](BinOp::prio). Operators
 //! can be both, binary and unary such as `-` as defined in the list of default
 //! operators. Note that we expect a unary operator to be always on the left of a
@@ -74,9 +74,9 @@
 //!
 //! ### Data Types of Numbers
 //!
-//! You can use any type that implements [`Copy`](core::marker::Copy) and 
-//! [`FromStr`](std::str::FromStr). In case you do not pass a number that matches the 
-//! regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a suitable regex and use the 
+//! You can use any type that implements [`Copy`](core::marker::Copy) and
+//! [`FromStr`](std::str::FromStr). In case you do not pass a number that matches the
+//! regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a suitable regex and use the
 //! function [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
 //! [`parse`](parse::parse). Here is an example for `bool`.
 //! ```rust
@@ -142,38 +142,39 @@ mod tests {
         eval_str,
         expression::eval_expr,
         operators::{make_default_operators, BinOp, Operator},
-        parse::{parse, parse_with_number_pattern},
+        parse::parse,
+        parse_with_default_ops,
         util::{assert_float_eq_f32, assert_float_eq_f64},
+        ExParseError,
     };
 
     #[test]
-    fn test_bool() {
-        let ops = vec![
-            Operator {
-                repr: "&&",
-                bin_op: Some(BinOp {
-                    op: |a: bool, b: bool| a && b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "||",
-                bin_op: Some(BinOp {
-                    op: |a: bool, b: bool| a || b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "!",
-                bin_op: None,
-                unary_op: Some(|a: bool| !a),
-            },
-        ];
-        let to_be_parsed = "!(true && false)";
-        let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops, "(true|false)").unwrap();
-        assert_eq!(eval_expr::<bool>(&expr, &[]), true);
+    fn test_readme() {
+        fn readme() -> Result<f32, ExParseError> {
+            let result = eval_str("sin(73)")?;
+            assert_float_eq_f64(result, 73f64.sin());
+            let expr = parse_with_default_ops::<f64>("2*{x}^3-4/{z}")?;
+
+            let value = eval_expr::<f64>(&expr, &[5.3, 0.5]);
+            assert_float_eq_f64(value, 289.75399999999996);
+            let ops = vec![
+                Operator {
+                    repr: "invert",
+                    bin_op: None,
+                    unary_op: Some(|a: f32| 1.0 / a),
+                },
+                Operator {
+                    repr: "sqrt",
+                    bin_op: None,
+                    unary_op: Some(|a: f32| a.sqrt()),
+                },
+            ];
+            let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
+            let result = eval_expr::<f32>(&expr, &[0.25]);
+            assert_float_eq_f32(result, 2.0);
+            Ok(result)
+        }
+        assert!(!readme().is_err());
     }
     #[test]
     fn test_variables() {
