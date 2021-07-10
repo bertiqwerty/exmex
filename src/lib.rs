@@ -9,10 +9,29 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! ## Extendability
 //! For floats, we have a list of predifined operators, namely
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. These are
 //! defined in [`make_default_operators`](make_default_operators).
+//!
+//! ## Variables
+//! For variables we can use curly brackets as shown in the following expression.
+//! Variables' values are passed as slices to [`eval_expr`](eval_expr).
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exexpress::{eval_expr, make_default_operators, parse};
+//! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
+//! let expr = parse::<f64>(to_be_parsed, make_default_operators::<f64>())?;
+//! assert!((eval_expr::<f64>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f64).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
+//! first occurence of the variables is relevant. In this example, we have `x=2.5` and `y=3.7`.
+//!
+//! ## Extendability
 //! Library users can also define a different set of operators as shown in the following.
 //! ```rust
 //! # use std::error::Error;
@@ -53,23 +72,6 @@
 //! For instance `"---1"` will evalute to `-1`.
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
-//! ## Variables
-//! To add variables we can use curly brackets as shown in the following expression.
-//! Variables' values are passed as slices to [`eval_expr`](eval_expr).
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exexpress::{eval_expr, make_default_operators, parse};
-//! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
-//! let expr = parse::<f64>(to_be_parsed, make_default_operators::<f64>())?;
-//! assert!((eval_expr::<f64>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f64).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
-//! first occurence of the variables is relevant. In this example, we have `x=2.5` and `y=3.7`.
 
 mod expression;
 mod operators;
