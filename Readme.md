@@ -47,7 +47,7 @@ let result = expr.eval(&[0.25]);
 ```
 
 ## Documentation
-More documentation and examples also with integer and boolean data types can be generated via
+More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/0.4.0](https://docs.rs/exmex/0.4.0) or generated via
 ```
 cargo doc
 ```
