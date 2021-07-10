@@ -1,6 +1,6 @@
 # Exmex
 
-Exmex parses and evaluates mathematical expressions. Thereby, library users can
+Exmex is an **EX**tendable **M**athematical **EX**pression evaluator. Users can
 define their own unary and binary operators.
 
 ## Installation
