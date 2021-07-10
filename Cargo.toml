@@ -8,7 +8,7 @@ description = "Exmex is an EXtendable Mathematical EXpression evaluator. Users c
 repository = "https://github.com/bertiqwerty/exmex/"
 homepage = "https://github.com/bertiqwerty/exmex/"
 readme = "README.md"
-keywords = ["math", "parse", "parser", "mathematical", "expression", "eval", "evaluator", "formula"]
+keywords = ["math", "parser", "expression", "eval", "formula"]
 categories = ["parser-implementations"]
 include = ["**/*.rs", "Cargo.toml"]
 
