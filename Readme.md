@@ -1,7 +1,7 @@
 # Exmex
 
-Exmex is an **EX**tendable **M**athematical **EX**pression evaluator. Users can
-define their own unary and binary operators.
+Exmex is an **EX**tendable **M**athematical **EX**pression evaluator.  
+Users can define their own operators and work with non-float data.
 
 ## Installation
 
@@ -13,7 +13,7 @@ exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
 to your `Cargo.toml`.
 
 ## Basic Usage
-To simply parse a string there is
+To simply evaluate a string there is
 ```rust
 let result = eval_str("sin(73)")?;
 ```
