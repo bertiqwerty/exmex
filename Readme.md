@@ -1,3 +1,5 @@
+[![Crate](https://img.shields.io/crates/v/exmex.svg)](https://crates.io/crates/exmex)
+[![API](https://docs.rs/exmex/badge.svg)](https://docs.rs/exmex)
 # Exmex
 
 Exmex is an **EX**tendable **M**athematical **EX**pression evaluator.  
