@@ -3,8 +3,11 @@ name = "exexpress"
 version = "0.2.0"
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+description = "Exexpress parses and evaluates mathematical expressions. Thereby, library users can define their own unary and binary operators."
+repository = "https://github.com/bertiqwerty/exexpress/"
+readme = "README.md"
+keywords = ["math", "parse", "parser", "mathematical", "expression", "eval", "evaluator", "formula"]
 
 [dependencies]
 regex = "1"
