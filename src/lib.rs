@@ -102,8 +102,8 @@
 //!         unary_op: Some(|a: bool| !a),
 //!     },
 //! ];
-//! let to_be_parsed = "!(true && false)";
-//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops, "(true|false)")?;
+//! let to_be_parsed = "!(true && false) || (!false || (true && false))";
+//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops.clone(), "true|false")?;
 //! assert_eq!(expr.eval(&[]), true);
 //! #
 //! #     Ok(())
