@@ -1,7 +1,7 @@
 use crate::expression::{Expression, Node};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::apply_unary_ops;
-use itertools::Itertools;
+use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
 use std::error::Error;
@@ -9,7 +9,7 @@ use std::fmt;
 use std::iter::once;
 use std::str::FromStr;
 
-/// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an 
+/// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
 #[derive(Debug)]
 pub struct ExParseError {
@@ -43,7 +43,10 @@ enum ParsedToken<'a, T: Float + FromStr> {
 /// * `text` - text to be parsed
 /// * `ops_in` - vector of operator-pairs
 ///
-fn apply_regexes<'a, T: Float + FromStr>(text: &str, ops_in: Vec<Operator<'a, T>>) -> Vec<ParsedToken<'a, T>>
+fn apply_regexes<'a, T: Float + FromStr>(
+    text: &str,
+    ops_in: Vec<Operator<'a, T>>,
+) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
 {
@@ -79,37 +82,54 @@ where
 
     let which_one = RegexSet::new(&patterns).unwrap();
 
-    any.captures_iter(text)
+    let captures = any
+        .captures_iter(text)
         .map(|c| c[0].to_string())
-        .map(|elt_string| {
-            let elt_str = elt_string.as_str();
-            let matches = which_one.matches(elt_str);
-            if matches.matched(0) {
-                ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
-            } else if matches.matched(1) {
-                let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
-                ParsedToken::<T>::Op(match wrapped_op {
-                    Some(op) => *op,
-                    None => {
-                        panic!("Could not find operator {}.", elt_str);
-                    }
-                })
-            } else if matches.matched(2) {
-                ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
-            } else if matches.matched(3) {
-                let c = elt_str.chars().next().unwrap();
-                ParsedToken::<T>::Paren(if c == '(' {
-                    Paren::Open
-                } else if c == ')' {
-                    Paren::Close
+        .collect::<Vec<_>>();
+
+    let capture_check_string = captures.join("");
+    let unparsed_check = izip!(
+        capture_check_string.chars(),
+        text.chars().filter(|c| *c != ' ')
+    )
+    .find(|(cap, txt)| cap != txt && *txt != ' ');
+
+    match unparsed_check {
+        Some(chars) => Err(ExParseError {
+            msg: format!("unparsed character '{}'", chars.1),
+        }),
+        None => Ok(captures
+            .iter()
+            .map(|elt_string| {
+                let elt_str = elt_string.as_str();
+                let matches = which_one.matches(elt_str);
+                if matches.matched(0) {
+                    ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
+                } else if matches.matched(1) {
+                    let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
+                    ParsedToken::<T>::Op(match wrapped_op {
+                        Some(op) => *op,
+                        None => {
+                            panic!("Could not find operator {}.", elt_str);
+                        }
+                    })
+                } else if matches.matched(2) {
+                    ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
+                } else if matches.matched(3) {
+                    let c = elt_str.chars().next().unwrap();
+                    ParsedToken::<T>::Paren(if c == '(' {
+                        Paren::Open
+                    } else if c == ')' {
+                        Paren::Close
+                    } else {
+                        panic!("Paren {} is neither ( nor ). Check the paren-regex.", c);
+                    })
                 } else {
-                    panic!("Paren {} is neither ( nor ). Check the paren-regex.", c);
-                })
-            } else {
-                panic!("Internal regex mismatch!");
-            }
-        })
-        .collect()
+                    panic!("Internal regex mismatch!");
+                }
+            })
+            .collect()),
+    }
 }
 
 /// Returns an expression that is created recursively and can be evaluated
@@ -229,8 +249,9 @@ where
                             }
                             ParsedToken::Paren(p) => match p {
                                 Paren::Open => {
-                                    let msg = "Opening parenthesis next to operator must not occur here."
-                                        .to_string();
+                                    let msg =
+                                        "Opening parenthesis next to operator must not occur here."
+                                            .to_string();
                                     return Err(ExParseError { msg: msg });
                                 }
                                 Paren::Close => {
@@ -285,17 +306,17 @@ where
 {
     if parsed_tokens.len() == 0 {
         return Err(ExParseError {
-            msg: "Cannot parse empty string.".to_string(),
+            msg: "cannot parse empty string".to_string(),
         });
     };
     let num_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
-            msg: "A number/variable cannot be next to a number/variable.".to_string(),
+            msg: "a number/variable cannot be next to a number/variable".to_string(),
         }),
         ParsedToken::Paren(p) => {
             if p == &forbidden {
                 Err(ExParseError {
-                    msg: "Wlog, a number/variable cannot be on the right of a closing parenthesis."
+                    msg: "wlog a number/variable cannot be on the right of a closing parenthesis"
                         .to_string(),
                 })
             } else {
@@ -308,7 +329,7 @@ where
         ParsedToken::Op(op) => {
             if op.unary_op == None {
                 Err(ExParseError {
-                    msg: "A binary operator cannot be next to a binary operator.".to_string(),
+                    msg: "a binary operator cannot be next to a binary operator".to_string(),
                 })
             } else {
                 Ok(0)
@@ -320,7 +341,7 @@ where
         ParsedToken::Paren(p) => {
             if p == &forbidden {
                 Err(ExParseError {
-                    msg: "Wlog an opening paren cannot be next to a closing paren.".to_string(),
+                    msg: "wlog an opening paren cannot be next to a closing paren".to_string(),
                 })
             } else {
                 Ok(0)
@@ -356,7 +377,7 @@ where
                     };
                     if open_paren_cnt < 0 {
                         return Err(ExParseError {
-                            msg: format!("To many closing parentheses until position {}.", i)
+                            msg: format!("too many closing parentheses until position {}", i)
                                 .to_string(),
                         });
                     }
@@ -368,7 +389,7 @@ where
                         Ok(0)
                     } else {
                         Err(ExParseError {
-                            msg: "The last element cannot be an operator.".to_string(),
+                            msg: "the last element cannot be an operator".to_string(),
                         })
                     }
                 }
@@ -377,7 +398,7 @@ where
         .collect::<Result<Vec<_>, _>>()?;
     if open_paren_cnt != 0 {
         Err(ExParseError {
-            msg: "Parentheses mismatch.".to_string(),
+            msg: "parentheses mismatch".to_string(),
         })
     } else {
         Ok(0)
@@ -390,7 +411,7 @@ where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
     T: Float + FromStr + std::fmt::Debug,
 {
-    let parsed_tokens = apply_regexes::<T>(text, ops);
+    let parsed_tokens = apply_regexes::<T>(text, ops)?;
     let parsed_vars = parsed_tokens
         .iter()
         .filter_map(|pt| match pt {
@@ -416,34 +437,54 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::parse::{apply_regexes, check_preconditions, make_default_operators};
+    use crate::{
+        parse::{apply_regexes, check_preconditions, make_default_operators},
+        ExParseError,
+    };
+
+    #[test]
+    fn test_apply_regexes() {
+        let text = r"5\6";
+        let ops = make_default_operators::<f32>();
+        let elts = apply_regexes::<f32>(text, ops);
+        assert!(elts.is_err());
+    }
 
     #[test]
     fn test_preconditions() {
         fn test(text: &str, msg_part: &str) {
+            fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
+                match err {
+                    Ok(_) => assert!(false),
+                    Err(e) => {
+                        println!("{}", e.msg);
+                        assert!(e.msg.contains(msg_part));
+                    }
+                }
+            }
             let ops = make_default_operators::<f32>();
             let elts = apply_regexes::<f32>(text, ops);
-            let err = check_preconditions(&elts[..]);
-            match err {
-                Ok(_) => assert!(false),
-                Err(e) => {
-                    println!("{}", e.msg);
-                    assert!(e.msg.contains(msg_part));
+            match elts {
+                Ok(elts_unwr) => {
+                    let err = check_preconditions(&elts_unwr[..]);
+                    check_err_msg(err, msg_part);
                 }
+                Err(_) => check_err_msg(elts, msg_part),
             }
         }
 
-        test("", "empty string.");
-        test("++", "The last element cannot be an operator.");
+        test("", "empty string");
+        test("++", "the last element cannot be an operator");
         test(
-            "{12} (",
-            "Wlog, a number/variable cannot be on the right of a closing paren",
+            "{a12} (",
+            "wlog a number/variable cannot be on the right of a closing paren",
         );
         test("++)", "closing parentheses until");
         test(")12-(1+1) / (", "closing parentheses until position");
-        test("12-()+(", "Wlog an opening paren");
-        test("12-() ())", "Wlog an opening paren");
+        test("12-()+(", "wlog an opening paren");
+        test("12-() ())", "wlog an opening paren");
         test("12-(3-4)*2+ (1/2))", "closing parentheses until");
-        test("12-(3-4)*2+ ((1/2)", "Parentheses mismatch.");
+        test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
+        test(r"5\6", r"unparsed character '\'");
     }
 }
