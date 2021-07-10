@@ -1,10 +1,9 @@
 use crate::{operators::BinOp, util::apply_unary_ops};
-use num::Float;
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum Node<T: Float> {
+pub enum Node<T: Copy> {
     Expr(Expression<T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
@@ -65,7 +64,7 @@ pub enum Node<T: Float> {
 /// # }
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct Expression<T: Float> {
+pub struct Expression<T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
     pub nodes: Vec<Node<T>>,
     /// Binary operators applied to the nodes according to their priority.
@@ -76,7 +75,7 @@ pub struct Expression<T: Float> {
     pub unary_ops: Vec<fn(T) -> T>,
 }
 
-fn prioritized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
+fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
     indices
@@ -91,7 +90,7 @@ fn prioritized_indices<T: Float>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
 ///            the n-th variable as given in the string that has been parsed to this expression.
 ///            Thereby, only the first occurrence of the variable in the string is relevant.
 ///
-pub fn eval_expr<T: Float + std::fmt::Debug>(expr: &Expression<T>, vars: &[T]) -> T {
+pub fn eval_expr<T: Copy + std::fmt::Debug>(expr: &Expression<T>, vars: &[T]) -> T {
     let indices = prioritized_indices(&expr.bin_ops);
     let mut numbers = expr
         .nodes

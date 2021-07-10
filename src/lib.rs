@@ -1,6 +1,16 @@
 //! Exexpress is an extendable expression evaluator for mathematical expressions.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exexpress::{eval_str};
+//! assert!((eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //! ## Extendability
-//! We have a list of predifined operators, namely
+//! For floats, we have a list of predifined operators, namely
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. These are
 //! defined in [`make_default_operators`](make_default_operators).
 //! Library users can also define a different set of operators as shown in the following.
@@ -9,28 +19,21 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exexpress::{eval_expr, parse, BinOp, Operator};
-//! let custom_ops = vec![
-//! 
+//! let ops = vec![
 //!     Operator {
-//!         repr:"**",  // Python-fans can use ** instead of ^ for power
-//!         bin_op: Some(BinOp{op: |a: f32, b| a.powf(b), prio: 2}),
-//!         unary_op: None
+//!         repr: "%",
+//!         bin_op: Some(BinOp{op: |a: i32, b: i32| a % b, prio: 1}),
+//!         unary_op: None,
 //!     },
 //!     Operator {
-//!         repr: r"_|",
-//!         bin_op: Some(BinOp{op: |a, b| a.hypot(b), prio: 1}),
-//!         unary_op: None
-//!     },
-//!     Operator {
-//!         repr: "invert",
-//!         bin_op: None,
-//!         unary_op: Some(|a: f32| 1.0/a )
+//!         repr: "/",
+//!         bin_op: Some(BinOp{op: |a: i32, b: i32| a / b, prio: 1}),
+//!         unary_op: None,
 //!     },
 //! ];
-//! let expr = parse::<f32>(r"2**2_|invert(3)", custom_ops).unwrap();
-//! let result = eval_expr::<f32>(&expr, &vec![]);
-//! let reference = ((4.0 as f32).powf(2.0) + (1.0 / 3.0 as f32).powf(2.0)).sqrt(); 
-//! assert!((result - reference).abs() < 1e-6);
+//! let to_be_parsed = "19 % 5 / 2";
+//! let expr = parse::<i32>(to_be_parsed, ops).unwrap();
+//! assert_eq!(eval_expr::<i32>(&expr, &[1, 0]), 2);
 //! #
 //! #     Ok(())
 //! # }
@@ -79,8 +82,8 @@ pub use parse::{parse, parse_with_default_ops, ExParseError};
 
 pub use operators::{make_default_operators, BinOp, Operator};
 
-/// Parses a string, evaluates a string, and returns the resulting number. 
-pub fn eval_str(text: &str) -> Result<f32, ExParseError> {
+/// Parses a string, evaluates a string, and returns the resulting number.
+pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
     let expr = parse::parse_with_default_ops(text)?;
     Ok(eval_expr(&expr, &vec![]))
 }
@@ -95,8 +98,27 @@ mod tests {
         expression::eval_expr,
         operators::{make_default_operators, BinOp, Operator},
         parse::parse,
-        util::assert_float_eq,
+        util::{assert_float_eq_f32, assert_float_eq_f64},
     };
+
+    #[test]
+    fn test_integer () {
+        let ops = vec![
+            Operator {
+                repr: "%",
+                bin_op: Some(BinOp{op: |a: i32, b: i32| a % b, prio: 1}),
+                unary_op: None,
+            },
+            Operator {
+                repr: "/",
+                bin_op: Some(BinOp{op: |a: i32, b: i32| a / b, prio: 1}),
+                unary_op: None,
+            },
+        ];
+        let to_be_parsed = "19 % 5 / 2";
+        let expr = parse::<i32>(to_be_parsed, ops).unwrap();
+        assert_eq!(eval_expr::<i32>(&expr, &[1, 0]), 2);
+    }
 
     #[test]
     fn test_variables() {
@@ -104,43 +126,43 @@ mod tests {
 
         let to_be_parsed = "5*{x} + 4*{y} + 3*{x}";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[1.0, 0.0]), 8.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[1.0, 0.0]), 8.0);
 
         let to_be_parsed = "5*{x} + 4*{y}";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[0.0, 1.0]), 4.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[0.0, 1.0]), 4.0);
 
         let to_be_parsed = "5*{x} + 4*{y} + {x}^2";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[2.5, 3.7]), 33.55);
-        assert_float_eq(eval_expr::<f32>(&expr, &[12.0, 9.3]), 241.2);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[2.5, 3.7]), 33.55);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[12.0, 9.3]), 241.2);
 
         let to_be_parsed = "2*(4*{x} + {y}^2)";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[2.0, 3.0]), 34.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[2.0, 3.0]), 34.0);
 
         let to_be_parsed = "sin({myvar_25})";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
 
         let to_be_parsed = "((sin({myvar_25})))";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[1.5707963267948966]), 1.0);
 
         let to_be_parsed = "(0 * {myvar_25} + cos({X}))";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(
+        assert_float_eq_f32(
             eval_expr::<f32>(&expr, &[1.5707963267948966, 3.141592653589793]),
             -1.0,
         );
 
         let to_be_parsed = "(-{X}^2)";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[1.0]), 1.0);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[1.0]), 1.0);
 
         let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq(eval_expr::<f32>(&expr, &[2.5, 3.7]), 14.992794866624788);
+        assert_float_eq_f32(eval_expr::<f32>(&expr, &[2.5, 3.7]), 14.992794866624788);
 
         let ops = vec![
             Operator {
@@ -155,7 +177,7 @@ mod tests {
             },
         ];
         let expr = parse::<f32>("sqrt(invert({a}))", ops).unwrap();
-        assert_float_eq(eval_expr(&expr, &[0.25]), 2.0);
+        assert_float_eq_f32(eval_expr(&expr, &[0.25]), 2.0);
     }
 
     #[test]
@@ -185,7 +207,7 @@ mod tests {
         ];
         let expr = parse::<f32>("2**2*invert(3)", custom_ops).unwrap();
         let val = eval_expr::<f32>(&expr, &vec![]);
-        assert_float_eq(val, 4.0 / 3.0);
+        assert_float_eq_f32(val, 4.0 / 3.0);
 
         let zero_mapper = Operator {
             repr: "zer0",
@@ -202,85 +224,85 @@ mod tests {
             .collect::<Vec<_>>();
         let expr = parse::<f32>("2^2*1/({berti}) + zer0(4)", extended_operators).unwrap();
         let val = eval_expr::<f32>(&expr, &[4.0]);
-        assert_float_eq(val, 1.0);
+        assert_float_eq_f32(val, 1.0);
     }
 
     #[test]
     fn test_eval() {
-        assert_float_eq(eval_str(&"2*3^2").unwrap(), 18.0);
-        assert_float_eq(eval_str(&"-3^2").unwrap(), 9.0);
-        assert_float_eq(eval_str(&"11.3").unwrap(), 11.3);
-        assert_float_eq(eval_str(&"+11.3").unwrap(), 11.3);
-        assert_float_eq(eval_str(&"-11.3").unwrap(), -11.3);
-        assert_float_eq(eval_str(&"(-11.3)").unwrap(), -11.3);
-        assert_float_eq(eval_str(&"11.3+0.7").unwrap(), 12.0);
-        assert_float_eq(eval_str(&"31.3+0.7*2").unwrap(), 32.7);
-        assert_float_eq(eval_str(&"1.3+0.7*2-1").unwrap(), 1.7);
-        assert_float_eq(eval_str(&"1.3+0.7*2-1/10").unwrap(), 2.6);
-        assert_float_eq(eval_str(&"(1.3+0.7)*2-1/10").unwrap(), 3.9);
-        assert_float_eq(eval_str(&"1.3+(0.7*2)-1/10").unwrap(), 2.6);
-        assert_float_eq(eval_str(&"1.3+0.7*(2-1)/10").unwrap(), 1.37);
-        assert_float_eq(eval_str(&"1.3+0.7*(2-1/10)").unwrap(), 2.63);
-        assert_float_eq(eval_str(&"-1*(1.3+0.7*(2-1/10))").unwrap(), -2.63);
-        assert_float_eq(eval_str(&"-1*(1.3+(-0.7)*(2-1/10))").unwrap(), 0.03);
-        assert_float_eq(eval_str(&"-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
-        assert_float_eq(eval_str(&"sin(3.14159265358979)").unwrap(), 0.0);
-        assert_float_eq(eval_str(&"0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
-        assert_float_eq(eval_str(&"-sin(3.14159265358979 / 2)").unwrap(), -1.0);
-        assert_float_eq(eval_str(&"3-(-1+sin(1.5707963267948966)*2)").unwrap(), 2.0);
-        assert_float_eq(
+        assert_float_eq_f64(eval_str(&"2*3^2").unwrap(), 18.0);
+        assert_float_eq_f64(eval_str(&"-3^2").unwrap(), 9.0);
+        assert_float_eq_f64(eval_str(&"11.3").unwrap(), 11.3);
+        assert_float_eq_f64(eval_str(&"+11.3").unwrap(), 11.3);
+        assert_float_eq_f64(eval_str(&"-11.3").unwrap(), -11.3);
+        assert_float_eq_f64(eval_str(&"(-11.3)").unwrap(), -11.3);
+        assert_float_eq_f64(eval_str(&"11.3+0.7").unwrap(), 12.0);
+        assert_float_eq_f64(eval_str(&"31.3+0.7*2").unwrap(), 32.7);
+        assert_float_eq_f64(eval_str(&"1.3+0.7*2-1").unwrap(), 1.7);
+        assert_float_eq_f64(eval_str(&"1.3+0.7*2-1/10").unwrap(), 2.6);
+        assert_float_eq_f64(eval_str(&"(1.3+0.7)*2-1/10").unwrap(), 3.9);
+        assert_float_eq_f64(eval_str(&"1.3+(0.7*2)-1/10").unwrap(), 2.6);
+        assert_float_eq_f64(eval_str(&"1.3+0.7*(2-1)/10").unwrap(), 1.37);
+        assert_float_eq_f64(eval_str(&"1.3+0.7*(2-1/10)").unwrap(), 2.63);
+        assert_float_eq_f64(eval_str(&"-1*(1.3+0.7*(2-1/10))").unwrap(), -2.63);
+        assert_float_eq_f64(eval_str(&"-1*(1.3+(-0.7)*(2-1/10))").unwrap(), 0.03);
+        assert_float_eq_f64(eval_str(&"-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
+        assert_float_eq_f64(eval_str(&"sin(3.14159265358979)").unwrap(), 0.0);
+        assert_float_eq_f64(eval_str(&"0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
+        assert_float_eq_f64(eval_str(&"-sin(3.14159265358979 / 2)").unwrap(), -1.0);
+        assert_float_eq_f64(eval_str(&"3-(-1+sin(1.5707963267948966)*2)").unwrap(), 2.0);
+        assert_float_eq_f64(
             eval_str(&"3-(-1+sin(cos(-3.14159265358979))*2)").unwrap(),
             5.6829419696157935,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"-(-1+((-3.14159265358979)/5)*2)").unwrap(),
             2.256637061435916,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(),
             1.0,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"-(-1+sin(cos(-3.14159265358979)/5)*2)").unwrap(),
             1.3973386615901224,
         );
-        assert_float_eq(eval_str(&"-cos(3.14159265358979)").unwrap(), 1.0);
-        assert_float_eq(
+        assert_float_eq_f64(eval_str(&"-cos(3.14159265358979)").unwrap(), 1.0);
+        assert_float_eq_f64(
             eval_str(&"1+sin(-cos(-3.14159265358979))").unwrap(),
             1.8414709848078965,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"-1+sin(-cos(-3.14159265358979))").unwrap(),
             -0.1585290151921035,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"-(-1+sin(-cos(-3.14159265358979)/5)*2)").unwrap(),
             0.6026613384098776,
         );
-        assert_float_eq(eval_str(&"sin(-(2))*2").unwrap(), -1.8185948536513634);
-        assert_float_eq(eval_str(&"sin(sin(2))*2").unwrap(), 1.5781446871457767);
-        assert_float_eq(eval_str(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
-        assert_float_eq(eval_str(&"-sin(2)*2").unwrap(), -1.8185948536513634);
-        assert_float_eq(eval_str(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
-        assert_float_eq(eval_str(&"sin(-sin(2)^2)*2").unwrap(), 1.4715655294841483);
-        assert_float_eq(
+        assert_float_eq_f64(eval_str(&"sin(-(2))*2").unwrap(), -1.8185948536513634);
+        assert_float_eq_f64(eval_str(&"sin(sin(2))*2").unwrap(), 1.5781446871457767);
+        assert_float_eq_f64(eval_str(&"sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
+        assert_float_eq_f64(eval_str(&"-sin(2)*2").unwrap(), -1.8185948536513634);
+        assert_float_eq_f64(eval_str(&"sin(-sin(2))*2").unwrap(), -1.5781446871457767);
+        assert_float_eq_f64(eval_str(&"sin(-sin(2)^2)*2").unwrap(), 1.4715655294841483);
+        assert_float_eq_f64(
             eval_str(&"sin(-sin(2)*-sin(2))*2").unwrap(),
             1.4715655294841483,
         );
-        assert_float_eq(eval_str(&"--(1)").unwrap(), 1.0);
-        assert_float_eq(eval_str(&"--1").unwrap(), 1.0);
-        assert_float_eq(eval_str(&"----1").unwrap(), 1.0);
-        assert_float_eq(eval_str(&"---1").unwrap(), -1.0);
-        assert_float_eq(eval_str(&"3-(4-2/3+(1-2*2))").unwrap(), 2.666666666666666);
-        assert_float_eq(
+        assert_float_eq_f64(eval_str(&"--(1)").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str(&"--1").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str(&"----1").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str(&"---1").unwrap(), -1.0);
+        assert_float_eq_f64(eval_str(&"3-(4-2/3+(1-2*2))").unwrap(), 2.666666666666666);
+        assert_float_eq_f64(
             eval_str(&"log(log(2))*tan(2)+exp(1.5)").unwrap(),
             5.2825344122094045,
         );
-        assert_float_eq(
+        assert_float_eq_f64(
             eval_str(&"log(log2(2))*tan(2)+exp(1.5)").unwrap(),
             4.4816890703380645,
         );
-        assert_float_eq(eval_str(&"log2(2)").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str(&"log2(2)").unwrap(), 1.0);
     }
 
     #[test]

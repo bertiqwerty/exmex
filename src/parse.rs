@@ -29,7 +29,7 @@ enum Paren {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ParsedToken<'a, T: Float + FromStr> {
+enum ParsedToken<'a, T: Copy + FromStr> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
@@ -43,7 +43,7 @@ enum ParsedToken<'a, T: Float + FromStr> {
 /// * `text` - text to be parsed
 /// * `ops_in` - vector of operator-pairs
 ///
-fn apply_regexes<'a, T: Float + FromStr>(
+fn apply_regexes<'a, T: Copy + FromStr>(
     text: &str,
     ops_in: Vec<Operator<'a, T>>,
 ) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
@@ -146,11 +146,11 @@ fn make_expression<T>(
     unary_ops: Vec<fn(T) -> T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
-    T: Float + FromStr + std::fmt::Debug,
+    T: Copy + FromStr + std::fmt::Debug,
 {
     fn unpack_binop<S>(bo: Option<BinOp<S>>) -> Result<BinOp<S>, ExParseError>
     where
-        S: Float + FromStr + std::fmt::Debug,
+        S: Copy + FromStr + std::fmt::Debug,
     {
         match bo {
             Some(bo) => Ok(bo),
@@ -302,7 +302,7 @@ where
 ///
 fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
-    T: Float + FromStr + std::fmt::Debug,
+    T: Copy + FromStr + std::fmt::Debug,
 {
     if parsed_tokens.len() == 0 {
         return Err(ExParseError {
@@ -409,7 +409,7 @@ where
 pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: std::fmt::Debug,
-    T: Float + FromStr + std::fmt::Debug,
+    T: Copy + FromStr + std::fmt::Debug,
 {
     let parsed_tokens = apply_regexes::<T>(text, ops)?;
     let parsed_vars = parsed_tokens
