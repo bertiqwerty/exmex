@@ -1,13 +1,15 @@
 [package]
 name = "exmex"
-version = "0.2.0"
+version = "0.2.0"  # check html document root 
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2018"
 license = "MIT"
 description = "Exmex is an EXtendable Mathematical EXpression evaluator. Users can define their own operators and work with non-float data."
 repository = "https://github.com/bertiqwerty/exmex/"
+homepage = "https://github.com/bertiqwerty/exmex/"
 readme = "README.md"
 keywords = ["math", "parse", "parser", "mathematical", "expression", "eval", "evaluator", "formula"]
+categories = ["parser-implementations"]
 
 [dependencies]
 regex = "1"

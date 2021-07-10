@@ -1,3 +1,4 @@
+#![doc(html_root_url = "https://docs.rs/exmex/0.2.0")]
 //! Exmex is an extendable expression evaluator for mathematical expressions.
 //! ```rust
 //! # use std::error::Error;
