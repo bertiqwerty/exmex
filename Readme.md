@@ -14,16 +14,16 @@ to your `Cargo.toml`.
 
 ## Basic Usage
 To simply parse a string there is
-```
+```rust
 let result = eval_str("sin(73)")?;
 ```
 To create an expression with variables that represents a mathematical function you can
 use curly brackets as in
-```
+```rust
 let expr = parse_with_default_ops::<f64>("2*{x}^3-4/{z}")?;
 ```
 To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
-```
+```rust
 let value = eval_expr::<f64>(&expr, &[5.3, 0.5]);
 ```
 Besides predefined operators, you can pass custom operators to the 
