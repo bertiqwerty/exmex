@@ -1,9 +1,9 @@
-//! Exexpress is an extendable expression evaluator for mathematical expressions.
+//! Exmex is an extendable expression evaluator for mathematical expressions.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exexpress::{eval_str};
+//! use exmex::{eval_str};
 //! assert!((eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -20,7 +20,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exexpress::{eval_expr, make_default_operators, parse};
+//! use exmex::{eval_expr, make_default_operators, parse};
 //! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
 //! let expr = parse::<f64>(to_be_parsed, make_default_operators::<f64>())?;
 //! assert!((eval_expr::<f64>(&expr, &[2.5, 3.7]) - 14.992794866624788 as f64).abs() < 1e-12);
@@ -37,7 +37,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exexpress::{eval_expr, parse, BinOp, Operator};
+//! use exmex::{eval_expr, parse, BinOp, Operator};
 //! let ops = vec![
 //!     Operator {
 //!         repr: "%",
@@ -83,7 +83,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exexpress::{eval_expr, parse_with_number_pattern, BinOp, Operator};
+//! use exmex::{eval_expr, parse_with_number_pattern, BinOp, Operator};
 //! let ops = vec![
 //!     Operator {
 //!         repr: "&&",
@@ -110,7 +110,7 @@
 //! ```
 //!
 //! ## Priorities and Parentheses
-//! In Exexpress-land, unary operators always have higher priority than binary operators, e.g.,
+//! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
 //! For instance `"---1"` will evalute to `-1`.
 //! If you want to be on the safe side, we suggest using parentheses.

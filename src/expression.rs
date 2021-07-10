@@ -19,7 +19,7 @@ pub enum Node<T: Copy> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exexpress::{eval_expr, parse_with_default_ops};
+/// use exmex::{eval_expr, parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
 /// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})")?;
@@ -45,7 +45,7 @@ pub enum Node<T: Copy> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exexpress::{eval_expr, BinOp, Expression, Node};
+/// use exmex::{eval_expr, BinOp, Expression, Node};
 /// // create an expression directly
 /// let expr_directly = Expression {
 ///     bin_ops: vec![

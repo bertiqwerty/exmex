@@ -5,7 +5,7 @@ use num::Float;
 /// # Examples
 ///
 /// ```
-/// use exexpress::{BinOp, Operator};
+/// use exmex::{BinOp, Operator};
 /// let ops = vec![
 ///     Operator {
 ///         repr: "-",
@@ -41,7 +41,7 @@ pub struct BinOp<T: Copy> {
     pub op: fn(T, T) -> T,
     /// Priority of the binary operation. A binary operation with a
     /// higher number will be executed first. For instance, in a sane world `*`
-    /// has a higher priority than `+`. However, in Exexpress land you could also define
+    /// has a higher priority than `+`. However, in Exmex land you could also define
     /// this differently.
     pub prio: i16,
 }

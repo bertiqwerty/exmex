@@ -1,6 +1,6 @@
-# Exexpress
+# Exmex
 
-Exexpress parses and evaluates mathematical expressions. Thereby, library users can
+Exmex parses and evaluates mathematical expressions. Thereby, library users can
 define their own unary and binary operators.
 
 ## Installation
@@ -8,7 +8,7 @@ define their own unary and binary operators.
 Add
 ```
 [dependencies]
-exexpress = { git = "https://github.com/bertiqwerty/exexpress.git", branch = "main" } 
+exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" } 
 ```
 to your `Cargo.toml`.
 
