@@ -57,4 +57,4 @@ cargo doc
 ```
 
 ## License
-You can select between MIT and Apache 2.0.
+You as library user can select between MIT and Apache 2.0.
