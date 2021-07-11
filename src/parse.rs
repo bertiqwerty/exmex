@@ -44,6 +44,11 @@ enum ParsedToken<'a, T: Copy + FromStr> {
 ///
 /// * `text` - text to be parsed
 /// * `ops_in` - vector of operator-pairs
+/// * `number_regex_pattern` - defines what in the text will be identified as number
+///
+/// # Errors
+///
+/// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
 fn apply_regexes<'a, T: Copy + FromStr>(
     text: &str,
@@ -80,8 +85,16 @@ where
         pattern_parens,
     ];
     let pattern_any = patterns.join("|");
-    let any = Regex::new(pattern_any.as_str()).unwrap();
+    let any = match Regex::new(pattern_any.as_str()) {
+        Ok(regex) => regex,
+        Err(_) => {
+            return Err(ExParseError {
+                msg: "Cannot compile the passed number regex.".to_string(),
+            })
+        }
+    };
 
+    // Since we checked pattern_any we dare to unwrap.
     let which_one = RegexSet::new(&patterns).unwrap();
 
     let captures = any
@@ -112,7 +125,7 @@ where
                     ParsedToken::<T>::Op(match wrapped_op {
                         Some(op) => *op,
                         None => {
-                            panic!("Could not find operator {}.", elt_str);
+                            panic!("This is probably a bug. Could not find operator {}.", elt_str);
                         }
                     })
                 } else if matches.matched(2) {
@@ -124,10 +137,10 @@ where
                     } else if c == ')' {
                         Paren::Close
                     } else {
-                        panic!("Paren {} is neither ( nor ). Check the paren-regex.", c);
+                        panic!("This is probably a bug. Paren {} is neither ( nor ). Check the paren-regex.", c);
                     })
                 } else {
-                    panic!("Internal regex mismatch!");
+                    panic!("This is probably a bug. Internal regex mismatch!");
                 }
             })
             .collect()),
@@ -142,6 +155,10 @@ where
 /// * `parsed_vars` - elements of `parsed_tokens` that are variables
 /// * `unary_ops` - unary operators of the expression to be build
 ///
+/// # Errors
+///
+/// See [`parse_with_number_pattern`](parse_with_number_pattern)
+///
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
@@ -150,15 +167,13 @@ fn make_expression<T>(
 where
     T: Copy + FromStr + Debug,
 {
-    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> Result<BinOp<S>, ExParseError>
+    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> BinOp<S>
     where
         S: Copy + FromStr + Debug,
     {
         match bo {
-            Some(bo) => Ok(bo),
-            None => Err(ExParseError {
-                msg: "Expected binary operator but there was None.".to_string(),
-            }),
+            Some(bo) => bo,
+            None => panic!("This is probably a bug. Expected binary operator but there was none."),
         }
     }
 
@@ -170,7 +185,7 @@ where
         match idx {
             Some((i, _)) => i,
             None => {
-                panic!("I don't know variable {}", name)
+                panic!("This is probably a bug. I don't know variable {}", name)
             }
         }
     };
@@ -194,7 +209,7 @@ where
         match &parsed_tokens[i + n_uops] {
             ParsedToken::Paren(p) => match p {
                 Paren::Close => Err(ExParseError {
-                    msg: "I do not understand a closing parenthesis after an operator.".to_string(),
+                    msg: "closing parenthesis after an operator".to_string(),
                 }),
                 Paren::Open => {
                     let (expr, i_forward) =
@@ -203,16 +218,12 @@ where
                 }
             },
             ParsedToken::Var(name) => {
-                let expr = Expression::new(
-                    vec![Node::Var(find_var_index(&name))],
-                    vec![],
-                    uops,
-                )?;
+                let expr = Expression::new(vec![Node::Var(find_var_index(&name))], vec![], uops)?;
                 Ok((Node::Expr(expr), n_uops + 1))
             }
             ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
             ParsedToken::Op(_) => Err(ExParseError {
-                msg: "A unary operator cannot be followed by a binary operator.".to_string(),
+                msg: "a unary operator cannot be followed by a binary operator".to_string(),
             }),
         }
     };
@@ -228,7 +239,7 @@ where
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(b) => match b.unary_op {
                 None => {
-                    bin_ops.push(unpack_binop(b.bin_op)?);
+                    bin_ops.push(unpack_binop(b.bin_op));
                     idx_tkn += 1;
                 }
                 Some(uo) => {
@@ -243,18 +254,16 @@ where
                         match &parsed_tokens[idx_tkn - 1] {
                             ParsedToken::Num(_) | ParsedToken::Var(_) => {
                                 // number or variable as predecessor means binary operator
-                                bin_ops.push(unpack_binop(b.bin_op)?);
+                                bin_ops.push(unpack_binop(b.bin_op));
                                 idx_tkn += 1;
                             }
                             ParsedToken::Paren(p) => match p {
                                 Paren::Open => {
-                                    let msg =
-                                        "Opening parenthesis next to operator must not occur here."
-                                            .to_string();
-                                    return Err(ExParseError { msg: msg });
+                                    let msg = "This is probably a bug An opening paren cannot be the predecessor of a binary opertor";
+                                    panic!(msg);
                                 }
                                 Paren::Close => {
-                                    bin_ops.push(unpack_binop(b.bin_op)?);
+                                    bin_ops.push(unpack_binop(b.bin_op));
                                     idx_tkn += 1;
                                 }
                             },
@@ -298,6 +307,10 @@ where
 /// # Arguments
 ///
 /// * `parsed_tokens` - parsed tokens
+///
+/// # Errors
+///
+/// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
 fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
@@ -404,7 +417,12 @@ where
     }
 }
 
-/// Parses a string and a vector of operators into an expression that can be evaluated
+/// Parses a string and a vector of operators into an expression that can be evaluated.
+///
+/// # Errors
+///
+/// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
+/// returns one.
 pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
@@ -415,6 +433,35 @@ where
 
 /// Parses a string and a vector of operators and a regex pattern that defines the looks
 /// of a number into an expression that can be evaluated.
+///
+/// # Errors
+///
+/// An [`ExParseError`](ExParseError) is returned, if
+///
+//
+// from apply_regexes
+//
+/// * the argument `number_regex_pattern` cannot be compiled,
+/// * the argument `text` contained a character that did not match any regex (e.g.,
+///   if there is a `Δ` in `text` but no [operator](Operator) with
+///   [`repr`](Operator::repr) equal to `Δ` is given),
+// 
+// from check_preconditions
+// 
+/// * the to-be-parsed string is empty,
+/// * a number or variable is next to another one, e.g., `2 {x}`,
+/// * wlog a number or variable is on the right of a closing parenthesis, e.g., `)5`,
+/// * a binary operator is next to another binary operator, e.g., `2*/4`,
+/// * wlog a closing parenthesis is next to an opening one, e.g., `)(` or `()`,
+/// * too many closing parentheses at some position, e.g., `(4+6) - 5)*2`,
+/// * the last element is an operator, e.g., `1+`,
+/// * the number of opening and closing parenthesis do not match, e.g., `((4-2)`,
+// 
+// from make_expression
+// 
+/// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
+/// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
+///
 pub fn parse_with_number_pattern<'a, T>(
     text: &str,
     ops: Vec<Operator<'a, T>>,
@@ -438,7 +485,12 @@ where
     Ok(expr)
 }
 
-/// Parses a string into an expression that can be evaluated using default operators
+/// Parses a string into an expression that can be evaluated using default operators.
+///
+/// # Errors
+///
+/// An error is returned in case [`parse`](parse)
+/// returns one.
 pub fn parse_with_default_ops<T>(text: &str) -> Result<Expression<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,

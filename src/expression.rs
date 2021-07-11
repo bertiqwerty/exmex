@@ -73,6 +73,13 @@ pub struct Expression<T: Copy> {
     unary_ops: Vec<fn(T) -> T>,
 }
 
+/// Sorts indices of binary operators by their priority
+///
+/// # Panics
+///
+/// We `unwrap` the partial comparison between two priorities. This can never panic 
+/// because priorities are integers of type `i16` that always can be partially compared.
+///
 fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     let mut indices: Vec<_> = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
@@ -96,8 +103,7 @@ impl<T: Copy + Debug> Expression<T> {
     ///
     /// # Arguments
     ///
-    /// * `expr` - expression to be evaluated
-    /// * `vars` - values of the variables of the expression, the n-th value corresponds to
+    /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
     ///            the n-th variable as given in the string that has been parsed to this expression.
     ///            Thereby, only the first occurrence of the variable in the string is relevant.
     ///
@@ -129,9 +135,20 @@ impl<T: Copy + Debug> Expression<T> {
         apply_unary_ops(&self.unary_ops, numbers[0])
     }
 
-    /// Creates a flat expression, i.e., without any kind of recursion, and checks
-    /// whether the number of nodes is by one larger than the number of binary
-    /// operators.
+    /// Creates a flat expression, i.e., without any kind of recursion
+    ///
+    /// # Arguments
+    ///
+    /// * `nodes` - operands of the expression
+    /// * `bin_ops` - binary operations to be applied to the operands, 
+    ///               operands  `i` and `i+1` correspond to binary operation `i`
+    /// * `unary_ops` - unary operations to be applied to the reduction of all binary operations
+    ///
+    /// # Errors
+    ///
+    /// This function checks whether the number of nodes is by one larger than the number of binary
+    /// operators. If not, an [`ExParseError`](ExParseError) is returned.
+    ///
     pub fn new(
         nodes: Vec<Node<T>>,
         bin_ops: Vec<BinOp<T>>,

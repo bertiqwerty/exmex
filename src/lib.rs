@@ -129,6 +129,12 @@ pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExPars
 pub use operators::{make_default_operators, BinOp, Operator};
 
 /// Parses a string, evaluates a string, and returns the resulting number.
+///
+/// # Errrors
+///
+/// In case the parsing went wrong, e.g., due to an invalid input string, an 
+/// [`ExParseError`](ExParseError) is returned.
+///
 pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
     let expr = parse_with_default_ops(text)?;
     Ok(expr.eval(&vec![]))
