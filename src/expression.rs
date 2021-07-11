@@ -107,6 +107,12 @@ impl<T: Copy + Debug> Expression<T> {
     ///            the n-th variable as given in the string that has been parsed to this expression.
     ///            Thereby, only the first occurrence of the variable in the string is relevant.
     ///
+    /// # Panics
+    ///
+    /// If more variables are existent than elements in the argument `vars`, we panic due to
+    /// index out of bounds. Vice versa, if more arguments are passed than variables existent,
+    /// the last variables are ignored. 
+    ///
     pub fn eval(&self, vars: &[T]) -> T {
         let indices = prioritized_indices(&self.bin_ops);
         let mut numbers = self
