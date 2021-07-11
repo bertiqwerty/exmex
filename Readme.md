@@ -13,7 +13,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.4.0"
+exmex = "0.4.1"
 ```
 to your `Cargo.toml`.
 
@@ -51,7 +51,7 @@ let result = expr.eval(&[0.25]);
 ```
 
 ## Documentation
-More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/0.4.0](https://docs.rs/exmex/0.4.0) or generated via
+More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
 cargo doc
 ```
