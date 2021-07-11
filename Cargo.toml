@@ -10,7 +10,7 @@ repository = "https://github.com/bertiqwerty/exmex/"
 homepage = "https://github.com/bertiqwerty/exmex/"
 readme = "README.md"
 keywords = ["math", "parser", "expression", "eval", "formula"]
-categories = ["parser-implementations"]
+categories = ["parser-implementations", "science"]
 include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
