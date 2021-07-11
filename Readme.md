@@ -55,3 +55,6 @@ More documentation and examples also with integer and boolean data types can be 
 ```
 cargo doc
 ```
+
+## License
+You can select between MIT and Apache 2.0.
