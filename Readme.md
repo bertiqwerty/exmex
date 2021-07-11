@@ -1,9 +1,11 @@
 [![Crate](https://img.shields.io/crates/v/exmex.svg)](https://crates.io/crates/exmex)
 [![API](https://docs.rs/exmex/badge.svg)](https://docs.rs/exmex)
+[![example workflow](https://github.com/bertiqwerty/exmex/actions/workflows/rust.yml/badge.svg)](https://github.com/bertiqwerty/exmex)
 # Exmex
 
-Exmex is an **EX**tendable **M**athematical **EX**pression evaluator.  
-Users can define their own operators and work with non-float data.
+Exmex is an **ex**tendable **m**athematical **ex**pression evaluator.  
+Users can define their own operators and work with different data types such
+as float, integer, or bool.
 
 ## Installation
 

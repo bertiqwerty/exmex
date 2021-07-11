@@ -1,4 +1,6 @@
-use crate::{ExParseError, operators::BinOp, util::apply_unary_ops};
+use std::fmt::Debug;
+
+use crate::{operators::BinOp, util::apply_unary_ops, ExParseError};
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
@@ -13,7 +15,8 @@ pub enum Node<T: Copy> {
 
 /// Core data type and the result of parsing a string.
 ///
-/// Usually, you would create an expression with the `parse` function.
+/// Usually, you would create an expression with the `parse` function or one of its
+/// variants, namely `parse_with_default_ops` and `parse_with_number_pattern`.
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -22,25 +25,20 @@ pub enum Node<T: Copy> {
 /// use exmex::{parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
-/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})")?;
-/// let result_parsed = expr_parsed.eval(&[2.0]);
-/// assert!((result_parsed - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
+/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})*{y}")?;
+/// let result_parsed = expr_parsed.eval(&[2.0, 1.5]);
+/// assert!((result_parsed - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument &[2.0] in the call of [`eval`](Expression::eval) specifies the we want to
-/// evaluate the expression for the value 2.0 of our only variable `{x}`. Variables need
-/// to be within curly brackets in the string to-be-parsed.
+/// The second argument `&[2.0, 1.5]` in the call of [`eval`](Expression::eval) specifies
+/// that we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
+/// Note that variables need to be within curly brackets in the string to-be-parsed.
 ///
 /// You can also create the expression directly. In this case you have to make sure that
-/// you have `n+1` nodes for `n` binary operators. The binary operators are
-/// applied to the nodes. The order in the `nodes`-vector determines
-/// for which binary operator a node is used as input. More precisely,
-/// nodes `i` and `i+1` are the input of the binary operator `i` with the highest
-/// priority. After the calculation with the highest priority, the result is put into
-/// a node, the number of nodes an operators is reduced by 1 and the operator with
-/// the next highest priority is considered, etc.
+/// you have `n+1` nodes for `n` binary operators. This can also be evaluated with
+/// [`eval`](Expression::eval).
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -81,8 +79,20 @@ fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
     indices
 }
 
-impl<T: Copy + std::fmt::Debug> Expression<T> {
-    /// Evaluates an expression with the given variable values and returns the computed result.
+impl<T: Copy + Debug> Expression<T> {
+    /// Evaluates an expression with the given variable values and returns the computed
+    /// result.
+    ///
+    /// The binary operators of the expression are
+    /// applied to the expression's nodes. The order in the `nodes`-vector determines
+    /// for which binary operator a node is used as input. More precisely, let us assume
+    /// the binary operator with index `i` has the highest priority. Then, the
+    /// nodes with index `i` and `i+1` are used as its input. After the binary operator with
+    /// the highest priority is evaluated, the result is put into
+    /// a the mutable node with index `i`, the number of nodes an operators is reduced by 1
+    /// and the operator with the next highest priority is considered, etc. Eventually,
+    /// the unary operators map the result of the
+    /// evaluation of the binary operators to the final value of the expression.
     ///
     /// # Arguments
     ///
@@ -119,16 +129,18 @@ impl<T: Copy + std::fmt::Debug> Expression<T> {
         apply_unary_ops(&self.unary_ops, numbers[0])
     }
 
-    /// Creates a flat expression, i.e., without any kind of recursion, and checks 
-    /// whether the number of nodes is by one larger than the number of binary 
-    /// operators. 
+    /// Creates a flat expression, i.e., without any kind of recursion, and checks
+    /// whether the number of nodes is by one larger than the number of binary
+    /// operators.
     pub fn new(
         nodes: Vec<Node<T>>,
         bin_ops: Vec<BinOp<T>>,
         unary_ops: Vec<fn(T) -> T>,
     ) -> Result<Expression<T>, ExParseError> {
         if nodes.len() != bin_ops.len() + 1 {
-            Err(ExParseError{msg: "mismatch between number of nodes and binary operators".to_string()})
+            Err(ExParseError {
+                msg: "mismatch between number of nodes and binary operators".to_string(),
+            })
         } else {
             Ok(Expression {
                 nodes: nodes,
@@ -192,6 +204,48 @@ mod test {
                 BinOp {
                     op: |_, _| 0.0,
                     prio: 0
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 0
+                }
+            ]),
+            vec![0, 1, 2, 3]
+        );
+        assert_eq!(
+            prioritized_indices(&vec![
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 0
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 1
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 2
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 3
+                }
+            ]),
+            vec![3, 2, 1, 0]
+        );
+        assert_eq!(
+            prioritized_indices(&vec![
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 3
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 2
+                },
+                BinOp {
+                    op: |_, _| 0.0,
+                    prio: 1
                 },
                 BinOp {
                     op: |_, _| 0.0,

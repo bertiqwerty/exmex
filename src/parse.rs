@@ -5,7 +5,7 @@ use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
 use std::error::Error;
-use std::fmt;
+use std::fmt::{self, Debug};
 use std::iter::once;
 use std::str::FromStr;
 
@@ -51,7 +51,7 @@ fn apply_regexes<'a, T: Copy + FromStr>(
     number_regex_pattern: &str,
 ) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
 where
-    <T as std::str::FromStr>::Err: std::fmt::Debug,
+    <T as std::str::FromStr>::Err: Debug,
 {
     let regex_escapes_ops = r"\|?^*+.";
 
@@ -148,11 +148,11 @@ fn make_expression<T>(
     unary_ops: Vec<fn(T) -> T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
-    T: Copy + FromStr + std::fmt::Debug,
+    T: Copy + FromStr + Debug,
 {
     fn unpack_binop<S>(bo: Option<BinOp<S>>) -> Result<BinOp<S>, ExParseError>
     where
-        S: Copy + FromStr + std::fmt::Debug,
+        S: Copy + FromStr + Debug,
     {
         match bo {
             Some(bo) => Ok(bo),
@@ -407,8 +407,8 @@ where
 /// Parses a string and a vector of operators into an expression that can be evaluated
 pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<Expression<T>, ExParseError>
 where
-    <T as std::str::FromStr>::Err: std::fmt::Debug,
-    T: Copy + FromStr + std::fmt::Debug,
+    <T as std::str::FromStr>::Err: Debug,
+    T: Copy + FromStr + Debug,
 {
     parse_with_number_pattern::<T>(text, ops, NUMBER_REGEX_PATTERN)
 }
@@ -421,8 +421,8 @@ pub fn parse_with_number_pattern<'a, T>(
     number_regex_pattern: &str,
 ) -> Result<Expression<T>, ExParseError>
 where
-    <T as std::str::FromStr>::Err: std::fmt::Debug,
-    T: Copy + FromStr + std::fmt::Debug,
+    <T as std::str::FromStr>::Err: Debug,
+    T: Copy + FromStr + Debug,
 {
     let parsed_tokens = apply_regexes::<T>(text, ops, number_regex_pattern)?;
     let parsed_vars = parsed_tokens
@@ -441,8 +441,8 @@ where
 /// Parses a string into an expression that can be evaluated using default operators
 pub fn parse_with_default_ops<T>(text: &str) -> Result<Expression<T>, ExParseError>
 where
-    <T as std::str::FromStr>::Err: std::fmt::Debug,
-    T: Float + FromStr + std::fmt::Debug,
+    <T as std::str::FromStr>::Err: Debug,
+    T: Float + FromStr + Debug,
 {
     let ops = make_default_operators::<T>();
     Ok(parse(&text, ops)?)
