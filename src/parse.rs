@@ -1,6 +1,6 @@
-use crate::expression::{Expression, Node};
+use crate::expression::{BinOpVec, Expression, Node};
 use crate::operators::{make_default_operators, BinOp, Operator};
-use crate::util::apply_unary_ops;
+use crate::util::{UnaryOpVec, apply_unary_ops};
 use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
@@ -162,7 +162,7 @@ where
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
-    unary_ops: Vec<fn(T) -> T>,
+    unary_ops: UnaryOpVec<T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
@@ -203,7 +203,7 @@ where
                     .take_while(|uo_| uo_.is_some())
                     .flatten(),
             )
-            .collect::<Vec<_>>();
+            .collect::<UnaryOpVec<_>>();
         let n_uops = uops.len();
 
         match &parsed_tokens[i + n_uops] {
@@ -218,7 +218,7 @@ where
                 }
             },
             ParsedToken::Var(name) => {
-                let expr = Expression::new(vec![Node::Var(find_var_index(&name))], vec![], uops)?;
+                let expr = Expression::new(vec![Node::Var(find_var_index(&name))], BinOpVec::new(), uops)?;
                 Ok((Node::Expr(expr), n_uops + 1))
             }
             ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
@@ -228,7 +228,7 @@ where
         }
     };
 
-    let mut bin_ops = Vec::<BinOp<T>>::new();
+    let mut bin_ops = BinOpVec::new();
     let mut nodes = Vec::<Node<T>>::new();
 
     // The main loop checks one token after the next whereby sub-expressions are
@@ -288,7 +288,7 @@ where
                 Paren::Open => {
                     idx_tkn += 1;
                     let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, vec![])?;
+                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, UnaryOpVec::new())?;
                     nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
@@ -481,7 +481,7 @@ where
         .unique()
         .collect::<Vec<_>>();
     check_preconditions(&parsed_tokens[..])?;
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, vec![])?;
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpVec::new())?;
     Ok(expr)
 }
 

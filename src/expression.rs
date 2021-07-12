@@ -1,8 +1,15 @@
-use crate::{operators::BinOp, util::apply_unary_ops, ExParseError};
+use crate::{
+    operators::BinOp,
+    util::{apply_unary_ops, UnaryOpVec},
+    ExParseError,
+};
 use smallvec::SmallVec;
 use std::fmt::Debug;
 
-type ExprIdxSmallVec = SmallVec<[usize; 32]>;
+type ExprIdxVec = SmallVec<[usize; 32]>;
+
+/// Container of binary operators of one expression.
+pub type BinOpVec<T> = SmallVec<[BinOp<T>; 32]>;
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
@@ -45,17 +52,19 @@ pub enum Node<T: Copy> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{BinOp, Expression, Node};
+/// use smallvec::smallvec;
+/// use exmex::{BinOp, Expression, Node, UnaryOpVec};
+/// // create an expression directly
+/// let mut unops = UnaryOpVec::<f32>::new();
+/// unops.push(|a| a.sin());
 /// // create an expression directly
 /// let expr_directly = Expression::new(
 ///     vec![Node::Num(1.0), Node::Var(0)],
-///     vec![
-///         BinOp {
-///             op: |a: f32, b: f32| a + b,
-///             prio: 0
-///         }
-///     ],
-///     vec![|a: f32| a.sin()]
+///     smallvec![BinOp {
+///         op: |a: f32, b: f32| a + b,
+///         prio: 0
+///     }],
+///     unops,
 /// )?;
 /// let result_directly = expr_directly.eval(&[2.0]);
 /// assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
@@ -68,16 +77,16 @@ pub struct Expression<T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
     nodes: Vec<Node<T>>,
     /// Binary operators applied to the nodes according to their priority.
-    bin_ops: Vec<BinOp<T>>,
+    bin_ops: BinOpVec<T>,
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
-    unary_ops: Vec<fn(T) -> T>,
-    prio_indices: ExprIdxSmallVec,
+    unary_ops: UnaryOpVec<T>,
+    prio_indices: ExprIdxVec,
 }
 
-fn prioritzed_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>, nodes: &Vec<Node<T>>) -> ExprIdxSmallVec {
-    let mut indices: ExprIdxSmallVec = (0..bin_ops.len()).collect();
+fn prioritzed_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &Vec<Node<T>>) -> ExprIdxVec {
+    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| {
         let (prio_i1, prio_i2) = match (&nodes[*i1], &nodes[*i2]) {
             (Node::Num(_), Node::Num(_)) => {
@@ -156,7 +165,7 @@ impl<T: Copy + Debug> Expression<T> {
         }
 
         let mut num_inds = self.prio_indices.clone();
-        let mut used_prio_indices = ExprIdxSmallVec::new();
+        let mut used_prio_indices = ExprIdxVec::new();
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let node_1 = &self.nodes[num_idx];
@@ -203,8 +212,8 @@ impl<T: Copy + Debug> Expression<T> {
     ///
     pub fn new(
         nodes: Vec<Node<T>>,
-        bin_ops: Vec<BinOp<T>>,
-        unary_ops: Vec<fn(T) -> T>,
+        bin_ops: BinOpVec<T>,
+        unary_ops: UnaryOpVec<T>,
     ) -> Result<Expression<T>, ExParseError> {
         if nodes.len() != bin_ops.len() + 1 {
             Err(ExParseError {
@@ -221,5 +230,32 @@ impl<T: Copy + Debug> Expression<T> {
             expr.compile();
             Ok(expr)
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::util::UnaryOpVec;
+
+    #[test]
+    fn test_no_parse() {
+        use crate::{BinOp, Expression, Node};
+        use smallvec::smallvec;
+
+        let mut unops = UnaryOpVec::<f32>::new();
+        unops.push(|a| a.sin());
+        // create an expression directly
+        let expr_directly = Expression::new(
+            vec![Node::Num(1.0), Node::Var(0)],
+            smallvec![BinOp {
+                op: |a: f32, b: f32| a + b,
+                prio: 0
+            }],
+            unops,
+        )
+        .unwrap();
+        let result_directly = expr_directly.eval(&[2.0]);
+        assert!((result_directly - (1.0 + 2.0 as f32).sin()).abs() < 1e-6);
     }
 }

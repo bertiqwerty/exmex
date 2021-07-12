@@ -122,7 +122,9 @@ mod operators;
 mod parse;
 mod util;
 
-pub use expression::{Expression, Node};
+pub use expression::{Expression, Node, BinOpVec};
+
+pub use util::UnaryOpVec;
 
 pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
 
