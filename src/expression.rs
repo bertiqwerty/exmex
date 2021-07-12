@@ -2,6 +2,8 @@ use crate::{operators::BinOp, util::apply_unary_ops, ExParseError};
 use smallvec::SmallVec;
 use std::fmt::Debug;
 
+type ExprIdxSmallVec = SmallVec<[usize; 32]>;
+
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -71,7 +73,25 @@ pub struct Expression<T: Copy> {
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
     unary_ops: Vec<fn(T) -> T>,
-    prio_indices: SmallVec<[usize; 32]>,
+    prio_indices: ExprIdxSmallVec,
+}
+
+fn prioritzed_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>, nodes: &Vec<Node<T>>) -> ExprIdxSmallVec {
+    let mut indices: ExprIdxSmallVec = (0..bin_ops.len()).collect();
+    indices.sort_by(|i1, i2| {
+        let (prio_i1, prio_i2) = match (&nodes[*i1], &nodes[*i2]) {
+            (Node::Num(_), Node::Num(_)) => {
+                let prio_inc = 5;
+                (
+                    &bin_ops[*i1].prio * 10 + prio_inc,
+                    &bin_ops[*i2].prio * 10 + prio_inc,
+                )
+            }
+            _ => (&bin_ops[*i1].prio * 10, &bin_ops[*i2].prio * 10),
+        };
+        prio_i2.partial_cmp(&prio_i1).unwrap()
+    });
+    indices
 }
 
 impl<T: Copy + Debug> Expression<T> {
@@ -128,6 +148,45 @@ impl<T: Copy + Debug> Expression<T> {
         apply_unary_ops(&self.unary_ops, numbers[0])
     }
 
+    fn compile(&mut self) {
+        for node in &mut self.nodes {
+            if let Node::Expr(ref mut e) = node {
+                e.compile();
+            };
+        }
+
+        let mut num_inds = self.prio_indices.clone();
+        let mut used_prio_indices = ExprIdxSmallVec::new();
+        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
+            let num_idx = num_inds[i];
+            let node_1 = &self.nodes[num_idx];
+            let node_2 = &self.nodes[num_idx + 1];
+            if let (Node::Num(num_1), Node::Num(num_2)) = (node_1, node_2) {
+                self.nodes[num_idx] = Node::Num((self.bin_ops[bin_op_idx].op)(*num_1, *num_2));
+                self.nodes.remove(num_idx + 1);
+                // reduce indices after removed position
+                for num_idx_after in num_inds.iter_mut() {
+                    if *num_idx_after > num_idx {
+                        *num_idx_after = *num_idx_after - 1;
+                    }
+                }
+                used_prio_indices.push(bin_op_idx);
+            } else {
+                break;
+            }
+        }
+
+        self.bin_ops = self
+            .bin_ops
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !used_prio_indices.contains(i))
+            .map(|x| *x.1)
+            .collect();
+
+        self.prio_indices = prioritzed_indices(&self.bin_ops, &self.nodes);
+    }
+
     /// Creates a flat expression, i.e., without any kind of recursion
     ///
     /// # Arguments
@@ -152,15 +211,15 @@ impl<T: Copy + Debug> Expression<T> {
                 msg: "mismatch between number of nodes and binary operators".to_string(),
             })
         } else {
-            let mut indices: SmallVec<[usize; 32]> = (0..bin_ops.len()).collect();
-            indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
-
-            Ok(Expression {
+            let indices = prioritzed_indices(&bin_ops, &nodes);
+            let mut expr = Expression {
                 nodes: nodes,
                 bin_ops: bin_ops,
                 unary_ops: unary_ops,
                 prio_indices: indices,
-            })
+            };
+            expr.compile();
+            Ok(expr)
         }
     }
 }
