@@ -1,6 +1,6 @@
-use std::fmt::Debug;
-
 use crate::{operators::BinOp, util::apply_unary_ops, ExParseError};
+use smallvec::SmallVec;
+use std::fmt::Debug;
 
 /// Nodes are inputs for binary operators. A node can be an expression, a number, or
 /// a variable.
@@ -71,19 +71,7 @@ pub struct Expression<T: Copy> {
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
     unary_ops: Vec<fn(T) -> T>,
-}
-
-/// Sorts indices of binary operators by their priority
-///
-/// # Panics
-///
-/// We `unwrap` the partial comparison between two priorities. This can never panic 
-/// because priorities are integers of type `i16` that always can be partially compared.
-///
-fn prioritized_indices<T: Copy>(bin_ops: &Vec<BinOp<T>>) -> Vec<usize> {
-    let mut indices: Vec<_> = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
-    indices
+    prio_indices: SmallVec<[usize; 32]>,
 }
 
 impl<T: Copy + Debug> Expression<T> {
@@ -111,10 +99,9 @@ impl<T: Copy + Debug> Expression<T> {
     ///
     /// If more variables are existent than elements in the argument `vars`, we panic due to
     /// index out of bounds. Vice versa, if more arguments are passed than variables existent,
-    /// the last variables are ignored. 
+    /// the last variables are ignored.
     ///
     pub fn eval(&self, vars: &[T]) -> T {
-        let indices = prioritized_indices(&self.bin_ops);
         let mut numbers = self
             .nodes
             .iter()
@@ -124,8 +111,8 @@ impl<T: Copy + Debug> Expression<T> {
                 Node::Var(idx) => vars[*idx],
             })
             .collect::<Vec<T>>();
-        let mut num_inds = indices.clone();
-        for (i, &bin_op_idx) in indices.iter().enumerate() {
+        let mut num_inds = self.prio_indices.clone();
+        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let num_1 = numbers[num_idx];
             let num_2 = numbers[num_idx + 1];
@@ -146,7 +133,7 @@ impl<T: Copy + Debug> Expression<T> {
     /// # Arguments
     ///
     /// * `nodes` - operands of the expression
-    /// * `bin_ops` - binary operations to be applied to the operands, 
+    /// * `bin_ops` - binary operations to be applied to the operands,
     ///               operands  `i` and `i+1` correspond to binary operation `i`
     /// * `unary_ops` - unary operations to be applied to the reduction of all binary operations
     ///
@@ -165,117 +152,15 @@ impl<T: Copy + Debug> Expression<T> {
                 msg: "mismatch between number of nodes and binary operators".to_string(),
             })
         } else {
+            let mut indices: SmallVec<[usize; 32]> = (0..bin_ops.len()).collect();
+            indices.sort_by(|i1, i2| bin_ops[*i2].prio.partial_cmp(&bin_ops[*i1].prio).unwrap());
+
             Ok(Expression {
                 nodes: nodes,
                 bin_ops: bin_ops,
                 unary_ops: unary_ops,
+                prio_indices: indices,
             })
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::expression::{prioritized_indices, BinOp};
-
-    #[test]
-    fn test_prio() {
-        assert_eq!(
-            prioritized_indices(&vec![
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                }
-            ]),
-            vec![1, 0]
-        );
-        assert_eq!(
-            prioritized_indices(&vec![
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                }
-            ]),
-            vec![1, 3, 0, 2]
-        );
-        assert_eq!(
-            prioritized_indices(&vec![
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                }
-            ]),
-            vec![0, 1, 2, 3]
-        );
-        assert_eq!(
-            prioritized_indices(&vec![
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 2
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 3
-                }
-            ]),
-            vec![3, 2, 1, 0]
-        );
-        assert_eq!(
-            prioritized_indices(&vec![
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 3
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 2
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 1
-                },
-                BinOp {
-                    op: |_, _| 0.0,
-                    prio: 0
-                }
-            ]),
-            vec![0, 1, 2, 3]
-        );
     }
 }

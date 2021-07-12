@@ -17,5 +17,5 @@ include = ["**/*.rs", "Cargo.toml"]
 regex = "1"
 num = "0.4"
 itertools = "0.10.1"
-
+smallvec = "1.6.1"
  
