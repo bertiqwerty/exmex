@@ -139,7 +139,7 @@ impl<T: Copy + Debug> Expression<T> {
                 Node::Num(n) => *n,
                 Node::Var(idx) => vars[*idx],
             })
-            .collect::<Vec<T>>();
+            .collect::<SmallVec<[T; 32]>>();
         let mut num_inds = self.prio_indices.clone();
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
