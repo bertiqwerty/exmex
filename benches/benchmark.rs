@@ -11,15 +11,17 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
-const N: usize = 2;
+const N: usize = 3;
 
-const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["flat", "nested"];
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["flat", "flatsin", "nested"];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
+    "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
     "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ];
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
     |x, y, z| 2.0 * 6.0 - 4.0 - 3.0 / 2.5 + 3.141 * 0.4 * x - 32.0 * y + 43.0 * z,
+    |x, y, z| 2.0 * 6.0 - 4.0 - 3.0 / 2.5f64.sin() + 3.141 * 0.4 * x.sin() - 32.0 * y + 43.0 * z,
     |x, y, z| x * 0.02 * (3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin())),
 ];
 const BENCH_X_RANGE: (usize, usize) = (0, 1000);

@@ -63,28 +63,28 @@ you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchm
 ```
 cargo bench
 ``` 
-to compare Exmex with other crates. Other math parsing and evaluation crates considered, are
-listed in the following. Two had to be excluded due to technical reasons.
-* [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)
-* [Meval](https://docs.rs/meval/0.2.0/meval/)
-* [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)
-* [Rsc](https://docs.rs/rsc/2.0.0/rsc/)
-* [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) (did not compile on a
-Win10 with i5-8350 processor)
-* [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) (did print a lot of error messages during the run)
-
+to compare Exmex with other crates.
 Even faster
 evaluation will be implemented in a future Exmex-release. The following
 table shows benchmarking results on the aforementioned machine in micro-seconds.
 
-|        |flat expression|nested expression|
-|--------|---------------|-----------------|
-|Fasteval|          373.6|            491.7|
-|Evalexpr|         2531.8|           3455.2|
-|Meval   |            190|        **268.2**|
-|Rsc     |         6867.7|           7731.5|
-|Exmex   |      **149.3**|            374.2|
+|        |flat           |flatsin   | nested   | comment|
+|--------|---------------|----------|----------|--------|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|          373.6|     385.3|     491.7|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|         2531.8|      3333|    3455.2|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)   |            190|**242.35**| **268.2**|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |         6867.7|   7616.1 |    7731.5|
+|**Exmex**   |      **149.3**|     292.1|     374.2|
+|[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-| did not compile on a Win10 with i5-8350 processor|
+|[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|did print a lot of error messages during the run|
 
+The expressions used for the benchmarks are shown in the following.
+```
+flat:    "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
+flatsin: "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
+nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
+```
+More details can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
