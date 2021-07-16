@@ -66,7 +66,7 @@ cargo bench
 to compare Exmex with other crates.
 Even faster
 evaluation will be implemented in a future Exmex-release. The following
-table shows benchmarking results on the aforementioned machine in micro-seconds.
+table shows benchmarking results on a Win10 machine with i5-8350 processor in micro-seconds.
 
 |        |flat           |flatsin   | nested   | comment|
 |--------|---------------|----------|----------|--------|
