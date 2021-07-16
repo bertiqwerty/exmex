@@ -59,16 +59,31 @@ that might be more performance critical depending on the application. If you rep
 exmex = {git = "https://github.com/bertiqwerty/exmex"}
 ```
 in your `Cargo.toml`, 
-you can run benchmarks with on
-```cargo bench``` 
-to compare Exmex with other crates. We have used
+you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks with
+```
+cargo bench
+``` 
+to compare Exmex with other crates. Other math parsing and evaluation crates considered, are
+listed in the following. Two had to be excluded due to technical reasons.
 * [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)
 * [Meval](https://docs.rs/meval/0.2.0/meval/)
 * [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)
-and [Criterion](https://docs.rs/criterion/0.3.4/criterion/) as benchmarking tool. 
-Unfortunately, [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) did not compile on a
-Win10 with i5-8350 processor used for benchmarking. Even faster
-evaluation will be implemented in a future Exmex-release.
+* [Rsc](https://docs.rs/rsc/2.0.0/rsc/)
+* [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) (did not compile on a
+Win10 with i5-8350 processor)
+* [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) (did print a lot of error messages during the run)
+
+Even faster
+evaluation will be implemented in a future Exmex-release. The following
+table shows benchmarking results on the aforementioned machine in micro-seconds.
+
+|        |flat expression|nested expression|
+|--------|---------------|-----------------|
+|Fasteval|          373.6|            491.7|
+|Evalexpr|         2531.8|           3455.2|
+|Meval   |            190|        **268.2**|
+|Rsc     |         6867.7|           7731.5|
+|Exmex   |      **149.3**|            374.2|
 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via

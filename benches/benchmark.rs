@@ -6,7 +6,11 @@ use exmex::parse_with_default_ops;
 use fasteval::{Compiler, Evaler};
 use itertools::izip;
 use meval;
-
+use rsc::{
+    computer::Computer,
+    lexer::tokenize,
+    parser::{parse, Expr},
+};
 const N: usize = 2;
 
 const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["flat", "nested"];
@@ -95,8 +99,7 @@ fn evalexpr(c: &mut Criterion) {
         .map(|expr_str| build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap())
         .collect::<Vec<_>>();
     let mut contexts = repeat(HashMapContext::new()).take(N).collect::<Vec<_>>();
-    let funcs = izip!(parsed_exprs
-        .iter(), contexts.iter_mut())
+    let funcs = izip!(parsed_exprs.iter(), contexts.iter_mut())
         .map(|(expr, context)| {
             move |x: f64| {
                 context.set_value("x".into(), x.into()).unwrap();
@@ -153,5 +156,41 @@ fn fasteval(c: &mut Criterion) {
     run_benchmark(funcs, "fasteval", c);
 }
 
-criterion_group!(benches, fasteval, evalexpr, exmex, bench_meval);
+fn rsc(c: &mut Criterion) {
+    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+        .iter()
+        .map(|expr_str| {
+            let tokens = tokenize(expr_str, true).unwrap();
+            parse(&tokens).unwrap()
+        })
+        .collect::<Vec<_>>();
+    let mut computers = repeat(Computer::<f64>::default())
+        .take(N)
+        .collect::<Vec<_>>();
+    let funcs = izip!(parsed_exprs.iter(), computers.iter_mut())
+        .map(|(ast, comp)| {
+            move |x: f64| {
+                let mut ast = ast.clone();
+                ast.replace(
+                    &Expr::Identifier("x".to_owned()),
+                    &Expr::Constant(x),
+                    false,
+                );
+                ast.replace(
+                    &Expr::Identifier("y".to_owned()),
+                    &Expr::Constant(BENCH_Y),
+                    false,
+                );
+                ast.replace(
+                    &Expr::Identifier("z".to_owned()),
+                    &Expr::Constant(BENCH_Z),
+                    false,
+                );                
+                comp.compute(&ast).unwrap()
+            }
+        })
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "rsc", c);
+}
+criterion_group!(benches, fasteval, evalexpr, exmex, bench_meval, rsc);
 criterion_main!(benches);
