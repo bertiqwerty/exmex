@@ -50,6 +50,26 @@ let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
 let result = expr.eval(&[0.25]);
 ```
 
+## Benchmarks
+
+Exmex is not particularly fast during parsing. However, Exmex is efficient during evaluation
+that might be more performance critical depending on the application. If you replace
+`exmex=0.5.0` with
+```
+exmex = {git = "https://github.com/bertiqwerty/exmex"}
+```
+in your `Cargo.toml`, 
+you can run benchmarks with on
+```cargo bench``` 
+to compare Exmex with other crates. We have used
+* [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)
+* [Meval](https://docs.rs/meval/0.2.0/meval/)
+* [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)
+and [Criterion](https://docs.rs/criterion/0.3.4/criterion/) as benchmarking tool. 
+Unfortunately, [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) did not compile on a
+Win10 with i5-8350 processor used for benchmarking. Even faster
+evaluation will be implemented in a future Exmex-release.
+
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```

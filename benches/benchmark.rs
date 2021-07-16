@@ -1,142 +1,157 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext};
+use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Value};
 use exmex::parse_with_default_ops;
 use fasteval::{Compiler, Evaler};
 use itertools::izip;
 use meval;
 
-const BENCH_EXPRESSIONS_NAMES: Vec<(&str)> = vec!["flat", "nested"];
-const BENCH_EXPRESSIONS_STRS: Vec<(&str)> = vec![
-    "2 * 6 - 4 - 3 / 2 + 3 * 4 * x - 32 * y + 43 * z",
-    "sin(x - 1 / (cos(y * 5))) + 5 ^ (2 / (0.5 * z))",
-];
-const BENCH_EXPRESSIONS_REFS: Vec<(fn(f64, f64, f64) -> f64)> = vec![
-    |x, y, z| sin(x - 1 / (cos(y * 5))) + 5 ^ (2 / (0.5 * z)),
-    |x, y, z| 2 * 6 - 4 - 3 / 2 + 3 * 4 * x - 32 * y + 43 * z,
-];
+const N: usize = 2;
 
-const BENCH_X_RANGE: (usize, usize) = (0, 100);
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["flat", "nested"];
+const BENCH_EXPRESSIONS_STRS: [&str; N] = [
+    "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
+    "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
+];
+const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
+    |x, y, z| 2.0 * 6.0 - 4.0 - 3.0 / 2.5 + 3.141 * 0.4 * x - 32.0 * y + 43.0 * z,
+    |x, y, z| x * 0.02 * (3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin())),
+];
+const BENCH_X_RANGE: (usize, usize) = (0, 1000);
 const BENCH_Y: f64 = 3.0;
 const BENCH_Z: f64 = 4.0;
 
-const BENCH_REF_VALUES: Vec<Vec<f64>> = BENCH_EXPRESSIONS_REFS.iter().map(|f|
-    (BENCH_X_RANGE.0..BENCH_X_RANGE.1).iter().map(|i|
-        f(i as float, BENCH_Z, BENCH_Z)
-    ).collect::<Vec<_>>()
-).collect::<Vec<_>>();
-
-
-fn assert_float_eq(f1: f64, f2: f64) {
-    assert!((f1 - f2).abs() >= 1e-12);
+fn bench_ref_values() -> Vec<Vec<f64>> {
+    BENCH_EXPRESSIONS_REFS
+        .iter()
+        .map(|f| {
+            (BENCH_X_RANGE.0..BENCH_X_RANGE.1)
+                .map(|i| f(i as f64, BENCH_Y, BENCH_Z))
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
 }
 
+fn assert_float_eq(f1: f64, f2: f64) {
+    assert!((f1 - f2).abs() <= 1e-12);
+}
 
-fn exmex(c: &mut Criterion) {
-    let expression_strs = BENCH_EXPRESSIONS_STRS.iter().map(|expr_str| {
-        expr_str
-            .replace("x", "{x}")
-            .replace("y", "{y}")
-            .replace("z", "{z}")
-    }).collect::<Vec<_>>();
-
-    let expressions = expression_strs.iter().map(|expr_str|{
-        parse_with_default_ops::<f64>(expr_str).unwrap()
-    }).collect::<Vec<_>>();
-    
-    for (expr, name, ref_val) in izip!(expressions, BENCH_EXPRESSIONS_NAMES, BENCH_REF_VALUES) {
-        c.bench_function("exmex_" + name, |b| {
+fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut Criterion) {
+    for (mut func, exp_name, ref_vals) in izip!(
+        funcs,
+        BENCH_EXPRESSIONS_NAMES.iter(),
+        bench_ref_values().iter()
+    ) {
+        c.bench_function(format!("{}_{}", eval_name, exp_name).as_str(), |b| {
             b.iter(|| {
-                for i in BENCH_X_RANGE.0..BENCH_X_RANGE.1 {
-                    assert_float_eq(expr.eval(&[black_box(i as f64), BENCH_Y, BENCH_Z]), ref_val);
+                for (i, ref_val) in izip!(BENCH_X_RANGE.0..BENCH_X_RANGE.1, ref_vals) {
+                    assert_float_eq(func(black_box(i as f64)), *ref_val);
                 }
             })
         });
     }
 }
 
-fn meval_flat(c: &mut Criterion) {
-    let expr1 = "2 * 6 - 4 - 3 / 2 + 3 * 4 * x - 32 * y + 43 * z"
-        .parse::<meval::Expr>()
-        .unwrap();
-    let func1 = expr1.bind3("x", "y", "z").unwrap();
-    let expr2 = "2 + 3 * 4 * 32 * 43 * sin(x)"
-        .parse::<meval::Expr>()
-        .unwrap();
-    let func2 = expr2.bind("x").unwrap();
-
-    c.bench_function("meval", |b| {
-        b.iter(|| {
-            for i in 0..100 {
-                func1(black_box(i as f64), 3.0, 4.0);
-                func2(black_box(i as f64));
-            }
+fn exmex(c: &mut Criterion) {
+    let expression_strs = BENCH_EXPRESSIONS_STRS
+        .iter()
+        .map(|expr_str| {
+            expr_str
+                .replace("x", "{x}")
+                .replace("y", "{y}")
+                .replace("z", "{z}")
         })
-    });
+        .collect::<Vec<_>>();
+    let parsed_exprs = expression_strs
+        .iter()
+        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
+        .collect::<Vec<_>>();
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]))
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "exmex", c);
 }
 
-fn evalexpr_flat(c: &mut Criterion) {
-    let expr1 = "2 * 6 - 4 - 3 / 2 + 3 * 4 * x - 32 * y + 43 * z";
-    let precompiled1 = build_operator_tree(expr1).unwrap();
-    let expr2 = "2 + 3 * 4 * 32 * 43 * sin(x)";
-    let precompiled2 = build_operator_tree(expr2).unwrap();
-    let mut context1 = HashMapContext::new();
-    context1.set_value("y".into(), (3.0).into());
-    context1.set_value("z".into(), (4.0).into());
-    let mut context2 = HashMapContext::new();
-    c.bench_function("evalexpr", |b| {
-        b.iter(|| {
-            for i in 0..100 {
-                context1.set_value("x".into(), black_box(i as f64).into());
-                precompiled1.eval_with_context(&context1);
-                context2.set_value("x".into(), black_box(i as f64).into());
-                precompiled2.eval_with_context(&context2);
-            }
+fn bench_meval(c: &mut Criterion) {
+    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+        .iter()
+        .map(|expr_str| {
+            let expr = expr_str.parse::<meval::Expr>().unwrap();
+            expr.bind3("x", "y", "z").unwrap()
         })
-    });
+        .collect::<Vec<_>>();
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |x: f64| expr(x, BENCH_Y, BENCH_Z))
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "meval", c);
 }
 
-fn fasteval_flat(c: &mut Criterion) {
-    let parser1 = fasteval::Parser::new();
-    let parser2 = fasteval::Parser::new();
-    let mut slab1 = fasteval::Slab::new();
-    let mut slab2 = fasteval::Slab::new();
-    let expr1 = "2 * 6 - 4 - 3 / 2 + 3 * 4 * x - 32 * y + 43 * z";
-    let parsed1 = parser1
-        .parse(expr1, &mut slab1.ps)
-        .unwrap()
-        .from(&slab1.ps)
-        .compile(&slab1.ps, &mut slab1.cs);
-    let expr2 = "2 + 3 * 4 * 32 * 43 / x";
-    let parsed2 = parser2
-        .parse(expr2, &mut slab2.ps)
-        .unwrap()
-        .from(&slab2.ps)
-        .compile(&slab2.ps, &mut slab2.cs);
-    let mut context1: BTreeMap<String, f64> = BTreeMap::new();
-    context1.insert("y".to_string(), 3.0);
-    context1.insert("z".to_string(), 4.0);
-    let mut context2: BTreeMap<String, f64> = BTreeMap::new();
-
-    c.bench_function("fasteval", |b| {
-        b.iter(|| -> Result<(), fasteval::Error> {
-            for i in 0..100 {
-                context1.insert("x".to_string(), (i as f64).into());
-                fasteval::eval_compiled!(parsed1, black_box(&slab1), &mut context1);
-                context2.insert("x".to_string(), (i as f64).into());
-                fasteval::eval_compiled!(parsed2, black_box(&slab2), &mut context2);
+fn evalexpr(c: &mut Criterion) {
+    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+        .iter()
+        .map(|expr_str| build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap())
+        .collect::<Vec<_>>();
+    let mut contexts = repeat(HashMapContext::new()).take(N).collect::<Vec<_>>();
+    let funcs = izip!(parsed_exprs
+        .iter(), contexts.iter_mut())
+        .map(|(expr, context)| {
+            move |x: f64| {
+                context.set_value("x".into(), x.into()).unwrap();
+                context.set_value("y".into(), BENCH_Y.into()).unwrap();
+                context.set_value("z".into(), BENCH_Z.into()).unwrap();
+                match expr.eval_with_context(context).unwrap() {
+                    Value::Float(val) => val,
+                    _ => panic!("What?"),
+                }
             }
-            Ok(())
         })
-    });
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "evalexpr", c);
 }
 
-criterion_group!(
-    benches,
-    fasteval_flat,
-    evalexpr_flat,
-    exmex_flat,
-    meval_flat
-);
+fn fasteval(c: &mut Criterion) {
+    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+        .iter()
+        .map(|expr_str| {
+            let parser = fasteval::Parser::new();
+            let mut slab = fasteval::Slab::new();
+            (
+                parser
+                    .parse(expr_str, &mut slab.ps)
+                    .unwrap()
+                    .from(&slab.ps)
+                    .compile(&slab.ps, &mut slab.cs),
+                slab,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut contexts = repeat(BTreeMap::<String, f64>::new())
+        .take(N)
+        .collect::<Vec<_>>();
+    let funcs = izip!(parsed_exprs.iter(), contexts.iter_mut())
+        .map(|tuple_of_tuples| {
+            let context = tuple_of_tuples.1;
+            let (instr, slab) = tuple_of_tuples.0;
+            move |x: f64| {
+                context.insert("x".to_string(), x.into());
+                context.insert("y".to_string(), BENCH_Y.into());
+                context.insert("z".to_string(), BENCH_Z.into());
+                || -> Result<f64, fasteval::Error> {
+                    Ok(fasteval::eval_compiled_ref!(
+                        instr,
+                        black_box(slab),
+                        context
+                    ))
+                }()
+                .unwrap()
+            }
+        })
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "fasteval", c);
+}
+
+criterion_group!(benches, fasteval, evalexpr, exmex, bench_meval);
 criterion_main!(benches);

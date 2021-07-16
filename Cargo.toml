@@ -20,11 +20,10 @@ itertools = "0.10.1"
 smallvec = "1.6.1"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.3.4"
 meval = "0.2.0"
-evalexpr = "6"
+evalexpr = "6.3.0"
 fasteval = "0.2.4"
- mexprp = "0.3.0"
 
 [[bench]]
 name = "benchmark"
