@@ -63,9 +63,14 @@ you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchm
 ```
 cargo bench
 ``` 
-to compare Exmex with other crates.
-Even faster
-evaluation will be implemented in a future Exmex-release. The following
+to compare Exmex with other crates. The
+expressions used for benchmarking are:
+```
+flat:    "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
+flatsin: "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
+nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
+```
+The following
 table shows benchmarking results on a Win10 machine with i5-8350 processor in micro-seconds.
 
 |        |flat           |flatsin   | nested   | comment|
@@ -78,13 +83,8 @@ table shows benchmarking results on a Win10 machine with i5-8350 processor in mi
 |[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-| did not compile on a Win10 with i5-8350 processor|
 |[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|did print a lot of error messages during the run|
 
-The expressions used for the benchmarks are shown in the following.
-```
-flat:    "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
-flatsin: "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
-nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
-```
 More details can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
+Even faster evaluation will be implemented in a future Exmex-release. 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
