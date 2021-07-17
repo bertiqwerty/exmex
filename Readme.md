@@ -56,7 +56,7 @@ Exmex is not particularly fast during parsing. However, Exmex is efficient durin
 that might be more performance critical depending on the application. If you replace
 `exmex=0.5.0` with
 ```
-exmex = {git = "https://github.com/bertiqwerty/exmex"}
+exmex = { git = "https://github.com/bertiqwerty/exmex", branch="main" }
 ```
 in your `Cargo.toml`, 
 you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks with
