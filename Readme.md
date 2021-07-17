@@ -71,7 +71,7 @@ flatsin: "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
 nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ```
 The following
-table shows benchmarking mean runtimes of 1000 evaluations on a Win10 machine with i5-8350 processor in micro-seconds.
+table shows benchmarking mean runtimes of 1000-evaluation-runs on a Win10 machine with i5-8350 processor in micro-seconds.
 
 |        |flat           |flatsin   | nested   | comment|
 |--------|---------------|----------|----------|--------|
