@@ -5,7 +5,7 @@
 
 Exmex is an **ex**tendable **m**athematical **ex**pression evaluator.  
 Users can define their own operators and work with different data types such
-as float, integer, or bool.
+as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
 ## Installation
 
@@ -31,7 +31,7 @@ To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
 ```
-Besides predefined operators, you can pass custom operators to the 
+Besides predefined operators for floats, you can pass custom operators to the 
 function `parse` to create an expression. 
 ```rust
 let ops = vec![
