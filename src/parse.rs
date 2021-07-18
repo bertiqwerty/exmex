@@ -1,6 +1,6 @@
 use crate::expression::{BinOpVec, Expression, Node};
 use crate::operators::{make_default_operators, BinOp, Operator};
-use crate::util::{UnaryOpVec, apply_unary_ops};
+use crate::util::{CompositionOfUnaryOps, apply_unary_ops};
 use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
@@ -162,7 +162,7 @@ where
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
-    unary_ops: UnaryOpVec<T>,
+    unary_ops: CompositionOfUnaryOps<T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
@@ -203,7 +203,7 @@ where
                     .take_while(|uo_| uo_.is_some())
                     .flatten(),
             )
-            .collect::<UnaryOpVec<_>>();
+            .collect::<CompositionOfUnaryOps<_>>();
         let n_uops = uops.len();
 
         match &parsed_tokens[i + n_uops] {
@@ -288,7 +288,7 @@ where
                 Paren::Open => {
                     idx_tkn += 1;
                     let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, UnaryOpVec::new())?;
+                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, CompositionOfUnaryOps::new())?;
                     nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
@@ -481,7 +481,7 @@ where
         .unique()
         .collect::<Vec<_>>();
     check_preconditions(&parsed_tokens[..])?;
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpVec::new())?;
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, CompositionOfUnaryOps::new())?;
     Ok(expr)
 }
 
@@ -497,6 +497,7 @@ where
     T: Float + FromStr + Debug,
 {
     let ops = make_default_operators::<T>();
+    // println!("{:#?}", ops);
     Ok(parse(&text, ops)?)
 }
 

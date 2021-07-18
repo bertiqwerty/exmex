@@ -124,11 +124,12 @@ mod util;
 
 pub use expression::{Expression, Node, BinOpVec};
 
-pub use util::UnaryOpVec;
+pub use util::CompositionOfUnaryOps;
 
 pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
 
 pub use operators::{make_default_operators, BinOp, Operator};
+
 
 /// Parses a string, evaluates a string, and returns the resulting number.
 ///
@@ -139,7 +140,8 @@ pub use operators::{make_default_operators, BinOp, Operator};
 ///
 pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
     let expr = parse_with_default_ops(text)?;
-    Ok(expr.eval(&vec![]))
+    let flat_ex = expr.flatten();
+    Ok(flat_ex.eval(&vec![]))
 }
 
 #[cfg(test)]
@@ -321,6 +323,10 @@ mod tests {
         assert_float_eq_f64(
             eval_str(&"-(-1+((-3.14159265358979)/5)*2)").unwrap(),
             2.256637061435916,
+        );
+        assert_float_eq_f64(
+            eval_str(&"((2-4)/5)*2").unwrap(),
+            -0.8,
         );
         assert_float_eq_f64(
             eval_str(&"-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(),

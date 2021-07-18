@@ -71,7 +71,7 @@ fn exmex(c: &mut Criterion) {
         .collect::<Vec<_>>();
     let parsed_exprs = expression_strs
         .iter()
-        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
+        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap().flatten())
         .collect::<Vec<_>>();
     let funcs = parsed_exprs
         .iter()

@@ -43,7 +43,7 @@ pub struct BinOp<T> {
     /// higher number will be executed first. For instance, in a sane world `*`
     /// has a higher priority than `+`. However, in Exmex land you could also define
     /// this differently.
-    pub prio: i16,
+    pub prio: i32,
 }
 
 /// Returns the default operators.
