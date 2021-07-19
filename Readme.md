@@ -36,18 +36,22 @@ function `parse` to create an expression.
 ```rust
 let ops = vec![
     Operator {
-        repr: "invert",
-        bin_op: None,
-        unary_op: Some(|a: f32| 1.0 / a),
+        repr: "|",
+        bin_op: Some(BinOp {
+            op: |a: u32, b: u32| a | b,
+            prio: 0,
+        }),
+        unary_op: None,
     },
     Operator {
-        repr: "sqrt",
+        repr: "!",
         bin_op: None,
-        unary_op: Some(|a: f32| a.sqrt()),
+        unary_op: Some(|a: u32| !a),
     },
 ];
-let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
-let result = expr.eval(&[0.25]);
+let expr = parse::<u32>("!({a}|{b})", ops)?;
+let result = expr.eval(&[0, 1]);
+assert_eq!(result, u32::MAX - 1);
 ```
 
 ## Benchmarks
@@ -63,8 +67,7 @@ you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchm
 ```
 cargo bench
 ``` 
-to compare Exmex with other crates. The
-expressions used for benchmarking are:
+to compare Exmex with other crates. The expressions used for benchmarking are:
 ```
 xyz:     "x*y*z"
 xx+:     "x*x+y*y+z*z"
@@ -75,7 +78,7 @@ flatsin: "2*6-4-3/sin(2.5)+3.141*0.4*sin(x)-32*y+43*z",
 nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ```
 The following
-table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon 2.6 GHz processor in micro-seconds.
+table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon 2.6 GHz processor in micro-seconds, i.e., smaller means better.
 
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested| comment|
 |--------|---------------|----------|----------|---|--------|---|---|---|

@@ -157,31 +157,38 @@ mod tests {
 
     #[test]
     fn test_readme() {
-        fn readme() -> Result<f32, ExParseError> {
+        fn readme() -> Result<f64, ExParseError> {
             let result = eval_str("sin(73)")?;
             assert_float_eq_f64(result, 73f64.sin());
             let expr = parse_with_default_ops::<f64>("2*{x}^3-4/{z}")?;
-
             let value = expr.eval(&[5.3, 0.5]);
             assert_float_eq_f64(value, 289.75399999999996);
+            Ok(value)
+        }
+        fn readme_int() -> Result<u32, ExParseError> {
             let ops = vec![
                 Operator {
-                    repr: "invert",
-                    bin_op: None,
-                    unary_op: Some(|a: f32| 1.0 / a),
+                    repr: "|",
+                    bin_op: Some(BinOp {
+                        op: |a: u32, b: u32| a | b,
+                        prio: 0,
+                    }),
+                    unary_op: None,
                 },
                 Operator {
-                    repr: "sqrt",
+                    repr: "!",
                     bin_op: None,
-                    unary_op: Some(|a: f32| a.sqrt()),
+                    unary_op: Some(|a: u32| !a),
                 },
             ];
-            let expr = parse::<f32>("sqrt(invert({a}))", ops)?;
-            let result = expr.eval(&[0.25]);
-            assert_float_eq_f32(result, 2.0);
+            let expr = parse::<u32>("!({a}|{b})", ops)?;
+            let result = expr.eval(&[0, 1]);
+            assert_eq!(result, u32::MAX - 1);
             Ok(result)
         }
         assert!(!readme().is_err());
+        assert!(!readme_int().is_err());
+        
     }
     #[test]
     fn test_variables() {
