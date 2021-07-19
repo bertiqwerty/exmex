@@ -57,13 +57,8 @@ assert_eq!(result, u32::MAX - 1);
 ## Benchmarks
 
 Exmex is not particularly fast during parsing. However, Exmex is efficient during evaluation
-that might be more performance critical depending on the application. If you replace
-`exmex=0.5.0` with
-```
-exmex = { git = "https://github.com/bertiqwerty/exmex", branch="main" }
-```
-in your `Cargo.toml`, 
-you can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks with
+that might be more performance critical depending on the application. 
+You can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks with
 ```
 cargo bench
 ``` 
