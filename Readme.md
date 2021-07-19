@@ -71,20 +71,20 @@ flatsin: "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
 nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ```
 The following
-table shows mean runtimes of 1000-evaluation-runs on a Win10 machine with i5-8350 processor in micro-seconds.
+table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon 2.6 GHz processor in micro-seconds.
 
-|        |flat           |flatsin   | nested   | comment|
-|--------|---------------|----------|----------|--------|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|          373.6|     385.3|     491.7|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|         2531.8|      3333|    3455.2|
-|[Meval](https://docs.rs/meval/0.2.0/meval/)   |            190|**242.35**| **268.2**|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |         6867.7|   7616.1 |    7731.5|
-|**Exmex**   |      **149.3**|     292.1|     374.2|
-|[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-| did not compile on a Win10 with i5-8350 processor|
-|[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|did print a lot of error messages during the run|
+|        |xyz|xx+yy+zz|x^2+y^2+z^2|canucompile|flat|flatsin|nested   | comment|
+|--------|---------------|----------|----------|---|--------|---|---|---|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|145.92|233.37|195.11|204.72|183.05| 233.88|305.76|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.14|943.57|801.53|2433.5|1507.1|1900.5|2011.7|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)   |50.927|86.030| **90.260**|163.22|**109.02**|201.44|**195.87**|only `f64`, no custom operators|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.46|837.47|791.88|2521.2|1500|1825.5|1732.8|
+|**Exmex**   |**37.837**|**70.085**|**86.786**|**93.205**|**103.73**|**140.50**|**195.78**|
+|[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-|-|-|-|-| did not compile on a Win10 with i5-8350 processor|
+|[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|-|-|-|-|did print a lot of error messages during the run|
 
 More details can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
-Even faster evaluation will be implemented in a future Exmex-release. 
+
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
