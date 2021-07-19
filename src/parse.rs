@@ -264,7 +264,7 @@ where
                             ParsedToken::Paren(p) => match p {
                                 Paren::Open => {
                                     let msg = "This is probably a bug An opening paren cannot be the predecessor of a binary opertor";
-                                    panic!(msg);
+                                    panic!("{}", msg);
                                 }
                                 Paren::Close => {
                                     bin_ops.push(unpack_binop(b.bin_op));
