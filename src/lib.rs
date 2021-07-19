@@ -1,5 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.6.0")]
-//! Exmex is an **ex**tendable **m**athematical **ex**pression evaluator.  
+//! Exmex is a fast **ex**tendable **m**athematical **ex**pression evaluator.  
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

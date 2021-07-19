@@ -101,19 +101,6 @@ impl<T: Copy> FlatEx<T> {
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
-    /// The binary operators of the expression are
-    /// applied to the expression's nodes. The order in the `nodes`-vector determines
-    /// for which binary operator a node is used as input. More precisely, let us assume
-    /// the binary operator with index `i` has the highest priority. Then, the
-    /// nodes with index `i` and `i+1` are used as its input. After the binary operator with
-    /// the highest priority is evaluated, the result is put into
-    /// a the mutable node with index `i`, the number of nodes an operators is reduced by 1
-    /// and the operator with the next highest priority is considered, etc.
-    /// Unary operators can either exist per binary operator or per node.
-    ///
-    /// * After a binary operator terminates, the corresponding unary operator will be executed.
-    /// * If unary operator of a node will be applied before using the corresponding variable as input of a binary operator.
-    ///
     /// # Arguments
     ///
     /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
