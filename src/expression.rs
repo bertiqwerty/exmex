@@ -56,9 +56,9 @@ impl<T: Copy> FlatNode<T> {
     }
 }
 
-/// This is the core data type representing a flattened expression and the result of 
+/// This is the core data type representing a flattened expression and the result of
 /// parsing a string. The expression is flattened to make efficient evaluation possible.
-/// Simplified, it consists of a [`SmallVec`](SmallVec) of nodes and a 
+/// Simplified, it consists of a [`SmallVec`](SmallVec) of nodes and a
 /// [`SmallVec`](SmallVec) of operators that are applied to the nodes in an order following
 /// operator priorities.
 ///
@@ -90,7 +90,7 @@ pub struct FlatEx<T: Copy> {
     prio_indices: ExprIdxVec,
 }
 
-fn apply_uop_if_some<T: Copy>(uop: &Option<CompositionOfUnaryOps<T>>, val: T) -> T { 
+fn apply_uop_if_some<T: Copy>(uop: &Option<CompositionOfUnaryOps<T>>, val: T) -> T {
     match uop {
         None => val,
         Some(uops) => apply_unary_ops(&uops, val),
@@ -108,8 +108,8 @@ impl<T: Copy> FlatEx<T> {
     /// nodes with index `i` and `i+1` are used as its input. After the binary operator with
     /// the highest priority is evaluated, the result is put into
     /// a the mutable node with index `i`, the number of nodes an operators is reduced by 1
-    /// and the operator with the next highest priority is considered, etc. 
-    /// Unary operators can either exist per binary operator or per node. 
+    /// and the operator with the next highest priority is considered, etc.
+    /// Unary operators can either exist per binary operator or per node.
     ///
     /// * After a binary operator terminates, the corresponding unary operator will be executed.
     /// * If unary operator of a node will be applied before using the corresponding variable as input of a binary operator.
@@ -161,20 +161,24 @@ impl<T: Copy> FlatEx<T> {
     }
 
     fn compile(&mut self) {
-        
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
-            if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) = (&node_1.kind, &node_2.kind) {
+            if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) =
+                (&node_1.kind, &node_2.kind)
+            {
                 let num_1 = apply_uop_if_some(&node_1.unary_op, *num_1);
                 let num_2 = apply_uop_if_some(&node_2.unary_op, *num_2);
-                let val = apply_uop_if_some(&self.ops[bin_op_idx].unary_op, (self.ops[bin_op_idx].bin_op.op)(num_1, num_2));
-                self.nodes[num_idx] = FlatNode{
+                let val = apply_uop_if_some(
+                    &self.ops[bin_op_idx].unary_op,
+                    (self.ops[bin_op_idx].bin_op.op)(num_1, num_2),
+                );
+                self.nodes[num_idx] = FlatNode {
                     kind: FlatNodeKind::Num(val),
-                    unary_op: None
+                    unary_op: None,
                 };
                 self.nodes.remove(num_idx + 1);
                 // reduce indices after removed position
@@ -309,7 +313,6 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &Vec<Node<T>>) -> E
 }
 
 impl<T: Copy + Debug> Expression<T> {
-
     fn compile(&mut self) {
         for node in &mut self.nodes {
             if let Node::Expr(ref mut e) = node {
@@ -385,7 +388,7 @@ impl<T: Copy + Debug> Expression<T> {
 #[cfg(test)]
 mod test {
 
-    use crate::{parse_with_default_ops, util::{assert_float_eq_f64}};
+    use crate::{parse_with_default_ops, util::assert_float_eq_f64};
     #[test]
     fn test_compile() {
         let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();

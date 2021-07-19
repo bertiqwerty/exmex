@@ -1,6 +1,6 @@
-use crate::expression::{BinOpVec, Expression, Node, FlatEx};
+use crate::expression::{BinOpVec, Expression, FlatEx, Node};
 use crate::operators::{make_default_operators, BinOp, Operator};
-use crate::util::{CompositionOfUnaryOps, apply_unary_ops};
+use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
 use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
@@ -218,7 +218,11 @@ where
                 }
             },
             ParsedToken::Var(name) => {
-                let expr = Expression::new(vec![Node::Var(find_var_index(&name))], BinOpVec::new(), uops)?;
+                let expr = Expression::new(
+                    vec![Node::Var(find_var_index(&name))],
+                    BinOpVec::new(),
+                    uops,
+                )?;
                 Ok((Node::Expr(expr), n_uops + 1))
             }
             ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
@@ -287,8 +291,11 @@ where
             ParsedToken::Paren(p) => match p {
                 Paren::Open => {
                     idx_tkn += 1;
-                    let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[idx_tkn..], &parsed_vars, CompositionOfUnaryOps::new())?;
+                    let (expr, i_forward) = make_expression::<T>(
+                        &parsed_tokens[idx_tkn..],
+                        &parsed_vars,
+                        CompositionOfUnaryOps::new(),
+                    )?;
                     nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
                 }
@@ -445,9 +452,9 @@ where
 /// * the argument `text` contained a character that did not match any regex (e.g.,
 ///   if there is a `Δ` in `text` but no [operator](Operator) with
 ///   [`repr`](Operator::repr) equal to `Δ` is given),
-// 
+//
 // from check_preconditions
-// 
+//
 /// * the to-be-parsed string is empty,
 /// * a number or variable is next to another one, e.g., `2 {x}`,
 /// * wlog a number or variable is on the right of a closing parenthesis, e.g., `)5`,
@@ -456,9 +463,9 @@ where
 /// * too many closing parentheses at some position, e.g., `(4+6) - 5)*2`,
 /// * the last element is an operator, e.g., `1+`,
 /// * the number of opening and closing parenthesis do not match, e.g., `((4-2)`,
-// 
+//
 // from make_expression
-// 
+//
 /// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
 /// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
 ///
@@ -481,7 +488,11 @@ where
         .unique()
         .collect::<Vec<_>>();
     check_preconditions(&parsed_tokens[..])?;
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, CompositionOfUnaryOps::new())?;
+    let (expr, _) = make_expression(
+        &parsed_tokens[0..],
+        &parsed_vars,
+        CompositionOfUnaryOps::new(),
+    )?;
     Ok(expr.flatten())
 }
 
