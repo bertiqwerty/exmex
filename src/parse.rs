@@ -1,4 +1,4 @@
-use crate::expression::{BinOpVec, Expression, Node};
+use crate::expression::{BinOpVec, Expression, Node, FlatEx};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{CompositionOfUnaryOps, apply_unary_ops};
 use itertools::{izip, Itertools};
@@ -423,7 +423,7 @@ where
 ///
 /// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
 /// returns one.
-pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<Expression<T>, ExParseError>
+pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<FlatEx<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
@@ -466,7 +466,7 @@ pub fn parse_with_number_pattern<'a, T>(
     text: &str,
     ops: Vec<Operator<'a, T>>,
     number_regex_pattern: &str,
-) -> Result<Expression<T>, ExParseError>
+) -> Result<FlatEx<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
@@ -482,7 +482,7 @@ where
         .collect::<Vec<_>>();
     check_preconditions(&parsed_tokens[..])?;
     let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, CompositionOfUnaryOps::new())?;
-    Ok(expr)
+    Ok(expr.flatten())
 }
 
 /// Parses a string into an expression that can be evaluated using default operators.
@@ -491,7 +491,7 @@ where
 ///
 /// An error is returned in case [`parse`](parse)
 /// returns one.
-pub fn parse_with_default_ops<T>(text: &str) -> Result<Expression<T>, ExParseError>
+pub fn parse_with_default_ops<T>(text: &str) -> Result<FlatEx<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Float + FromStr + Debug,

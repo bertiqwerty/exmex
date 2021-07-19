@@ -16,7 +16,7 @@
 //!
 //! ## Variables
 //! For variables we can use curly brackets as shown in the following expression.
-//! Variables' values are passed as slices to [`eval`](Expression::eval).
+//! Variables' values are passed as slices to [`eval`](FlatEx::eval).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -122,9 +122,7 @@ mod operators;
 mod parse;
 mod util;
 
-pub use expression::{Expression, Node, BinOpVec};
-
-pub use util::CompositionOfUnaryOps;
+pub use expression::{FlatEx};
 
 pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
 
@@ -139,8 +137,7 @@ pub use operators::{make_default_operators, BinOp, Operator};
 /// [`ExParseError`](ExParseError) is returned.
 ///
 pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
-    let expr = parse_with_default_ops(text)?;
-    let flat_ex = expr.flatten();
+    let flat_ex = parse_with_default_ops(text)?;
     Ok(flat_ex.eval(&vec![]))
 }
 
