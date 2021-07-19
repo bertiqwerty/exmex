@@ -11,17 +11,36 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
-const N: usize = 4;
+const N: usize = 7;
 
-const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["canucompile", "flat", "flatsin", "nested"];
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = [
+    "xyz",
+    "xx+yy+zz",
+    "x^2+y^2+z^2",
+    "canucompile",
+    "flat",
+    "flatsin",
+    "nested",
+];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
-    "2 * (6 - 4) - 3 / 2.5 + 3.141 * 0.4 * (2 - 32 * (7 + 43 * (1+5))) * 0.1 + x*y*z",
+    "x*y*z",
+    "x*x+y*y+z*z",
+    "x^2+y^2+z^2",
+    "x+2 * (6 - 4) - 3 / 2.5 + y + 3.141 * 0.4 * (2 - 32 * (7 + 43 * (1+5))) * 0.1 + x*y*z",
     "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
     "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
     "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ];
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
-    |x, y, z| 2.0 * (6.0 - 4.0) - 3.0 / 2.5 + 3.141 * 0.4 * (2.0 - 32.0 * (7.0 + 43.0 * (1.0+5.0))) * 0.1 + x*y*z,
+    |x, y, z| x * y * z,
+    |x, y, z| x * x + y * y + z * z,
+    |x, y, z| x.powi(2) + y.powi(2) + z.powi(2),
+    |x, y, z| {
+        x + 2.0 * (6.0 - 4.0) - 3.0 / 2.5
+            + y
+            + 3.141 * 0.4 * (2.0 - 32.0 * (7.0 + 43.0 * (1.0 + 5.0))) * 0.1
+            + x * y * z
+    },
     |x, y, z| 6.8 + 1.2564 * x - 32.0 * y + 43.0 * z,
     |x, y, z| 8.0 - 5.01276463667604 + 1.2564 * x.sin() - 32.0 * y + 43.0 * z,
     |x, y, z| x * 0.02 * (3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin())),
@@ -59,14 +78,6 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
             })
         });
     }
-}
-
-fn static_evaluation(c: &mut Criterion) {
-    let funcs = BENCH_EXPRESSIONS_REFS
-        .iter()
-        .map(|f| move |x: f64| f(x, BENCH_Y, BENCH_Z))
-        .collect::<Vec<_>>();
-    run_benchmark(funcs, "static_evaluation", c);
 }
 
 fn exmex(c: &mut Criterion) {
@@ -202,7 +213,6 @@ fn rsc(c: &mut Criterion) {
 }
 criterion_group!(
     benches,
-    static_evaluation,
     fasteval,
     exmex,
     bench_meval,
