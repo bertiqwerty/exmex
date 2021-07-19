@@ -3,7 +3,7 @@ use crate::{
     util::{apply_unary_ops, CompositionOfUnaryOps},
     ExParseError,
 };
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use std::fmt::Debug;
 
 type ExprIdxVec = SmallVec<[usize; 32]>;
@@ -140,22 +140,24 @@ impl<T: Copy> FlatEx<T> {
                 )
             })
             .collect::<SmallVec<[T; 32]>>();
-        let mut num_inds = self.prio_indices.clone();
+        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; N_NODES_ON_STACK];
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
-            let num_idx = num_inds[i];
-            let num_1 = numbers[num_idx];
-            let num_2 = numbers[num_idx + 1];
-            numbers[num_idx] = {
+            let num_idx = self.prio_indices[i];
+            let mut shift_left = 0usize;
+            while ignore[num_idx - shift_left] {
+                shift_left += 1usize;
+            }
+            let mut shift_right= 1usize;
+            while ignore[num_idx + shift_right] {
+                shift_right += 1usize;
+            }
+            let num_1 = numbers[num_idx - shift_left];
+            let num_2 = numbers[num_idx + shift_right];
+            numbers[num_idx - shift_left] = {
                 let bop_res = (self.ops[bin_op_idx].bin_op.op)(num_1, num_2);
                 apply_uop_if_some(&self.ops[bin_op_idx].unary_op, bop_res)
             };
-            numbers.remove(num_idx + 1);
-            // reduce indices after removed position
-            for num_idx_after in num_inds.iter_mut() {
-                if *num_idx_after > num_idx {
-                    *num_idx_after = *num_idx_after - 1;
-                }
-            }
+            ignore[num_idx + shift_right] = true;
         }
         numbers[0]
     }
