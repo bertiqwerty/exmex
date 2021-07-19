@@ -44,15 +44,15 @@ pub enum FlatNodeKind<T: Copy> {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatNode<T: Copy> {
     kind: FlatNodeKind<T>,
-    unary_op: Option<CompositionOfUnaryOps<T>>
+    unary_op: Option<CompositionOfUnaryOps<T>>,
 }
 
 impl<T: Copy> FlatNode<T> {
     pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
         return FlatNode {
             kind: kind,
-            unary_op: None
-        }
+            unary_op: None,
+        };
     }
 }
 
@@ -63,30 +63,34 @@ pub struct FlatEx<T: Copy> {
     prio_indices: ExprIdxVec,
 }
 
-impl<T: Copy> FlatEx<T>{
+fn apply_uop_if_some<T: Copy>(uop: &Option<CompositionOfUnaryOps<T>>, val: T) -> T { 
+    match uop {
+        None => val,
+        Some(uops) => apply_unary_ops(&uops, val),
+    }
+}
+
+impl<T: Copy> FlatEx<T> {
     pub fn eval(&self, vars: &[T]) -> T {
-
-        let apply_uop_if_some = |uop: &Option<CompositionOfUnaryOps<T>>, val: T| {
-            match uop {
-                None => val,
-                Some(uops) => apply_unary_ops(&uops, val),
-            }
-        };
-
         let mut numbers = self
             .nodes
             .iter()
-            .map(|node| apply_uop_if_some(&node.unary_op, match node.kind {
-                FlatNodeKind::Num(n) => n,
-                FlatNodeKind::Var(idx) => vars[idx],
-            }))
+            .map(|node| {
+                apply_uop_if_some(
+                    &node.unary_op,
+                    match node.kind {
+                        FlatNodeKind::Num(n) => n,
+                        FlatNodeKind::Var(idx) => vars[idx],
+                    },
+                )
+            })
             .collect::<SmallVec<[T; 32]>>();
         let mut num_inds = self.prio_indices.clone();
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let num_1 = numbers[num_idx];
             let num_2 = numbers[num_idx + 1];
-            numbers[num_idx] = { 
+            numbers[num_idx] = {
                 let bop_res = (self.ops[bin_op_idx].bin_op.op)(num_1, num_2);
                 apply_uop_if_some(&self.ops[bin_op_idx].unary_op, bop_res)
             };
@@ -100,12 +104,49 @@ impl<T: Copy> FlatEx<T>{
         }
         numbers[0]
     }
+
+    fn compile(&mut self) {
+        
+        let mut num_inds = self.prio_indices.clone();
+        let mut used_prio_indices = ExprIdxVec::new();
+        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
+            let num_idx = num_inds[i];
+            let node_1 = &self.nodes[num_idx];
+            let node_2 = &self.nodes[num_idx + 1];
+            if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) = (&node_1.kind, &node_2.kind) {
+                let num_1 = apply_uop_if_some(&node_1.unary_op, *num_1);
+                let num_2 = apply_uop_if_some(&node_2.unary_op, *num_2);
+                let val = apply_uop_if_some(&self.ops[bin_op_idx].unary_op, (self.ops[bin_op_idx].bin_op.op)(num_1, num_2));
+                self.nodes[num_idx] = FlatNode{
+                    kind: FlatNodeKind::Num(val),
+                    unary_op: None
+                };
+                self.nodes.remove(num_idx + 1);
+                // reduce indices after removed position
+                for num_idx_after in num_inds.iter_mut() {
+                    if *num_idx_after > num_idx {
+                        *num_idx_after = *num_idx_after - 1;
+                    }
+                }
+                used_prio_indices.push(bin_op_idx);
+            } else {
+                break;
+            }
+        }
+
+        self.ops = self
+            .ops
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !used_prio_indices.contains(i))
+            .map(|x| x.1.clone())
+            .collect();
+
+        self.prio_indices = prioritized_indices_flat(&self.ops, &self.nodes);
+    }
 }
 
-fn flatten_vecs<T: Copy>(
-    expr: &Expression<T>,
-    prio_offset: i32,
-) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec<T>, FlatOpVec<T>) {
     let mut flat_nodes = FlatNodeVec::<T>::new();
     let mut flat_ops = FlatOpVec::<T>::new();
 
@@ -120,40 +161,35 @@ fn flatten_vecs<T: Copy>(
                 flat_nodes.push(flat_node);
             }
             Node::Expr(e) => {
-                let (mut sub_nodes, mut sub_ops) =
-                    flatten_vecs(e, prio_offset + 100i32);
+                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i32);
                 flat_nodes.append(&mut sub_nodes);
                 flat_ops.append(&mut sub_ops);
             }
-        };   
+        };
         if node_idx < expr.bin_ops.len() {
             let prio_adapted_bin_op = BinOp {
                 op: expr.bin_ops[node_idx].op,
                 prio: expr.bin_ops[node_idx].prio + prio_offset,
             };
-            flat_ops.push(FlatOp{
+            flat_ops.push(FlatOp {
                 bin_op: prio_adapted_bin_op,
                 unary_op: None,
             });
-        }  
+        }
     }
 
     if expr.unary_ops.len() > 0 {
         if flat_nodes.len() > 1 {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
-            let low_prio_op  = match flat_ops
-                .iter_mut()
-                .rev()
-                .min_by_key(|op| op.bin_op.prio)
-            {
+            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
-            *low_prio_op = FlatOp{
+            *low_prio_op = FlatOp {
                 bin_op: low_prio_op.bin_op,
-                unary_op: Some(expr.unary_ops.clone())
-            }             
+                unary_op: Some(expr.unary_ops.clone()),
+            }
         } else {
             let mut new_op = expr.unary_ops.clone();
             flat_nodes[0].unary_op = match flat_nodes[0].unary_op.clone() {
@@ -161,10 +197,10 @@ fn flatten_vecs<T: Copy>(
                 Some(mut uops) => {
                     new_op.append(&mut uops);
                     Some(new_op)
-                },
+                }
             }
         }
-    } 
+    }
     (flat_nodes, flat_ops)
 }
 
@@ -243,7 +279,6 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
                 )
             }
             _ => (&ops[*i1].bin_op.prio * 10, &ops[*i2].bin_op.prio * 10),
-            
         };
         prio_i2.partial_cmp(&prio_i1).unwrap()
     });
@@ -412,19 +447,30 @@ impl<T: Copy + Debug> Expression<T> {
     pub fn flatten(&self) -> FlatEx<T> {
         let (nodes, ops) = flatten_vecs(self, 0);
         let indices = prioritized_indices_flat(&ops, &nodes);
-        FlatEx {
+        let mut flatex = FlatEx {
             nodes: nodes,
             ops: ops,
-            prio_indices: indices
-        }
+            prio_indices: indices,
+        };
+        flatex.compile();
+        flatex
     }
 }
 
 #[cfg(test)]
 mod test {
 
-    use crate::{util::CompositionOfUnaryOps};
+    use crate::{parse_with_default_ops, util::{CompositionOfUnaryOps, assert_float_eq_f64}};
+    #[test]
+    fn test_compile() {
+        let expr = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
+        assert_eq!(expr.nodes.len(), 2);
+        assert_float_eq_f64(expr.eval(&[]), 1.9f64.sin());
+        let flat_ex = expr.flatten();
+        assert_float_eq_f64(flat_ex.eval(&[]), 1.9f64.sin());
 
+        assert_eq!(flat_ex.nodes.len(), 1);
+    }
     #[test]
     fn test_flat_no_parse() {
         use crate::{BinOp, Expression, Node};

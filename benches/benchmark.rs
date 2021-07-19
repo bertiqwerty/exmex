@@ -11,17 +11,19 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
-const N: usize = 3;
+const N: usize = 4;
 
-const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["flat", "flatsin", "nested"];
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["canucompile", "flat", "flatsin", "nested"];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
+    "2 * (6 - 4) - 3 / 2.5 + 3.141 * 0.4 * (2 - 32 * (7 + 43 * (1+5))) * 0.1 + x*y*z",
     "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
     "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
     "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ];
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
-    |x, y, z| 2.0 * 6.0 - 4.0 - 3.0 / 2.5 + 3.141 * 0.4 * x - 32.0 * y + 43.0 * z,
-    |x, y, z| 2.0 * 6.0 - 4.0 - 3.0 / 2.5f64.sin() + 3.141 * 0.4 * x.sin() - 32.0 * y + 43.0 * z,
+    |x, y, z| 2.0 * (6.0 - 4.0) - 3.0 / 2.5 + 3.141 * 0.4 * (2.0 - 32.0 * (7.0 + 43.0 * (1.0+5.0))) * 0.1 + x*y*z,
+    |x, y, z| 6.8 + 1.2564 * x - 32.0 * y + 43.0 * z,
+    |x, y, z| 8.0 - 5.01276463667604 + 1.2564 * x.sin() - 32.0 * y + 43.0 * z,
     |x, y, z| x * 0.02 * (3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin())),
 ];
 const BENCH_X_RANGE: (usize, usize) = (0, 1000);
@@ -57,6 +59,14 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
             })
         });
     }
+}
+
+fn static_evaluation(c: &mut Criterion) {
+    let funcs = BENCH_EXPRESSIONS_REFS
+        .iter()
+        .map(|f| move |x: f64| f(x, BENCH_Y, BENCH_Z))
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "static_evaluation", c);
 }
 
 fn exmex(c: &mut Criterion) {
@@ -173,11 +183,7 @@ fn rsc(c: &mut Criterion) {
         .map(|(ast, comp)| {
             move |x: f64| {
                 let mut ast = ast.clone();
-                ast.replace(
-                    &Expr::Identifier("x".to_owned()),
-                    &Expr::Constant(x),
-                    false,
-                );
+                ast.replace(&Expr::Identifier("x".to_owned()), &Expr::Constant(x), false);
                 ast.replace(
                     &Expr::Identifier("y".to_owned()),
                     &Expr::Constant(BENCH_Y),
@@ -187,12 +193,20 @@ fn rsc(c: &mut Criterion) {
                     &Expr::Identifier("z".to_owned()),
                     &Expr::Constant(BENCH_Z),
                     false,
-                );                
+                );
                 comp.compute(&ast).unwrap()
             }
         })
         .collect::<Vec<_>>();
     run_benchmark(funcs, "rsc", c);
 }
-criterion_group!(benches, fasteval, evalexpr, exmex, bench_meval, rsc);
+criterion_group!(
+    benches,
+    static_evaluation,
+    fasteval,
+    exmex,
+    bench_meval,
+    evalexpr,
+    rsc
+);
 criterion_main!(benches);
