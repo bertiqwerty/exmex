@@ -76,9 +76,10 @@
 //! ### Data Types of Numbers
 //!
 //! You can use any type that implements [`Copy`](core::marker::Copy) and
-//! [`FromStr`](std::str::FromStr). In case you do not pass a number that matches the
-//! regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a suitable regex and use the
-//! function [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
+//! [`FromStr`](std::str::FromStr). In case the representation of your data type in the 
+//! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
+//! suitable regex and use the function 
+//! [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
 //! [`parse`](parse::parse). Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
