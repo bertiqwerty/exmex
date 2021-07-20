@@ -78,7 +78,7 @@ table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested| comment|
 |--------|---------------|----------|----------|---|--------|---|---|---|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|145.9|233.4|195.1|204.7|183.1| 233.9|305.8|supports a faster, unsafe mode|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.1|943.6|801.5|2433.5|1507.1|1900.5|2011.7|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.1|943.6|801.5|2433.5|1507.1|1900.5|2011.7| Supports more than just math. expression|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |50.9|86.0| **90.3**|163.2|**109.0**|201.44|**195.9**|only `f64`, no custom operators|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.5|837.5|791.9|2521.2|1500.0|1825.5|1732.8|
 |**Exmex**   |**37.8**|**70.1**|**86.8**|**93.2**|**103.7**|**140.5**|**195.8**|
