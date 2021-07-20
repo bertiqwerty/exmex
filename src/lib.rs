@@ -10,8 +10,8 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! For floats, we have a list of predifined operators, namely
-//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. These are
+//! For floats, we have a list of predifined operators containing
+//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. The full list is
 //! defined in [`make_default_operators`](make_default_operators).
 //!
 //! ## Variables
