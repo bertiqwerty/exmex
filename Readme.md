@@ -82,10 +82,8 @@ table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |50.9|86.0| **90.3**|163.2|**109.0**|201.44|**195.9**|only `f64`, no custom operators|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.5|837.5|791.9|2521.2|1500.0|1825.5|1732.8|
 |**Exmex**   |**37.8**|**70.1**|**86.8**|**93.2**|**103.7**|**140.5**|**195.8**|
-|[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-|-|-|-|-| did not compile on Win10|
-|[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|-|-|-|-|lots of error messages during the run|
 
-On a Win10 machine with an i5-8350U 1.7 GHz processor we obtain the subsequent results.
+On a Win10 machine with an i5-8350U 1.7 GHz processor we obtain the subsequent results. We excluded the slow crates from above.
 
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested|
 |--------|---------------|----------|----------|---|--------|---|---|
@@ -93,7 +91,7 @@ On a Win10 machine with an i5-8350U 1.7 GHz processor we obtain the subsequent r
 |[Meval](https://docs.rs/meval/0.2.0/meval/)|117.7|182.6|298.9|341.9|237.5|322.2|400.4|
 |**Exmex**|**35.2**|**69.4**|**169.5**|**109.4**|**134.5**|**141.3**|**150.9**|
 
-More details can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
+We also tried to add the crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) to the benchmarking. Unfortunately, we could not make them run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
