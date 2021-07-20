@@ -72,15 +72,16 @@ impl<T: Copy> FlatNode<T> {
 /// use exmex::{parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
-/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{x})*{y}")?;
+/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{y})*{x}")?;
 /// let result_parsed = expr_parsed.eval(&[2.0, 1.5]);
 /// assert!((result_parsed - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument `&[2.0, 1.5]` in the call of [`eval`](FlatEx::eval) specifies
-/// that we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
+/// The second argument `&[2.0, 1.5]` in the call of [`eval`](FlatEx::eval) specifies the
+/// variable values in the order of their occurrence in the string.
+/// In this example, we want to evaluate the expression for the varibale values `y=2.0` and `x=1.5`.
 /// Note that variables need to be within curly brackets in the string to-be-parsed.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
