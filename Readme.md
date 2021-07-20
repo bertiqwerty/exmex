@@ -77,7 +77,7 @@ to compute the results.
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested| comment|
 |--------|---------------|----------|----------|---|--------|---|---|---|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|133.2|207.4|183.6|191.8|174| 215|285.8|supports a faster, unsafe mode|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.1|943.6|801.5|2433.5|1507.1|1900.5|2011.7| supports more than just math. expression|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.1|943.6|801.5|2433.5|1507.1|1900.5|2011.7| supports more than just math. expressions|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |50.9|86.0| **90.3**|163.2|**109.0**|201.44|**195.9**|only `f64`, no custom operators|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.5|837.5|791.9|2521.2|1500.0|1825.5|1732.8|
 |**Exmex**   |**32.1**|**61.2**|**81.8**|**87.1**|**97.5**|**132.8**|**180.3**|
