@@ -85,6 +85,14 @@ table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon
 |[Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) |-|-|-|-|-|-|-| did not compile on Win10|
 |[Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/)|-|-|-|-|-|-|-|lots of error messages during the run|
 
+On a Win10 machine with an i5-8350U 1.7 GHz processor we obtain the subsequent results.
+
+|        |xyz|xx+|x^2+|comp|flat|flatsin|nested|
+|--------|---------------|----------|----------|---|--------|---|---|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|412.8|521.9|645.5| 425.1|593.9|607.8|584.84|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)|117.7|182.6|298.9|341.9|237.5|322.2|400.4|
+|**Exmex**|**35.2**|**69.4**|**169.5**|**109.4**|**134.5**|**141.3**|**150.9**|
+
 More details can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
 
 ## Documentation
