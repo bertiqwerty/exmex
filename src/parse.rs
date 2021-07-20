@@ -263,7 +263,7 @@ where
                             }
                             ParsedToken::Paren(p) => match p {
                                 Paren::Open => {
-                                    let msg = "This is probably a bug An opening paren cannot be the predecessor of a binary opertor";
+                                    let msg = "This is probably a bug. An opening paren cannot be the predecessor of a binary operator.";
                                     panic!("{}", msg);
                                 }
                                 Paren::Close => {
