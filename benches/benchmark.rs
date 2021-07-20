@@ -96,7 +96,7 @@ fn exmex(c: &mut Criterion) {
         .collect::<Vec<_>>();
     let funcs = parsed_exprs
         .iter()
-        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]))
+        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
         .collect::<Vec<_>>();
     run_benchmark(funcs, "exmex", c);
 }

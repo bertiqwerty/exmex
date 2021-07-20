@@ -3,7 +3,8 @@ use crate::{
     util::{apply_unary_ops, CompositionOfUnaryOps},
     ExParseError,
 };
-use smallvec::{SmallVec, smallvec};
+use itertools::Itertools;
+use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
 type ExprIdxVec = SmallVec<[usize; 32]>;
@@ -72,9 +73,8 @@ impl<T: Copy> FlatNode<T> {
 /// use exmex::{parse_with_default_ops};
 ///
 /// // create an expression by parsing a string
-/// let expr_parsed = parse_with_default_ops::<f32>("sin(1+{y})*{x}")?;
-/// let result_parsed = expr_parsed.eval(&[2.0, 1.5]);
-/// assert!((result_parsed - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
+/// let expr = parse_with_default_ops::<f32>("sin(1+{y})*{x}")?;
+/// assert!((expr.eval(&[2.0, 1.5])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
@@ -89,6 +89,7 @@ pub struct FlatEx<T: Copy> {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
+    n_unique_vars: usize,
 }
 
 fn apply_uop_if_some<T: Copy>(uop: &Option<CompositionOfUnaryOps<T>>, val: T) -> T {
@@ -108,13 +109,21 @@ impl<T: Copy> FlatEx<T> {
     ///            the n-th variable as given in the string that has been parsed to this expression.
     ///            Thereby, only the first occurrence of the variable in the string is relevant.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// If more variables are existent than elements in the argument `vars`, we panic due to
-    /// index out of bounds. Vice versa, if more arguments are passed than variables existent,
-    /// the last variables are ignored.
+    /// If the number of variables in the parsed expression are different from the length of
+    /// the variable slice, we return an [`ExParseError`](ExParseError).
     ///
-    pub fn eval(&self, vars: &[T]) -> T {
+    pub fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
+        if self.n_unique_vars != vars.len() {
+            return Err(ExParseError {
+                msg: format!(
+                    "parsed expression contains {} vars but passed slice has {} elements",
+                    self.n_unique_vars,
+                    vars.len()
+                ),
+            });
+        }
         let mut numbers = self
             .nodes
             .iter()
@@ -128,6 +137,7 @@ impl<T: Copy> FlatEx<T> {
                 )
             })
             .collect::<SmallVec<[T; 32]>>();
+        
         let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; N_NODES_ON_STACK];
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = self.prio_indices[i];
@@ -135,7 +145,7 @@ impl<T: Copy> FlatEx<T> {
             while ignore[num_idx - shift_left] {
                 shift_left += 1usize;
             }
-            let mut shift_right= 1usize;
+            let mut shift_right = 1usize;
             while ignore[num_idx + shift_right] {
                 shift_right += 1usize;
             }
@@ -147,7 +157,7 @@ impl<T: Copy> FlatEx<T> {
             };
             ignore[num_idx + shift_right] = true;
         }
-        numbers[0]
+        Ok(numbers[0])
     }
 
     fn compile(&mut self) {
@@ -365,10 +375,17 @@ impl<T: Copy + Debug> Expression<T> {
     pub fn flatten(&self) -> FlatEx<T> {
         let (nodes, ops) = flatten_vecs(self, 0);
         let indices = prioritized_indices_flat(&ops, &nodes);
+        let n_unique_vars = nodes.iter().filter_map(|n| {
+            match n.kind {
+                FlatNodeKind::Var(idx) => Some(idx),
+                _ => None,
+            }            
+        }).unique().count();
         let mut flatex = FlatEx {
             nodes: nodes,
             ops: ops,
             prio_indices: indices,
+            n_unique_vars: n_unique_vars,
         };
         flatex.compile();
         flatex
@@ -382,7 +399,7 @@ mod test {
     #[test]
     fn test_compile() {
         let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
-        assert_float_eq_f64(flat_ex.eval(&[]), 1.9f64.sin());
+        assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
         assert_eq!(flat_ex.nodes.len(), 1);
     }
 }
