@@ -56,11 +56,7 @@ let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 
 Exmex is not particularly fast during parsing. However, Exmex is efficient during evaluation
 that might be more performance critical depending on the application. 
-You can run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks with
-```
-cargo bench
-``` 
-to compare Exmex with other crates. The expressions used for benchmarking are:
+We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks. The expressions used for benchmarking are:
 ```
 xyz:     "x*y*z"
 xx+:     "x*x+y*y+z*z"
@@ -72,16 +68,28 @@ nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ```
 The following
 table shows mean runtimes of 1000-evaluation-runs on an Ubuntu machine with Xeon 2.6 GHz processor in micro-seconds, i.e., smaller means better.
+We run 
+```
+RUSTFLAGS=--emit=asm cargo bench
+```
+to compute the results.
 
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested| comment|
 |--------|---------------|----------|----------|---|--------|---|---|---|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|145.9|233.4|195.1|204.7|183.1| 233.9|305.8|supports a faster, unsafe mode|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|133.2|207.4|183.6|191.8|174| 215|285.8|supports a faster, unsafe mode|
 |[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|499.1|943.6|801.5|2433.5|1507.1|1900.5|2011.7| supports more than just math. expression|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |50.9|86.0| **90.3**|163.2|**109.0**|201.44|**195.9**|only `f64`, no custom operators|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.5|837.5|791.9|2521.2|1500.0|1825.5|1732.8|
-|**Exmex**   |**37.8**|**70.1**|**86.8**|**93.2**|**103.7**|**140.5**|**195.8**|
+|**Exmex**   |**32.1**|**61.2**|**81.8**|**87.1**|**97.5**|**132.8**|**180.3**|
 
-On a Win10 machine with an i5-8350U 1.7 GHz processor we obtain the subsequent results. We excluded the slow crates from above.
+Note that some crates such as [Meval](https://docs.rs/meval/0.2.0/meval/) did not care about the optimization flag `--emit=asm`.
+[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) and Exmex, on the other hand, where between 5% and 17% faster than on the same machine without `--emit=asm`.  
+We also used a Win10 machine with an i5-8350U 1.7 GHz. We excluded the slow crates from above and
+omitted the optimization flag, i.e., we run
+```
+cargo bench
+```
+to obtain the following results.
 
 |        |xyz|xx+|x^2+|comp|flat|flatsin|nested|
 |--------|---------------|----------|----------|---|--------|---|---|
