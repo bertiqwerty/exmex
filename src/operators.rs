@@ -47,8 +47,8 @@ pub struct BinOp<T> {
 }
 
 /// Returns the default operators.
-pub fn make_default_operators<'a, T: Float>() -> Vec<Operator<'a, T>> {
-    vec![
+pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
+    [
         Operator {
             repr: "^",
             bin_op: Some(BinOp {

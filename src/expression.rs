@@ -12,7 +12,7 @@ type ExprIdxVec = SmallVec<[usize; 32]>;
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; 32]>;
 
-const N_NODES_ON_STACK: usize = 32usize;
+pub const N_NODES_ON_STACK: usize = 32usize;
 
 pub type FlatNodeVec<T> = SmallVec<[FlatNode<T>; N_NODES_ON_STACK]>;
 pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;

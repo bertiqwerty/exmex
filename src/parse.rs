@@ -1,9 +1,10 @@
-use crate::expression::{BinOpVec, Expression, FlatEx, Node};
+use crate::expression::{BinOpVec, Expression, FlatEx, N_NODES_ON_STACK, Node};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
 use itertools::{izip, Itertools};
 use num::Float;
 use regex::{Regex, RegexSet};
+use smallvec::SmallVec;
 use std::error::Error;
 use std::fmt::{self, Debug};
 use std::iter::once;
@@ -43,7 +44,7 @@ enum ParsedToken<'a, T: Copy + FromStr> {
 /// # Arguments
 ///
 /// * `text` - text to be parsed
-/// * `ops_in` - vector of operator-pairs
+/// * `ops_in` - slice of operator-pairs
 /// * `number_regex_pattern` - defines what in the text will be identified as number
 ///
 /// # Errors
@@ -52,16 +53,16 @@ enum ParsedToken<'a, T: Copy + FromStr> {
 ///
 fn apply_regexes<'a, T: Copy + FromStr>(
     text: &str,
-    ops_in: Vec<Operator<'a, T>>,
+    ops_in: &[Operator<'a, T>],
     number_regex_pattern: &str,
-) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
+) -> Result<SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
     let regex_escapes_ops = r"\|?^*+.";
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
-    let mut ops_tmp = ops_in;
+    let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
 
@@ -74,7 +75,7 @@ where
             }
             s_tmp
         })
-        .collect::<Vec<_>>()
+        .collect::<SmallVec<[_; 64]>>()
         .join("|");
     let pattern_var = r"\{[a-zA-Z_]+[a-zA-Z_0-9]*\}";
     let pattern_parens = r"\(|\)";
@@ -100,7 +101,7 @@ where
     let captures = any
         .captures_iter(text)
         .map(|c| c[0].to_string())
-        .collect::<Vec<_>>();
+        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
 
     let capture_check_string = captures.join("");
     let unparsed_check = izip!(
@@ -123,7 +124,7 @@ where
                 } else if matches.matched(1) {
                     let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
                     ParsedToken::<T>::Op(match wrapped_op {
-                        Some(op) => *op,
+                        Some(op) => **op,
                         None => {
                             panic!("This is probably a bug. Could not find operator {}.", elt_str);
                         }
@@ -430,7 +431,7 @@ where
 ///
 /// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
 /// returns one.
-pub fn parse<'a, T>(text: &str, ops: Vec<Operator<'a, T>>) -> Result<FlatEx<T>, ExParseError>
+pub fn parse<'a, T>(text: &str, ops: &[Operator<'a, T>]) -> Result<FlatEx<T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
@@ -471,7 +472,7 @@ where
 ///
 pub fn parse_with_number_pattern<'a, T>(
     text: &str,
-    ops: Vec<Operator<'a, T>>,
+    ops: &[Operator<'a, T>],
     number_regex_pattern: &str,
 ) -> Result<FlatEx<T>, ExParseError>
 where
@@ -486,7 +487,7 @@ where
             _ => None,
         })
         .unique()
-        .collect::<Vec<_>>();
+        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
     check_preconditions(&parsed_tokens[..])?;
     let (expr, _) = make_expression(
         &parsed_tokens[0..],
@@ -509,7 +510,7 @@ where
 {
     let ops = make_default_operators::<T>();
     // println!("{:#?}", ops);
-    Ok(parse(&text, ops)?)
+    Ok(parse(&text, &ops)?)
 }
 
 #[cfg(test)]
@@ -523,7 +524,7 @@ mod tests {
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = apply_regexes::<f32>(text, ops, NUMBER_REGEX_PATTERN);
+        let elts = apply_regexes::<f32>(text, &ops, NUMBER_REGEX_PATTERN);
         assert!(elts.is_err());
     }
 
@@ -540,7 +541,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = apply_regexes::<f32>(text, ops, NUMBER_REGEX_PATTERN);
+            let elts = apply_regexes::<f32>(text, &ops, NUMBER_REGEX_PATTERN);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);
