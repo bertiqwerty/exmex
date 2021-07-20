@@ -122,18 +122,17 @@ mod operators;
 mod parse;
 mod util;
 
-pub use expression::{FlatEx};
+pub use expression::FlatEx;
 
 pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
 
 pub use operators::{make_default_operators, BinOp, Operator};
 
-
 /// Parses a string, evaluates a string, and returns the resulting number.
 ///
 /// # Errrors
 ///
-/// In case the parsing went wrong, e.g., due to an invalid input string, an 
+/// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExParseError`](ExParseError) is returned.
 ///
 pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
@@ -188,7 +187,6 @@ mod tests {
         }
         assert!(!readme().is_err());
         assert!(!readme_int().is_err());
-        
     }
     #[test]
     fn test_variables() {
@@ -221,10 +219,7 @@ mod tests {
 
         let to_be_parsed = "(0 * {myvar_25} + cos({X}))";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
-        assert_float_eq_f32(
-            expr.eval(&[1.5707963267948966, 3.141592653589793]),
-            -1.0,
-        );
+        assert_float_eq_f32(expr.eval(&[1.5707963267948966, 3.141592653589793]), -1.0);
 
         let to_be_parsed = "(-{X}^2)";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
@@ -233,6 +228,33 @@ mod tests {
         let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
         let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
         assert_float_eq_f32(expr.eval(&[2.5, 3.7]), 14.992794866624788);
+
+        let to_be_parsed =
+            "-sqrt({x})/(tanh(5-{x})*2) + floor(2.4)* 1/asin(-{x}^2 + sin(4*sinh({y})))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq_f32(
+            expr.eval(&[2.5, 3.7]),
+            -2.5f32.sqrt() / (2.5f32.tanh() * 2.0)
+                + 2.0 / ((3.7f32.sinh() * 4.0).sin() + 2.5 * 2.5).asin(),
+        );
+
+        let to_be_parsed = "asin(sin({x})) + acos(cos({x})) + atan(tan({x}))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq_f32(expr.eval(&[0.5]), 1.5);
+
+        let to_be_parsed = "sqrt({alpha}^ceil({centauri}))";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq_f32(expr.eval(&[2.0, 3.1]), 4.0);
+
+        let to_be_parsed = "trunc({x}) + fract({x})";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq_f32(expr.eval(&[23422.52345]), 23422.52345);
+                
+        let to_be_parsed = "3-(-1+{z} * sin(cos(-3.14159265358979))*2)";
+        let expr = parse::<f32>(to_be_parsed, operators.clone()).unwrap();
+        assert_float_eq_f32(expr.eval(&[1.0]), 5.6829419696157935);
+
+        
 
         let ops = vec![
             Operator {
@@ -328,10 +350,7 @@ mod tests {
             eval_str(&"-(-1+((-3.14159265358979)/5)*2)").unwrap(),
             2.256637061435916,
         );
-        assert_float_eq_f64(
-            eval_str(&"((2-4)/5)*2").unwrap(),
-            -0.8,
-        );
+        assert_float_eq_f64(eval_str(&"((2-4)/5)*2").unwrap(), -0.8);
         assert_float_eq_f64(
             eval_str(&"-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(),
             1.0,

@@ -90,6 +90,11 @@ pub fn make_default_operators<'a, T: Float>() -> Vec<Operator<'a, T>> {
             unary_op: Some(|a: T| (-a)),
         },
         Operator {
+            repr: "signum",
+            bin_op: None,
+            unary_op: Some(|a: T| a.signum()),
+        },
+        Operator {
             repr: "sin",
             bin_op: None,
             unary_op: Some(|a: T| a.sin()),
@@ -105,9 +110,64 @@ pub fn make_default_operators<'a, T: Float>() -> Vec<Operator<'a, T>> {
             unary_op: Some(|a: T| a.tan()),
         },
         Operator {
+            repr: "asin",
+            bin_op: None,
+            unary_op: Some(|a: T| a.asin()),
+        },
+        Operator {
+            repr: "acos",
+            bin_op: None,
+            unary_op: Some(|a: T| a.acos()),
+        },
+        Operator {
+            repr: "atan",
+            bin_op: None,
+            unary_op: Some(|a: T| a.atan()),
+        },
+        Operator {
+            repr: "sinh",
+            bin_op: None,
+            unary_op: Some(|a: T| a.sinh()),
+        },
+        Operator {
+            repr: "cosh",
+            bin_op: None,
+            unary_op: Some(|a: T| a.cosh()),
+        },
+        Operator {
+            repr: "tanh",
+            bin_op: None,
+            unary_op: Some(|a: T| a.tanh()),
+        },
+        Operator {
+            repr: "floor",
+            bin_op: None,
+            unary_op: Some(|a: T| a.floor()),
+        },
+        Operator {
+            repr: "ceil",
+            bin_op: None,
+            unary_op: Some(|a: T| a.ceil()),
+        },
+        Operator {
+            repr: "trunc",
+            bin_op: None,
+            unary_op: Some(|a: T| a.trunc()),
+        },
+        Operator {
+            repr: "fract",
+            bin_op: None,
+            unary_op: Some(|a: T| a.fract()),
+        },
+        Operator {
             repr: "exp",
             bin_op: None,
             unary_op: Some(|a: T| a.exp()),
+        },
+        Operator {
+            repr: "sqrt",
+            bin_op: None,
+            unary_op: Some(|a: T| a.sqrt()),
         },
         Operator {
             repr: "log",
