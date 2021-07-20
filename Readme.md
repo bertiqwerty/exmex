@@ -82,8 +82,9 @@ to compute the results.
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |376.5|837.5|791.9|2521.2|1500.0|1825.5|1732.8|
 |**Exmex**   |**32.1**|**61.2**|**81.8**|**87.1**|**97.5**|**132.8**|**180.3**|
 
-Note that some crates such as [Meval](https://docs.rs/meval/0.2.0/meval/) did not care about the optimization flag `--emit=asm`.
-[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) and Exmex, on the other hand, where between 5% and 17% faster than on the same machine without `--emit=asm`.  
+Note that some crates such as [Meval](https://docs.rs/meval/0.2.0/meval/) did not care 
+about the optimization flag `--emit=asm`. [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) 
+and Exmex, on the other hand, were between 5% and 17% faster than on the same machine without `--emit=asm`.  
 We also used a Win10 machine with an i5-8350U 1.7 GHz. We excluded the slow crates from above and
 omitted the optimization flag, i.e., we run
 ```
