@@ -56,7 +56,8 @@ let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 
 Exmex is slow during parsing. However, Exmex is efficient during evaluation
 that might be more performance critical depending on the application. 
-We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks. The expressions used for benchmarking are:
+We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks 
+for the evaluation. The expressions used for benchmarking are:
 ```
 xyz:     "x*y*z"
 xx+:     "x*x+y*y+z*z"
@@ -98,7 +99,7 @@ to obtain the following results.
 |[Meval](https://docs.rs/meval/0.2.0/meval/)|117.7|182.6|298.9|341.9|237.5|322.2|400.4|
 |**Exmex**|**35.2**|**69.4**|**169.5**|**109.4**|**134.5**|**141.3**|**150.9**|
 
-We also tried to add the crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) to the benchmarking. Unfortunately, we could not make them run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs).
+We also tried to add the crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) to the benchmarking. Unfortunately, we could not make them run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). To see benchmarking results for evaluation and also parsing you can run `cargo bench` locally.
 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
