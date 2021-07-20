@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Value};
-use exmex::parse_with_default_ops;
-use fasteval::{Compiler, Evaler};
-use itertools::izip;
+use evalexpr::{ContextWithMutableVariables, HashMapContext, Node, Value, build_operator_tree};
+use exmex::{parse_with_default_ops, FlatEx};
+use fasteval::{Compiler, Evaler, Instruction, Slab};
+use itertools::{Itertools, izip};
 use meval;
 use rsc::{
     computer::Computer,
@@ -80,20 +80,33 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
     }
 }
 
-fn exmex(c: &mut Criterion) {
-    let expression_strs = BENCH_EXPRESSIONS_STRS
+fn run_benchmark_parse<T, F: Fn(&[&str]) -> Vec<T>>(func: F, parse_name: &str, c: &mut Criterion) {
+    c.bench_function(format!("{}", parse_name).as_str(), |b| {
+        b.iter(|| {
+            func(black_box(&BENCH_EXPRESSIONS_STRS));
+        })
+    });
+}
+
+fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
+    strings
         .iter()
         .map(|expr_str| {
-            expr_str
+            let tmp_str = expr_str
                 .replace("x", "{x}")
                 .replace("y", "{y}")
-                .replace("z", "{z}")
+                .replace("z", "{z}");
+            parse_with_default_ops::<f64>(tmp_str.as_str()).unwrap()
         })
-        .collect::<Vec<_>>();
-    let parsed_exprs = expression_strs
-        .iter()
-        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse, "exmex_parse", c);
+}
+
+fn exmex_bench_eval(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
         .iter()
         .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
@@ -101,14 +114,22 @@ fn exmex(c: &mut Criterion) {
     run_benchmark(funcs, "exmex", c);
 }
 
-fn bench_meval(c: &mut Criterion) {
-    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+fn meval_parse(strings: &[&str]) -> Vec<impl Fn(f64, f64, f64) -> f64> {
+    strings
         .iter()
         .map(|expr_str| {
             let expr = expr_str.parse::<meval::Expr>().unwrap();
             expr.bind3("x", "y", "z").unwrap()
         })
-        .collect::<Vec<_>>();
+        .collect::<Vec<_>>()
+}
+
+fn meval_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(meval_parse, "meval_parse", c);
+}
+
+fn meval_bench_eval(c: &mut Criterion) {
+    let parsed_exprs = meval_parse(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
         .iter()
         .map(|expr| move |x: f64| expr(x, BENCH_Y, BENCH_Z))
@@ -116,13 +137,21 @@ fn bench_meval(c: &mut Criterion) {
     run_benchmark(funcs, "meval", c);
 }
 
-fn evalexpr(c: &mut Criterion) {
-    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+fn evalexpr_parse(strings: &[&str]) -> Vec<(Node, HashMapContext)> {
+    let parsed_exprs = strings
         .iter()
-        .map(|expr_str| build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap())
-        .collect::<Vec<_>>();
-    let mut contexts = repeat(HashMapContext::new()).take(N).collect::<Vec<_>>();
-    let funcs = izip!(parsed_exprs.iter(), contexts.iter_mut())
+        .map(|expr_str| build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap());
+    let contexts = repeat(HashMapContext::new()).take(N);
+    izip!(parsed_exprs, contexts).collect_vec()
+}
+
+fn evalexpr_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(evalexpr_parse, "evalexpr_parse", c);
+}
+
+fn evalexpr_bench_eval(c: &mut Criterion) {
+    let mut parsed_exprs = evalexpr_parse(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs.iter_mut()
         .map(|(expr, context)| {
             move |x: f64| {
                 context.set_value("x".into(), x.into()).unwrap();
@@ -138,8 +167,8 @@ fn evalexpr(c: &mut Criterion) {
     run_benchmark(funcs, "evalexpr", c);
 }
 
-fn fasteval(c: &mut Criterion) {
-    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+fn fasteval_parse(strings: &[&str]) -> Vec<((Instruction, Slab), BTreeMap<String, f64>)> {
+    let parsed_exprs = strings
         .iter()
         .map(|expr_str| {
             let parser = fasteval::Parser::new();
@@ -152,15 +181,21 @@ fn fasteval(c: &mut Criterion) {
                     .compile(&slab.ps, &mut slab.cs),
                 slab,
             )
-        })
-        .collect::<Vec<_>>();
-    let mut contexts = repeat(BTreeMap::<String, f64>::new())
-        .take(N)
-        .collect::<Vec<_>>();
-    let funcs = izip!(parsed_exprs.iter(), contexts.iter_mut())
+        });
+    let contexts = repeat(BTreeMap::<String, f64>::new())
+        .take(N);
+    izip!(parsed_exprs, contexts).collect::<Vec<_>>()
+}
+
+fn fasteval_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(fasteval_parse, "fasteval_parse", c);
+}
+fn fasteval_bench_eval(c: &mut Criterion) {
+    let mut parsed_exprs = fasteval_parse(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs.iter_mut()
         .map(|tuple_of_tuples| {
-            let context = tuple_of_tuples.1;
-            let (instr, slab) = tuple_of_tuples.0;
+            let context = &mut tuple_of_tuples.1;
+            let (instr, slab) = &tuple_of_tuples.0;
             move |x: f64| {
                 context.insert("x".to_string(), x.into());
                 context.insert("y".to_string(), BENCH_Y.into());
@@ -179,18 +214,24 @@ fn fasteval(c: &mut Criterion) {
     run_benchmark(funcs, "fasteval", c);
 }
 
-fn rsc(c: &mut Criterion) {
-    let parsed_exprs = BENCH_EXPRESSIONS_STRS
+fn rsc_parse<'a>(strings: &[&str]) -> Vec<(Expr::<f64>, Computer<'a, f64>)> {
+    let parsed_exprs = strings
         .iter()
         .map(|expr_str| {
             let tokens = tokenize(expr_str, true).unwrap();
             parse(&tokens).unwrap()
-        })
-        .collect::<Vec<_>>();
-    let mut computers = repeat(Computer::<f64>::default())
-        .take(N)
-        .collect::<Vec<_>>();
-    let funcs = izip!(parsed_exprs.iter(), computers.iter_mut())
+        });
+    let computers = repeat(Computer::<f64>::default())
+        .take(N);
+    izip!(parsed_exprs, computers).collect_vec()
+}
+fn rsc_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(rsc_parse, "rsc_parse", c);
+}
+
+fn rsc_bench_eval(c: &mut Criterion) {
+    let mut parsed_exprs = rsc_parse(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs.iter_mut()
         .map(|(ast, comp)| {
             move |x: f64| {
                 let mut ast = ast.clone();
@@ -213,10 +254,15 @@ fn rsc(c: &mut Criterion) {
 }
 criterion_group!(
     benches,
-    fasteval,
-    exmex,
-    bench_meval,
-    evalexpr,
-    rsc
+    fasteval_bench_parse,
+    exmex_bench_parse,
+    meval_bench_parse,
+    rsc_bench_parse,
+    evalexpr_bench_parse,
+    fasteval_bench_eval,
+    exmex_bench_eval,
+    meval_bench_eval,
+    evalexpr_bench_eval,
+    rsc_bench_eval
 );
 criterion_main!(benches);

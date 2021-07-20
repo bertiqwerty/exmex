@@ -66,8 +66,12 @@ where
     ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
 
+    let pattern_name = r"[a-zA-Z_]+[a-zA-Z_0-9]*";
+    let re_name =  Regex::new(pattern_name).unwrap();
+    
     let pattern_ops = ops
         .iter()
+        .filter(|op| !re_name.is_match(op.repr))
         .map(|op| {
             let mut s_tmp = op.repr.to_string();
             for c in regex_escapes_ops.chars() {
@@ -76,11 +80,11 @@ where
             s_tmp
         })
         .collect::<SmallVec<[_; 64]>>()
-        .join("|");
-    let pattern_var = r"\{[a-zA-Z_]+[a-zA-Z_0-9]*\}";
+        .join("|") + "|" + pattern_name;
+    let pattern_var = r"\{".to_string() + pattern_name + r"\}";
     let pattern_parens = r"\(|\)";
     let patterns = [
-        pattern_var,
+        pattern_var.as_str(),
         pattern_ops.as_str(),
         number_regex_pattern,
         pattern_parens,
