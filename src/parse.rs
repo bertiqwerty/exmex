@@ -100,14 +100,6 @@ where
         }
     };
 
-    // disambiguation is done without the op-regex, ops are checked literally. 
-    let patterns_which = [
-        pattern_var.as_str(),
-        number_regex_pattern,
-    ];
-    // Since we checked pattern_any we dare to unwrap.
-    let which_one = RegexSet::new(&patterns_which).unwrap();
-
     let captures = any
         .captures_iter(text)
         .map(|c| c[0].to_string())
@@ -128,10 +120,9 @@ where
             .iter()
             .map(|elt_string| {
                 let elt_str = elt_string.as_str();
-                let matches = which_one.matches(elt_str);
                 let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
                 let c = elt_str.chars().next().unwrap();
-                if matches.matched(0) {
+                if c == '{' {
                     ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
                 } else if wrapped_op.is_some() {
                     ParsedToken::<T>::Op(match wrapped_op {
@@ -140,14 +131,13 @@ where
                             panic!("This is probably a bug. Could not find operator {}.", elt_str);
                         }
                     })
-                } else if matches.matched(1) {
-                    ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
                 } else if c == '(' {
                     ParsedToken::<T>::Paren(Paren::Open)
                 } else if c == ')' {
                     ParsedToken::<T>::Paren(Paren::Close)
                 } else {
-                    panic!("This is probably a bug. Internal regex mismatch!");
+                    // must be a number, if not we need to panic.
+                    ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
                 }
             })
             .collect()),
