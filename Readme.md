@@ -8,13 +8,13 @@ Users can define their own operators and work with different data types such
 as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
 ## Installation
-To install the latest release add
+To install the latest commit add
 ```
 [dependencies]
 # ...
-exmex = "0.6.0"
+exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
 ```
-to your `Cargo.toml`.
+to your `Cargo.toml`. For the latest release, see https://crates.io/crates/exmex.
 
 ## Basic Usage
 To simply evaluate a string there is
@@ -22,7 +22,7 @@ To simply evaluate a string there is
 let result = eval_str("sin(73)")?;
 ```
 To create an expression with variables that represents a mathematical function you can
-use curly brackets as in
+use any string that does not define an operator as in
 ```rust
 let expr = parse_with_default_ops::<f64>("2*{x}^3-4/{z}")?;
 ```

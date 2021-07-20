@@ -1,9 +1,9 @@
-use crate::expression::{BinOpVec, Expression, FlatEx, N_NODES_ON_STACK, Node};
+use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
 use itertools::{izip, Itertools};
 use num::Float;
-use regex::{Regex, RegexSet};
+use regex::Regex;
 use smallvec::SmallVec;
 use std::error::Error;
 use std::fmt::{self, Debug};
@@ -67,8 +67,15 @@ where
     let ops = ops_tmp; // from now on const
 
     let pattern_name = r"[a-zA-Z_]+[a-zA-Z_0-9]*";
-    let re_name =  Regex::new(pattern_name).unwrap();
-    
+    let re_name = Regex::new(pattern_name).unwrap();
+    let re_number = match Regex::new(number_regex_pattern) {
+        Ok(regex) => regex,
+        Err(_) => {
+            return Err(ExParseError {
+                msg: "Cannot compile the passed number regex.".to_string(),
+            })
+        }
+    };
     let pattern_ops = ops
         .iter()
         .filter(|op| !re_name.is_match(op.repr))
@@ -78,27 +85,16 @@ where
                 s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
             }
             s_tmp
-        }).chain(once(pattern_name.to_string()))
+        })
+        .chain(once(pattern_name.to_string()))
         .collect::<SmallVec<[_; 64]>>()
         .join("|");
-    let pattern_var = r"\{".to_string() + pattern_name + r"\}";
-    
+
     let pattern_parens = r"\(|\)";
-    let patterns_any = [
-        pattern_var.as_str(),
-        pattern_ops.as_str(),
-        number_regex_pattern,
-        pattern_parens,
-    ];
+    let patterns_any = [pattern_ops.as_str(), number_regex_pattern, pattern_parens];
     let pattern_any = patterns_any.join("|");
-    let any = match Regex::new(pattern_any.as_str()) {
-        Ok(regex) => regex,
-        Err(_) => {
-            return Err(ExParseError {
-                msg: "Cannot compile the passed number regex.".to_string(),
-            })
-        }
-    };
+    // checked number regex above, dare to unwrap
+    let any = Regex::new(pattern_any.as_str()).unwrap();
 
     let captures = any
         .captures_iter(text)
@@ -122,22 +118,27 @@ where
                 let elt_str = elt_string.as_str();
                 let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
                 let c = elt_str.chars().next().unwrap();
-                if c == '{' {
-                    ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
-                } else if wrapped_op.is_some() {
+                if wrapped_op.is_some() {
                     ParsedToken::<T>::Op(match wrapped_op {
                         Some(op) => **op,
                         None => {
-                            panic!("This is probably a bug. Could not find operator {}.", elt_str);
+                            panic!(
+                                "This is probably a bug. Could not find operator {}.",
+                                elt_str
+                            );
                         }
                     })
                 } else if c == '(' {
                     ParsedToken::<T>::Paren(Paren::Open)
                 } else if c == ')' {
                     ParsedToken::<T>::Paren(Paren::Close)
-                } else {
+                } else if re_number.is_match(elt_str)
+                    && re_number.find(elt_str).unwrap().as_str() == elt_str
+                {
                     // must be a number, if not we need to panic.
                     ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
+                } else {
+                    ParsedToken::<T>::Var(elt_str.to_string())
                 }
             })
             .collect()),
@@ -550,7 +551,7 @@ mod tests {
         test("", "empty string");
         test("++", "the last element cannot be an operator");
         test(
-            "{a12} (",
+            "a12 (",
             "wlog a number/variable cannot be on the right of a closing paren",
         );
         test("++)", "closing parentheses until");
@@ -560,5 +561,6 @@ mod tests {
         test("12-(3-4)*2+ (1/2))", "closing parentheses until");
         test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
         test(r"5\6", r"unparsed character '\'");
+        test(r"3 * log2 * 5", r"binary operator cannot be next");
     }
 }

@@ -92,11 +92,7 @@ fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
     strings
         .iter()
         .map(|expr_str| {
-            let tmp_str = expr_str
-                .replace("x", "{x}")
-                .replace("y", "{y}")
-                .replace("z", "{z}");
-            parse_with_default_ops::<f64>(tmp_str.as_str()).unwrap()
+            parse_with_default_ops::<f64>(expr_str).unwrap()
         })
         .collect::<Vec<_>>()
 }
