@@ -8,8 +8,7 @@ Users can define their own operators and work with different data types such
 as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
 ## Installation
-
-Add
+To install the latest release add
 ```
 [dependencies]
 # ...
@@ -50,8 +49,7 @@ let ops = vec![
     },
 ];
 let expr = parse::<u32>("!({a}|{b})", ops)?;
-let result = expr.eval(&[0, 1]);
-assert_eq!(result, u32::MAX - 1);
+let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 ```
 
 ## Benchmarks
