@@ -54,7 +54,7 @@ let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 
 ## Benchmarks
 
-Exmex is not particularly fast during parsing. However, Exmex is efficient during evaluation
+Exmex is slow during parsing. However, Exmex is efficient during evaluation
 that might be more performance critical depending on the application. 
 We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks. The expressions used for benchmarking are:
 ```
