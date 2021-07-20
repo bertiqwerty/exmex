@@ -24,7 +24,7 @@ let result = eval_str("sin(73)")?;
 To create an expression with variables that represents a mathematical function you can
 use any string that does not define an operator as in
 ```rust
-let expr = parse_with_default_ops::<f64>("2*{x}^3-4/{z}")?;
+let expr = parse_with_default_ops::<f64>("2*x^3-4/z")?;
 ```
 To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
@@ -33,7 +33,7 @@ let value = expr.eval(&[5.3, 0.5]);
 Besides predefined operators for floats, you can pass custom operators to the 
 function `parse` to create an expression. 
 ```rust
-let ops = vec![
+let ops = [
     Operator {
         repr: "|",
         bin_op: Some(BinOp {
@@ -48,7 +48,7 @@ let ops = vec![
         unary_op: Some(|a: u32| !a),
     },
 ];
-let expr = parse::<u32>("!({a}|{b})", ops)?;
+let expr = parse::<u32>("!(a|b)", &ops)?;
 let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 ```
 
