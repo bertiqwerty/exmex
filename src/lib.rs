@@ -23,7 +23,7 @@
 //! #
 //! use exmex::{make_default_operators, parse};
 //! let to_be_parsed = "log({x}) + 2* (-{x}^2 + sin(4*{y}))";
-//! let expr = parse::<f64>(to_be_parsed, make_default_operators::<f64>())?;
+//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[2.5, 3.7])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -39,7 +39,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{parse, BinOp, Operator};
-//! let ops = vec![
+//! let ops = [
 //!     Operator {
 //!         repr: "%",
 //!         bin_op: Some(BinOp{op: |a: i32, b: i32| a % b, prio: 1}),
@@ -52,7 +52,7 @@
 //!     },
 //! ];
 //! let to_be_parsed = "19 % 5 / 2 / {a}";
-//! let expr = parse::<i32>(to_be_parsed, ops)?;
+//! let expr = parse::<i32>(to_be_parsed, &ops)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -86,7 +86,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{parse_with_number_pattern, BinOp, Operator};
-//! let ops = vec![
+//! let ops = [
 //!     Operator {
 //!         repr: "&&",
 //!         bin_op: Some(BinOp{op: |a: bool, b: bool| a && b, prio: 1}),
@@ -104,7 +104,7 @@
 //!     },
 //! ];
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, ops.clone(), "true|false")?;
+//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, &ops, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
