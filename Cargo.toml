@@ -26,6 +26,9 @@ evalexpr = "6.3.0"
 fasteval = "0.2.4"
 rsc = "2.0.0"
 
+[profile.release]
+debug = true
+
 [[bench]]
 name = "benchmark"
 harness = false
