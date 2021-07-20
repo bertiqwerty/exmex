@@ -189,8 +189,8 @@ mod tests {
         assert!(!readme().is_err());
         assert!(!readme_int().is_err());
     }
-    #[test]
-    fn test_variables() {
+   #[test]
+    fn test_variables() { 
         let operators = make_default_operators::<f32>();
 
         let to_be_parsed = "5*{x} + 4*{y} + 3*{x}";
@@ -254,9 +254,11 @@ mod tests {
         let to_be_parsed = "3-(-1+{z} * sin(cos(-3.14159265358979))*2)";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
         assert_float_eq_f32(expr.eval(&[1.0]).unwrap(), 5.6829419696157935);
-
+    }   
+    
+    #[test]
+    fn test_custom_ops_invert() {
         
-
         let ops = vec![
             Operator {
                 repr: "invert",

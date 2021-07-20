@@ -78,18 +78,19 @@ where
                 s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
             }
             s_tmp
-        })
+        }).chain(once(pattern_name.to_string()))
         .collect::<SmallVec<[_; 64]>>()
-        .join("|") + "|" + pattern_name;
+        .join("|");
     let pattern_var = r"\{".to_string() + pattern_name + r"\}";
+    
     let pattern_parens = r"\(|\)";
-    let patterns = [
+    let patterns_any = [
         pattern_var.as_str(),
         pattern_ops.as_str(),
         number_regex_pattern,
         pattern_parens,
     ];
-    let pattern_any = patterns.join("|");
+    let pattern_any = patterns_any.join("|");
     let any = match Regex::new(pattern_any.as_str()) {
         Ok(regex) => regex,
         Err(_) => {
@@ -99,8 +100,13 @@ where
         }
     };
 
+    // disambiguation is done without the op-regex, ops are checked literally. 
+    let patterns_which = [
+        pattern_var.as_str(),
+        number_regex_pattern,
+    ];
     // Since we checked pattern_any we dare to unwrap.
-    let which_one = RegexSet::new(&patterns).unwrap();
+    let which_one = RegexSet::new(&patterns_which).unwrap();
 
     let captures = any
         .captures_iter(text)
@@ -123,27 +129,23 @@ where
             .map(|elt_string| {
                 let elt_str = elt_string.as_str();
                 let matches = which_one.matches(elt_str);
+                let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
+                let c = elt_str.chars().next().unwrap();
                 if matches.matched(0) {
                     ParsedToken::<T>::Var(elt_str[1..elt_str.len() - 1].to_string())
-                } else if matches.matched(1) {
-                    let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
+                } else if wrapped_op.is_some() {
                     ParsedToken::<T>::Op(match wrapped_op {
                         Some(op) => **op,
                         None => {
                             panic!("This is probably a bug. Could not find operator {}.", elt_str);
                         }
                     })
-                } else if matches.matched(2) {
+                } else if matches.matched(1) {
                     ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
-                } else if matches.matched(3) {
-                    let c = elt_str.chars().next().unwrap();
-                    ParsedToken::<T>::Paren(if c == '(' {
-                        Paren::Open
-                    } else if c == ')' {
-                        Paren::Close
-                    } else {
-                        panic!("This is probably a bug. Paren {} is neither ( nor ). Check the paren-regex.", c);
-                    })
+                } else if c == '(' {
+                    ParsedToken::<T>::Paren(Paren::Open)
+                } else if c == ')' {
+                    ParsedToken::<T>::Paren(Paren::Close)
                 } else {
                     panic!("This is probably a bug. Internal regex mismatch!");
                 }
