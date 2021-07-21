@@ -50,7 +50,8 @@ let ops = [
     },
 ];
 let expr = parse::<u32>("!(a|b)", &ops)?;
-let result = expr.eval(&[0, 1]);  // u32::MAX - 1
+let result = expr.eval(&[0, 1])?;
+assert_eq!(result, u32::MAX - 1);
 ```
 
 ## Benchmarks
