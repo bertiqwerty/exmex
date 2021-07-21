@@ -1,7 +1,7 @@
 use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
-use itertools::{chain, izip, Itertools};
+use itertools::{izip, Itertools};
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -9,7 +9,6 @@ use std::error::Error;
 use std::fmt::{self, Debug};
 use std::iter::once;
 use std::str::FromStr;
-use std::time::Instant;
 
 const NUMBER_REGEX_PATTERN: &str = r"\.?[0-9]+(\.[0-9]+)?";
 
@@ -106,7 +105,7 @@ where
     let matches = any
         .find_iter(text)
         .map(|m| m.as_str())
-        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
+        .collect::<SmallVec<[_; 2 * N_NODES_ON_STACK]>>();
 
     let matches_char_iter = matches.iter().flat_map(|s| s.chars());
     let unparsed_check = izip!(matches_char_iter, text.chars().filter(|c| *c != ' '))
