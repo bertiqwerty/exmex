@@ -89,13 +89,6 @@ where
     } else {
         format!("^({})", number_regex_pattern)
     };
-
-    // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
-    let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
-    ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
-    let ops = ops_tmp; // from now on const
-    let pattern_name = r"^[a-zA-Z_]+[a-zA-Z_0-9]*";
-    let re_name = Regex::new(pattern_name).unwrap();
     let re_number = match Regex::new(begins_with_number.as_str()) {
         Ok(regex) => regex,
         Err(_) => {
@@ -104,6 +97,13 @@ where
             })
         }
     };
+    
+    // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
+    let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
+    ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
+    let ops = ops_tmp; // from now on const
+    let pattern_name = r"^[a-zA-Z_]+[a-zA-Z_0-9]*";
+    let re_name = Regex::new(pattern_name).unwrap();
 
     let text_chars = text
         .chars()

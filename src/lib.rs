@@ -16,13 +16,15 @@
 //!
 //! ## Variables
 //! For variables we can use strings that are not in the list of operators as shown in the following expression.
+//! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
+//! regular expression `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"`.
 //! Variables' values are passed as slices to [`eval`](FlatEx::eval).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{make_default_operators, parse};
-//! let to_be_parsed = "log(x) + 2* (-x^2 + sin(4*y))";
+//! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[2.5, 3.7])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
@@ -30,7 +32,7 @@
 //! # }
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
-//! first occurence of the variables is relevant. In this example, we have `x=2.5` and `y=3.7`.
+//! first occurence of the variables is relevant. In this example, we have `z=2.5` and `y=3.7`.
 //!
 //! ## Extendability
 //! Library users can also define a different set of operators as shown in the following.
