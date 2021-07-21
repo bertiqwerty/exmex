@@ -1,7 +1,7 @@
 use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
-use itertools::{izip, Itertools};
+use itertools::Itertools;
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -39,6 +39,25 @@ enum ParsedToken<'a, T: Copy + FromStr> {
     Var(String),
 }
 
+fn is_numeric_fast<'a>(re: &Regex, c: char, text: &'a str) -> Option<&'a str> {
+    if c.is_digit(10) || c == '.' {
+        let maybe_num = re.find(text);
+        let num_str = maybe_num.unwrap().as_str();
+        Some(num_str)
+    } else {
+        None
+    }
+}
+
+fn is_numeric_regex<'a>(re: &Regex, c: char, text: &'a str) -> Option<&'a str> {
+    println!("inr {}, {}, {:?}", c, text, re);
+    let maybe_num = re.find(text);
+    match maybe_num {
+        Some(m) => Some(m.as_str()),
+        None => None,
+    }
+}
+
 /// Parses tokens of a text with regexes and returns them as a vector
 ///
 /// # Arguments
@@ -59,16 +78,26 @@ fn apply_regexes<'a, T: Copy + FromStr + Debug>(
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    let regex_escapes_ops = r"\|?^*+.";
+    let is_number_pattern_custom = number_regex_pattern == NUMBER_REGEX_PATTERN;
+    let is_numeric = if is_number_pattern_custom {
+        is_numeric_fast
+    } else {
+        is_numeric_regex
+    };
+    let begins_with_number = if is_number_pattern_custom {
+        format!("^{}", number_regex_pattern)
+    } else {
+        format!("^({})", number_regex_pattern)
+    };
+
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
-
-    let pattern_name = r"[a-zA-Z_]+[a-zA-Z_0-9]*";
+    let pattern_name = r"^[a-zA-Z_]+[a-zA-Z_0-9]*";
     let re_name = Regex::new(pattern_name).unwrap();
-    let re_number = match Regex::new(number_regex_pattern) {
+    let re_number = match Regex::new(begins_with_number.as_str()) {
         Ok(regex) => regex,
         Err(_) => {
             return Err(ExParseError {
@@ -76,77 +105,79 @@ where
             })
         }
     };
-    let pattern_ops = ops
-        .iter()
-        .filter(|op| !re_name.is_match(op.repr))
-        .map(|op| {
-            let mut s_tmp = op.repr.to_string();
-            for c in regex_escapes_ops.chars() {
-                s_tmp = s_tmp.replace(c, format!("\\{}", c).as_str());
+
+    let text_chars = text
+        .chars()
+        .collect::<SmallVec<[char; 4 * N_NODES_ON_STACK]>>();
+    let mut cur_offset = 0usize;
+
+    let find_ops_tmp = |offset: usize| {
+        ops.iter().find(|op| {
+            let range_end = offset + op.repr.chars().count();
+            if range_end > text_chars.len() {
+                false
+            } else {
+                op.repr
+                    == text_chars[offset..range_end]
+                        .iter()
+                        .collect::<String>()
+                        .as_str()
             }
-            s_tmp
         })
-        .chain(once(pattern_name.to_string()))
-        .collect::<SmallVec<[_; 64]>>()
-        .join("|");
-    let pattern_parens = r"\(|\)";
-    let patterns_any = [
-        pattern_ops.as_str(),
-        number_regex_pattern,
-        pattern_parens,
-    ];
-    let pattern_any = patterns_any.join("|");
+    };
 
-    // checked number regex above, dare to unwrap
-    let any = Regex::new(pattern_any.as_str()).unwrap();
+    let mut res = SmallVec::<[_; 2 * N_NODES_ON_STACK]>::new();
 
-    let matches = any
-        .find_iter(text)
-        .map(|m| m.as_str())
-        .collect::<SmallVec<[_; 2 * N_NODES_ON_STACK]>>();
-
-    let parsed_tokens_iter = matches.iter().map(|elt_str| {
-        let wrapped_op;
-        let c = elt_str.chars().next().unwrap();
-        if c == '(' {
-            ParsedToken::<T>::Paren(Paren::Open)
-        } else if c == ')' {
-            ParsedToken::<T>::Paren(Paren::Close)
-        } else if {
-            wrapped_op = ops.iter().find(|op| op.repr == *elt_str);
-            wrapped_op.is_some()
-        } {
-            ParsedToken::<T>::Op(match wrapped_op {
-                Some(op) => **op,
-                None => {
-                    panic!(
-                        "This is probably a bug. Could not find operator {}.",
-                        elt_str
-                    );
-                }
-            })
-        } else if {
-            let wrapped_num_match = re_number.find(elt_str);
-            match wrapped_num_match {
-                Some(m) => m.as_str().len() == elt_str.len(),
-                None => false,
-            }
-        } {
-            // must be a number, if not we need to panic.
-            ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
-        } else {
-            ParsedToken::<T>::Var(elt_str.to_string())
+    for (i, c) in text.chars().enumerate() {
+        if c == ' ' {
+            cur_offset += 1;
         }
-    });
-    let matches_char_iter = matches.iter().flat_map(|s| s.chars());
-    let unparsed_check = izip!(matches_char_iter, text.chars().filter(|c| *c != ' '))
-        .find(|(cap, txt)| cap != txt && *txt != ' ');
-    match unparsed_check {
-        Some(chars) => Err(ExParseError {
-            msg: format!("unparsed character '{}'", chars.1),
-        }),
-        None => Ok(parsed_tokens_iter.collect()),
+        if i == cur_offset && cur_offset < text_chars.len() && c != ' ' {
+            let maybe_op;
+            let maybe_num;
+            let maybe_name;
+            let text_rest = text_chars[cur_offset..]
+                .iter()
+                .map(|c| *c)
+                .collect::<String>();
+            let next_parsed_token = if c == '(' {
+                cur_offset += 1;
+                ParsedToken::<T>::Paren(Paren::Open)
+            } else if c == ')' {
+                cur_offset += 1;
+                ParsedToken::<T>::Paren(Paren::Close)
+            } else if {
+                maybe_num = is_numeric(&re_number, c, text_rest.as_str());
+                maybe_num.is_some()
+            } {
+                let num_str = maybe_num.unwrap();
+                let n_chars = num_str.chars().count();
+                cur_offset += n_chars;
+                ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
+            } else if {
+                maybe_op = find_ops_tmp(cur_offset);
+                maybe_op.is_some()
+            } {
+                let op = **maybe_op.unwrap();
+                let n_chars = op.repr.chars().count();
+                cur_offset += n_chars;
+                ParsedToken::<T>::Op(op)
+            } else if {
+                maybe_name = re_name.find(text_rest.as_str());
+                maybe_name.is_some()
+            } {
+                let var_str = maybe_name.unwrap().as_str();
+                let n_chars = var_str.chars().count();
+                cur_offset += n_chars;
+                ParsedToken::<T>::Var(maybe_name.unwrap().as_str().to_string())
+            } else {
+                let msg = format!("how to parse the beginning of {}", text_rest);
+                return Err(ExParseError { msg: msg });
+            };
+            res.push(next_parsed_token);
+        }
     }
+    Ok(res)
 }
 
 /// Returns an expression that is created recursively and can be evaluated
@@ -510,7 +541,6 @@ where
     T: Float + FromStr + Debug,
 {
     let ops = make_default_operators::<T>();
-    // println!("{:#?}", ops);
     Ok(parse(&text, &ops)?)
 }
 
@@ -564,7 +594,7 @@ mod tests {
         test("12-() ())", "wlog an opening paren");
         test("12-(3-4)*2+ (1/2))", "closing parentheses until");
         test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
-        test(r"5\6", r"unparsed character '\'");
+        test(r"5\6", r"how to parse the beginning of \");
         test(r"3 * log2 * 5", r"binary operator cannot be next");
     }
 }
