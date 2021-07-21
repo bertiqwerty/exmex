@@ -250,12 +250,12 @@ fn rsc_bench_eval(c: &mut Criterion) {
 }
 criterion_group!(
     benches,
-    fasteval_bench_eval,
-    exmex_bench_eval,
-    meval_bench_eval,
-    evalexpr_bench_eval,
-    rsc_bench_eval,
-    fasteval_bench_parse,
+    // fasteval_bench_eval,
+    // exmex_bench_eval,
+    // meval_bench_eval,
+    // evalexpr_bench_eval,
+    // rsc_bench_eval,
+    // fasteval_bench_parse,
     exmex_bench_parse,
     meval_bench_parse,
     rsc_bench_parse,

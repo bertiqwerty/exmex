@@ -112,7 +112,7 @@ where
 
     let mut cur_offset = 0usize;
 
-    let find_ops_tmp = |offset: usize| {
+    let find_ops = |offset: usize| {
         ops.iter().find(|op| {
             let range_end = offset + op.repr.chars().count();
             if range_end > text.len() {
@@ -149,7 +149,7 @@ where
                 cur_offset += n_chars;
                 ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
             } else if {
-                maybe_op = find_ops_tmp(cur_offset);
+                maybe_op = find_ops(cur_offset);
                 maybe_op.is_some()
             } {
                 let op = **maybe_op.unwrap();
