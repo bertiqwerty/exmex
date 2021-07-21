@@ -116,9 +116,16 @@ where
             .iter()
             .map(|elt_string| {
                 let elt_str = elt_string.as_str();
-                let wrapped_op = ops.iter().find(|op| op.repr == elt_str);
+                let wrapped_op ;
                 let c = elt_str.chars().next().unwrap();
-                if wrapped_op.is_some() {
+                if c == '(' {
+                    ParsedToken::<T>::Paren(Paren::Open)
+                } else if c == ')' {
+                    ParsedToken::<T>::Paren(Paren::Close)
+                } else if { 
+                    wrapped_op = ops.iter().find(|op| op.repr == elt_str);
+                    wrapped_op.is_some() 
+                } {
                     ParsedToken::<T>::Op(match wrapped_op {
                         Some(op) => **op,
                         None => {
@@ -128,13 +135,13 @@ where
                             );
                         }
                     })
-                } else if c == '(' {
-                    ParsedToken::<T>::Paren(Paren::Open)
-                } else if c == ')' {
-                    ParsedToken::<T>::Paren(Paren::Close)
-                } else if re_number.is_match(elt_str)
-                    && re_number.find(elt_str).unwrap().as_str() == elt_str
-                {
+                } else if {
+                    let wrapped_num_match = re_number.find(elt_str);
+                    match wrapped_num_match {
+                        Some(m) => m.as_str().len() == elt_str.len(),
+                        None => false,
+                    }
+                } {
                     // must be a number, if not we need to panic.
                     ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
                 } else {
