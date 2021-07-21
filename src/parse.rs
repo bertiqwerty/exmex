@@ -105,10 +105,6 @@ where
         .map(|m| m.as_str())
         .collect::<SmallVec<[_; 2 * N_NODES_ON_STACK]>>();
 
-    let matches_char_iter = matches.iter().flat_map(|s| s.chars());
-    let unparsed_check = izip!(matches_char_iter, text.chars().filter(|c| *c != ' '))
-        .find(|(cap, txt)| cap != txt && *txt != ' ');
-
     let parsed_tokens_iter = matches.iter().map(|elt_str| {
         let wrapped_op;
         let c = elt_str.chars().next().unwrap();
@@ -142,6 +138,9 @@ where
             ParsedToken::<T>::Var(elt_str.to_string())
         }
     });
+    let matches_char_iter = matches.iter().flat_map(|s| s.chars());
+    let unparsed_check = izip!(matches_char_iter, text.chars().filter(|c| *c != ' '))
+        .find(|(cap, txt)| cap != txt && *txt != ' ');
     match unparsed_check {
         Some(chars) => Err(ExParseError {
             msg: format!("unparsed character '{}'", chars.1),
