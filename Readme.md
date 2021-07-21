@@ -22,10 +22,11 @@ To simply evaluate a string there is
 let result = eval_str("sin(73)")?;
 ```
 To create an expression with variables that represents a mathematical function you can
-use any string that does not define an operator as in
+use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
 let expr = parse_with_default_ops::<f64>("2*x^3-4/z")?;
 ```
+Especially, you do not need to use a context or tell the parser explicitly what variables are.
 To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
@@ -54,8 +55,11 @@ let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 
 ## Benchmarks
 
-Exmex is slow during parsing. However, Exmex is efficient during evaluation
-that might be more performance critical depending on the application. 
+Exmex was created with flexibility (e.g., arbitrary operator names and a custom regex 
+for number literals), ergonomics (e.g., just finds variables), and evaluation speed in mind. 
+Since there is no free lunch, Exmex is slow during parsing. Or maybe I 
+did not find any suitable zero-cost-abstraction yet :). 
+However, evaluation might be more performance critical depending on the application. 
 We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks 
 for the evaluation. The expressions used for benchmarking are:
 ```
