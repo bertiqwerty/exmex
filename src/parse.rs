@@ -1,7 +1,7 @@
 use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
-use itertools::{izip, Itertools};
+use itertools::{chain, izip, Itertools};
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -9,6 +9,7 @@ use std::error::Error;
 use std::fmt::{self, Debug};
 use std::iter::once;
 use std::str::FromStr;
+use std::time::Instant;
 
 const NUMBER_REGEX_PATTERN: &str = r"\.?[0-9]+(\.[0-9]+)?";
 
@@ -51,7 +52,7 @@ enum ParsedToken<'a, T: Copy + FromStr> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn apply_regexes<'a, T: Copy + FromStr>(
+fn apply_regexes<'a, T: Copy + FromStr + Debug>(
     text: &str,
     ops_in: &[Operator<'a, T>],
     number_regex_pattern: &str,
@@ -89,66 +90,66 @@ where
         .chain(once(pattern_name.to_string()))
         .collect::<SmallVec<[_; 64]>>()
         .join("|");
-
-    let pattern_parens = r"\(|\)";
-    let patterns_any = [pattern_ops.as_str(), number_regex_pattern, pattern_parens];
+    let number_regex_pattern = format!("({})", number_regex_pattern);
+    let pattern_ops = format!("({})", pattern_ops);
+    let pattern_parens = r"(\(|\))";
+    let patterns_any = [
+        pattern_ops.as_str(),
+        number_regex_pattern.as_str(),
+        pattern_parens,
+    ];
     let pattern_any = patterns_any.join("|");
+
     // checked number regex above, dare to unwrap
     let any = Regex::new(pattern_any.as_str()).unwrap();
 
-    let captures = any
-        .captures_iter(text)
-        .map(|c| c[0].to_string())
+    let matches = any
+        .find_iter(text)
+        .map(|m| m.as_str())
         .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
 
-    let capture_check_string = captures.join("");
-    let unparsed_check = izip!(
-        capture_check_string.chars(),
-        text.chars().filter(|c| *c != ' ')
-    )
-    .find(|(cap, txt)| cap != txt && *txt != ' ');
+    let matches_char_iter = matches.iter().flat_map(|s| s.chars());
+    let unparsed_check = izip!(matches_char_iter, text.chars().filter(|c| *c != ' '))
+        .find(|(cap, txt)| cap != txt && *txt != ' ');
 
+    let parsed_tokens_iter = matches.iter().map(|elt_str| {
+        let wrapped_op;
+        let c = elt_str.chars().next().unwrap();
+        if c == '(' {
+            ParsedToken::<T>::Paren(Paren::Open)
+        } else if c == ')' {
+            ParsedToken::<T>::Paren(Paren::Close)
+        } else if {
+            wrapped_op = ops.iter().find(|op| op.repr == *elt_str);
+            wrapped_op.is_some()
+        } {
+            ParsedToken::<T>::Op(match wrapped_op {
+                Some(op) => **op,
+                None => {
+                    panic!(
+                        "This is probably a bug. Could not find operator {}.",
+                        elt_str
+                    );
+                }
+            })
+        } else if {
+            let wrapped_num_match = re_number.find(elt_str);
+            match wrapped_num_match {
+                Some(m) => m.as_str().len() == elt_str.len(),
+                None => false,
+            }
+        } {
+            // must be a number, if not we need to panic.
+            ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
+        } else {
+            ParsedToken::<T>::Var(elt_str.to_string())
+        }
+    });
     match unparsed_check {
         Some(chars) => Err(ExParseError {
             msg: format!("unparsed character '{}'", chars.1),
         }),
-        None => Ok(captures
-            .iter()
-            .map(|elt_string| {
-                let elt_str = elt_string.as_str();
-                let wrapped_op ;
-                let c = elt_str.chars().next().unwrap();
-                if c == '(' {
-                    ParsedToken::<T>::Paren(Paren::Open)
-                } else if c == ')' {
-                    ParsedToken::<T>::Paren(Paren::Close)
-                } else if { 
-                    wrapped_op = ops.iter().find(|op| op.repr == elt_str);
-                    wrapped_op.is_some() 
-                } {
-                    ParsedToken::<T>::Op(match wrapped_op {
-                        Some(op) => **op,
-                        None => {
-                            panic!(
-                                "This is probably a bug. Could not find operator {}.",
-                                elt_str
-                            );
-                        }
-                    })
-                } else if {
-                    let wrapped_num_match = re_number.find(elt_str);
-                    match wrapped_num_match {
-                        Some(m) => m.as_str().len() == elt_str.len(),
-                        None => false,
-                    }
-                } {
-                    // must be a number, if not we need to panic.
-                    ParsedToken::<T>::Num(elt_str.parse::<T>().unwrap())
-                } else {
-                    ParsedToken::<T>::Var(elt_str.to_string())
-                }
-            })
-            .collect()),
+        None => Ok(parsed_tokens_iter.collect()),
     }
 }
 
