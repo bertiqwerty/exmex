@@ -89,12 +89,10 @@ where
         .chain(once(pattern_name.to_string()))
         .collect::<SmallVec<[_; 64]>>()
         .join("|");
-    let number_regex_pattern = format!("({})", number_regex_pattern);
-    let pattern_ops = format!("({})", pattern_ops);
-    let pattern_parens = r"(\(|\))";
+    let pattern_parens = r"\(|\)";
     let patterns_any = [
         pattern_ops.as_str(),
-        number_regex_pattern.as_str(),
+        number_regex_pattern,
         pattern_parens,
     ];
     let pattern_any = patterns_any.join("|");
