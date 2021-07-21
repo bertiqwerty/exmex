@@ -39,18 +39,23 @@ enum ParsedToken<'a, T: Copy + FromStr> {
     Var(String),
 }
 
-fn is_numeric_fast<'a>(re: &Regex, c: char, text: &'a str) -> Option<&'a str> {
-    if c.is_digit(10) || c == '.' {
-        let maybe_num = re.find(text);
-        let num_str = maybe_num.unwrap().as_str();
-        Some(num_str)
+fn is_numeric_fast<'a>(_: &Regex, text: &'a str) -> Option<&'a str> {
+    let mut n_dots = 0;
+    let n_num_chars = text.chars().take_while(|c| {
+        let is_dot = *c == '.';
+        if is_dot {
+            n_dots += 1;
+        }
+        c.is_digit(10) || is_dot
+    }).count();
+    if n_num_chars > 0  && n_dots < 2 {
+        Some(&text[0..n_num_chars])
     } else {
         None
     }
 }
 
-fn is_numeric_regex<'a>(re: &Regex, c: char, text: &'a str) -> Option<&'a str> {
-    println!("inr {}, {}, {:?}", c, text, re);
+fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     let maybe_num = re.find(text);
     match maybe_num {
         Some(m) => Some(m.as_str()),
@@ -97,7 +102,7 @@ where
             })
         }
     };
-    
+
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
@@ -105,22 +110,15 @@ where
     let pattern_name = r"^[a-zA-Z_]+[a-zA-Z_0-9]*";
     let re_name = Regex::new(pattern_name).unwrap();
 
-    let text_chars = text
-        .chars()
-        .collect::<SmallVec<[char; 4 * N_NODES_ON_STACK]>>();
     let mut cur_offset = 0usize;
 
     let find_ops_tmp = |offset: usize| {
         ops.iter().find(|op| {
             let range_end = offset + op.repr.chars().count();
-            if range_end > text_chars.len() {
+            if range_end > text.len() {
                 false
             } else {
-                op.repr
-                    == text_chars[offset..range_end]
-                        .iter()
-                        .collect::<String>()
-                        .as_str()
+                op.repr == &text[offset..range_end]
             }
         })
     };
@@ -131,14 +129,11 @@ where
         if c == ' ' {
             cur_offset += 1;
         }
-        if i == cur_offset && cur_offset < text_chars.len() && c != ' ' {
+        if i == cur_offset && cur_offset < text.len() && c != ' ' {
             let maybe_op;
             let maybe_num;
             let maybe_name;
-            let text_rest = text_chars[cur_offset..]
-                .iter()
-                .map(|c| *c)
-                .collect::<String>();
+            let text_rest = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Open)
@@ -146,7 +141,7 @@ where
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if {
-                maybe_num = is_numeric(&re_number, c, text_rest.as_str());
+                maybe_num = is_numeric(&re_number, text_rest);
                 maybe_num.is_some()
             } {
                 let num_str = maybe_num.unwrap();
@@ -162,7 +157,7 @@ where
                 cur_offset += n_chars;
                 ParsedToken::<T>::Op(op)
             } else if {
-                maybe_name = re_name.find(text_rest.as_str());
+                maybe_name = re_name.find(text_rest);
                 maybe_name.is_some()
             } {
                 let var_str = maybe_name.unwrap().as_str();
@@ -519,12 +514,15 @@ where
         })
         .unique()
         .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
+
     check_preconditions(&parsed_tokens[..])?;
+
     let (expr, _) = make_expression(
         &parsed_tokens[0..],
         &parsed_vars,
         CompositionOfUnaryOps::new(),
     )?;
+
     Ok(expr.flatten())
 }
 
@@ -595,5 +593,7 @@ mod tests {
         test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
         test(r"5\6", r"how to parse the beginning of \");
         test(r"3 * log2 * 5", r"binary operator cannot be next");
+        test(r"3.4.", r"how to parse the beginning of 3.4.");
+        test(r"3. .4", r"a number/variable cannot be next to a number/variable");
     }
 }

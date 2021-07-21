@@ -118,6 +118,9 @@
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
 //! For instance `"---1"` will evalute to `-1`.
 //! If you want to be on the safe side, we suggest using parentheses.
+//! 
+//! ## Unicode
+//! Unicode input strings are not supported.
 //!
 
 mod expression;
