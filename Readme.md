@@ -55,7 +55,7 @@ let result = expr.eval(&[0, 1]);  // u32::MAX - 1
 
 ## Benchmarks
 
-Exmex was created with flexibility (e.g., arbitrary operator names and a custom regex 
+Exmex was created with flexibility (e.g., arbitrary names of binary and unary operators and a custom regex 
 for number literals), ergonomics (e.g., just finds variables), and evaluation speed in mind. 
 Since there is no free lunch, Exmex is slow during parsing. Or maybe I 
 did not find any suitable zero-cost-abstraction yet :). 
