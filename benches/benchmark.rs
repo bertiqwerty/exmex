@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{ContextWithMutableVariables, HashMapContext, Node, Value, build_operator_tree};
-use exmex::{parse_with_default_ops, FlatEx};
+use exmex::{BinOp, FlatEx, Operator, parse_with_default_ops};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{Itertools, izip};
 use meval;
@@ -31,6 +31,8 @@ const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
     "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ];
+
+
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
     |x, y, z| x * y * z,
     |x, y, z| x * x + y * y + z * z,
@@ -96,6 +98,7 @@ fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
         })
         .collect::<Vec<_>>()
 }
+
 
 fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);

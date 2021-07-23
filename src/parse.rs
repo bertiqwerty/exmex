@@ -2,6 +2,7 @@ use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
 use itertools::Itertools;
+use lazy_static::lazy_static;
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -9,8 +10,6 @@ use std::error::Error;
 use std::fmt::{self, Debug};
 use std::iter::once;
 use std::str::FromStr;
-
-const NUMBER_REGEX_PATTERN: &str = r"\.?[0-9]+(\.[0-9]+)?";
 
 /// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
@@ -39,16 +38,19 @@ enum ParsedToken<'a, T: Copy + FromStr> {
     Var(String),
 }
 
-fn is_numeric_fast<'a>(_: &Regex, text: &'a str) -> Option<&'a str> {
+fn is_numeric_fast<'a>(text: &'a str) -> Option<&'a str> {
     let mut n_dots = 0;
-    let n_num_chars = text.chars().take_while(|c| {
-        let is_dot = *c == '.';
-        if is_dot {
-            n_dots += 1;
-        }
-        c.is_digit(10) || is_dot
-    }).count();
-    if n_num_chars > 0  && n_dots < 2 {
+    let n_num_chars = text
+        .chars()
+        .take_while(|c| {
+            let is_dot = *c == '.';
+            if is_dot {
+                n_dots += 1;
+            }
+            c.is_digit(10) || is_dot
+        })
+        .count();
+    if n_num_chars > 0 && n_dots < 2 {
         Some(&text[0..n_num_chars])
     } else {
         None
@@ -69,49 +71,32 @@ fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// * `text` - text to be parsed
 /// * `ops_in` - slice of operator-pairs
-/// * `number_regex_pattern` - defines what in the text will be identified as number
+/// * `is_numeric` - closure that decides whether the current rest of the text starts with a number
 ///
 /// # Errors
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn apply_regexes<'a, T: Copy + FromStr + Debug>(
-    text: &str,
+fn apply_regexes<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
+    text: &'b str,
     ops_in: &[Operator<'a, T>],
-    number_regex_pattern: &str,
+    is_numeric: F,
 ) -> Result<SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    let is_number_pattern_custom = number_regex_pattern == NUMBER_REGEX_PATTERN;
-    let is_numeric = if is_number_pattern_custom {
-        is_numeric_fast
-    } else {
-        is_numeric_regex
-    };
-    let begins_with_number = if is_number_pattern_custom {
-        format!("^{}", number_regex_pattern)
-    } else {
-        format!("^({})", number_regex_pattern)
-    };
-    let re_number = match Regex::new(begins_with_number.as_str()) {
-        Ok(regex) => regex,
-        Err(_) => {
-            return Err(ExParseError {
-                msg: "Cannot compile the passed number regex.".to_string(),
-            })
-        }
-    };
-
+       
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
+
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
-    let pattern_name = r"^[a-zA-Z_]+[a-zA-Z_0-9]*";
-    let re_name = Regex::new(pattern_name).unwrap();
 
+    lazy_static! {
+        static ref RE_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
+    }
+    
     let mut cur_offset = 0usize;
-
     let find_ops = |offset: usize| {
         ops.iter().find(|op| {
             let range_end = offset + op.repr.chars().count();
@@ -133,7 +118,7 @@ where
             let maybe_op;
             let maybe_num;
             let maybe_name;
-            let text_rest = &text[cur_offset..];
+            let text_rest: &str = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Open)
@@ -141,7 +126,7 @@ where
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if {
-                maybe_num = is_numeric(&re_number, text_rest);
+                maybe_num = is_numeric(text_rest);
                 maybe_num.is_some()
             } {
                 let num_str = maybe_num.unwrap();
@@ -157,7 +142,7 @@ where
                 cur_offset += n_chars;
                 ParsedToken::<T>::Op(op)
             } else if {
-                maybe_name = re_name.find(text_rest);
+                maybe_name = RE_NAME.find(text_rest);
                 maybe_name.is_some()
             } {
                 let var_str = maybe_name.unwrap().as_str();
@@ -171,6 +156,7 @@ where
             res.push(next_parsed_token);
         }
     }
+
     Ok(res)
 }
 
@@ -451,6 +437,29 @@ where
     }
 }
 
+fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
+    parsed_tokens: &SmallVec<[ParsedToken<T>; 2 * N_NODES_ON_STACK]>,
+) -> Result<FlatEx<T>, ExParseError> {
+    let parsed_vars = parsed_tokens
+        .iter()
+        .filter_map(|pt| match pt {
+            ParsedToken::Var(name) => Some(name.clone()),
+            _ => None,
+        })
+        .unique()
+        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
+
+    check_preconditions(&parsed_tokens[..])?;
+
+    let (expr, _) = make_expression(
+        &parsed_tokens[0..],
+        &parsed_vars,
+        CompositionOfUnaryOps::new(),
+    )?;
+
+    Ok(expr.flatten())
+}
+
 /// Parses a string and a vector of operators into an expression that can be evaluated.
 ///
 /// # Errors
@@ -462,7 +471,8 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    parse_with_number_pattern::<T>(text, ops, NUMBER_REGEX_PATTERN)
+    let parsed_tokens = apply_regexes(text, ops, is_numeric_fast)?;
+    parsed_tokens_to_flatex(&parsed_tokens)
 }
 
 /// Parses a string and a vector of operators and a regex pattern that defines the looks
@@ -496,8 +506,8 @@ where
 /// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
 /// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
 ///
-pub fn parse_with_number_pattern<'a, T>(
-    text: &str,
+pub fn parse_with_number_pattern<'a,'b, T>(
+    text: &'b str,
     ops: &[Operator<'a, T>],
     number_regex_pattern: &str,
 ) -> Result<FlatEx<T>, ExParseError>
@@ -505,25 +515,18 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    let parsed_tokens = apply_regexes::<T>(text, ops, number_regex_pattern)?;
-    let parsed_vars = parsed_tokens
-        .iter()
-        .filter_map(|pt| match pt {
-            ParsedToken::Var(name) => Some(name.clone()),
-            _ => None,
-        })
-        .unique()
-        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
-
-    check_preconditions(&parsed_tokens[..])?;
-
-    let (expr, _) = make_expression(
-        &parsed_tokens[0..],
-        &parsed_vars,
-        CompositionOfUnaryOps::new(),
-    )?;
-
-    Ok(expr.flatten())
+    let beginning_number_regex_regex = format!("^({})", number_regex_pattern);
+    let re_number = match Regex::new(beginning_number_regex_regex.as_str()) {
+        Ok(regex) => regex,
+        Err(_) => {
+            return Err(ExParseError {
+                msg: "Cannot compile the passed number regex.".to_string(),
+            })
+        }
+    };
+    let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
+    let parsed_tokens = apply_regexes(text, ops, is_numeric)?;
+    parsed_tokens_to_flatex(&parsed_tokens)
 }
 
 /// Parses a string into an expression that can be evaluated using default operators.
@@ -543,16 +546,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        parse::{apply_regexes, check_preconditions, make_default_operators, NUMBER_REGEX_PATTERN},
-        ExParseError,
-    };
+    use crate::{ExParseError, parse::{apply_regexes, check_preconditions, is_numeric_fast, make_default_operators}};
 
     #[test]
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = apply_regexes::<f32>(text, &ops, NUMBER_REGEX_PATTERN);
+        let elts = apply_regexes(text, &ops, is_numeric_fast);
         assert!(elts.is_err());
     }
 
@@ -569,7 +569,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = apply_regexes::<f32>(text, &ops, NUMBER_REGEX_PATTERN);
+            let elts = apply_regexes(text, &ops, is_numeric_fast);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);
@@ -594,6 +594,9 @@ mod tests {
         test(r"5\6", r"how to parse the beginning of \");
         test(r"3 * log2 * 5", r"binary operator cannot be next");
         test(r"3.4.", r"how to parse the beginning of 3.4.");
-        test(r"3. .4", r"a number/variable cannot be next to a number/variable");
+        test(
+            r"3. .4",
+            r"a number/variable cannot be next to a number/variable",
+        );
     }
 }

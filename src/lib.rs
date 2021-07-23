@@ -78,9 +78,9 @@
 //! ### Data Types of Numbers
 //!
 //! You can use any type that implements [`Copy`](core::marker::Copy) and
-//! [`FromStr`](std::str::FromStr). In case the representation of your data type in the 
+//! [`FromStr`](std::str::FromStr). In case the representation of your data type in the
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
-//! suitable regex and use the function 
+//! suitable regex and use the function
 //! [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
 //! [`parse`](parse::parse). Here is an example for `bool`.
 //! ```rust
@@ -118,7 +118,7 @@
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
 //! For instance `"---1"` will evalute to `-1`.
 //! If you want to be on the safe side, we suggest using parentheses.
-//! 
+//!
 //! ## Unicode
 //! Unicode input strings are not supported.
 //!
@@ -194,8 +194,9 @@ mod tests {
         assert!(!readme().is_err());
         assert!(!readme_int().is_err());
     }
-   #[test]
-    fn test_variables() { 
+
+    #[test]
+    fn test_variables() {
         let operators = make_default_operators::<f32>();
 
         let to_be_parsed = "5*x + 4*y + 3*x";
@@ -225,7 +226,10 @@ mod tests {
 
         let to_be_parsed = "(0 * myvar_25 + cos(x))";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
-        assert_float_eq_f32(expr.eval(&[1.5707963267948966, 3.141592653589793]).unwrap(), -1.0);
+        assert_float_eq_f32(
+            expr.eval(&[1.5707963267948966, 3.141592653589793]).unwrap(),
+            -1.0,
+        );
 
         let to_be_parsed = "(-x^2)";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
@@ -235,8 +239,7 @@ mod tests {
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
         assert_float_eq_f32(expr.eval(&[2.5, 3.7]).unwrap(), 14.992794866624788);
 
-        let to_be_parsed =
-            "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(-x^2 + sin(4*sinh(y)))";
+        let to_be_parsed = "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(-x^2 + sin(4*sinh(y)))";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
         assert_float_eq_f32(
             expr.eval(&[2.5, 3.7]).unwrap(),
@@ -255,15 +258,14 @@ mod tests {
         let to_be_parsed = "trunc(x) + fract(x)";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
         assert_float_eq_f32(expr.eval(&[23422.52345]).unwrap(), 23422.52345);
-                
+
         let to_be_parsed = "3-(-1+z * sin(cos(-3.14159265358979))*2)";
         let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
         assert_float_eq_f32(expr.eval(&[1.0]).unwrap(), 5.6829419696157935);
-    }   
-    
+    }
+
     #[test]
     fn test_custom_ops_invert() {
-        
         let ops = vec![
             Operator {
                 repr: "invert",
