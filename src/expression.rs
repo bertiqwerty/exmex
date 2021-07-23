@@ -239,16 +239,22 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
     }
 
     if expr.unary_ops.len() > 0 {
-        if flat_nodes.len() > 1 {
+        if flat_ops.len() > 0 {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
             let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
+            let mut new_uops = expr.unary_ops.clone();
+            let mut existing_uops = match low_prio_op.unary_op.clone() {
+                Some(uops) => uops,
+                None => CompositionOfUnaryOps::<T>::new(),
+            };
+            new_uops.append(&mut existing_uops);
             *low_prio_op = FlatOp {
                 bin_op: low_prio_op.bin_op,
-                unary_op: Some(expr.unary_ops.clone()),
+                unary_op: Some(new_uops),
             }
         } else {
             let mut new_op = expr.unary_ops.clone();

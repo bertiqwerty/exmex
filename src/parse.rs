@@ -460,7 +460,6 @@ fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
         &parsed_vars,
         CompositionOfUnaryOps::new(),
     )?;
-
     Ok(expr.flatten())
 }
 
