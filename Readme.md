@@ -57,12 +57,11 @@ assert_eq!(result, u32::MAX - 1);
 ## Benchmarks
 
 Exmex was created with flexibility (e.g., arbitrary names of binary and unary operators and a custom regex 
-for number literals), ergonomics (e.g., just finds variables), and evaluation speed in mind. 
-Since there is no free lunch, Exmex is slow during parsing. Or maybe I 
-did not find any suitable zero-cost-abstraction yet :). 
+for number literals), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
+hand, Exmex is slower than the other crates during parsing. 
 However, evaluation might be more performance critical depending on the application. 
-We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks 
-for the evaluation. The expressions used for benchmarking are:
+We provide in this section [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks. 
+The expressions used for benchmarking are:
 ```
 xyz:     "x*y*z"
 xx+:     "x*x+y*y+z*z"
@@ -91,7 +90,17 @@ to compute the results.
 Note that some crates such as [Meval](https://docs.rs/meval/0.2.0/meval/) did not care 
 about the optimization flag `--emit=asm`. [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) 
 and Exmex, on the other hand, were between 5% and 17% faster than on the same machine without `--emit=asm`.  
-We also used a Win10 machine with an i5-8350U 1.7 GHz. We excluded the slow crates from above and
+
+Benchmarks for parsing on the aforementioned machine are shown in the following.
+|        |parse all expressions (μs)|
+|--------|---------------|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|**23.4**|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|42.6|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)   |34.4|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |25.3|
+|**Exmex**   |82.9|
+
+We also used a Win10 machine with an i5-8350U 1.7 GHz to benchmark evaluations. We excluded the slow crates from above and
 omitted the optimization flag, i.e., we run
 ```
 cargo bench

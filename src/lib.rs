@@ -120,7 +120,8 @@
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
 //! ## Unicode
-//! Unicode input strings are not supported.
+//! Unicode input strings are currently not supported 😕 but might be added in the 
+//! future 😀.
 //!
 
 mod expression;
