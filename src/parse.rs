@@ -125,6 +125,10 @@ where
             } else if c == ')' {
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
+            } else if c == '{' {
+                let n_count = text_rest.chars().take_while(|c| *c != '}').count();
+                cur_offset += n_count + 1;
+                ParsedToken::<T>::Var(text_rest[1..n_count + 1].to_string())
             } else if {
                 maybe_num = is_numeric(text_rest);
                 maybe_num.is_some()

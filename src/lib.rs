@@ -195,7 +195,25 @@ mod tests {
         assert!(!readme().is_err());
         assert!(!readme_int().is_err());
     }
+    #[test]
+    fn test_variables_curly() {
+        let operators = make_default_operators::<f32>();
 
+        let to_be_parsed = "5*{x} + 4*{gamma} + 3*{x}";
+        let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
+        assert_float_eq_f32(expr.eval(&[1.0, 0.0]).unwrap(), 8.0);
+        let to_be_parsed = "2*(4*{x} + y^2)";
+        let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
+        assert_float_eq_f32(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
+
+        let to_be_parsed = "sin({myvar_25})";
+        let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
+        assert_float_eq_f32(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+
+        let to_be_parsed = "((sin({myvar_25})))";
+        let expr = parse::<f32>(to_be_parsed, &operators).unwrap();
+        assert_float_eq_f32(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    }
     #[test]
     fn test_variables() {
         let operators = make_default_operators::<f32>();
