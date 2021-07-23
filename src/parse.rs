@@ -38,7 +38,7 @@ enum ParsedToken<'a, T: Copy + FromStr> {
     Var(String),
 }
 
-fn is_numeric_fast<'a>(text: &'a str) -> Option<&'a str> {
+fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
     let mut n_dots = 0;
     let n_num_chars = text
         .chars()
@@ -471,7 +471,7 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    let parsed_tokens = apply_regexes(text, ops, is_numeric_fast)?;
+    let parsed_tokens = apply_regexes(text, ops, is_numeric_text)?;
     parsed_tokens_to_flatex(&parsed_tokens)
 }
 
@@ -546,13 +546,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{ExParseError, parse::{apply_regexes, check_preconditions, is_numeric_fast, make_default_operators}};
+    use crate::{ExParseError, parse::{apply_regexes, check_preconditions, is_numeric_text, make_default_operators}};
 
     #[test]
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = apply_regexes(text, &ops, is_numeric_fast);
+        let elts = apply_regexes(text, &ops, is_numeric_text);
         assert!(elts.is_err());
     }
 
@@ -569,7 +569,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = apply_regexes(text, &ops, is_numeric_fast);
+            let elts = apply_regexes(text, &ops, is_numeric_text);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);
