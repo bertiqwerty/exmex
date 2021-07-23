@@ -12,7 +12,7 @@ To install the latest commit add
 ```
 [dependencies]
 # ...
-exmex = "0.6.1"
+exmex = "0.7.0"
 ```
 to your `Cargo.toml`.
 
