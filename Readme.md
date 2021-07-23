@@ -12,9 +12,9 @@ To install the latest commit add
 ```
 [dependencies]
 # ...
-exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
+exmex = "0.6.1"
 ```
-to your `Cargo.toml`. For the latest release, see https://crates.io/crates/exmex.
+to your `Cargo.toml`.
 
 ## Basic Usage
 To simply evaluate a string there is
