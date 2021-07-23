@@ -4,7 +4,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{eval_str};
+//! use exmex::eval_str;
 //! assert!((eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -33,7 +33,22 @@
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
 //! first occurence of the variables is relevant. In this example, we have `z=2.5` and `y=3.7`.
-//!
+//! If variables are between curly brackets, they can have arbitrary names, e.g., 
+//! `{456/549*(}`, `{x}`, and `{x+y}`  are valid variable names as shown in the following.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{make_default_operators, parse};
+//! let x = 2.1f64;
+//! let y = 0.1f64;
+//! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable, not the sum of two 😕.
+//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //! ## Extendability
 //! Library users can also define a different set of operators as shown in the following.
 //! ```rust
@@ -206,7 +221,7 @@ mod tests {
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
 
-        let to_be_parsed = "sin({myvar_25})";
+        let to_be_parsed = "sin({myvwmlf4i58eo;w/-😕+sin(a)r_25})";
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 
