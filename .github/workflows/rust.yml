@@ -21,4 +21,4 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Benchmark
-      run: cargo bench
+      run: cargo bench --bench benchmark -- --noplot --warm-up-time 2 --sample-size 10 --nresamples 250

@@ -1,53 +1,31 @@
 use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use evalexpr::{ContextWithMutableVariables, HashMapContext, Node, Value, build_operator_tree};
-use exmex::{BinOp, FlatEx, Operator, parse_with_default_ops};
+use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
+use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
-use itertools::{Itertools, izip};
+use itertools::{izip, Itertools};
 use meval;
 use rsc::{
     computer::Computer,
     lexer::tokenize,
     parser::{parse, Expr},
 };
-const N: usize = 7;
+const N: usize = 3;
 
-const BENCH_EXPRESSIONS_NAMES: [&str; N] = [
-    "xyz",
-    "xx+yy+zz",
-    "x^2+y^2+z^2",
-    "canucompile",
-    "flat",
-    "flatsin",
-    "nested",
-];
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested"];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
-    "x*y*z",
-    "x*x+y*y+z*z",
-    "x^2+y^2+z^2",
-    "x+2 * (6 - 4) - 3 / 2.5 + y + 3.141 * 0.4 * (2 - 32 * (7 + 43 * (1+5))) * 0.1 + x*y*z",
-    "2 * 6 - 4 - 3 / 2.5 + 3.141 * 0.4 * x - 32 * y + 43 * z",
-    "2 * 6 - 4 - 3 / sin(2.5) + 3.141 * 0.4 * sin(x) - 32 * y + 43 * z",
+    "sin(x)+sin(y)+sin(z)",
+    "x^2+y*y+z^z",
     "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
 ];
 
-
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
-    |x, y, z| x * y * z,
-    |x, y, z| x * x + y * y + z * z,
-    |x, y, z| x.powi(2) + y.powi(2) + z.powi(2),
-    |x, y, z| {
-        x + 2.0 * (6.0 - 4.0) - 3.0 / 2.5
-            + y
-            + 3.141 * 0.4 * (2.0 - 32.0 * (7.0 + 43.0 * (1.0 + 5.0))) * 0.1
-            + x * y * z
-    },
-    |x, y, z| 6.8 + 1.2564 * x - 32.0 * y + 43.0 * z,
-    |x, y, z| 8.0 - 5.01276463667604 + 1.2564 * x.sin() - 32.0 * y + 43.0 * z,
+    |x, y, z| x.sin() + y.sin() + z.sin(),
+    |x, y, z| x.powi(2) + y * y + z.powf(z),
     |x, y, z| x * 0.02 * (3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin())),
 ];
-const BENCH_X_RANGE: (usize, usize) = (0, 1000);
+const BENCH_X_RANGE: (usize, usize) = (0, 5);
 const BENCH_Y: f64 = 3.0;
 const BENCH_Z: f64 = 4.0;
 
@@ -93,15 +71,70 @@ fn run_benchmark_parse<T, F: Fn(&[&str]) -> Vec<T>>(func: F, parse_name: &str, c
 fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
     strings
         .iter()
-        .map(|expr_str| {
-            parse_with_default_ops::<f64>(expr_str).unwrap()
-        })
+        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
-
 fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
+}
+
+fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
+    let ops = [
+        Operator {
+            repr: "^",
+            bin_op: Some(BinOp {
+                op: |a: f64, b| a.powf(b),
+                prio: 2,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "*",
+            bin_op: Some(BinOp {
+                op: |a, b| a * b,
+                prio: 1,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "/",
+            bin_op: Some(BinOp {
+                op: |a, b| a / b,
+                prio: 1,
+            }),
+            unary_op: None,
+        },
+        Operator {
+            repr: "+",
+            bin_op: Some(BinOp {
+                op: |a, b| a + b,
+                prio: 0,
+            }),
+            unary_op: Some(|a| a),
+        },
+        Operator {
+            repr: "-",
+            bin_op: Some(BinOp {
+                op: |a, b| a - b,
+                prio: 0,
+            }),
+            unary_op: Some(|a| (-a)),
+        },
+        Operator {
+            repr: "sin",
+            bin_op: None,
+            unary_op: Some(|a| a.sin()),
+        },
+    ];
+    strings
+        .iter()
+        .map(|expr_str| exmex::parse(expr_str, &ops).unwrap())
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse_optimized(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse_optimized, "exmex_parse_optimized", c);
 }
 
 fn exmex_bench_eval(c: &mut Criterion) {
@@ -137,9 +170,9 @@ fn meval_bench_eval(c: &mut Criterion) {
 }
 
 fn evalexpr_parse(strings: &[&str]) -> Vec<(Node, HashMapContext)> {
-    let parsed_exprs = strings
-        .iter()
-        .map(|expr_str| build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap());
+    let parsed_exprs = strings.iter().map(|expr_str| {
+        build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap()
+    });
     let contexts = repeat(HashMapContext::new()).take(N);
     izip!(parsed_exprs, contexts).collect_vec()
 }
@@ -150,7 +183,8 @@ fn evalexpr_bench_parse(c: &mut Criterion) {
 
 fn evalexpr_bench_eval(c: &mut Criterion) {
     let mut parsed_exprs = evalexpr_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs.iter_mut()
+    let funcs = parsed_exprs
+        .iter_mut()
         .map(|(expr, context)| {
             move |x: f64| {
                 context.set_value("x".into(), x.into()).unwrap();
@@ -167,22 +201,19 @@ fn evalexpr_bench_eval(c: &mut Criterion) {
 }
 
 fn fasteval_parse(strings: &[&str]) -> Vec<((Instruction, Slab), BTreeMap<String, f64>)> {
-    let parsed_exprs = strings
-        .iter()
-        .map(|expr_str| {
-            let parser = fasteval::Parser::new();
-            let mut slab = fasteval::Slab::new();
-            (
-                parser
-                    .parse(expr_str, &mut slab.ps)
-                    .unwrap()
-                    .from(&slab.ps)
-                    .compile(&slab.ps, &mut slab.cs),
-                slab,
-            )
-        });
-    let contexts = repeat(BTreeMap::<String, f64>::new())
-        .take(N);
+    let parsed_exprs = strings.iter().map(|expr_str| {
+        let parser = fasteval::Parser::new();
+        let mut slab = fasteval::Slab::new();
+        (
+            parser
+                .parse(expr_str, &mut slab.ps)
+                .unwrap()
+                .from(&slab.ps)
+                .compile(&slab.ps, &mut slab.cs),
+            slab,
+        )
+    });
+    let contexts = repeat(BTreeMap::<String, f64>::new()).take(N);
     izip!(parsed_exprs, contexts).collect::<Vec<_>>()
 }
 
@@ -191,7 +222,8 @@ fn fasteval_bench_parse(c: &mut Criterion) {
 }
 fn fasteval_bench_eval(c: &mut Criterion) {
     let mut parsed_exprs = fasteval_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs.iter_mut()
+    let funcs = parsed_exprs
+        .iter_mut()
         .map(|tuple_of_tuples| {
             let context = &mut tuple_of_tuples.1;
             let (instr, slab) = &tuple_of_tuples.0;
@@ -213,15 +245,12 @@ fn fasteval_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "fasteval", c);
 }
 
-fn rsc_parse<'a>(strings: &[&str]) -> Vec<(Expr::<f64>, Computer<'a, f64>)> {
-    let parsed_exprs = strings
-        .iter()
-        .map(|expr_str| {
-            let tokens = tokenize(expr_str, true).unwrap();
-            parse(&tokens).unwrap()
-        });
-    let computers = repeat(Computer::<f64>::default())
-        .take(N);
+fn rsc_parse<'a>(strings: &[&str]) -> Vec<(Expr<f64>, Computer<'a, f64>)> {
+    let parsed_exprs = strings.iter().map(|expr_str| {
+        let tokens = tokenize(expr_str, true).unwrap();
+        parse(&tokens).unwrap()
+    });
+    let computers = repeat(Computer::<f64>::default()).take(N);
     izip!(parsed_exprs, computers).collect_vec()
 }
 fn rsc_bench_parse(c: &mut Criterion) {
@@ -230,7 +259,8 @@ fn rsc_bench_parse(c: &mut Criterion) {
 
 fn rsc_bench_eval(c: &mut Criterion) {
     let mut parsed_exprs = rsc_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs.iter_mut()
+    let funcs = parsed_exprs
+        .iter_mut()
         .map(|(ast, comp)| {
             move |x: f64| {
                 let mut ast = ast.clone();
@@ -260,6 +290,7 @@ criterion_group!(
     rsc_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
+    exmex_bench_parse_optimized,
     meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
