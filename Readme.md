@@ -67,7 +67,7 @@ The expressions used for benchmarking are:
 ```
 sin:     "sin(x)+sin(y)+sin(z)",
 power:   "x^2+y*y+z^z",
-nested:  "x*0.02*(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z)))))",
+nested:  "x*0.02*sin(-(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z))))))",
 ```
 The following
 table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i5-8350U 1.7 GHz processor in micro-seconds, i.e., smaller means better.
