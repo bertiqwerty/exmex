@@ -8,13 +8,15 @@ Users can define their own operators and work with different data types such
 as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
 ## Installation
-To install the latest commit add
+To install the latest ... 
+- ... release, see https://crates.io/crates/exmex.
+- ... commit, add
 ```
 [dependencies]
 # ...
-exmex = "0.7.1"
+exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
 ```
-to your `Cargo.toml`.
+to your `Cargo.toml`. 
 
 ## Basic Usage
 To simply evaluate a string there is
