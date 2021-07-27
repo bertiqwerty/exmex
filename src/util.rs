@@ -2,7 +2,6 @@ use smallvec::SmallVec;
 
 #[cfg(test)]
 fn assert_float_eq<T: num::Float + std::fmt::Display>(f1: T, f2: T, tol: T) {
-
     if (f1 - f2).abs() >= tol {
         println!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
         assert!(false);
@@ -19,7 +18,6 @@ pub fn assert_float_eq_f64(f1: f64, f2: f64) {
 
 /// Container of unary operators of one expression
 pub type CompositionOfUnaryOps<T> = SmallVec<[fn(T) -> T; 8]>;
-
 
 /// Applies unary operators one after the other starting with the last.
 /// # Arguments
