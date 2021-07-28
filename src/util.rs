@@ -64,4 +64,8 @@ impl<T> UnaryOp<T> {
             funcs_to_be_composed: v,
         }
     }
+
+    pub fn clear(&mut self) {
+        self.funcs_to_be_composed.clear();
+    }
 }

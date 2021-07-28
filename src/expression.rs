@@ -278,7 +278,7 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
     indices
 }
 
-fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &Vec<DeepNode<T>>) -> ExprIdxVec {
+fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
     let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
     indices.sort_by(|i1, i2| {
         let (prio_i1, prio_i2) = match (&nodes[*i1], &nodes[*i2]) {
@@ -297,10 +297,19 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &Vec<DeepNode<T>>) 
 }
 
 impl<T: Copy + Debug> DeepEx<T> {
-    fn compile(&mut self) {
+    /// Evaluates all operators with numbers as operands.
+    pub fn compile(&mut self) {
         for node in &mut self.nodes {
             if let DeepNode::Expr(ref mut e) = node {
                 e.compile();
+                if e.nodes.len() == 1 {
+                    match e.nodes[0] {
+                        DeepNode::Num(n) => {
+                            *node = DeepNode::Num(e.unary_op.apply(n));
+                        }
+                        _ => (),
+                    }
+                }
             };
         }
 
@@ -334,6 +343,17 @@ impl<T: Copy + Debug> DeepEx<T> {
             .collect();
 
         self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes);
+
+        if self.nodes.len() == 1 {
+            match self.nodes[0] {
+                DeepNode::Num(n) => {
+                    self.nodes[0] = DeepNode::Num(self.unary_op.apply(n));
+                    self.unary_op.clear();
+                }
+                _ => (),
+            }
+        }
+
     }
     pub fn new(
         nodes: Vec<DeepNode<T>>,
@@ -379,13 +399,40 @@ impl<T: Copy + Debug> DeepEx<T> {
 }
 
 #[cfg(test)]
-mod test {
+use crate::{make_default_operators, parse_with_default_ops, util::assert_float_eq_f64};
+#[test]
+fn test_compile() {
+    let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
+    assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
+    assert_eq!(flat_ex.nodes.len(), 1);
 
-    use crate::{parse_with_default_ops, util::assert_float_eq_f64};
-    #[test]
-    fn test_compile() {
-        let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
-        assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
-        assert_eq!(flat_ex.nodes.len(), 1);
+    let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1) + x").unwrap();
+    assert_float_eq_f64(flat_ex.eval(&[0.0]).unwrap(), 1.9f64.sin());
+    assert_eq!(flat_ex.nodes.len(), 2);
+    match flat_ex.nodes[0].kind {
+        FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()), 
+        _ => assert!(false),
+    }
+    match flat_ex.nodes[1].kind {
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 0), 
+        _ => assert!(false),
+    }
+
+    let ops = make_default_operators();
+    let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
+    let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
+    let unary_op = UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]);
+    let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
+    let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
+    let unary_op = UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]);
+    let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Expr(deep_ex)];
+    let mut deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
+    deep_ex.compile();
+    assert_eq!(deep_ex.nodes.len(), 1);
+    match deep_ex.nodes[0] {
+        DeepNode::Num(n) => assert_eq!(deep_ex.unary_op.apply(n), n),
+        _ => {
+            assert!(false);
+        }
     }
 }
