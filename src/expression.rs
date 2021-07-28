@@ -238,7 +238,7 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
         }
     }
 
-    if expr.unary_ops.len() > 0 {
+    if expr.unary_op.len() > 0 {
         if flat_ops.len() > 0 {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
@@ -246,10 +246,11 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
-            let mut new_uops = expr.unary_ops.clone();
-            let mut existing_uops = match low_prio_op.unary_op.clone() {
+            let mut new_uops = expr.unary_op.clone();
+            let mut dummy = CompositionOfUnaryOps::<T>::new();
+            let mut existing_uops = match &mut low_prio_op.unary_op {
                 Some(uops) => uops,
-                None => CompositionOfUnaryOps::<T>::new(),
+                None => &mut dummy,
             };
             new_uops.append(&mut existing_uops);
             *low_prio_op = FlatOp {
@@ -257,11 +258,11 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
                 unary_op: Some(new_uops),
             }
         } else {
-            let mut new_op = expr.unary_ops.clone();
-            flat_nodes[0].unary_op = match flat_nodes[0].unary_op.clone() {
+            let mut new_op = expr.unary_op.clone();
+            flat_nodes[0].unary_op = match &mut flat_nodes[0].unary_op {
                 None => Some(new_op),
-                Some(mut uops) => {
-                    new_op.append(&mut uops);
+                Some(uops) => {
+                    new_op.append(uops);
                     Some(new_op)
                 }
             }
@@ -279,7 +280,7 @@ pub struct Expression<T: Copy> {
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
-    unary_ops: CompositionOfUnaryOps<T>,
+    unary_op: CompositionOfUnaryOps<T>,
     prio_indices: ExprIdxVec,
 }
 
@@ -361,7 +362,7 @@ impl<T: Copy + Debug> Expression<T> {
     pub fn new(
         nodes: Vec<Node<T>>,
         bin_ops: BinOpVec<T>,
-        unary_ops: CompositionOfUnaryOps<T>,
+        unary_op: CompositionOfUnaryOps<T>,
     ) -> Result<Expression<T>, ExParseError> {
         if nodes.len() != bin_ops.len() + 1 {
             Err(ExParseError {
@@ -372,7 +373,7 @@ impl<T: Copy + Debug> Expression<T> {
             let mut expr = Expression {
                 nodes: nodes,
                 bin_ops: bin_ops,
-                unary_ops: unary_ops,
+                unary_op,
                 prio_indices: indices,
             };
             expr.compile();
