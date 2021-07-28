@@ -17,7 +17,7 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 /// will be executed after the binary operation in case of its existence.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatOp<T: Copy> {
-    unary_op: Option<UnaryOp<T>>,
+    unary_op: UnaryOp<T>,
     bin_op: BinOp<T>,
 }
 
@@ -41,14 +41,14 @@ pub enum FlatNodeKind<T: Copy> {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatNode<T: Copy> {
     kind: FlatNodeKind<T>,
-    unary_op: Option<UnaryOp<T>>,
+    unary_op: UnaryOp<T>,
 }
 
 impl<T: Copy> FlatNode<T> {
     pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
         return FlatNode {
             kind: kind,
-            unary_op: None,
+            unary_op: UnaryOp::new(),
         };
     }
 }
@@ -89,13 +89,6 @@ pub struct FlatEx<T: Copy> {
     n_unique_vars: usize,
 }
 
-fn apply_uop_if_some<T: Copy>(uop: &Option<UnaryOp<T>>, val: T) -> T {
-    match uop {
-        None => val,
-        Some(uop_) => uop_.apply(val),
-    }
-}
-
 impl<T: Copy> FlatEx<T> {
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
@@ -125,13 +118,10 @@ impl<T: Copy> FlatEx<T> {
             .nodes
             .iter()
             .map(|node| {
-                apply_uop_if_some(
-                    &node.unary_op,
-                    match node.kind {
-                        FlatNodeKind::Num(n) => n,
-                        FlatNodeKind::Var(idx) => vars[idx],
-                    },
-                )
+                node.unary_op.apply(match node.kind {
+                    FlatNodeKind::Num(n) => n,
+                    FlatNodeKind::Var(idx) => vars[idx],
+                })
             })
             .collect::<SmallVec<[T; 32]>>();
 
@@ -150,7 +140,7 @@ impl<T: Copy> FlatEx<T> {
             let num_2 = numbers[num_idx + shift_right];
             numbers[num_idx - shift_left] = {
                 let bop_res = (self.ops[bin_op_idx].bin_op.op)(num_1, num_2);
-                apply_uop_if_some(&self.ops[bin_op_idx].unary_op, bop_res)
+                self.ops[bin_op_idx].unary_op.apply(bop_res)
             };
             ignore[num_idx + shift_right] = true;
         }
@@ -167,15 +157,14 @@ impl<T: Copy> FlatEx<T> {
             if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) =
                 (&node_1.kind, &node_2.kind)
             {
-                let num_1 = apply_uop_if_some(&node_1.unary_op, *num_1);
-                let num_2 = apply_uop_if_some(&node_2.unary_op, *num_2);
-                let val = apply_uop_if_some(
-                    &self.ops[bin_op_idx].unary_op,
-                    (self.ops[bin_op_idx].bin_op.op)(num_1, num_2),
-                );
+                let num_1 = node_1.unary_op.apply(*num_1);
+                let num_2 = node_2.unary_op.apply(*num_2);
+                let val = self.ops[bin_op_idx]
+                    .unary_op
+                    .apply((self.ops[bin_op_idx].bin_op.op)(num_1, num_2));
                 self.nodes[num_idx] = FlatNode {
                     kind: FlatNodeKind::Num(val),
-                    unary_op: None,
+                    unary_op: UnaryOp::new(),
                 };
                 self.nodes.remove(num_idx + 1);
                 // reduce indices after removed position
@@ -229,7 +218,7 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
             };
             flat_ops.push(FlatOp {
                 bin_op: prio_adapted_bin_op,
-                unary_op: None,
+                unary_op: UnaryOp::new(),
             });
         }
     }
@@ -242,23 +231,9 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
-            match &mut low_prio_op.unary_op {
-                None => {
-                    low_prio_op.unary_op = Some(expr.unary_op.clone());
-                }
-                Some(uops) => {
-                    uops.append_front(&mut expr.unary_op.clone());
-                }
-            };
+            low_prio_op.unary_op.append_front(&mut expr.unary_op.clone());
         } else {
-            match &mut flat_nodes[0].unary_op {
-                None => {
-                    flat_nodes[0].unary_op = Some(expr.unary_op.clone());
-                }
-                Some(uops) => {
-                    uops.append_front(&mut expr.unary_op.clone());
-                }
-            };
+            flat_nodes[0].unary_op.append_front(&mut expr.unary_op.clone());
         }
     }
     (flat_nodes, flat_ops)
