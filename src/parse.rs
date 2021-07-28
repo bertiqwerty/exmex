@@ -1,4 +1,4 @@
-use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
+use crate::expression::{BinOpVec, DeepEx, FlatEx, DeepNode, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
 use crate::util::{VecOfUnaryFuncs, UnaryOp};
 use itertools::Itertools;
@@ -180,7 +180,7 @@ fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
     unary_ops: UnaryOp<T>,
-) -> Result<(Expression<T>, usize), ExParseError>
+) -> Result<(DeepEx<T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
 {
@@ -231,18 +231,18 @@ where
                 Paren::Open => {
                     let (expr, i_forward) =
                         make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uop)?;
-                    Ok((Node::Expr(expr), i_forward + n_uops + 1))
+                    Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
                 }
             },
             ParsedToken::Var(name) => {
-                let expr = Expression::new(
-                    vec![Node::Var(find_var_index(&name))],
+                let expr = DeepEx::new(
+                    vec![DeepNode::Var(find_var_index(&name))],
                     BinOpVec::new(),
                     uop,
                 )?;
-                Ok((Node::Expr(expr), n_uops + 1))
+                Ok((DeepNode::Expr(expr), n_uops + 1))
             }
-            ParsedToken::Num(n) => Ok((Node::Num(uop.apply(*n)), n_uops + 1)),
+            ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
             ParsedToken::Op(_) => Err(ExParseError {
                 msg: "a unary operator cannot be followed by a binary operator".to_string(),
             }),
@@ -250,7 +250,7 @@ where
     };
 
     let mut bin_ops = BinOpVec::new();
-    let mut nodes = Vec::<Node<T>>::new();
+    let mut nodes = Vec::<DeepNode<T>>::new();
 
     // The main loop checks one token after the next whereby sub-expressions are
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
@@ -298,11 +298,11 @@ where
                 }
             },
             ParsedToken::Num(n) => {
-                nodes.push(Node::Num(*n));
+                nodes.push(DeepNode::Num(*n));
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                nodes.push(Node::Var(find_var_index(&name)));
+                nodes.push(DeepNode::Var(find_var_index(&name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {
@@ -313,7 +313,7 @@ where
                         &parsed_vars,
                         UnaryOp::new(),
                     )?;
-                    nodes.push(Node::Expr(expr));
+                    nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
                 }
                 Paren::Close => {
@@ -323,7 +323,7 @@ where
             },
         }
     }
-    Ok((Expression::new(nodes, bin_ops, unary_ops)?, idx_tkn))
+    Ok((DeepEx::new(nodes, bin_ops, unary_ops)?, idx_tkn))
 }
 
 /// Tries to give useful error messages for invalid constellations of the parsed tokens
