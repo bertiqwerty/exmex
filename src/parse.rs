@@ -77,7 +77,7 @@ fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn apply_regexes<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
+fn parsed_tokens<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
     text: &'b str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
@@ -474,7 +474,7 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    let parsed_tokens = apply_regexes(text, ops, is_numeric_text)?;
+    let parsed_tokens = parsed_tokens(text, ops, is_numeric_text)?;
     parsed_tokens_to_flatex(&parsed_tokens)
 }
 
@@ -528,7 +528,7 @@ where
         }
     };
     let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
-    let parsed_tokens = apply_regexes(text, ops, is_numeric)?;
+    let parsed_tokens = parsed_tokens(text, ops, is_numeric)?;
     parsed_tokens_to_flatex(&parsed_tokens)
 }
 
@@ -549,13 +549,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{ExParseError, parse::{apply_regexes, check_preconditions, is_numeric_text, make_default_operators}};
+    use crate::{ExParseError, parse::{parsed_tokens, check_preconditions, is_numeric_text, make_default_operators}};
 
     #[test]
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = apply_regexes(text, &ops, is_numeric_text);
+        let elts = parsed_tokens(text, &ops, is_numeric_text);
         assert!(elts.is_err());
     }
 
@@ -572,7 +572,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = apply_regexes(text, &ops, is_numeric_text);
+            let elts = parsed_tokens(text, &ops, is_numeric_text);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);
