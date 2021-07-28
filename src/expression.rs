@@ -43,8 +43,8 @@ impl<T: Copy> FlatNode<T> {
 }
 
 /// This is the core data type representing a flattened expression and the result of
-/// parsing a string. The expression is flattened to make efficient evaluation possible.
-/// Simplified, it consists of a [`SmallVec`](SmallVec) of nodes and a
+/// parsing a string. We use flattened expressions to make efficient evaluation possible.
+/// Simplified, a flat expression consists of a [`SmallVec`](SmallVec) of nodes and a
 /// [`SmallVec`](SmallVec) of operators that are applied to the nodes in an order following
 /// operator priorities.
 ///
@@ -235,7 +235,7 @@ fn flatten_vecs<T: Copy>(
     (flat_nodes, flat_ops)
 }
 
-/// A node can be an expression, a number, or
+/// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DeepNode<T: Copy> {
@@ -246,6 +246,8 @@ pub enum DeepNode<T: Copy> {
     Var(usize),
 }
 
+/// A deep expression evaluates co-recursively since its nodes can contain other deep
+/// expressions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct DeepEx<T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
@@ -253,8 +255,7 @@ pub struct DeepEx<T: Copy> {
     /// Binary operators applied to the nodes according to their priority.
     bin_ops: BinOpVec<T>,
     /// Unary operators are applied to the result of evaluating all nodes with all
-    /// binary operators. The last unary operator is applied first to the result
-    /// of the evaluation of nodes and binary operators
+    /// binary operators.
     unary_op: UnaryOp<T>,
     prio_indices: ExprIdxVec,
 }
