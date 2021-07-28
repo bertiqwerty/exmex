@@ -246,24 +246,21 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
-            let mut new_uops = expr.unary_op.clone();
-            let mut dummy = CompositionOfUnaryOps::<T>::new();
-            let mut existing_uops = match &mut low_prio_op.unary_op {
-                Some(uops) => uops,
-                None => &mut dummy,
-            };
-            new_uops.append(&mut existing_uops);
-            *low_prio_op = FlatOp {
-                bin_op: low_prio_op.bin_op,
-                unary_op: Some(new_uops),
-            }
-        } else {
-            let mut new_op = expr.unary_op.clone();
-            flat_nodes[0].unary_op = match &mut flat_nodes[0].unary_op {
-                None => Some(new_op),
+            let mut new_uop = expr.unary_op.clone();
+            low_prio_op.unary_op = match &mut low_prio_op.unary_op {
+                None => Some(new_uop),
                 Some(uops) => {
-                    new_op.append(uops);
-                    Some(new_op)
+                    new_uop.append(uops);
+                    Some(new_uop)
+                },
+            };
+        } else {
+            let mut new_uop = expr.unary_op.clone();
+            flat_nodes[0].unary_op = match &mut flat_nodes[0].unary_op {
+                None => Some(new_uop),
+                Some(uops) => {
+                    new_uop.append(uops);
+                    Some(new_uop)
                 }
             }
         }
