@@ -1,6 +1,6 @@
 use crate::expression::{BinOpVec, Expression, FlatEx, Node, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator};
-use crate::util::{apply_unary_ops, CompositionOfUnaryOps};
+use crate::util::{VecOfUnaryFuncs, UnaryOp};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use num::Float;
@@ -179,7 +179,7 @@ where
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
     parsed_vars: &[String],
-    unary_ops: CompositionOfUnaryOps<T>,
+    unary_ops: UnaryOp<T>,
 ) -> Result<(Expression<T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
@@ -210,7 +210,7 @@ where
     // variable 'tokens' from the outer scope
     let process_unary = |i: usize, uo| {
         // gather subsequent unary operators from the beginning
-        let uops = once(uo)
+        let vec_of_uops = once(uo)
             .chain(
                 (i + 1..parsed_tokens.len())
                     .map(|j| match parsed_tokens[j] {
@@ -220,9 +220,9 @@ where
                     .take_while(|uo_| uo_.is_some())
                     .flatten(),
             )
-            .collect::<CompositionOfUnaryOps<_>>();
-        let n_uops = uops.len();
-
+            .collect::<VecOfUnaryFuncs<_>>();
+        let n_uops = vec_of_uops.len();
+        let uop = UnaryOp::from_vec(vec_of_uops);
         match &parsed_tokens[i + n_uops] {
             ParsedToken::Paren(p) => match p {
                 Paren::Close => Err(ExParseError {
@@ -230,7 +230,7 @@ where
                 }),
                 Paren::Open => {
                     let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uops)?;
+                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uop)?;
                     Ok((Node::Expr(expr), i_forward + n_uops + 1))
                 }
             },
@@ -238,11 +238,11 @@ where
                 let expr = Expression::new(
                     vec![Node::Var(find_var_index(&name))],
                     BinOpVec::new(),
-                    uops,
+                    uop,
                 )?;
                 Ok((Node::Expr(expr), n_uops + 1))
             }
-            ParsedToken::Num(n) => Ok((Node::Num(apply_unary_ops(&uops, *n)), n_uops + 1)),
+            ParsedToken::Num(n) => Ok((Node::Num(uop.apply(*n)), n_uops + 1)),
             ParsedToken::Op(_) => Err(ExParseError {
                 msg: "a unary operator cannot be followed by a binary operator".to_string(),
             }),
@@ -311,7 +311,7 @@ where
                     let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[idx_tkn..],
                         &parsed_vars,
-                        CompositionOfUnaryOps::new(),
+                        UnaryOp::new(),
                     )?;
                     nodes.push(Node::Expr(expr));
                     idx_tkn += i_forward;
@@ -458,7 +458,7 @@ fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
     let (expr, _) = make_expression(
         &parsed_tokens[0..],
         &parsed_vars,
-        CompositionOfUnaryOps::new(),
+        UnaryOp::new(),
     )?;
     Ok(expr.flatten())
 }

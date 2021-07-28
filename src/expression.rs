@@ -1,8 +1,4 @@
-use crate::{
-    operators::BinOp,
-    util::{apply_unary_ops, CompositionOfUnaryOps},
-    ExParseError,
-};
+use crate::{operators::BinOp, util::UnaryOp, ExParseError};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
@@ -21,7 +17,7 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 /// will be executed after the binary operation in case of its existence.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatOp<T: Copy> {
-    unary_op: Option<CompositionOfUnaryOps<T>>,
+    unary_op: Option<UnaryOp<T>>,
     bin_op: BinOp<T>,
 }
 
@@ -45,7 +41,7 @@ pub enum FlatNodeKind<T: Copy> {
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatNode<T: Copy> {
     kind: FlatNodeKind<T>,
-    unary_op: Option<CompositionOfUnaryOps<T>>,
+    unary_op: Option<UnaryOp<T>>,
 }
 
 impl<T: Copy> FlatNode<T> {
@@ -82,7 +78,7 @@ impl<T: Copy> FlatNode<T> {
 /// The second argument `&[2.0, 1.5]` in the call of [`eval`](FlatEx::eval) specifies the
 /// variable values in the order of their occurrence in the string.
 /// In this example, we want to evaluate the expression for the varibale values `y=2.0` and `x=1.5`.
-/// Variables in the string to-be-parsed are all substrings that are no numbers, no 
+/// Variables in the string to-be-parsed are all substrings that are no numbers, no
 /// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -93,10 +89,10 @@ pub struct FlatEx<T: Copy> {
     n_unique_vars: usize,
 }
 
-fn apply_uop_if_some<T: Copy>(uop: &Option<CompositionOfUnaryOps<T>>, val: T) -> T {
+fn apply_uop_if_some<T: Copy>(uop: &Option<UnaryOp<T>>, val: T) -> T {
     match uop {
         None => val,
-        Some(uops) => apply_unary_ops(&uops, val),
+        Some(uop_) => uop_.apply(val),
     }
 }
 
@@ -138,7 +134,7 @@ impl<T: Copy> FlatEx<T> {
                 )
             })
             .collect::<SmallVec<[T; 32]>>();
-        
+
         let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; N_NODES_ON_STACK];
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = self.prio_indices[i];
@@ -246,23 +242,23 @@ fn flatten_vecs<T: Copy>(expr: &Expression<T>, prio_offset: i32) -> (FlatNodeVec
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
-            let mut new_uop = expr.unary_op.clone();
-            low_prio_op.unary_op = match &mut low_prio_op.unary_op {
-                None => Some(new_uop),
+            match &mut low_prio_op.unary_op {
+                None => {
+                    low_prio_op.unary_op = Some(expr.unary_op.clone());
+                }
                 Some(uops) => {
-                    new_uop.append(uops);
-                    Some(new_uop)
-                },
+                    uops.append_front(&mut expr.unary_op.clone());
+                }
             };
         } else {
-            let mut new_uop = expr.unary_op.clone();
-            flat_nodes[0].unary_op = match &mut flat_nodes[0].unary_op {
-                None => Some(new_uop),
-                Some(uops) => {
-                    new_uop.append(uops);
-                    Some(new_uop)
+            match &mut flat_nodes[0].unary_op {
+                None => {
+                    flat_nodes[0].unary_op = Some(expr.unary_op.clone());
                 }
-            }
+                Some(uops) => {
+                    uops.append_front(&mut expr.unary_op.clone());
+                }
+            };
         }
     }
     (flat_nodes, flat_ops)
@@ -277,7 +273,7 @@ pub struct Expression<T: Copy> {
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators. The last unary operator is applied first to the result
     /// of the evaluation of nodes and binary operators
-    unary_op: CompositionOfUnaryOps<T>,
+    unary_op: UnaryOp<T>,
     prio_indices: ExprIdxVec,
 }
 
@@ -359,7 +355,7 @@ impl<T: Copy + Debug> Expression<T> {
     pub fn new(
         nodes: Vec<Node<T>>,
         bin_ops: BinOpVec<T>,
-        unary_op: CompositionOfUnaryOps<T>,
+        unary_op: UnaryOp<T>,
     ) -> Result<Expression<T>, ExParseError> {
         if nodes.len() != bin_ops.len() + 1 {
             Err(ExParseError {
@@ -380,12 +376,14 @@ impl<T: Copy + Debug> Expression<T> {
     pub fn flatten(&self) -> FlatEx<T> {
         let (nodes, ops) = flatten_vecs(self, 0);
         let indices = prioritized_indices_flat(&ops, &nodes);
-        let n_unique_vars = nodes.iter().filter_map(|n| {
-            match n.kind {
+        let n_unique_vars = nodes
+            .iter()
+            .filter_map(|n| match n.kind {
                 FlatNodeKind::Var(idx) => Some(idx),
                 _ => None,
-            }            
-        }).unique().count();
+            })
+            .unique()
+            .count();
         let mut flatex = FlatEx {
             nodes: nodes,
             ops: ops,
