@@ -33,7 +33,7 @@
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
 //! first occurence of the variables is relevant. In this example, we have `z=2.5` and `y=3.7`.
-//! If variables are between curly brackets, they can have arbitrary names, e.g., 
+//! If variables are between curly brackets, they can have arbitrary names, e.g.,
 //! `{456/549*(}`, `{x}`, and `{x+y}`  are valid variable names as shown in the following.
 //! ```rust
 //! # use std::error::Error;
@@ -135,7 +135,7 @@
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
 //! ## Unicode
-//! Unicode input strings are currently not supported 😕 but might be added in the 
+//! Unicode input strings are currently not supported 😕 but might be added in the
 //! future 😀.
 //!
 
@@ -214,7 +214,8 @@ mod tests {
     fn test_variables_curly() {
         let operators = make_default_operators::<f64>();
 
-        let to_be_parsed = "5*{x} + 4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
+        let to_be_parsed =
+            "5*{x} + 4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 11.429314405093656);
         let to_be_parsed = "2*(4*{x} + y^2)";
@@ -232,7 +233,26 @@ mod tests {
     #[test]
     fn test_variables() {
         let operators = make_default_operators::<f64>();
-        
+
+        let to_be_parsed = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
+        let expr = parse(to_be_parsed, &operators).unwrap();
+        let reference = |x: f64, y: f64, z: f64| {
+             ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin()
+        };
+        assert_float_eq_f64(
+            expr.eval(&[1.0, 2.0, 4.0]).unwrap(),
+            reference(1.0, 2.0, 4.0),
+        );
+
+        let to_be_parsed = "0.02*sin(-(3*(2*(5.0 - 1/z))))";
+        let expr = parse(to_be_parsed, &operators).unwrap();
+        let reference = |z: f64| 0.02 * (-(3.0 * (2.0 * (5.0 - 1.0 / z)))).sin();
+        assert_float_eq_f64(expr.eval(&[4.0]).unwrap(), reference(4.0));
+
+        let to_be_parsed = "y + 1 + 0.5 * x";
+        let expr = parse(to_be_parsed, &operators).unwrap();
+        assert_float_eq_f64(expr.eval(&[1.0, 3.0]).unwrap(), 3.5);
+
         let to_be_parsed = " -(-(1+x))";
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 2.0);
@@ -244,7 +264,6 @@ mod tests {
         let to_be_parsed = "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)";
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5, 0.2532]).unwrap(), -3.1164569260604176);
-
 
         let to_be_parsed = "5*x + 4*y + 3*x";
         let expr = parse(to_be_parsed, &operators).unwrap();
@@ -305,7 +324,6 @@ mod tests {
         let to_be_parsed = "trunc(x) + fract(x)";
         let expr = parse(to_be_parsed, &operators).unwrap();
         assert_float_eq_f64(expr.eval(&[23422.52345]).unwrap(), 23422.52345);
-
     }
 
     #[test]

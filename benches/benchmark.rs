@@ -11,20 +11,24 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
-const N: usize = 3;
+const N: usize = 4;
 
-const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested"];
+const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested", "compile"];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "sin(x)+sin(y)+sin(z)",
     "x^2+y*y+z^z",
-    "x*0.02*sin(-(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z))))))",
+    "x*0.02*sin(-(3*(2*sin(x - 1 / (sin(y * 5) + (5.0 - 1/z))) )))",
+    "x*0.2* 5 / 4 + 2 * 4 + 7 * sin(y) - z / sin(3/2/(1-4))",
 ];
 
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
     |x, y, z| x.sin() + y.sin() + z.sin(),
     |x, y, z| x.powi(2) + y * y + z.powf(z),
     |x, y, z| {
-        x * 0.02 * (-(3.0 * (2.0 * (x - 1.0 / (y * 5.0).sin() + (5.0 - 1.0 / z)).sin()))).sin()
+        x * 0.02 * (-(3.0 * (2.0 * (x - 1.0 / ((y * 5.0).sin() + (5.0 - 1.0 / z))).sin() ))).sin()
+    },
+    |x, y, z| {
+        x*0.2* 5.0 / 4.0 + 2.0 * 4.0 + 7.0 * y.sin() - z / (3.0/2.0/(1.0-4.0f64)).sin()
     },
 ];
 const BENCH_X_RANGE: (usize, usize) = (0, 5);
@@ -43,7 +47,7 @@ fn bench_ref_values() -> Vec<Vec<f64>> {
 }
 
 fn assert_float_eq(f1: f64, f2: f64) {
-    assert!((f1 - f2).abs() <= 1e-12);
+    assert!((f1 - f2).abs() <= 1e-10);
 }
 
 fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut Criterion) {
