@@ -260,15 +260,14 @@ pub struct DeepEx<T: Copy> {
 }
 
 fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
-    let prio_increase = |bin_op_idx: usize| {
-        match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
+    let prio_increase =
+        |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
             (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {
                 let prio_inc = 5;
                 &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
             }
             _ => &ops[bin_op_idx].bin_op.prio * 10,
-        }
-    };
+        };
     let mut indices: ExprIdxVec = (0..ops.len()).collect();
     indices.sort_by(|i1, i2| {
         let prio_i1 = prio_increase(*i1);
@@ -279,15 +278,12 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
 }
 
 fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
-
-    let prio_increase = |bin_op_idx: usize| {
-        match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
-            (DeepNode::Num(_), DeepNode::Num(_)) => {
-                let prio_inc = 5;
-                &bin_ops[bin_op_idx].prio * 10 + prio_inc
-            }
-            _ => &bin_ops[bin_op_idx].prio * 10,
+    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
+        (DeepNode::Num(_), DeepNode::Num(_)) => {
+            let prio_inc = 5;
+            &bin_ops[bin_op_idx].prio * 10 + prio_inc
         }
+        _ => &bin_ops[bin_op_idx].prio * 10,
     };
 
     let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
@@ -355,7 +351,6 @@ impl<T: Copy + Debug> DeepEx<T> {
             }
         }
         self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes);
-
     }
     pub fn new(
         nodes: Vec<DeepNode<T>>,
@@ -408,33 +403,37 @@ fn test_compile() {
     assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
     assert_eq!(flat_ex.nodes.len(), 1);
 
+    let flat_ex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
+    assert_float_eq_f64(flat_ex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
+    assert_eq!(flat_ex.nodes.len(), 2);
+
     let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1) + x").unwrap();
     assert_float_eq_f64(flat_ex.eval(&[0.0]).unwrap(), 1.9f64.sin());
     assert_eq!(flat_ex.nodes.len(), 2);
     match flat_ex.nodes[0].kind {
-        FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()), 
+        FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
         _ => assert!(false),
     }
     match flat_ex.nodes[1].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 0), 
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
 
     let flat_ex = parse_with_default_ops::<f64>("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
     assert_eq!(flat_ex.nodes.len(), 3);
     match flat_ex.nodes[0].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 0), 
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
     match flat_ex.nodes[1].kind {
-        FlatNodeKind::Num(_) => (), 
+        FlatNodeKind::Num(_) => (),
         _ => assert!(false),
     }
     match flat_ex.nodes[2].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 1), 
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
         _ => assert!(false),
-    }    
-    
+    }
+
     let ops = make_default_operators();
     let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
     let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
@@ -442,7 +441,11 @@ fn test_compile() {
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
     let unary_op = UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]);
-    let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Expr(deep_ex)];
+    let nodes = vec![
+        DeepNode::Num(4.5),
+        DeepNode::Num(0.5),
+        DeepNode::Expr(deep_ex),
+    ];
     let mut deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     deep_ex.compile();
     assert_eq!(deep_ex.nodes.len(), 1);
