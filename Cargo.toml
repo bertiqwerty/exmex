@@ -23,7 +23,6 @@ lazy_static = "1.4.0"
 [dev-dependencies]
 criterion = "0.3.4"
 meval = "0.2.0"
-evalexpr = "6.3.0"
 fasteval = "0.2.4"
 rsc = "2.0.0"
 
