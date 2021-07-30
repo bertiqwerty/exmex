@@ -19,11 +19,15 @@ to your `Cargo.toml`.
 ## Basic Usage
 To simply evaluate a string there is
 ```rust
+use exmex::eval_str;
+
 let result = eval_str("sin(73)")?;
 ```
 To create an expression with variables that represents a mathematical function you can
 use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
+use exmex::parse_with_default_ops;
+
 let expr = parse_with_default_ops::<f64>("2*x^3-4/z")?;
 ```
 Especially, you do not need to use a context or tell the parser explicitly what variables are.
@@ -34,6 +38,8 @@ let value = expr.eval(&[5.3, 0.5]);
 Besides predefined operators for floats, you can pass custom operators to the 
 function `parse` to create an expression. 
 ```rust
+use exmex::{parse, Operator};
+
 let ops = [
     Operator {
         repr: "|",
@@ -94,7 +100,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 
 Exmex parsing can be made faster by only passing the relevant operators. 
 
-The Crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not evaluate the case `nested` correctly and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
+The crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not evaluate the case `nested` correctly and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
 Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
