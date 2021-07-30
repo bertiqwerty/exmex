@@ -134,49 +134,6 @@ impl<T: Copy + Debug> FlatEx<T> {
         }
         Ok(numbers[0])
     }
-
-    fn compile(&mut self) {
-        let mut num_inds = self.prio_indices.clone();
-        let mut used_prio_indices = ExprIdxVec::new();
-        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
-            let num_idx = num_inds[i];
-            let node_1 = &self.nodes[num_idx];
-            let node_2 = &self.nodes[num_idx + 1];
-            if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) =
-                (&node_1.kind, &node_2.kind)
-            {
-                let num_1 = node_1.unary_op.apply(*num_1);
-                let num_2 = node_2.unary_op.apply(*num_2);
-                let val = self.ops[bin_op_idx]
-                    .unary_op
-                    .apply((self.ops[bin_op_idx].bin_op.op)(num_1, num_2));
-                self.nodes[num_idx] = FlatNode {
-                    kind: FlatNodeKind::Num(val),
-                    unary_op: UnaryOp::new(),
-                };
-                self.nodes.remove(num_idx + 1);
-                // reduce indices after removed position
-                for num_idx_after in num_inds.iter_mut() {
-                    if *num_idx_after > num_idx {
-                        *num_idx_after = *num_idx_after - 1;
-                    }
-                }
-                used_prio_indices.push(bin_op_idx);
-            } else {
-                break;
-            }
-        }
-
-        self.ops = self
-            .ops
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| !used_prio_indices.contains(i))
-            .map(|x| x.1.clone())
-            .collect();
-
-        self.prio_indices = prioritized_indices_flat(&self.ops, &self.nodes);
-    }
 }
 
 fn flatten_vecs<T: Copy>(
@@ -298,9 +255,10 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> 
 impl<T: Copy + Debug> DeepEx<T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
+
+        // change from exression to number if an expression contains only a number
         for node in &mut self.nodes {
-            if let DeepNode::Expr(ref mut e) = node {
-                e.compile();
+            if let DeepNode::Expr(ref e) = node {
                 if e.nodes.len() == 1 {
                     match e.nodes[0] {
                         DeepNode::Num(n) => {
@@ -311,6 +269,8 @@ impl<T: Copy + Debug> DeepEx<T> {
                 }
             };
         }
+        // after changing from expressions to numbers where possible the prios might change
+        self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes); 
 
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
@@ -384,21 +344,19 @@ impl<T: Copy + Debug> DeepEx<T> {
             })
             .unique()
             .count();
-        let mut flatex = FlatEx {
+        FlatEx {
             nodes: nodes,
             ops: ops,
             prio_indices: indices,
             n_unique_vars: n_unique_vars,
-        };
-        flatex.compile();
-        flatex
+        }
     }
 }
 
 #[cfg(test)]
 use crate::{make_default_operators, parse_with_default_ops, util::assert_float_eq_f64};
 #[test]
-fn test_compile() {
+fn test_flat_compile() {
     let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
     assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
     assert_eq!(flat_ex.nodes.len(), 1);
@@ -433,7 +391,10 @@ fn test_compile() {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
         _ => assert!(false),
     }
+}
 
+#[test]
+fn test_deep_compile() {
     let ops = make_default_operators();
     let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
     let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
@@ -446,8 +407,7 @@ fn test_compile() {
         DeepNode::Num(0.5),
         DeepNode::Expr(deep_ex),
     ];
-    let mut deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
-    deep_ex.compile();
+    let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     assert_eq!(deep_ex.nodes.len(), 1);
     match deep_ex.nodes[0] {
         DeepNode::Num(n) => assert_eq!(deep_ex.unary_op.apply(n), n),
