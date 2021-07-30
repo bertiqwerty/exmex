@@ -16,7 +16,7 @@ To install the latest ...
 # ...
 exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
 ```
-to your `Cargo.toml`. 
+to your `Cargo.toml`. This `Readme.md` corresponds to the latest commit. 
 
 ## Basic Usage
 To simply evaluate a string there is

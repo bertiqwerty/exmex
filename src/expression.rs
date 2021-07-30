@@ -1,4 +1,7 @@
-use crate::{operators::{BinOp, UnaryOp}, ExParseError};
+use crate::{
+    operators::{BinOp, UnaryOp},
+    ExParseError,
+};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
@@ -255,7 +258,6 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> 
 impl<T: Copy + Debug> DeepEx<T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
-
         // change from exression to number if an expression contains only a number
         for node in &mut self.nodes {
             if let DeepNode::Expr(ref e) = node {
@@ -270,7 +272,7 @@ impl<T: Copy + Debug> DeepEx<T> {
             };
         }
         // after changing from expressions to numbers where possible the prios might change
-        self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes); 
+        self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes);
 
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
@@ -279,7 +281,8 @@ impl<T: Copy + Debug> DeepEx<T> {
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
-                self.nodes[num_idx] = DeepNode::Num((self.bin_ops[bin_op_idx].apply)(*num_1, *num_2));
+                let bin_op_result = (self.bin_ops[bin_op_idx].apply)(*num_1, *num_2);
+                self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                 self.nodes.remove(num_idx + 1);
                 // reduce indices after removed position
                 for num_idx_after in num_inds.iter_mut() {
