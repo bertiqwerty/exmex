@@ -1,5 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.8.0")]
-//! Exmex is a fast **ex**tendable **m**athematical **ex**pression evaluator.  
+//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator.  
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -17,7 +17,8 @@
 //! ## Variables
 //! For variables we can use strings that are not in the list of operators as shown in the following expression.
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
-//! regular expression `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"`.
+//! regular expression 
+//! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
 //! Variables' values are passed as slices to [`eval`](FlatEx::eval).
 //! ```rust
 //! # use std::error::Error;
@@ -34,7 +35,7 @@
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
 //! first occurence of the variables is relevant. In this example, we have `z=2.5` and `y=3.7`.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
-//! `{456/549*(}`, `{x}`, and `{x+y}`  are valid variable names as shown in the following.
+//! `{456/549*(}`, `{x}`, and confusingly even `{x+y}` are valid variable names as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -42,7 +43,7 @@
 //! use exmex::{make_default_operators, parse};
 //! let x = 2.1f64;
 //! let y = 0.1f64;
-//! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable, not the sum of two 😕.
+//! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
 //! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
@@ -50,7 +51,7 @@
 //! # }
 //! ```
 //! ## Extendability
-//! Library users can also define a different set of operators as shown in the following.
+//! Library users can define their own set of operators as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -84,9 +85,9 @@
 //! type [`Option<BinOp<T>>`](Operator::bin_op) and
 //! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as
 //! members. [`BinOp`](BinOp)
-//! contains in addition to the operator [`op`](BinOp::op) of type `fn(T, T) -> T` an
+//! contains in addition to the function pointer [`apply`](BinOp::apply) of type `fn(T, T) -> T` an
 //! integer [`prio`](BinOp::prio). Operators
-//! can be both, binary and unary such as `-` as defined in the list of default
+//! can be both, binary and unary. See, e.g.,  `-` defined in the list of default
 //! operators. Note that we expect a unary operator to be always on the left of a
 //! number.
 //!

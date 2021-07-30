@@ -62,12 +62,11 @@ assert_eq!(result, u32::MAX - 1);
 
 ## Benchmarks
 
-Exmex was created with flexibility (e.g., arbitrary names of binary and unary operators and a custom regex 
-for number literals), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
+Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
 hand, Exmex is slower than the other crates during parsing. 
 However, evaluation might be more performance critical depending on the application. 
 
-The expressions used for benchmarking are:
+The expressions used to compare Exmex with other creates are:
 ```
 sin:     "sin(x)+sin(y)+sin(z)",
 power:   "x^2+y*y+z^z",
@@ -100,7 +99,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 
 Exmex parsing can be made faster by only passing the relevant operators. 
 
-The crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not evaluate the case `nested` correctly and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
+The crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not evaluate the `nested` case correctly and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
 Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
