@@ -67,38 +67,44 @@ The expressions used for benchmarking are:
 ```
 sin:     "sin(x)+sin(y)+sin(z)",
 power:   "x^2+y*y+z^z",
-nested:  "x*0.02*sin(-(3*(2*(sin(x - 1 / (sin(y * 5)) + (5.0 - 1/z))))))",
+nested:  "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
+compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3/2/(1-x*4*1*1*1*1))",
 ```
 The following
 table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i5-8350U 1.7 GHz processor in micro-seconds, i.e., smaller means better.
-We run [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks via
+[Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks can be executed via
 ```
-cargo bench --bench benchmark -- --noplot --warm-up-time 2 --sample-size 10 --nresamples 250
+cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 20
 ```
-to compute the results.
+to compute the results. Reported is the best result over multiple invocations. More about
+taking the minimum run-time for benchmarking can be found below.
 
-|        |sin|power|nested| comment|
-|--------|---|-----|------|--------|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|2.4|2.3| 1.9|supports a faster, unsafe mode|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|9.1|  7|16.2| supports more than just math. expressions|
-|[Meval](https://docs.rs/meval/0.2.0/meval/)   |1|1.1| 1.2|only `f64`, no custom operators|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |7.9|9.5|17|
-|**Exmex**   |**0.3**|**0.6**|**0.7**|
+|        |sin|power|nested| compile|comment|
+|--------|---|-----|------|--------|-------|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|2.4|2.64| 2.56|2.43|supports a faster, unsafe mode|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)   |1.03|1.1| 1.3|1.75|only `f64`, no custom operators|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |9.03|9.93|36.74|55.77|
+|**Exmex**   |**0.32**|**0.66**|**0.78**|**0.75**|
 
 Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing on the aforementioned machine are shown in the following.
 |        |parse all expressions (μs)|
 |--------|---------------|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|**13.8**|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|43.1|
-|[Meval](https://docs.rs/meval/0.2.0/meval/)   |24.5|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |16.5|
-|**Exmex**   |36.2|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
+|[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |49.88|
+|**Exmex**   |56.33|
 
+Exmex parsing can be made faster by only passing the relevant operators. 
 
-We also tried to add the crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) to the benchmarking. Unfortunately, we could not make them run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
+The Crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not evaluate the case `nested` correctly and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
 Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
+
+This talk by
+[Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think
+taking the minimum is a good idea in many cases. See also 
+https://github.com/bheisler/criterion.rs/issues/485.
 
 
 

@@ -16,8 +16,8 @@ const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested", "compile"]
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "sin(x)+sin(y)+sin(z)",
     "x^2+y*y+z^z",
-    "x*0.02*sin(-(3*(2*sin(x - 1 / (sin(y * 5) + (5.0 - 1/z))) )))",
-    "x*0.2* 5 / 4 + x * 2 * 4 * 1 * 1 * 1 * 1 * 1 * 1 * 1 + 7 * sin(y) - z / sin(3/2/(1- x * 4* 1 * 1 * 1 * 1 ))",
+    "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
+    "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3/2/(1-x*4*1*1*1*1))",
 ];
 
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
