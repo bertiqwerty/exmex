@@ -11,7 +11,7 @@ use smallvec::{SmallVec, smallvec};
 ///     Operator {
 ///         repr: "-",
 ///         bin_op: Some(BinOp {
-///             op: |a, b| a - b,
+///             apply: |a, b| a - b,
 ///             prio: 0,
 ///         }),
 ///         unary_op: Some(|a: f32| (-a)),
@@ -93,7 +93,7 @@ impl<T> UnaryOp<T> {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOp<T> {
     /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
-    pub op: fn(T, T) -> T,
+    pub apply: fn(T, T) -> T,
     /// Priority of the binary operation. A binary operation with a
     /// higher number will be executed first. For instance, in a sane world `*`
     /// has a higher priority than `+`. However, in Exmex land you could also define
@@ -107,7 +107,7 @@ pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
         Operator {
             repr: "^",
             bin_op: Some(BinOp {
-                op: |a: T, b| a.powf(b),
+                apply: |a: T, b| a.powf(b),
                 prio: 2,
             }),
             unary_op: None,
@@ -115,7 +115,7 @@ pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
         Operator {
             repr: "*",
             bin_op: Some(BinOp {
-                op: |a, b| a * b,
+                apply: |a, b| a * b,
                 prio: 1,
             }),
             unary_op: None,
@@ -123,7 +123,7 @@ pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
         Operator {
             repr: "/",
             bin_op: Some(BinOp {
-                op: |a, b| a / b,
+                apply: |a, b| a / b,
                 prio: 1,
             }),
             unary_op: None,
@@ -131,7 +131,7 @@ pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
         Operator {
             repr: "+",
             bin_op: Some(BinOp {
-                op: |a, b| a + b,
+                apply: |a, b| a + b,
                 prio: 0,
             }),
             unary_op: Some(|a: T| a),
@@ -139,7 +139,7 @@ pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
         Operator {
             repr: "-",
             bin_op: Some(BinOp {
-                op: |a, b| a - b,
+                apply: |a, b| a - b,
                 prio: 0,
             }),
             unary_op: Some(|a: T| (-a)),

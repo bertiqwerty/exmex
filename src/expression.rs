@@ -127,7 +127,7 @@ impl<T: Copy + Debug> FlatEx<T> {
             let num_1 = numbers[num_idx - shift_left];
             let num_2 = numbers[num_idx + shift_right];
             numbers[num_idx - shift_left] = {
-                let bop_res = (self.ops[bin_op_idx].bin_op.op)(num_1, num_2);
+                let bop_res = (self.ops[bin_op_idx].bin_op.apply)(num_1, num_2);
                 self.ops[bin_op_idx].unary_op.apply(bop_res)
             };
             ignore[num_idx + shift_right] = true;
@@ -161,7 +161,7 @@ fn flatten_vecs<T: Copy>(
         };
         if node_idx < deep_expr.bin_ops.len() {
             let prio_adapted_bin_op = BinOp {
-                op: deep_expr.bin_ops[node_idx].op,
+                apply: deep_expr.bin_ops[node_idx].apply,
                 prio: deep_expr.bin_ops[node_idx].prio + prio_offset,
             };
             flat_ops.push(FlatOp {
@@ -279,7 +279,7 @@ impl<T: Copy + Debug> DeepEx<T> {
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
-                self.nodes[num_idx] = DeepNode::Num((self.bin_ops[bin_op_idx].op)(*num_1, *num_2));
+                self.nodes[num_idx] = DeepNode::Num((self.bin_ops[bin_op_idx].apply)(*num_1, *num_2));
                 self.nodes.remove(num_idx + 1);
                 // reduce indices after removed position
                 for num_idx_after in num_inds.iter_mut() {

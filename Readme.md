@@ -40,7 +40,7 @@ let ops = [
     Operator {
         repr: "|",
         bin_op: Some(BinOp {
-            op: |a: u32, b: u32| a | b,
+            apply: |a: u32, b: u32| a | b,
             prio: 0,
         }),
         unary_op: None,

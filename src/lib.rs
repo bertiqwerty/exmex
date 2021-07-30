@@ -59,12 +59,12 @@
 //! let ops = [
 //!     Operator {
 //!         repr: "%",
-//!         bin_op: Some(BinOp{op: |a: i32, b: i32| a % b, prio: 1}),
+//!         bin_op: Some(BinOp{ apply: |a: i32, b: i32| a % b, prio: 1 }),
 //!         unary_op: None,
 //!     },
 //!     Operator {
 //!         repr: "/",
-//!         bin_op: Some(BinOp{op: |a: i32, b: i32| a / b, prio: 1}),
+//!         bin_op: Some(BinOp{ apply: |a: i32, b: i32| a / b, prio: 1 }),
 //!         unary_op: None,
 //!     },
 //! ];
@@ -106,12 +106,12 @@
 //! let ops = [
 //!     Operator {
 //!         repr: "&&",
-//!         bin_op: Some(BinOp{op: |a: bool, b: bool| a && b, prio: 1}),
+//!         bin_op: Some(BinOp{ apply: |a: bool, b: bool| a && b, prio: 1 }),
 //!         unary_op: None,
 //!     },
 //!     Operator {
 //!         repr: "||",
-//!         bin_op: Some(BinOp{op: |a: bool, b: bool| a || b, prio: 1}),
+//!         bin_op: Some(BinOp{ apply: |a: bool, b: bool| a || b, prio: 1 }),
 //!         unary_op: None,
 //!     },
 //!     Operator {
@@ -191,7 +191,7 @@ mod tests {
                 Operator {
                     repr: "|",
                     bin_op: Some(BinOp {
-                        op: |a: u32, b: u32| a | b,
+                        apply: |a: u32, b: u32| a | b,
                         prio: 0,
                     }),
                     unary_op: None,
@@ -350,7 +350,7 @@ mod tests {
             Operator {
                 repr: "**",
                 bin_op: Some(BinOp {
-                    op: |a: f32, b| a.powf(b),
+                    apply: |a: f32, b| a.powf(b),
                     prio: 2,
                 }),
                 unary_op: None,
@@ -358,7 +358,7 @@ mod tests {
             Operator {
                 repr: "*",
                 bin_op: Some(BinOp {
-                    op: |a, b| a * b,
+                    apply: |a, b| a * b,
                     prio: 1,
                 }),
                 unary_op: None,
@@ -376,7 +376,7 @@ mod tests {
         let zero_mapper = Operator {
             repr: "zer0",
             bin_op: Some(BinOp {
-                op: |_: f32, _| 0.0,
+                apply: |_: f32, _| 0.0,
                 prio: 2,
             }),
             unary_op: Some(|_| 0.0),

@@ -90,7 +90,7 @@ fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
         Operator {
             repr: "^",
             bin_op: Some(BinOp {
-                op: |a: f64, b| a.powf(b),
+                apply: |a: f64, b| a.powf(b),
                 prio: 2,
             }),
             unary_op: None,
@@ -98,7 +98,7 @@ fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
         Operator {
             repr: "*",
             bin_op: Some(BinOp {
-                op: |a, b| a * b,
+                apply: |a, b| a * b,
                 prio: 1,
             }),
             unary_op: None,
@@ -106,7 +106,7 @@ fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
         Operator {
             repr: "/",
             bin_op: Some(BinOp {
-                op: |a, b| a / b,
+                apply: |a, b| a / b,
                 prio: 1,
             }),
             unary_op: None,
@@ -114,7 +114,7 @@ fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
         Operator {
             repr: "+",
             bin_op: Some(BinOp {
-                op: |a, b| a + b,
+                apply: |a, b| a + b,
                 prio: 0,
             }),
             unary_op: Some(|a| a),
@@ -122,7 +122,7 @@ fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
         Operator {
             repr: "-",
             bin_op: Some(BinOp {
-                op: |a, b| a - b,
+                apply: |a, b| a - b,
                 prio: 0,
             }),
             unary_op: Some(|a| (-a)),
