@@ -1,6 +1,5 @@
-use crate::expression::{BinOpVec, DeepEx, FlatEx, DeepNode, N_NODES_ON_STACK};
-use crate::operators::{make_default_operators, BinOp, Operator};
-use crate::util::{VecOfUnaryFuncs, UnaryOp};
+use crate::expression::{BinOpVec, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK};
+use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use num::Float;
@@ -85,7 +84,6 @@ fn parsed_tokens<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-       
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
 
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
@@ -95,7 +93,7 @@ where
     lazy_static! {
         static ref RE_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
     }
-    
+
     let mut cur_offset = 0usize;
     let find_ops = |offset: usize| {
         ops.iter().find(|op| {
@@ -455,11 +453,7 @@ fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
 
     check_preconditions(&parsed_tokens[..])?;
 
-    let (expr, _) = make_expression(
-        &parsed_tokens[0..],
-        &parsed_vars,
-        UnaryOp::new(),
-    )?;
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOp::new())?;
     Ok(expr.flatten())
 }
 
@@ -509,7 +503,7 @@ where
 /// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
 /// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
 ///
-pub fn parse_with_number_pattern<'a,'b, T>(
+pub fn parse_with_number_pattern<'a, 'b, T>(
     text: &'b str,
     ops: &[Operator<'a, T>],
     number_regex_pattern: &str,
@@ -549,7 +543,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{ExParseError, parse::{parsed_tokens, check_preconditions, is_numeric_text, make_default_operators}};
+    use crate::{
+        parse::{check_preconditions, is_numeric_text, make_default_operators, parsed_tokens},
+        ExParseError,
+    };
 
     #[test]
     fn test_apply_regexes() {

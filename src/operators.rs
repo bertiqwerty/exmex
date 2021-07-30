@@ -1,4 +1,5 @@
 use num::Float;
+use smallvec::{SmallVec, smallvec};
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
 ///
@@ -32,6 +33,60 @@ pub struct Operator<'a, T> {
     /// Unary operator that does not have an explicit priority. Unary operators have
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
     pub unary_op: Option<fn(T) -> T>,
+}
+
+
+pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; 8]>;
+
+/// Container of unary operators of one expression
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct UnaryOp<T> {
+    funcs_to_be_composed: VecOfUnaryFuncs<T>,
+}
+
+impl<T> UnaryOp<T> {
+    /// Applies unary operators one after the other starting with the last.
+    /// # Arguments
+    ///
+    /// * `x` - number the unary operators are applied to
+    ///
+    pub fn apply(&self, x: T) -> T {
+        let mut result = x;
+        // rev, since the last uop is applied first by convention
+        for uo in self.funcs_to_be_composed.iter().rev() {
+            result = uo(result);
+        }
+        result
+    }
+
+    pub fn append_front(&mut self, other: &mut UnaryOp<T>) {
+        self.funcs_to_be_composed = other
+            .funcs_to_be_composed
+            .iter()
+            .chain(self.funcs_to_be_composed.iter())
+            .map(|f| *f)
+            .collect::<SmallVec<_>>();
+    }
+
+    pub fn len(&self) -> usize {
+        self.funcs_to_be_composed.len()
+    }
+
+    pub fn new() -> Self {
+        Self {
+            funcs_to_be_composed: smallvec![],
+        }
+    }
+
+    pub fn from_vec(v: VecOfUnaryFuncs<T>) -> Self {
+        Self {
+            funcs_to_be_composed: v,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.funcs_to_be_composed.clear();
+    }
 }
 
 /// A binary operator that consists of a function pointer and a priority.

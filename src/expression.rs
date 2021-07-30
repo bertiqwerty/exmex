@@ -1,4 +1,4 @@
-use crate::{operators::BinOp, util::UnaryOp, ExParseError};
+use crate::{operators::{BinOp, UnaryOp}, ExParseError};
 use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
