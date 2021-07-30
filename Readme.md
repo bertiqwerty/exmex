@@ -3,7 +3,7 @@
 [![example workflow](https://github.com/bertiqwerty/exmex/actions/workflows/rust.yml/badge.svg)](https://github.com/bertiqwerty/exmex)
 # Exmex
 
-Exmex is a fast **ex**tendable **m**athematical **ex**pression evaluator.  
+Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator.  
 Users can define their own operators and work with different data types such
 as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
