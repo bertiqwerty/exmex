@@ -1,6 +1,6 @@
 use crate::expression::{BinOpVec, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK};
 use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
-use itertools::Itertools;
+// use itertools::Itertools;
 use lazy_static::lazy_static;
 use num::Float;
 use regex::Regex;
@@ -176,7 +176,7 @@ where
 ///
 fn make_expression<T>(
     parsed_tokens: &[ParsedToken<T>],
-    parsed_vars: &[String],
+    parsed_vars: &[&String],
     unary_ops: UnaryOp<T>,
 ) -> Result<(DeepEx<T>, usize), ExParseError>
 where
@@ -442,13 +442,20 @@ where
 fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
     parsed_tokens: &SmallVec<[ParsedToken<T>; 2 * N_NODES_ON_STACK]>,
 ) -> Result<FlatEx<T>, ExParseError> {
+    let mut found_vars = SmallVec::<[&str; 16]>::new();
     let parsed_vars = parsed_tokens
         .iter()
         .filter_map(|pt| match pt {
-            ParsedToken::Var(name) => Some(name.clone()),
+            ParsedToken::Var(name) => {
+                if !found_vars.contains(&name.as_str()) {
+                    found_vars.push(name.as_str());
+                    Some(name)
+                } else {
+                    None
+                }
+            }
             _ => None,
         })
-        .unique()
         .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
 
     check_preconditions(&parsed_tokens[..])?;

@@ -2,7 +2,6 @@ use crate::{
     operators::{BinOp, UnaryOp},
     ExParseError,
 };
-use itertools::Itertools;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
@@ -339,13 +338,20 @@ impl<T: Copy + Debug> DeepEx<T> {
     pub fn flatten(&self) -> FlatEx<T> {
         let (nodes, ops) = flatten_vecs(self, 0);
         let indices = prioritized_indices_flat(&ops, &nodes);
+        let mut found_vars = SmallVec::<[usize; 16]>::new();
         let n_unique_vars = nodes
             .iter()
             .filter_map(|n| match n.kind {
-                FlatNodeKind::Var(idx) => Some(idx),
+                FlatNodeKind::Var(idx) => {
+                    if !found_vars.contains(&idx) {
+                        found_vars.push(idx);
+                        Some(idx)
+                    } else {
+                        None
+                    }
+                }
                 _ => None,
             })
-            .unique()
             .count();
         FlatEx {
             nodes: nodes,
