@@ -85,7 +85,7 @@ taking the minimum run-time for benchmarking can be found below.
 
 |        |sin|power|nested| compile|comment|
 |--------|---|-----|------|--------|-------|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|9.8|7.36|19.73|27.07|not just mathematical expressions|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|9.8|7.36|19.73|27.07|more than mathematical expressions|
 |**Exmex**   |**0.32**|**0.66**|**0.78**|**0.75**|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|2.4|2.64| 2.56|2.43|only `f64`, supports a faster, unsafe mode|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |1.03|1.1| 1.3|1.75|only `f64`, no custom operators|
