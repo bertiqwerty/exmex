@@ -343,11 +343,21 @@ where
             msg: "cannot parse empty string".to_string(),
         });
     };
-    let num_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
+
+    enum NeighborType {
+        Predecessor,
+        Successor,
+    }
+
+    let num_pred_succ = |idx: usize, neighbor_type: NeighborType| match &parsed_tokens[idx] {
         ParsedToken::Num(_) => Err(ExParseError {
             msg: "a number/variable cannot be next to a number/variable".to_string(),
         }),
         ParsedToken::Paren(p) => {
+            let forbidden = match neighbor_type {
+                NeighborType::Predecessor => Paren::Close,
+                NeighborType::Successor => Paren::Open,
+            };
             if p == &forbidden {
                 Err(ExParseError {
                     msg: "wlog a number/variable cannot be on the right of a closing parenthesis"
@@ -357,6 +367,21 @@ where
                 Ok(0)
             }
         }
+        ParsedToken::Op(op) => match neighbor_type {
+            NeighborType::Predecessor => Ok(0),
+            NeighborType::Successor => {
+                if let Some(_) = op.bin_op {
+                    Ok(0)
+                } else if let Some(_) = op.unary_op {
+                    Err(ExParseError {
+                        msg: "a number/variable cannot be on the left of a unary operator"
+                            .to_string(),
+                    })
+                } else {
+                    Ok(0)
+                }
+            }
+        },
         _ => Ok(0),
     };
     let binop_pred_succ = |idx: usize| match parsed_tokens[idx] {
@@ -391,10 +416,10 @@ where
             match expr_elt {
                 ParsedToken::Num(_) | ParsedToken::Var(_) => {
                     if i < parsed_tokens.len() - 1 {
-                        num_pred_succ(i + 1, Paren::Open)?;
+                        num_pred_succ(i + 1, NeighborType::Successor)?;
                     }
                     if i > 0 {
-                        num_pred_succ(i - 1, Paren::Close)?;
+                        num_pred_succ(i - 1, NeighborType::Predecessor)?;
                     }
                     Ok(0)
                 }
@@ -585,7 +610,6 @@ mod tests {
                 Err(_) => check_err_msg(elts, msg_part),
             }
         }
-
         test("", "empty string");
         test("++", "the last element cannot be an operator");
         test(
@@ -605,5 +629,6 @@ mod tests {
             r"3. .4",
             r"a number/variable cannot be next to a number/variable",
         );
+        test(r"2sin({x})", r"number/variable cannot be on the left of a unary");
     }
 }
