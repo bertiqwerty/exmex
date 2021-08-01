@@ -85,22 +85,25 @@ taking the minimum run-time for benchmarking can be found below.
 
 |        |sin|power|nested| compile|comment|
 |--------|---|-----|------|--------|-------|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|2.4|2.64| 2.56|2.43|supports a faster, unsafe mode|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|9.8|7.36|19.73|27.07|not just mathematical expressions|
+|**Exmex**   |**0.32**|**0.66**|**0.78**|**0.75**|
+|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|2.4|2.64| 2.56|2.43|only `f64`, supports a faster, unsafe mode|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |1.03|1.1| 1.3|1.75|only `f64`, no custom operators|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |9.03|9.93|36.74|55.77|
-|**Exmex**   |**0.32**|**0.66**|**0.78**|**0.75**|
 
-Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing on the aforementioned machine are shown in the following.
-|        |parse all expressions (μs)|
-|--------|---------------|
+
+Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing all expressions again in μs on the aforementioned machine are shown in the following.
+|        |all expressions|
+|--------|--------------------------|
+|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|69.94|
+|**Exmex**   |48.69|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|
-|**Exmex**   |48.69|
 
 Exmex parsing can be made faster by only passing the relevant operators. 
 
-The crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed from the benchmarking since it could not [evaluate the `compile` case correctly](https://github.com/ISibboI/evalexpr/issues/89) and it was rather slow anyway. The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
+The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
 Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.

@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, iter::repeat};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
+use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 use itertools::{izip, Itertools};
 use meval;
 use rsc::{
@@ -17,7 +18,7 @@ const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "sin(x)+sin(y)+sin(z)",
     "x^2+y*y+z^z",
     "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
-    "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3/2/(1-x*4*1*1*1*1))",
+    "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
 ];
 
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
@@ -152,6 +153,37 @@ fn exmex_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "exmex", c);
 }
 
+fn evalexpr_parse(strings: &[&str]) -> Vec<(Node, HashMapContext)> {
+    let parsed_exprs = strings.iter().map(|expr_str| {
+        build_operator_tree(expr_str.replace("sin", "math::sin").as_str()).unwrap()
+    });
+    let contexts = repeat(HashMapContext::new()).take(N);
+    izip!(parsed_exprs, contexts).collect_vec()
+}
+
+fn evalexpr_bench_parse(c: &mut Criterion) {
+    run_benchmark_parse(evalexpr_parse, "evalexpr_parse", c);
+}
+
+fn evalexpr_bench_eval(c: &mut Criterion) {
+    let mut parsed_exprs = evalexpr_parse(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter_mut()
+        .map(|(expr, context)| {
+            move |x: f64| {
+                context.set_value("x".into(), x.into()).unwrap();
+                context.set_value("y".into(), BENCH_Y.into()).unwrap();
+                context.set_value("z".into(), BENCH_Z.into()).unwrap();
+                match expr.eval_with_context(context).unwrap() {
+                    Value::Float(val) => val,
+                    _ => panic!("What?"),
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "evalexpr", c);
+}
+
 fn meval_parse(strings: &[&str]) -> Vec<impl Fn(f64, f64, f64) -> f64> {
     strings
         .iter()
@@ -262,10 +294,12 @@ criterion_group!(
     exmex_bench_eval,
     meval_bench_eval,
     rsc_bench_eval,
+    evalexpr_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
     exmex_bench_parse_optimized,
     meval_bench_parse,
     rsc_bench_parse,
+    evalexpr_bench_parse,
 );
 criterion_main!(benches);
