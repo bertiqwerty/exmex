@@ -95,8 +95,8 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |--------|---------------|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |49.88|
-|**Exmex**   |56.33|
+|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|
+|**Exmex**   |48.69|
 
 Exmex parsing can be made faster by only passing the relevant operators. 
 
