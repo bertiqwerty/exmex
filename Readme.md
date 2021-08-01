@@ -105,8 +105,8 @@ The crate [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) has been removed 
 Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
 
-This talk by
-[Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think
+[This talk by
+Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think
 taking the minimum is a good idea in many cases. See also 
 https://github.com/bheisler/criterion.rs/issues/485.
 
