@@ -72,7 +72,7 @@ The expressions used to compare Exmex with other creates are:
 sin:     "sin(x)+sin(y)+sin(z)",
 power:   "x^2+y*y+z^z",
 nested:  "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
-compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3/2/(1-x*4*1*1*1*1))",
+compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
 ```
 The following
 table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i5-8350U 1.7 GHz processor in micro-seconds, i.e., smaller means better.
