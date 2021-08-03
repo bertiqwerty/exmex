@@ -1,4 +1,7 @@
-use crate::expression::{BinOpVec, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK, flatten};
+use crate::expression::{
+    flatten, BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx, UnaryOpWithReprs,
+    N_NODES_ON_STACK,
+};
 use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
 // use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -177,7 +180,7 @@ where
 fn make_expression<'a, T>(
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&String],
-    unary_ops: (Vec<&'a str>, UnaryOp<T>),
+    unary_ops: UnaryOpWithReprs<'a, T>,
 ) -> Result<(DeepEx<'a, T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
@@ -208,18 +211,23 @@ where
     // variable 'tokens' from the outer scope
     let process_unary = |i: usize, uo, repr| {
         // gather subsequent unary operators from the beginning
-        let iter_of_uops = once((repr, uo))
-            .chain(
-                (i + 1..parsed_tokens.len())
-                    .map(|j| match parsed_tokens[j] {
-                        ParsedToken::Op(op) => (op.repr, op.unary_op),
-                        _ => ("", None),
-                    })
-                    .take_while(|(_, uo_)| uo_.is_some())
-                    .map(|(repr_, uo_)| (repr_, uo_.unwrap()))
-            );
-        let vec_of_uops = iter_of_uops.clone().map(|(_, uo_)| uo_).collect::<VecOfUnaryFuncs<_>>();
-        let vec_of_uop_reprs = iter_of_uops.clone().map(|(repr_, _)| repr_).collect::<Vec<_>>();
+        let iter_of_uops = once((repr, uo)).chain(
+            (i + 1..parsed_tokens.len())
+                .map(|j| match parsed_tokens[j] {
+                    ParsedToken::Op(op) => (op.repr, op.unary_op),
+                    _ => ("", None),
+                })
+                .take_while(|(_, uo_)| uo_.is_some())
+                .map(|(repr_, uo_)| (repr_, uo_.unwrap())),
+        );
+        let vec_of_uops = iter_of_uops
+            .clone()
+            .map(|(_, uo_)| uo_)
+            .collect::<VecOfUnaryFuncs<_>>();
+        let vec_of_uop_reprs = iter_of_uops
+            .clone()
+            .map(|(repr_, _)| repr_)
+            .collect::<Vec<_>>();
         let n_uops = vec_of_uops.len();
         let uop = UnaryOp::from_vec(vec_of_uops);
         match &parsed_tokens[i + n_uops] {
@@ -228,16 +236,28 @@ where
                     msg: "closing parenthesis after an operator".to_string(),
                 }),
                 Paren::Open => {
-                    let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, (vec_of_uop_reprs, uop))?;
+                    let (expr, i_forward) = make_expression::<T>(
+                        &parsed_tokens[i + n_uops + 1..],
+                        &parsed_vars,
+                        UnaryOpWithReprs {
+                            reprs: vec_of_uop_reprs,
+                            op: uop,
+                        },
+                    )?;
                     Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
                 }
             },
             ParsedToken::Var(name) => {
                 let expr = DeepEx::new(
                     vec![DeepNode::Var(find_var_index(&name))],
-                    (Vec::new(), BinOpVec::new()),
-                    (vec_of_uop_reprs, uop),
+                    BinOpsWithReprs {
+                        reprs: Vec::new(),
+                        ops: BinOpVec::new(),
+                    },
+                    UnaryOpWithReprs {
+                        reprs: vec_of_uop_reprs,
+                        op: uop,
+                    },
                 )?;
                 Ok((DeepNode::Expr(expr), n_uops + 1))
             }
@@ -314,7 +334,10 @@ where
                     let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[idx_tkn..],
                         &parsed_vars,
-                        (Vec::new(), UnaryOp::new()),
+                        UnaryOpWithReprs {
+                            reprs: Vec::new(),
+                            op: UnaryOp::new(),
+                        },
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
@@ -326,7 +349,17 @@ where
             },
         }
     }
-    Ok((DeepEx::new(nodes, (reprs_bin_ops, bin_ops), unary_ops)?, idx_tkn))
+    Ok((
+        DeepEx::new(
+            nodes,
+            BinOpsWithReprs {
+                reprs: reprs_bin_ops,
+                ops: bin_ops,
+            },
+            unary_ops,
+        )?,
+        idx_tkn,
+    ))
 }
 
 /// Tries to give useful error messages for invalid constellations of the parsed tokens
@@ -490,7 +523,14 @@ fn parsed_tokens_to_flatex<'a, T: Copy + FromStr + Debug>(
 
     check_preconditions(&parsed_tokens[..])?;
 
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, (vec![], UnaryOp::new()))?;
+    let (expr, _) = make_expression(
+        &parsed_tokens[0..],
+        &parsed_vars,
+        UnaryOpWithReprs {
+            reprs: vec![],
+            op: UnaryOp::new(),
+        },
+    )?;
     Ok(flatten(expr))
 }
 
@@ -634,6 +674,9 @@ mod tests {
             r"3. .4",
             r"a number/variable cannot be next to a number/variable",
         );
-        test(r"2sin({x})", r"number/variable cannot be on the left of a unary");
+        test(
+            r"2sin({x})",
+            r"number/variable cannot be on the left of a unary",
+        );
     }
 }
