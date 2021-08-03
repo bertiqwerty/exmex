@@ -1,4 +1,4 @@
-use crate::expression::{BinOpVec, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK};
+use crate::expression::{BinOpVec, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK, flatten};
 use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
 // use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -174,11 +174,11 @@ where
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn make_expression<T>(
-    parsed_tokens: &[ParsedToken<T>],
+fn make_expression<'a, T>(
+    parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&String],
-    unary_ops: UnaryOp<T>,
-) -> Result<(DeepEx<T>, usize), ExParseError>
+    unary_ops: (Vec<&'a str>, UnaryOp<T>),
+) -> Result<(DeepEx<'a, T>, usize), ExParseError>
 where
     T: Copy + FromStr + Debug,
 {
@@ -206,19 +206,20 @@ where
     };
     // this closure handles the case that a token is a unary operator and accesses the
     // variable 'tokens' from the outer scope
-    let process_unary = |i: usize, uo| {
+    let process_unary = |i: usize, uo, repr| {
         // gather subsequent unary operators from the beginning
-        let vec_of_uops = once(uo)
+        let iter_of_uops = once((repr, uo))
             .chain(
                 (i + 1..parsed_tokens.len())
                     .map(|j| match parsed_tokens[j] {
-                        ParsedToken::Op(op) => op.unary_op,
-                        _ => None,
+                        ParsedToken::Op(op) => (op.repr, op.unary_op),
+                        _ => ("", None),
                     })
-                    .take_while(|uo_| uo_.is_some())
-                    .flatten(),
-            )
-            .collect::<VecOfUnaryFuncs<_>>();
+                    .take_while(|(_, uo_)| uo_.is_some())
+                    .map(|(repr_, uo_)| (repr_, uo_.unwrap()))
+            );
+        let vec_of_uops = iter_of_uops.clone().map(|(_, uo_)| uo_).collect::<VecOfUnaryFuncs<_>>();
+        let vec_of_uop_reprs = iter_of_uops.clone().map(|(repr_, _)| repr_).collect::<Vec<_>>();
         let n_uops = vec_of_uops.len();
         let uop = UnaryOp::from_vec(vec_of_uops);
         match &parsed_tokens[i + n_uops] {
@@ -228,15 +229,15 @@ where
                 }),
                 Paren::Open => {
                     let (expr, i_forward) =
-                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, uop)?;
+                        make_expression::<T>(&parsed_tokens[i + n_uops + 1..], &parsed_vars, (vec_of_uop_reprs, uop))?;
                     Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
                 }
             },
             ParsedToken::Var(name) => {
                 let expr = DeepEx::new(
                     vec![DeepNode::Var(find_var_index(&name))],
-                    BinOpVec::new(),
-                    uop,
+                    (Vec::new(), BinOpVec::new()),
+                    (vec_of_uop_reprs, uop),
                 )?;
                 Ok((DeepNode::Expr(expr), n_uops + 1))
             }
@@ -248,6 +249,7 @@ where
     };
 
     let mut bin_ops = BinOpVec::new();
+    let mut reprs_bin_ops: Vec<&str> = Vec::new();
     let mut nodes = Vec::<DeepNode<T>>::new();
 
     // The main loop checks one token after the next whereby sub-expressions are
@@ -256,16 +258,17 @@ where
     let mut idx_tkn: usize = 0;
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
-            ParsedToken::Op(b) => match b.unary_op {
+            ParsedToken::Op(op) => match op.unary_op {
                 None => {
-                    bin_ops.push(unpack_binop(b.bin_op));
+                    bin_ops.push(unpack_binop(op.bin_op));
+                    reprs_bin_ops.push(op.repr);
                     idx_tkn += 1;
                 }
                 Some(uo) => {
                     // might the operator be unary?
                     if idx_tkn == 0 {
                         // if the first element is an operator it must be unary
-                        let (node, idx_forward) = process_unary(idx_tkn, uo)?;
+                        let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
                         nodes.push(node);
                         idx_tkn += idx_forward;
                     } else {
@@ -273,7 +276,8 @@ where
                         match &parsed_tokens[idx_tkn - 1] {
                             ParsedToken::Num(_) | ParsedToken::Var(_) => {
                                 // number or variable as predecessor means binary operator
-                                bin_ops.push(unpack_binop(b.bin_op));
+                                bin_ops.push(unpack_binop(op.bin_op));
+                                reprs_bin_ops.push(op.repr);
                                 idx_tkn += 1;
                             }
                             ParsedToken::Paren(p) => match p {
@@ -282,12 +286,13 @@ where
                                     panic!("{}", msg);
                                 }
                                 Paren::Close => {
-                                    bin_ops.push(unpack_binop(b.bin_op));
+                                    bin_ops.push(unpack_binop(op.bin_op));
+                                    reprs_bin_ops.push(op.repr);
                                     idx_tkn += 1;
                                 }
                             },
                             ParsedToken::Op(_) => {
-                                let (node, idx_forward) = process_unary(idx_tkn, uo)?;
+                                let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
                                 nodes.push(node);
                                 idx_tkn += idx_forward;
                             }
@@ -309,7 +314,7 @@ where
                     let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[idx_tkn..],
                         &parsed_vars,
-                        UnaryOp::new(),
+                        (Vec::new(), UnaryOp::new()),
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
@@ -321,7 +326,7 @@ where
             },
         }
     }
-    Ok((DeepEx::new(nodes, bin_ops, unary_ops)?, idx_tkn))
+    Ok((DeepEx::new(nodes, (reprs_bin_ops, bin_ops), unary_ops)?, idx_tkn))
 }
 
 /// Tries to give useful error messages for invalid constellations of the parsed tokens
@@ -464,9 +469,9 @@ where
     }
 }
 
-fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
-    parsed_tokens: &SmallVec<[ParsedToken<T>; 2 * N_NODES_ON_STACK]>,
-) -> Result<FlatEx<T>, ExParseError> {
+fn parsed_tokens_to_flatex<'a, T: Copy + FromStr + Debug>(
+    parsed_tokens: &SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>,
+) -> Result<FlatEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; 16]>::new();
     let parsed_vars = parsed_tokens
         .iter()
@@ -485,8 +490,8 @@ fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
 
     check_preconditions(&parsed_tokens[..])?;
 
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOp::new())?;
-    Ok(expr.flatten())
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, (vec![], UnaryOp::new()))?;
+    Ok(flatten(expr))
 }
 
 /// Parses a string and a vector of operators into an expression that can be evaluated.
@@ -495,7 +500,7 @@ fn parsed_tokens_to_flatex<T: Copy + FromStr + Debug>(
 ///
 /// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
 /// returns one.
-pub fn parse<'a, T>(text: &str, ops: &[Operator<'a, T>]) -> Result<FlatEx<T>, ExParseError>
+pub fn parse<'a, T>(text: &str, ops: &[Operator<'a, T>]) -> Result<FlatEx<'a, T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
@@ -539,7 +544,7 @@ pub fn parse_with_number_pattern<'a, 'b, T>(
     text: &'b str,
     ops: &[Operator<'a, T>],
     number_regex_pattern: &str,
-) -> Result<FlatEx<T>, ExParseError>
+) -> Result<FlatEx<'a, T>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,

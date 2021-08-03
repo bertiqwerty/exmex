@@ -96,7 +96,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |        |all expressions|
 |--------|--------------------------|
 |[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|69.94|
-|**Exmex**   |48.69|
+|**Exmex**   |54.5|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|

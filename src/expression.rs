@@ -73,14 +73,15 @@ impl<T: Copy> FlatNode<T> {
 /// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<T: Copy> {
+pub struct FlatEx<'a, T: Copy> {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
     n_unique_vars: usize,
+    deep_ex: Option<DeepEx<'a, T>>
 }
 
-impl<T: Copy + Debug> FlatEx<T> {
+impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
@@ -161,10 +162,10 @@ fn flatten_vecs<T: Copy>(
                 flat_ops.append(&mut sub_ops);
             }
         };
-        if node_idx < deep_expr.bin_ops.len() {
+        if node_idx < deep_expr.bin_ops.1.len() {
             let prio_adapted_bin_op = BinOp {
-                apply: deep_expr.bin_ops[node_idx].apply,
-                prio: deep_expr.bin_ops[node_idx].prio + prio_offset,
+                apply: deep_expr.bin_ops.1[node_idx].apply,
+                prio: deep_expr.bin_ops.1[node_idx].prio + prio_offset,
             };
             flat_ops.push(FlatOp {
                 bin_op: prio_adapted_bin_op,
@@ -173,7 +174,7 @@ fn flatten_vecs<T: Copy>(
         }
     }
 
-    if deep_expr.unary_op.len() > 0 {
+    if deep_expr.unary_op.1.len() > 0 {
         if flat_ops.len() > 0 {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
@@ -183,11 +184,11 @@ fn flatten_vecs<T: Copy>(
             };
             low_prio_op
                 .unary_op
-                .append_front(&mut deep_expr.unary_op.clone());
+                .append_front(&mut deep_expr.unary_op.1.clone());
         } else {
             flat_nodes[0]
                 .unary_op
-                .append_front(&mut deep_expr.unary_op.clone());
+                .append_front(&mut deep_expr.unary_op.1.clone());
         }
     }
     (flat_nodes, flat_ops)
@@ -196,8 +197,8 @@ fn flatten_vecs<T: Copy>(
 /// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum DeepNode<T: Copy> {
-    Expr(DeepEx<T>),
+pub enum DeepNode<'a, T: Copy> {
+    Expr(DeepEx<'a, T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval`](Expression::eval).
@@ -207,15 +208,16 @@ pub enum DeepNode<T: Copy> {
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DeepEx<T: Copy> {
+pub struct DeepEx<'a, T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
-    nodes: Vec<DeepNode<T>>,
+    nodes: Vec<DeepNode<'a, T>>,
     /// Binary operators applied to the nodes according to their priority.
-    bin_ops: BinOpVec<T>,
+    bin_ops: (Vec<&'a str>, BinOpVec<T>),
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators.
-    unary_op: UnaryOp<T>,
+    unary_op: (Vec<&'a str>, UnaryOp<T>),
     prio_indices: ExprIdxVec,
+
 }
 
 fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
@@ -254,7 +256,7 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> 
     indices
 }
 
-impl<T: Copy + Debug> DeepEx<T> {
+impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
         // change from exression to number if an expression contains only a number
@@ -271,7 +273,7 @@ impl<T: Copy + Debug> DeepEx<T> {
             };
         }
         // after changing from expressions to numbers where possible the prios might change
-        self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes);
+        self.prio_indices = prioritized_indices(&self.bin_ops.1, &self.nodes);
 
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
@@ -280,7 +282,7 @@ impl<T: Copy + Debug> DeepEx<T> {
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
-                let bin_op_result = (self.bin_ops[bin_op_idx].apply)(*num_1, *num_2);
+                let bin_op_result = (self.bin_ops.1[bin_op_idx].apply)(*num_1, *num_2);
                 self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                 self.nodes.remove(num_idx + 1);
                 // reduce indices after removed position
@@ -295,8 +297,8 @@ impl<T: Copy + Debug> DeepEx<T> {
             }
         }
 
-        self.bin_ops = self
-            .bin_ops
+        self.bin_ops.1 = self
+            .bin_ops.1
             .iter()
             .enumerate()
             .filter(|(i, _)| !used_prio_indices.contains(i))
@@ -306,25 +308,26 @@ impl<T: Copy + Debug> DeepEx<T> {
         if self.nodes.len() == 1 {
             match self.nodes[0] {
                 DeepNode::Num(n) => {
-                    self.nodes[0] = DeepNode::Num(self.unary_op.apply(n));
-                    self.unary_op.clear();
+                    self.nodes[0] = DeepNode::Num(self.unary_op.1.apply(n));
+                    self.unary_op.0.clear();
+                    self.unary_op.1.clear();
                 }
                 _ => (),
             }
         }
-        self.prio_indices = prioritized_indices(&self.bin_ops, &self.nodes);
+        self.prio_indices = prioritized_indices(&self.bin_ops.1, &self.nodes);
     }
     pub fn new(
-        nodes: Vec<DeepNode<T>>,
-        bin_ops: BinOpVec<T>,
-        unary_op: UnaryOp<T>,
-    ) -> Result<DeepEx<T>, ExParseError> {
-        if nodes.len() != bin_ops.len() + 1 {
+        nodes: Vec<DeepNode<'a, T>>,
+        bin_ops: (Vec<&'a str>, BinOpVec<T>),
+        unary_op: (Vec<&'a str>, UnaryOp<T>),
+    ) -> Result<DeepEx<'a, T>, ExParseError> {
+        if nodes.len() != bin_ops.1.len() + 1 {
             Err(ExParseError {
                 msg: "mismatch between number of nodes and binary operators".to_string(),
             })
         } else {
-            let indices = prioritized_indices(&bin_ops, &nodes);
+            let indices = prioritized_indices(&bin_ops.1, &nodes);
             let mut expr = DeepEx {
                 nodes: nodes,
                 bin_ops: bin_ops,
@@ -335,30 +338,32 @@ impl<T: Copy + Debug> DeepEx<T> {
             Ok(expr)
         }
     }
-    pub fn flatten(&self) -> FlatEx<T> {
-        let (nodes, ops) = flatten_vecs(self, 0);
-        let indices = prioritized_indices_flat(&ops, &nodes);
-        let mut found_vars = SmallVec::<[usize; 16]>::new();
-        let n_unique_vars = nodes
-            .iter()
-            .filter_map(|n| match n.kind {
-                FlatNodeKind::Var(idx) => {
-                    if !found_vars.contains(&idx) {
-                        found_vars.push(idx);
-                        Some(idx)
-                    } else {
-                        None
-                    }
+}
+
+pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
+    let (nodes, ops) = flatten_vecs(&deep_ex, 0);
+    let indices = prioritized_indices_flat(&ops, &nodes);
+    let mut found_vars = SmallVec::<[usize; 16]>::new();
+    let n_unique_vars = nodes
+        .iter()
+        .filter_map(|n| match n.kind {
+            FlatNodeKind::Var(idx) => {
+                if !found_vars.contains(&idx) {
+                    found_vars.push(idx);
+                    Some(idx)
+                } else {
+                    None
                 }
-                _ => None,
-            })
-            .count();
-        FlatEx {
-            nodes: nodes,
-            ops: ops,
-            prio_indices: indices,
-            n_unique_vars: n_unique_vars,
-        }
+            }
+            _ => None,
+        })
+        .count();
+    FlatEx {
+        nodes: nodes,
+        ops: ops,
+        prio_indices: indices,
+        n_unique_vars: n_unique_vars,
+        deep_ex: Some(deep_ex)
     }
 }
 
@@ -406,11 +411,12 @@ fn test_flat_compile() {
 fn test_deep_compile() {
     let ops = make_default_operators();
     let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
-    let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
-    let unary_op = UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]);
+    let bin_ops = (vec![ops[1].repr, ops[3].repr], smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()]);
+    let unary_op = (vec![ops[6].repr], UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]));
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
-    let bin_ops: BinOpVec<f64> = smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()];
-    let unary_op = UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]);
+
+    let bin_ops = (vec![ops[1].repr, ops[3].repr], smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()]);
+    let unary_op = (vec![ops[6].repr], UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]));
     let nodes = vec![
         DeepNode::Num(4.5),
         DeepNode::Num(0.5),
@@ -419,7 +425,7 @@ fn test_deep_compile() {
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     assert_eq!(deep_ex.nodes.len(), 1);
     match deep_ex.nodes[0] {
-        DeepNode::Num(n) => assert_eq!(deep_ex.unary_op.apply(n), n),
+        DeepNode::Num(n) => assert_eq!(deep_ex.unary_op.1.apply(n), n),
         _ => {
             assert!(false);
         }

@@ -67,7 +67,7 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
     }
 }
 
-fn run_benchmark_parse<T, F: Fn(&[&str]) -> Vec<T>>(func: F, parse_name: &str, c: &mut Criterion) {
+fn run_benchmark_parse<'a, T, F: Fn(&'a[&str]) -> Vec<T>>(func: F, parse_name: &str, c: &mut Criterion) {
     c.bench_function(format!("{}", parse_name).as_str(), |b| {
         b.iter(|| {
             func(black_box(&BENCH_EXPRESSIONS_STRS));
@@ -75,7 +75,7 @@ fn run_benchmark_parse<T, F: Fn(&[&str]) -> Vec<T>>(func: F, parse_name: &str, c
     });
 }
 
-fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
+fn exmex_parse<'a>(strings: &'a[&str]) -> Vec<FlatEx<'a, f64>> {
     strings
         .iter()
         .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
@@ -86,7 +86,7 @@ fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
 }
 
-fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64>> {
+fn exmex_parse_optimized<'a>(strings: &'a[&str]) -> Vec<FlatEx<'a, f64>> {
     let ops = [
         Operator {
             repr: "^",
