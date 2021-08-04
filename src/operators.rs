@@ -1,5 +1,5 @@
 use num::Float;
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
 ///
@@ -34,7 +34,6 @@ pub struct Operator<'a, T> {
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
     pub unary_op: Option<fn(T) -> T>,
 }
-
 
 pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; 8]>;
 
