@@ -101,7 +101,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|
 
-Exmex parsing can be made faster by only passing the relevant operators. 
+Exmex parsing can be made faster by passing only the relevant operators. 
 
 The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
