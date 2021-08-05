@@ -300,7 +300,7 @@ pub struct BinOpsWithReprs<'a, T: Copy> {
     pub ops: BinOpVec<T>,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub struct UnaryOpWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
     pub op: UnaryOp<T>,
@@ -308,7 +308,7 @@ pub struct UnaryOpWithReprs<'a, T: Copy> {
 
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub struct DeepEx<'a, T: Copy> {
     /// Nodes can be numbers, variables, or other expressions.
     nodes: Vec<DeepNode<'a, T>>,
