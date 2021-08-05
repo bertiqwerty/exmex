@@ -44,6 +44,124 @@ impl<T: Copy> FlatNode<T> {
     }
 }
 
+fn flatten_vecs<T: Copy>(
+    deep_expr: &DeepEx<T>,
+    prio_offset: i32,
+) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+    let mut flat_nodes = FlatNodeVec::<T>::new();
+    let mut flat_ops = FlatOpVec::<T>::new();
+
+    for (node_idx, node) in deep_expr.nodes.iter().enumerate() {
+        match node {
+            DeepNode::Num(num) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(*num));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Var(idx) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Var(*idx));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Expr(e) => {
+                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i32);
+                flat_nodes.append(&mut sub_nodes);
+                flat_ops.append(&mut sub_ops);
+            }
+        };
+        if node_idx < deep_expr.bin_ops.ops.len() {
+            let prio_adapted_bin_op = BinOp {
+                apply: deep_expr.bin_ops.ops[node_idx].apply,
+                prio: deep_expr.bin_ops.ops[node_idx].prio + prio_offset,
+            };
+            flat_ops.push(FlatOp {
+                bin_op: prio_adapted_bin_op,
+                unary_op: UnaryOp::new(),
+            });
+        }
+    }
+
+    if deep_expr.unary_op.op.len() > 0 {
+        if flat_ops.len() > 0 {
+            // find the last binary operator with the lowest priority of this expression,
+            // since this will be executed as the last one
+            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
+                None => panic!("cannot have more than one flat node but no binary ops"),
+                Some(x) => x,
+            };
+            low_prio_op
+                .unary_op
+                .append_front(&mut deep_expr.unary_op.op.clone());
+        } else {
+            flat_nodes[0]
+                .unary_op
+                .append_front(&mut deep_expr.unary_op.op.clone());
+        }
+    }
+    (flat_nodes, flat_ops)
+}
+
+pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
+    let (nodes, ops) = flatten_vecs(&deep_ex, 0);
+    let indices = prioritized_indices_flat(&ops, &nodes);
+    let mut found_vars = SmallVec::<[usize; 16]>::new();
+    let n_unique_vars = nodes
+        .iter()
+        .filter_map(|n| match n.kind {
+            FlatNodeKind::Var(idx) => {
+                if !found_vars.contains(&idx) {
+                    found_vars.push(idx);
+                    Some(idx)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .count();
+    FlatEx {
+        nodes: nodes,
+        ops: ops,
+        prio_indices: indices,
+        n_unique_vars: n_unique_vars,
+        deepex: Some(deep_ex),
+    }
+}
+
+fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
+    let prio_increase =
+        |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
+            (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {
+                let prio_inc = 5;
+                &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
+            }
+            _ => &ops[bin_op_idx].bin_op.prio * 10,
+        };
+    let mut indices: ExprIdxVec = (0..ops.len()).collect();
+    indices.sort_by(|i1, i2| {
+        let prio_i1 = prio_increase(*i1);
+        let prio_i2 = prio_increase(*i2);
+        prio_i2.partial_cmp(&prio_i1).unwrap()
+    });
+    indices
+}
+
+fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
+    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
+        (DeepNode::Num(_), DeepNode::Num(_)) => {
+            let prio_inc = 5;
+            &bin_ops[bin_op_idx].prio * 10 + prio_inc
+        }
+        _ => &bin_ops[bin_op_idx].prio * 10,
+    };
+
+    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
+    indices.sort_by(|i1, i2| {
+        let prio_i1 = prio_increase(*i1);
+        let prio_i2 = prio_increase(*i2);
+        prio_i2.partial_cmp(&prio_i1).unwrap()
+    });
+    indices
+}
+
 /// This is the core data type representing a flattened expression and the result of
 /// parsing a string. We use flattened expressions to make efficient evaluation possible.
 /// Simplified, a flat expression consists of a [`SmallVec`](SmallVec) of nodes and a
@@ -148,67 +266,12 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
             }),
         }
     }
-    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression. This functions removes 
-    /// the deep expression to reduce memory consumption. [`unparse`](FlatEx::unparse) is not 
+    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression. This functions removes
+    /// the deep expression to reduce memory consumption. [`unparse`](FlatEx::unparse) is not
     /// possible anymore afterwards.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
     }
-}
-
-fn flatten_vecs<T: Copy>(
-    deep_expr: &DeepEx<T>,
-    prio_offset: i32,
-) -> (FlatNodeVec<T>, FlatOpVec<T>) {
-    let mut flat_nodes = FlatNodeVec::<T>::new();
-    let mut flat_ops = FlatOpVec::<T>::new();
-
-    for (node_idx, node) in deep_expr.nodes.iter().enumerate() {
-        match node {
-            DeepNode::Num(num) => {
-                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(*num));
-                flat_nodes.push(flat_node);
-            }
-            DeepNode::Var(idx) => {
-                let flat_node = FlatNode::from_kind(FlatNodeKind::Var(*idx));
-                flat_nodes.push(flat_node);
-            }
-            DeepNode::Expr(e) => {
-                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i32);
-                flat_nodes.append(&mut sub_nodes);
-                flat_ops.append(&mut sub_ops);
-            }
-        };
-        if node_idx < deep_expr.bin_ops.ops.len() {
-            let prio_adapted_bin_op = BinOp {
-                apply: deep_expr.bin_ops.ops[node_idx].apply,
-                prio: deep_expr.bin_ops.ops[node_idx].prio + prio_offset,
-            };
-            flat_ops.push(FlatOp {
-                bin_op: prio_adapted_bin_op,
-                unary_op: UnaryOp::new(),
-            });
-        }
-    }
-
-    if deep_expr.unary_op.op.len() > 0 {
-        if flat_ops.len() > 0 {
-            // find the last binary operator with the lowest priority of this expression,
-            // since this will be executed as the last one
-            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
-                None => panic!("cannot have more than one flat node but no binary ops"),
-                Some(x) => x,
-            };
-            low_prio_op
-                .unary_op
-                .append_front(&mut deep_expr.unary_op.op.clone());
-        } else {
-            flat_nodes[0]
-                .unary_op
-                .append_front(&mut deep_expr.unary_op.op.clone());
-        }
-    }
-    (flat_nodes, flat_ops)
 }
 
 /// A deep node can be an expression, a number, or
@@ -246,42 +309,6 @@ pub struct DeepEx<'a, T: Copy> {
     /// binary operators.
     unary_op: UnaryOpWithReprs<'a, T>,
     prio_indices: ExprIdxVec,
-}
-
-fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
-    let prio_increase =
-        |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
-            (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {
-                let prio_inc = 5;
-                &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
-            }
-            _ => &ops[bin_op_idx].bin_op.prio * 10,
-        };
-    let mut indices: ExprIdxVec = (0..ops.len()).collect();
-    indices.sort_by(|i1, i2| {
-        let prio_i1 = prio_increase(*i1);
-        let prio_i2 = prio_increase(*i2);
-        prio_i2.partial_cmp(&prio_i1).unwrap()
-    });
-    indices
-}
-
-fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
-    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
-        (DeepNode::Num(_), DeepNode::Num(_)) => {
-            let prio_inc = 5;
-            &bin_ops[bin_op_idx].prio * 10 + prio_inc
-        }
-        _ => &bin_ops[bin_op_idx].prio * 10,
-    };
-
-    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| {
-        let prio_i1 = prio_increase(*i1);
-        let prio_i2 = prio_increase(*i2);
-        prio_i2.partial_cmp(&prio_i1).unwrap()
-    });
-    indices
 }
 
 impl<'a, T: Copy + Debug> DeepEx<'a, T> {
@@ -413,33 +440,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 unary_op_string, node_with_bin_ops_string, closings
             )
         }
-    }
-}
-
-pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
-    let (nodes, ops) = flatten_vecs(&deep_ex, 0);
-    let indices = prioritized_indices_flat(&ops, &nodes);
-    let mut found_vars = SmallVec::<[usize; 16]>::new();
-    let n_unique_vars = nodes
-        .iter()
-        .filter_map(|n| match n.kind {
-            FlatNodeKind::Var(idx) => {
-                if !found_vars.contains(&idx) {
-                    found_vars.push(idx);
-                    Some(idx)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .count();
-    FlatEx {
-        nodes: nodes,
-        ops: ops,
-        prio_indices: indices,
-        n_unique_vars: n_unique_vars,
-        deepex: Some(deep_ex),
     }
 }
 
