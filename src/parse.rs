@@ -618,13 +618,14 @@ where
     Ok(parse(&text, &ops)?)
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse::{check_preconditions, is_numeric_text, make_default_operators, tokenize_and_analyze, parsed_tokens_to_deepex},
-        ExParseError,
+        parse::{
+            check_preconditions, is_numeric_text, make_default_operators, parsed_tokens_to_deepex,
+            tokenize_and_analyze,
+        },
+        parse_with_default_ops, ExParseError,
     };
 
     #[test]
@@ -633,12 +634,12 @@ mod tests {
             let ops = make_default_operators::<f64>();
             let parsed = tokenize_and_analyze(text, &ops, is_numeric_text).unwrap();
             let deepex = parsed_tokens_to_deepex(&parsed).unwrap();
-            
-            assert_eq!(deepex.unparse(), text_ref);
-            let reparsed = tokenize_and_analyze(text_ref, &ops, is_numeric_text).unwrap();
-            let deepex_reparsed = parsed_tokens_to_deepex(&reparsed).unwrap();
-            assert_eq!(deepex_reparsed.unparse(), text_ref);
 
+            assert_eq!(deepex.unparse(), text_ref);
+            let mut flatex_reparsed = parse_with_default_ops::<f64>(text_ref).unwrap();
+            assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
+            flatex_reparsed.clear_deepex();
+            assert!(flatex_reparsed.unparse().is_err());
         }
         let text = "5+x";
         let text_ref = "5.0+{x0}";
@@ -658,7 +659,6 @@ mod tests {
         let text = "cos(sin(-z+var*(1/{y})))+{var}";
         let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
         test(text, text_ref);
-        
     }
 
     #[test]

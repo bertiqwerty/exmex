@@ -78,7 +78,7 @@ pub struct FlatEx<'a, T: Copy> {
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
     n_unique_vars: usize,
-    deep_ex: Option<DeepEx<'a, T>>,
+    deepex: Option<DeepEx<'a, T>>,
 }
 
 impl<'a, T: Copy + Debug> FlatEx<'a, T> {
@@ -136,6 +136,20 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
             ignore[num_idx + shift_right] = true;
         }
         Ok(numbers[0])
+    }
+
+    pub fn unparse(&self) -> Result<String, ExParseError> {
+        match &self.deepex {
+            Some(deepex) => Ok(deepex.unparse()),
+            None => Err(ExParseError {
+                msg: "unparse impossible, since deep expression optimized away".to_string(),
+            }),
+        }
+    }
+    /// Removes deepex to reduce memory consumption. [`unparse`](FlatEx::unparse) is not 
+    /// possible anymore afterwards.
+    pub fn clear_deepex(&mut self) {
+        self.deepex = None;
     }
 }
 
@@ -391,7 +405,10 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         if self.unary_op.op.len() == 0 {
             node_with_bin_ops_string
         } else {
-            format!("{}{}{}", unary_op_string, node_with_bin_ops_string, closings)
+            format!(
+                "{}{}{}",
+                unary_op_string, node_with_bin_ops_string, closings
+            )
         }
     }
 }
@@ -419,45 +436,54 @@ pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
         ops: ops,
         prio_indices: indices,
         n_unique_vars: n_unique_vars,
-        deep_ex: Some(deep_ex),
+        deepex: Some(deep_ex),
     }
 }
 
 #[cfg(test)]
 use crate::{make_default_operators, parse_with_default_ops, util::assert_float_eq_f64};
 #[test]
+fn test_flat_clear() {
+    let mut flatex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
+    assert!(flatex.deepex.is_some());
+    flatex.clear_deepex();
+    assert!(flatex.deepex.is_none());
+    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
+    assert_eq!(flatex.nodes.len(), 2);
+}
+#[test]
 fn test_flat_compile() {
-    let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
-    assert_float_eq_f64(flat_ex.eval(&[]).unwrap(), 1.9f64.sin());
-    assert_eq!(flat_ex.nodes.len(), 1);
+    let flatex = parse_with_default_ops::<f64>("1*sin(2-0.1)").unwrap();
+    assert_float_eq_f64(flatex.eval(&[]).unwrap(), 1.9f64.sin());
+    assert_eq!(flatex.nodes.len(), 1);
 
-    let flat_ex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
-    assert_float_eq_f64(flat_ex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    assert_eq!(flat_ex.nodes.len(), 2);
+    let flatex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
+    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
+    assert_eq!(flatex.nodes.len(), 2);
 
-    let flat_ex = parse_with_default_ops::<f64>("1*sin(2-0.1) + x").unwrap();
-    assert_float_eq_f64(flat_ex.eval(&[0.0]).unwrap(), 1.9f64.sin());
-    assert_eq!(flat_ex.nodes.len(), 2);
-    match flat_ex.nodes[0].kind {
+    let flatex = parse_with_default_ops::<f64>("1*sin(2-0.1) + x").unwrap();
+    assert_float_eq_f64(flatex.eval(&[0.0]).unwrap(), 1.9f64.sin());
+    assert_eq!(flatex.nodes.len(), 2);
+    match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
         _ => assert!(false),
     }
-    match flat_ex.nodes[1].kind {
+    match flatex.nodes[1].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
 
-    let flat_ex = parse_with_default_ops::<f64>("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
-    assert_eq!(flat_ex.nodes.len(), 3);
-    match flat_ex.nodes[0].kind {
+    let flatex = parse_with_default_ops::<f64>("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
+    assert_eq!(flatex.nodes.len(), 3);
+    match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
-    match flat_ex.nodes[1].kind {
+    match flatex.nodes[1].kind {
         FlatNodeKind::Num(_) => (),
         _ => assert!(false),
     }
-    match flat_ex.nodes[2].kind {
+    match flatex.nodes[2].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
         _ => assert!(false),
     }

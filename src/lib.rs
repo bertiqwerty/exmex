@@ -159,8 +159,8 @@ pub use operators::{make_default_operators, BinOp, Operator};
 /// [`ExParseError`](ExParseError) is returned.
 ///
 pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
-    let flat_ex = parse_with_default_ops(text)?;
-    Ok(flat_ex.eval(&[])?)
+    let flatex = parse_with_default_ops(text)?;
+    Ok(flatex.eval(&[])?)
 }
 
 #[cfg(test)]
