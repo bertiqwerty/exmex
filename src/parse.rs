@@ -628,6 +628,16 @@ mod tests {
         parse_with_default_ops, ExParseError,
     };
 
+
+        
+    #[test]
+    fn test_display() {
+        let mut flatex= parse_with_default_ops::<f64>("sin(var)/5").unwrap();
+        assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
+        flatex.clear_deepex();
+        assert_eq!(format!("{}", flatex), "[FlatEx display information not available]");            
+    }
+
     #[test]
     fn test_unparse() {
         fn test(text: &str, text_ref: &str) {

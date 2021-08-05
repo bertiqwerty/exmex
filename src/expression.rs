@@ -3,7 +3,7 @@ use crate::{
     ExParseError,
 };
 use smallvec::{smallvec, SmallVec};
-use std::{fmt::Debug, iter::repeat};
+use std::{fmt, iter::repeat};
 
 type ExprIdxVec = SmallVec<[usize; 32]>;
 
@@ -199,7 +199,7 @@ pub struct FlatEx<'a, T: Copy> {
     deepex: Option<DeepEx<'a, T>>,
 }
 
-impl<'a, T: Copy + Debug> FlatEx<'a, T> {
+impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
@@ -274,6 +274,16 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     }
 }
 
+impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.deepex {
+            None => write!(f, "[FlatEx display information not available]"),
+            Some(deepex) => write!(f, "{}", deepex.unparse()),
+        }
+        
+    }
+}
+
 /// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -311,7 +321,7 @@ pub struct DeepEx<'a, T: Copy> {
     prio_indices: ExprIdxVec,
 }
 
-impl<'a, T: Copy + Debug> DeepEx<'a, T> {
+impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
         // change from exression to number if an expression contains only a number
@@ -440,6 +450,12 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 unary_op_string, node_with_bin_ops_string, closings
             )
         }
+    }
+}
+
+impl<'a, T: Copy + fmt::Debug> fmt::Display for DeepEx<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.unparse())
     }
 }
 
