@@ -17,19 +17,19 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 
 /// A `FlatOp` contains besides a binary operation an optional unary operation that
 /// will be executed after the binary operation in case of its existence.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub struct FlatOp<T: Copy> {
     unary_op: UnaryOp<T>,
     bin_op: BinOp<T>,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub enum FlatNodeKind<T: Copy> {
     Num(T),
     Var(usize),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub struct FlatNode<T: Copy> {
     kind: FlatNodeKind<T>,
     unary_op: UnaryOp<T>,
@@ -286,7 +286,7 @@ impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
 
 /// A deep node can be an expression, a number, or
 /// a variable.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub enum DeepNode<'a, T: Copy> {
     Expr(DeepEx<'a, T>),
     Num(T),
@@ -295,7 +295,7 @@ pub enum DeepNode<'a, T: Copy> {
     Var(usize),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
 pub struct BinOpsWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
     pub ops: BinOpVec<T>,
