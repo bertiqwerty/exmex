@@ -138,6 +138,8 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
         Ok(numbers[0])
     }
 
+    /// Creates an expression string that corresponds to the `FlatEx` instance. This is
+    /// not necessarily the input string. For instance, variable names are forgotten.
     pub fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex {
             Some(deepex) => Ok(deepex.unparse()),
@@ -146,7 +148,8 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
             }),
         }
     }
-    /// Removes deepex to reduce memory consumption. [`unparse`](FlatEx::unparse) is not 
+    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression. This functions removes 
+    /// the deep expression to reduce memory consumption. [`unparse`](FlatEx::unparse) is not 
     /// possible anymore afterwards.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
