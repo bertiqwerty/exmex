@@ -3,7 +3,7 @@ use crate::{
     ExParseError,
 };
 use smallvec::{smallvec, SmallVec};
-use std::fmt::Debug;
+use std::{fmt::Debug, iter::repeat};
 
 type ExprIdxVec = SmallVec<[usize; 32]>;
 
@@ -348,6 +348,50 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             };
             expr.compile();
             Ok(expr)
+        }
+    }
+
+    pub fn unparse(&self) -> String {
+        let mut node_strings = self.nodes.iter().map(|n| match n {
+            DeepNode::Num(n) => format!("{:?}", n),
+            DeepNode::Var(idx) => format!("{{x{}}}", idx),
+            DeepNode::Expr(e) => {
+                if e.unary_op.op.len() == 0 {
+                    format!("({})", e.unparse())
+                } else {
+                    e.unparse()
+                }
+            }
+        });
+        let mut bin_op_strings = self.bin_ops.reprs.iter();
+        // a valid expression has at least one node
+        let first_node_str = node_strings.next().unwrap();
+        let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
+            let bin_op_str = bin_op_strings.next().unwrap();
+            res.push_str(bin_op_str);
+            res.push_str(node_str.as_str());
+            res
+        });
+        let unary_op_string = self
+            .unary_op
+            .reprs
+            .iter()
+            .fold(String::new(), |mut res, uop_str| {
+                res.push_str(uop_str);
+                res.push_str("(");
+                res
+            });
+        let closings =
+            repeat(")")
+                .take(self.unary_op.op.len())
+                .fold(String::new(), |mut res, closing| {
+                    res.push_str(closing);
+                    res
+                });
+        if self.unary_op.op.len() == 0 {
+            node_with_bin_ops_string
+        } else {
+            format!("{}{}{}", unary_op_string, node_with_bin_ops_string, closings)
         }
     }
 }

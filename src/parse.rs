@@ -79,7 +79,7 @@ fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn parsed_tokens<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
+fn tokenize_and_analyze<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
     text: &'b str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
@@ -129,7 +129,7 @@ where
             } else if c == '{' {
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
                 cur_offset += n_count + 1;
-                ParsedToken::<T>::Var(text_rest[1..n_count + 1].to_string())
+                ParsedToken::<T>::Var(text_rest[1..n_count].to_string())
             } else if {
                 maybe_num = is_numeric(text_rest);
                 maybe_num.is_some()
@@ -502,9 +502,9 @@ where
     }
 }
 
-fn parsed_tokens_to_flatex<'a, T: Copy + FromStr + Debug>(
+fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
     parsed_tokens: &SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>,
-) -> Result<FlatEx<'a, T>, ExParseError> {
+) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; 16]>::new();
     let parsed_vars = parsed_tokens
         .iter()
@@ -531,7 +531,7 @@ fn parsed_tokens_to_flatex<'a, T: Copy + FromStr + Debug>(
             op: UnaryOp::new(),
         },
     )?;
-    Ok(flatten(expr))
+    Ok(expr)
 }
 
 /// Parses a string and a vector of operators into an expression that can be evaluated.
@@ -545,8 +545,8 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    let parsed_tokens = parsed_tokens(text, ops, is_numeric_text)?;
-    parsed_tokens_to_flatex(&parsed_tokens)
+    let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric_text)?;
+    Ok(flatten(parsed_tokens_to_deepex(&parsed_tokens)?))
 }
 
 /// Parses a string and a vector of operators and a regex pattern that defines the looks
@@ -599,8 +599,8 @@ where
         }
     };
     let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
-    let parsed_tokens = parsed_tokens(text, ops, is_numeric)?;
-    parsed_tokens_to_flatex(&parsed_tokens)
+    let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric)?;
+    Ok(flatten(parsed_tokens_to_deepex(&parsed_tokens)?))
 }
 
 /// Parses a string into an expression that can be evaluated using default operators.
@@ -618,18 +618,54 @@ where
     Ok(parse(&text, &ops)?)
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse::{check_preconditions, is_numeric_text, make_default_operators, parsed_tokens},
+        parse::{check_preconditions, is_numeric_text, make_default_operators, tokenize_and_analyze, parsed_tokens_to_deepex},
         ExParseError,
     };
+
+    #[test]
+    fn test_unparse() {
+        fn test(text: &str, text_ref: &str) {
+            let ops = make_default_operators::<f64>();
+            let parsed = tokenize_and_analyze(text, &ops, is_numeric_text).unwrap();
+            let deepex = parsed_tokens_to_deepex(&parsed).unwrap();
+            
+            assert_eq!(deepex.unparse(), text_ref);
+            let reparsed = tokenize_and_analyze(text_ref, &ops, is_numeric_text).unwrap();
+            let deepex_reparsed = parsed_tokens_to_deepex(&reparsed).unwrap();
+            assert_eq!(deepex_reparsed.unparse(), text_ref);
+
+        }
+        let text = "5+x";
+        let text_ref = "5.0+{x0}";
+        test(text, text_ref);
+        let text = "sin(5+var)^(1/{y})+{var}";
+        let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
+        test(text, text_ref);
+        let text = "-(5+var)^(1/{y})+{var}";
+        let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
+        let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-5+var^(1/{y})))-{var}";
+        let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-z+var*(1/{y})))+{var}";
+        let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
+        test(text, text_ref);
+        
+    }
 
     #[test]
     fn test_apply_regexes() {
         let text = r"5\6";
         let ops = make_default_operators::<f32>();
-        let elts = parsed_tokens(text, &ops, is_numeric_text);
+        let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         assert!(elts.is_err());
     }
 
@@ -646,7 +682,7 @@ mod tests {
                 }
             }
             let ops = make_default_operators::<f32>();
-            let elts = parsed_tokens(text, &ops, is_numeric_text);
+            let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
             match elts {
                 Ok(elts_unwr) => {
                     let err = check_preconditions(&elts_unwr[..]);
