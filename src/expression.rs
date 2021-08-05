@@ -280,7 +280,6 @@ impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
             None => write!(f, "[FlatEx display information not available]"),
             Some(deepex) => write!(f, "{}", deepex.unparse()),
         }
-        
     }
 }
 
