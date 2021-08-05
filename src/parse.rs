@@ -545,8 +545,10 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Copy + FromStr + Debug,
 {
-    let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric_text)?;
-    Ok(flatten(parsed_tokens_to_deepex(&parsed_tokens)?))
+    let parsed_tokens = tokenize_and_analyze(text, &ops, is_numeric_text)?;
+    let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
+    deepex.find_overloaded_ops(ops)?;
+    Ok(flatten(deepex))
 }
 
 /// Parses a string and a vector of operators and a regex pattern that defines the looks
@@ -600,7 +602,9 @@ where
     };
     let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
     let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric)?;
-    Ok(flatten(parsed_tokens_to_deepex(&parsed_tokens)?))
+    let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
+    deepex.find_overloaded_ops(ops)?;
+    Ok(flatten(deepex))
 }
 
 /// Parses a string into an expression that can be evaluated using default operators.
@@ -628,14 +632,15 @@ mod tests {
         parse_with_default_ops, ExParseError,
     };
 
-
-        
     #[test]
     fn test_display() {
-        let mut flatex= parse_with_default_ops::<f64>("sin(var)/5").unwrap();
+        let mut flatex = parse_with_default_ops::<f64>("sin(var)/5").unwrap();
         assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
         flatex.clear_deepex();
-        assert_eq!(format!("{}", flatex), "[FlatEx display information not available]");            
+        assert_eq!(
+            format!("{}", flatex),
+            "[FlatEx display information not available]"
+        );
     }
 
     #[test]

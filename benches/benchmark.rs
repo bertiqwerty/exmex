@@ -87,7 +87,7 @@ fn exmex_bench_parse(c: &mut Criterion) {
 }
 
 fn exmex_parse_optimized<'a>(strings: &'a[&str]) -> Vec<FlatEx<'a, f64>> {
-    let ops = [
+    let ops = vec![
         Operator {
             repr: "^",
             bin_op: Some(BinOp {
