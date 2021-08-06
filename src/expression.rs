@@ -298,9 +298,10 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
 impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.deepex {
-            None => write!(f, "[FlatEx display information not available]"),
-            Some(deepex) => write!(f, "{}", deepex.unparse()),
+        let unparsed = self.unparse();
+        match unparsed {
+            Err(e) => write!(f, "{}", e.msg),
+            Ok(s) => write!(f, "{}", s),
         }
     }
 }
