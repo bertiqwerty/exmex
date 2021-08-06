@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.8.2")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.8.3")]
 //! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator.  
 //! ```rust
 //! # use std::error::Error;
