@@ -3,7 +3,11 @@ use crate::{
     ExParseError, Operator,
 };
 use smallvec::{smallvec, SmallVec};
-use std::{fmt, iter::repeat, ops::{Add, Div, Mul, Sub}};
+use std::{
+    fmt,
+    iter::repeat,
+    ops::{Add, Div, Mul, Sub},
+};
 
 type ExprIdxVec = SmallVec<[usize; 32]>;
 
@@ -105,8 +109,8 @@ fn flatten_vecs<T: Copy>(
     (flat_nodes, flat_ops)
 }
 
-pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
-    let (nodes, ops) = flatten_vecs(&deep_ex, 0);
+pub fn flatten<T: Copy>(deepex: DeepEx<T>) -> FlatEx<T> {
+    let (nodes, ops) = flatten_vecs(&deepex, 0);
     let indices = prioritized_indices_flat(&ops, &nodes);
     let mut found_vars = SmallVec::<[usize; 16]>::new();
     let n_unique_vars = nodes
@@ -128,7 +132,7 @@ pub fn flatten<T: Copy>(deep_ex: DeepEx<T>) -> FlatEx<T> {
         ops: ops,
         prio_indices: indices,
         n_unique_vars: n_unique_vars,
-        deepex: Some(deep_ex),
+        deepex: Some(deepex),
     }
 }
 
@@ -168,7 +172,9 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> 
     indices
 }
 
-pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<'a, T>]) -> Result<OverloadedOps<'a, T>, ExParseError> {
+pub fn find_overloaded_ops<'a, T: Copy>(
+    all_ops: &[Operator<'a, T>],
+) -> Result<OverloadedOps<'a, T>, ExParseError> {
     let find_op = |repr| all_ops.iter().cloned().find(|op| op.repr == repr);
 
     let make_err = |repr| ExParseError {
@@ -294,7 +300,7 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
     /// #     Ok(())
     /// # }
     /// ```
-    /// 
+    ///
     pub fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex {
             Some(deepex) => Ok(deepex.unparse()),
@@ -303,9 +309,9 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
             }),
         }
     }
-    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression 
+    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression
     /// that is not necessary for evaluation. This functions removes the deep expression
-    /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and 
+    /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and
     /// [`Display`](FlatEx::Display) is will stop working after calling this function.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
@@ -532,7 +538,7 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
         }
         let overloaded_ops = self.overloaded_ops.clone();
         let op = overloaded_ops.clone().unwrap().by_repr(repr);
-        
+
         let ops = smallvec![op.bin_op.unwrap()];
         let mut resex = DeepEx::new(
             vec![DeepNode::Expr(self), DeepNode::Expr(other)],
@@ -541,41 +547,46 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
                 ops: ops,
             },
             UnaryOpWithReprs::new(),
-        ).unwrap();
+        )
+        .unwrap();
         resex.overloaded_ops = Some(overloaded_ops.unwrap());
         resex
+    }
+
+    pub fn pow(self, exponent: Self) -> Self {
+        self.operate(exponent, POW_REPR)
     }
 }
 
 impl<'a, T: Copy + fmt::Debug> Add for DeepEx<'a, T> {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self {       
-        self.operate(other, ADD_REPR) 
+    fn add(self, other: Self) -> Self {
+        self.operate(other, ADD_REPR)
     }
 }
 
 impl<'a, T: Copy + fmt::Debug> Sub for DeepEx<'a, T> {
     type Output = Self;
 
-    fn sub(self, other: Self) -> Self {       
-        self.operate(other, SUB_REPR) 
+    fn sub(self, other: Self) -> Self {
+        self.operate(other, SUB_REPR)
     }
 }
 
 impl<'a, T: Copy + fmt::Debug> Mul for DeepEx<'a, T> {
     type Output = Self;
 
-    fn mul(self, other: Self) -> Self {       
-        self.operate(other, MUL_REPR) 
+    fn mul(self, other: Self) -> Self {
+        self.operate(other, MUL_REPR)
     }
 }
 
 impl<'a, T: Copy + fmt::Debug> Div for DeepEx<'a, T> {
     type Output = Self;
 
-    fn div(self, other: Self) -> Self {       
-        self.operate(other, DIV_REPR) 
+    fn div(self, other: Self) -> Self {
+        self.operate(other, DIV_REPR)
     }
 }
 
@@ -668,5 +679,88 @@ fn test_deep_compile() {
         _ => {
             assert!(false);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        expression::{flatten, DeepEx},
+        parse_with_default_ops,
+        util::assert_float_eq_f64,
+    };
+
+    #[test]
+    fn test_operator_overloading() {
+        fn from_str<'a>(s: &'a str) -> DeepEx<'a, f64> {
+            parse_with_default_ops::<f64>(s).unwrap().deepex.unwrap()
+        }
+        fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
+            assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
+        }
+
+        let one = from_str("1");
+        let two = one.clone() + one.clone();
+        eval(&two, &[], 2.0);
+
+        let x_squared = from_str("x^2");
+        let x_to_the_4 = x_squared.clone().pow(two.clone());
+        eval(&x_to_the_4, &[0.0], 0.0);
+        eval(&x_to_the_4, &[1.0], 1.0);
+        eval(&x_to_the_4, &[2.0], 16.0);
+        eval(&x_to_the_4, &[3.0], 81.0);
+        let two_x_squared = two.clone() * x_squared.clone();
+        eval(&two_x_squared, &[0.0], 0.0);
+        eval(&two_x_squared, &[1.0], 2.0);
+        eval(&two_x_squared, &[2.0], 8.0);
+        eval(&two_x_squared, &[3.0], 18.0);
+        let sqrt = from_str("x").pow(from_str("1") - from_str(".5"));
+        eval(&sqrt, &[4.0], 2.0);
+        eval(&sqrt, &[25.0], 5.0);
+        let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
+        eval(&some_expr, &[4.0], 8.0);
+    }
+
+    #[test]
+    fn test_display() {
+        let mut flatex = parse_with_default_ops::<f64>("sin(var)/5").unwrap();
+        assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
+        flatex.clear_deepex();
+        assert_eq!(
+            format!("{}", flatex),
+            "unparse impossible, since deep expression optimized away"
+        );
+    }
+
+    #[test]
+    fn test_unparse() {
+        fn test(text: &str, text_ref: &str) {
+            let flatex = parse_with_default_ops::<f64>(text);
+            let deepex = flatex.unwrap().deepex.unwrap();
+
+            assert_eq!(deepex.unparse(), text_ref);
+            let mut flatex_reparsed = parse_with_default_ops::<f64>(text_ref).unwrap();
+            assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
+            flatex_reparsed.clear_deepex();
+            assert!(flatex_reparsed.unparse().is_err());
+        }
+        let text = "5+x";
+        let text_ref = "5.0+{x0}";
+        test(text, text_ref);
+        let text = "sin(5+var)^(1/{y})+{var}";
+        let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
+        test(text, text_ref);
+        let text = "-(5+var)^(1/{y})+{var}";
+        let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
+        let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-5+var^(1/{y})))-{var}";
+        let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
+        test(text, text_ref);
+        let text = "cos(sin(-z+var*(1/{y})))+{var}";
+        let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
+        test(text, text_ref);
     }
 }

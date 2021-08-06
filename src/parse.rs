@@ -1,4 +1,7 @@
-use crate::expression::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK, UnaryOpWithReprs, find_overloaded_ops, flatten};
+use crate::expression::{
+    find_overloaded_ops, flatten, BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx,
+    UnaryOpWithReprs, N_NODES_ON_STACK,
+};
 use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
 // use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -608,7 +611,7 @@ where
     match overloaded_ops {
         Err(_) => (),
         Ok(ops) => deepex.set_overloaded_ops(ops),
-    }    
+    }
     Ok(flatten(deepex))
 }
 
@@ -631,55 +634,10 @@ where
 mod tests {
     use crate::{
         parse::{
-            check_preconditions, is_numeric_text, make_default_operators, parsed_tokens_to_deepex,
-            tokenize_and_analyze,
+            check_preconditions, is_numeric_text, make_default_operators, tokenize_and_analyze,
         },
-        parse_with_default_ops, ExParseError,
+        ExParseError,
     };
-
-    #[test]
-    fn test_display() {
-        let mut flatex = parse_with_default_ops::<f64>("sin(var)/5").unwrap();
-        assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
-        flatex.clear_deepex();
-        assert_eq!(
-            format!("{}", flatex),
-            "unparse impossible, since deep expression optimized away"
-        );
-    }
-
-    #[test]
-    fn test_unparse() {
-        fn test(text: &str, text_ref: &str) {
-            let ops = make_default_operators::<f64>();
-            let parsed = tokenize_and_analyze(text, &ops, is_numeric_text).unwrap();
-            let deepex = parsed_tokens_to_deepex(&parsed).unwrap();
-
-            assert_eq!(deepex.unparse(), text_ref);
-            let mut flatex_reparsed = parse_with_default_ops::<f64>(text_ref).unwrap();
-            assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
-            flatex_reparsed.clear_deepex();
-            assert!(flatex_reparsed.unparse().is_err());
-        }
-        let text = "5+x";
-        let text_ref = "5.0+{x0}";
-        test(text, text_ref);
-        let text = "sin(5+var)^(1/{y})+{var}";
-        let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
-        test(text, text_ref);
-        let text = "-(5+var)^(1/{y})+{var}";
-        let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
-        let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-5+var^(1/{y})))-{var}";
-        let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-z+var*(1/{y})))+{var}";
-        let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
-        test(text, text_ref);
-    }
 
     #[test]
     fn test_apply_regexes() {
