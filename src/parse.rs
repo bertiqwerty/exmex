@@ -1,7 +1,4 @@
-use crate::expression::{
-    flatten, BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx, UnaryOpWithReprs,
-    N_NODES_ON_STACK,
-};
+use crate::expression::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx, N_NODES_ON_STACK, UnaryOpWithReprs, find_overloaded_ops, flatten};
 use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
 // use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -547,7 +544,11 @@ where
 {
     let parsed_tokens = tokenize_and_analyze(text, &ops, is_numeric_text)?;
     let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-    deepex.find_overloaded_ops(ops)?;
+    let overloaded_ops = find_overloaded_ops(ops);
+    match overloaded_ops {
+        Err(_) => (),
+        Ok(ops) => deepex.set_overloaded_ops(ops),
+    }
     Ok(flatten(deepex))
 }
 
@@ -603,7 +604,11 @@ where
     let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
     let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric)?;
     let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-    deepex.find_overloaded_ops(ops)?;
+    let overloaded_ops = find_overloaded_ops(ops);
+    match overloaded_ops {
+        Err(_) => (),
+        Ok(ops) => deepex.set_overloaded_ops(ops),
+    }    
     Ok(flatten(deepex))
 }
 
@@ -639,7 +644,7 @@ mod tests {
         flatex.clear_deepex();
         assert_eq!(
             format!("{}", flatex),
-            "[FlatEx display information not available]"
+            "unparse impossible, since deep expression optimized away"
         );
     }
 

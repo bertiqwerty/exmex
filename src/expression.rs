@@ -168,6 +168,22 @@ fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> 
     indices
 }
 
+pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<'a, T>]) -> Result<OverloadedOps<'a, T>, ExParseError> {
+    let find_op = |repr| all_ops.iter().cloned().find(|op| op.repr == repr);
+
+    let make_err = |repr| ExParseError {
+        msg: format!("did not find overloaded operator {}", repr),
+    };
+
+    Ok(OverloadedOps {
+        add: find_op(ADD_REPR).ok_or(make_err(ADD_REPR))?,
+        sub: find_op(SUB_REPR).ok_or(make_err(SUB_REPR))?,
+        mul: find_op(MUL_REPR).ok_or(make_err(MUL_REPR))?,
+        div: find_op(DIV_REPR).ok_or(make_err(DIV_REPR))?,
+        pow: find_op(POW_REPR).ok_or(make_err(POW_REPR))?,
+    })
+}
+
 /// This is the core data type representing a flattened expression and the result of
 /// parsing a string. We use flattened expressions to make efficient evaluation possible.
 /// Simplified, a flat expression consists of a [`SmallVec`](SmallVec) of nodes and a
@@ -338,7 +354,7 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
-struct OverloadedOps<'a, T: Copy> {
+pub struct OverloadedOps<'a, T: Copy> {
     pub add: Operator<'a, T>,
     pub sub: Operator<'a, T>,
     pub mul: Operator<'a, T>,
@@ -435,23 +451,6 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
         self.prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
     }
 
-    pub fn find_overloaded_ops(&mut self, all_ops: &[Operator<'a, T>]) -> Result<(), ExParseError> {
-        let find_op = |repr| all_ops.iter().cloned().find(|op| op.repr == repr);
-
-        let make_err = |repr| ExParseError {
-            msg: format!("did not find overloaded operator {}", repr),
-        };
-
-        self.overloaded_ops = Some(OverloadedOps {
-            add: find_op(ADD_REPR).ok_or(make_err(ADD_REPR))?,
-            sub: find_op(SUB_REPR).ok_or(make_err(SUB_REPR))?,
-            mul: find_op(MUL_REPR).ok_or(make_err(MUL_REPR))?,
-            div: find_op(DIV_REPR).ok_or(make_err(DIV_REPR))?,
-            pow: find_op(POW_REPR).ok_or(make_err(POW_REPR))?,
-        });
-        Ok(())
-    }
-
     pub fn new(
         nodes: Vec<DeepNode<'a, T>>,
         bin_ops: BinOpsWithReprs<'a, T>,
@@ -521,6 +520,11 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
             )
         }
     }
+
+    pub fn set_overloaded_ops(&mut self, overloaded_ops: OverloadedOps<'a, T>) {
+        self.overloaded_ops = Some(overloaded_ops);
+    }
+
     fn operate(self, other: Self, repr: &str) -> Self {
         if self.overloaded_ops.is_none() {
             panic!("overloaded operators not available");
