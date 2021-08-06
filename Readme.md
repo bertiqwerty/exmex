@@ -13,7 +13,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.8.2"
+exmex = "0.8.3"
 ```
 to your `Cargo.toml`.
 

@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.8.2")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.8.3")]
 //! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator.  
 //! ```rust
 //! # use std::error::Error;
@@ -132,8 +132,36 @@
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
-//! For instance `"---1"` will evalute to `-1`.
+//! For instance 
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::eval_str;
+//! assert_eq!(eval_str("---1")?, -1.0);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //! If you want to be on the safe side, we suggest using parentheses.
+//!
+//! ## Display
+//!
+//! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this 
+//! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original 
+//! string. Especially, [`FlatEx`](FlatEx) does not keep track of variable names.
+//!
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::parse_with_default_ops;
+//! let flatex = parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
+//! assert_eq!(format!("{}", flatex), "-(sin({x0}))/cos({x1})");
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //!
 //! ## Unicode
 //! Unicode input strings are currently not supported 😕 but might be added in the

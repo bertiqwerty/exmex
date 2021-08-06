@@ -263,7 +263,22 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
     }
 
     /// Creates an expression string that corresponds to the `FlatEx` instance. This is
-    /// not necessarily the input string. For instance, variable names are forgotten.
+    /// not necessarily the input string. More precisely,
+    /// * variable names are forgotten,
+    /// * variables are put into curly braces, and
+    /// * expressions will be put between parentheses, e.g.,
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::parse_with_default_ops;
+    /// let flatex = parse_with_default_ops::<f64>("--sin(z)")?;
+    /// assert_eq!(format!("{}", flatex), "-(-(sin({x0})))");
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// 
     pub fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex {
             Some(deepex) => Ok(deepex.unparse()),
@@ -280,6 +295,7 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
     }
 }
 
+/// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
 impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.deepex {
