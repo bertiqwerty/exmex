@@ -274,6 +274,7 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
     }
 }
 
+/// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
 impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.deepex {

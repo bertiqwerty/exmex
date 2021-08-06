@@ -132,7 +132,17 @@
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
-//! For instance `"---1"` will evalute to `-1`.
+//! For instance 
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::eval_str;
+//! assert_eq!(eval_str("---1")?, -1.0);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
 //! ## Unicode
