@@ -145,6 +145,24 @@
 //! ```
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
+//! ## Display
+//!
+//! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this 
+//! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original 
+//! string. Especially, [`FlatEx`](FlatEx) does not keep track of variable names.
+//!
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::parse_with_default_ops;
+//! let flatex = parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
+//! assert_eq!(format!("{}", flatex), "-(sin({x0}))/cos({x1})");
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//!
 //! ## Unicode
 //! Unicode input strings are currently not supported 😕 but might be added in the
 //! future 😀.
