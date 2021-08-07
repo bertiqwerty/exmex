@@ -17,7 +17,7 @@
 //! ## Variables
 //! For variables we can use strings that are not in the list of operators as shown in the following expression.
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
-//! regular expression 
+//! regular expression
 //! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
 //! Variables' values are passed as slices to [`eval`](FlatEx::eval).
 //! ```rust
@@ -132,7 +132,7 @@
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
-//! For instance 
+//! For instance
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -147,8 +147,8 @@
 //!
 //! ## Display
 //!
-//! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this 
-//! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original 
+//! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this
+//! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original
 //! string. Especially, [`FlatEx`](FlatEx) does not keep track of variable names.
 //!
 //! ```rust
@@ -168,14 +168,19 @@
 //! future 😀.
 //!
 
+mod definitions;
 mod expression;
 mod operators;
 mod parse;
 mod util;
 
+use std::{fmt::Debug, str::FromStr};
+
+use expression::DeepEx;
 pub use expression::FlatEx;
 
-pub use parse::{parse, parse_with_default_ops, parse_with_number_pattern, ExParseError};
+use num::Float;
+pub use parse::ExParseError;
 
 pub use operators::{make_default_operators, BinOp, Operator};
 
@@ -191,6 +196,80 @@ pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
     Ok(flatex.eval(&[])?)
 }
 
+/// Parses a string and a vector of operators into an expression that can be evaluated.
+///
+/// # Errors
+///
+/// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
+/// returns one.
+pub fn parse<'a, T>(text: &'a str, ops: &[Operator<'a, T>]) -> Result<FlatEx<'a, T>, ExParseError>
+where
+    <T as std::str::FromStr>::Err: Debug,
+    T: Copy + FromStr + Debug,
+{
+    let deepex = DeepEx::from_ops(text, ops)?;
+    Ok(expression::flatten(deepex))
+}
+
+/// Parses a string and a vector of operators and a regex pattern that defines the looks
+/// of a number into an expression that can be evaluated.
+///
+/// # Errors
+///
+/// An [`ExParseError`](ExParseError) is returned, if
+///
+//
+// from apply_regexes
+//
+/// * the argument `number_regex_pattern` cannot be compiled,
+/// * the argument `text` contained a character that did not match any regex (e.g.,
+///   if there is a `Δ` in `text` but no [operator](Operator) with
+///   [`repr`](Operator::repr) equal to `Δ` is given),
+//
+// from check_preconditions
+//
+/// * the to-be-parsed string is empty,
+/// * a number or variable is next to another one, e.g., `2 {x}`,
+/// * wlog a number or variable is on the right of a closing parenthesis, e.g., `)5`,
+/// * a binary operator is next to another binary operator, e.g., `2*/4`,
+/// * wlog a closing parenthesis is next to an opening one, e.g., `)(` or `()`,
+/// * too many closing parentheses at some position, e.g., `(4+6) - 5)*2`,
+/// * the last element is an operator, e.g., `1+`,
+/// * the number of opening and closing parenthesis do not match, e.g., `((4-2)`,
+//
+// from make_expression
+//
+/// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
+/// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
+///
+pub fn parse_with_number_pattern<'a, T>(
+    text: &'a str,
+    ops: &[Operator<'a, T>],
+    number_regex_pattern: &str,
+) -> Result<FlatEx<'a, T>, ExParseError>
+where
+    <T as std::str::FromStr>::Err: Debug,
+    T: Copy + FromStr + Debug,
+{
+    let deepex = DeepEx::from_pattern(text, ops, number_regex_pattern)?;
+    Ok(expression::flatten(deepex))
+}
+
+/// Parses a string into an expression that can be evaluated using default operators.
+///
+/// # Errors
+///
+/// An error is returned in case [`parse`](parse)
+/// returns one.
+pub fn parse_with_default_ops<'a, T>(text: &'a str) -> Result<FlatEx<'a, T>, ExParseError>
+where
+    <T as std::str::FromStr>::Err: Debug,
+    T: Float + FromStr + Debug,
+{
+    let ops = make_default_operators::<T>();
+    Ok(parse(&text, &ops)?)
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -199,8 +278,7 @@ mod tests {
     use crate::{
         eval_str,
         operators::{make_default_operators, BinOp, Operator},
-        parse::parse,
-        parse_with_default_ops,
+        parse, parse_with_default_ops,
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExParseError,
     };
@@ -259,12 +337,10 @@ mod tests {
     }
     #[test]
     fn test_variables() {
-
         let to_be_parsed = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
         let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
-        let reference = |x: f64, y: f64, z: f64| {
-             ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin()
-        };
+        let reference =
+            |x: f64, y: f64, z: f64| ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin();
         assert_float_eq_f64(
             expr.eval(&[1.0, 2.0, 4.0]).unwrap(),
             reference(1.0, 2.0, 4.0),

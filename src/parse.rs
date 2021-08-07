@@ -1,16 +1,10 @@
-use crate::expression::{
-    find_overloaded_ops, flatten, BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, FlatEx,
-    UnaryOpWithReprs, N_NODES_ON_STACK,
-};
-use crate::operators::{make_default_operators, BinOp, Operator, UnaryOp, VecOfUnaryFuncs};
-// use itertools::Itertools;
+use crate::definitions::{N_NODES_ON_STACK};
+use crate::operators::Operator;
 use lazy_static::lazy_static;
-use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
 use std::error::Error;
 use std::fmt::{self, Debug};
-use std::iter::once;
 use std::str::FromStr;
 
 /// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
@@ -27,20 +21,20 @@ impl fmt::Display for ExParseError {
 impl Error for ExParseError {}
 
 #[derive(Debug, PartialEq, Eq)]
-enum Paren {
+pub enum Paren {
     Open,
     Close,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum ParsedToken<'a, T: Copy + FromStr> {
+pub enum ParsedToken<'a, T: Copy + FromStr> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
     Var(String),
 }
 
-fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
+pub fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
     let mut n_dots = 0;
     let n_num_chars = text
         .chars()
@@ -59,7 +53,7 @@ fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
     }
 }
 
-fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
+pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     let maybe_num = re.find(text);
     match maybe_num {
         Some(m) => Some(m.as_str()),
@@ -79,8 +73,8 @@ fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn tokenize_and_analyze<'a, 'b, T: Copy + FromStr + Debug, F: Fn(&'b str) -> Option<&'b str>>(
-    text: &'b str,
+pub fn tokenize_and_analyze<'a, T: Copy + FromStr + Debug, F: Fn(&'a str) -> Option<&'a str>>(
+    text: &'a str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
 ) -> Result<SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>, ExParseError>
@@ -119,7 +113,7 @@ where
             let maybe_op;
             let maybe_num;
             let maybe_name;
-            let text_rest: &str = &text[cur_offset..];
+            let text_rest = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Open)
@@ -161,205 +155,8 @@ where
             res.push(next_parsed_token);
         }
     }
-
+    check_preconditions(&res)?;
     Ok(res)
-}
-
-/// Returns an expression that is created recursively and can be evaluated
-///
-/// # Arguments
-///
-/// * `parsed_tokens` - parsed tokens created with [`apply_regexes`]
-/// * `parsed_vars` - elements of `parsed_tokens` that are variables
-/// * `unary_ops` - unary operators of the expression to be build
-///
-/// # Errors
-///
-/// See [`parse_with_number_pattern`](parse_with_number_pattern)
-///
-fn make_expression<'a, T>(
-    parsed_tokens: &[ParsedToken<'a, T>],
-    parsed_vars: &[&String],
-    unary_ops: UnaryOpWithReprs<'a, T>,
-) -> Result<(DeepEx<'a, T>, usize), ExParseError>
-where
-    T: Copy + FromStr + Debug,
-{
-    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> BinOp<S>
-    where
-        S: Copy + FromStr + Debug,
-    {
-        match bo {
-            Some(bo) => bo,
-            None => panic!("This is probably a bug. Expected binary operator but there was none."),
-        }
-    }
-
-    let find_var_index = |name: &str| {
-        let idx = parsed_vars
-            .iter()
-            .enumerate()
-            .find(|(_, n)| n.as_str() == name);
-        match idx {
-            Some((i, _)) => i,
-            None => {
-                panic!("This is probably a bug. I don't know variable {}", name)
-            }
-        }
-    };
-    // this closure handles the case that a token is a unary operator and accesses the
-    // variable 'tokens' from the outer scope
-    let process_unary = |i: usize, uo, repr| {
-        // gather subsequent unary operators from the beginning
-        let iter_of_uops = once((repr, uo)).chain(
-            (i + 1..parsed_tokens.len())
-                .map(|j| match parsed_tokens[j] {
-                    ParsedToken::Op(op) => (op.repr, op.unary_op),
-                    _ => ("", None),
-                })
-                .take_while(|(_, uo_)| uo_.is_some())
-                .map(|(repr_, uo_)| (repr_, uo_.unwrap())),
-        );
-        let vec_of_uops = iter_of_uops
-            .clone()
-            .map(|(_, uo_)| uo_)
-            .collect::<VecOfUnaryFuncs<_>>();
-        let vec_of_uop_reprs = iter_of_uops
-            .clone()
-            .map(|(repr_, _)| repr_)
-            .collect::<Vec<_>>();
-        let n_uops = vec_of_uops.len();
-        let uop = UnaryOp::from_vec(vec_of_uops);
-        match &parsed_tokens[i + n_uops] {
-            ParsedToken::Paren(p) => match p {
-                Paren::Close => Err(ExParseError {
-                    msg: "closing parenthesis after an operator".to_string(),
-                }),
-                Paren::Open => {
-                    let (expr, i_forward) = make_expression::<T>(
-                        &parsed_tokens[i + n_uops + 1..],
-                        &parsed_vars,
-                        UnaryOpWithReprs {
-                            reprs: vec_of_uop_reprs,
-                            op: uop,
-                        },
-                    )?;
-                    Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
-                }
-            },
-            ParsedToken::Var(name) => {
-                let expr = DeepEx::new(
-                    vec![DeepNode::Var(find_var_index(&name))],
-                    BinOpsWithReprs {
-                        reprs: Vec::new(),
-                        ops: BinOpVec::new(),
-                    },
-                    UnaryOpWithReprs {
-                        reprs: vec_of_uop_reprs,
-                        op: uop,
-                    },
-                )?;
-                Ok((DeepNode::Expr(expr), n_uops + 1))
-            }
-            ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
-            ParsedToken::Op(_) => Err(ExParseError {
-                msg: "a unary operator cannot be followed by a binary operator".to_string(),
-            }),
-        }
-    };
-
-    let mut bin_ops = BinOpVec::new();
-    let mut reprs_bin_ops: Vec<&str> = Vec::new();
-    let mut nodes = Vec::<DeepNode<T>>::new();
-
-    // The main loop checks one token after the next whereby sub-expressions are
-    // handled recursively. Thereby, the token-position-index idx_tkn is increased
-    // according to the length of the sub-expression.
-    let mut idx_tkn: usize = 0;
-    while idx_tkn < parsed_tokens.len() {
-        match &parsed_tokens[idx_tkn] {
-            ParsedToken::Op(op) => match op.unary_op {
-                None => {
-                    bin_ops.push(unpack_binop(op.bin_op));
-                    reprs_bin_ops.push(op.repr);
-                    idx_tkn += 1;
-                }
-                Some(uo) => {
-                    // might the operator be unary?
-                    if idx_tkn == 0 {
-                        // if the first element is an operator it must be unary
-                        let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
-                        nodes.push(node);
-                        idx_tkn += idx_forward;
-                    } else {
-                        // decide type of operator based on predecessor
-                        match &parsed_tokens[idx_tkn - 1] {
-                            ParsedToken::Num(_) | ParsedToken::Var(_) => {
-                                // number or variable as predecessor means binary operator
-                                bin_ops.push(unpack_binop(op.bin_op));
-                                reprs_bin_ops.push(op.repr);
-                                idx_tkn += 1;
-                            }
-                            ParsedToken::Paren(p) => match p {
-                                Paren::Open => {
-                                    let msg = "This is probably a bug. An opening paren cannot be the predecessor of a binary operator.";
-                                    panic!("{}", msg);
-                                }
-                                Paren::Close => {
-                                    bin_ops.push(unpack_binop(op.bin_op));
-                                    reprs_bin_ops.push(op.repr);
-                                    idx_tkn += 1;
-                                }
-                            },
-                            ParsedToken::Op(_) => {
-                                let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
-                                nodes.push(node);
-                                idx_tkn += idx_forward;
-                            }
-                        }
-                    }
-                }
-            },
-            ParsedToken::Num(n) => {
-                nodes.push(DeepNode::Num(*n));
-                idx_tkn += 1;
-            }
-            ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var(find_var_index(&name)));
-                idx_tkn += 1;
-            }
-            ParsedToken::Paren(p) => match p {
-                Paren::Open => {
-                    idx_tkn += 1;
-                    let (expr, i_forward) = make_expression::<T>(
-                        &parsed_tokens[idx_tkn..],
-                        &parsed_vars,
-                        UnaryOpWithReprs {
-                            reprs: Vec::new(),
-                            op: UnaryOp::new(),
-                        },
-                    )?;
-                    nodes.push(DeepNode::Expr(expr));
-                    idx_tkn += i_forward;
-                }
-                Paren::Close => {
-                    idx_tkn += 1;
-                    break;
-                }
-            },
-        }
-    }
-    Ok((
-        DeepEx::new(
-            nodes,
-            BinOpsWithReprs {
-                reprs: reprs_bin_ops,
-                ops: bin_ops,
-            },
-            unary_ops,
-        )?,
-        idx_tkn,
-    ))
 }
 
 /// Tries to give useful error messages for invalid constellations of the parsed tokens
@@ -372,7 +169,7 @@ where
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
+pub fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
     T: Copy + FromStr + std::fmt::Debug,
 {
@@ -502,140 +299,11 @@ where
     }
 }
 
-fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
-    parsed_tokens: &SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>,
-) -> Result<DeepEx<'a, T>, ExParseError> {
-    let mut found_vars = SmallVec::<[&str; 16]>::new();
-    let parsed_vars = parsed_tokens
-        .iter()
-        .filter_map(|pt| match pt {
-            ParsedToken::Var(name) => {
-                if !found_vars.contains(&name.as_str()) {
-                    found_vars.push(name.as_str());
-                    Some(name)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
-
-    check_preconditions(&parsed_tokens[..])?;
-
-    let (expr, _) = make_expression(
-        &parsed_tokens[0..],
-        &parsed_vars,
-        UnaryOpWithReprs {
-            reprs: vec![],
-            op: UnaryOp::new(),
-        },
-    )?;
-    Ok(expr)
-}
-
-/// Parses a string and a vector of operators into an expression that can be evaluated.
-///
-/// # Errors
-///
-/// An error is returned in case [`parse_with_number_pattern`](parse_with_number_pattern)
-/// returns one.
-pub fn parse<'a, T>(text: &str, ops: &[Operator<'a, T>]) -> Result<FlatEx<'a, T>, ExParseError>
-where
-    <T as std::str::FromStr>::Err: Debug,
-    T: Copy + FromStr + Debug,
-{
-    let parsed_tokens = tokenize_and_analyze(text, &ops, is_numeric_text)?;
-    let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-    let overloaded_ops = find_overloaded_ops(ops);
-    match overloaded_ops {
-        Err(_) => (),
-        Ok(ops) => deepex.set_overloaded_ops(ops),
-    }
-    Ok(flatten(deepex))
-}
-
-/// Parses a string and a vector of operators and a regex pattern that defines the looks
-/// of a number into an expression that can be evaluated.
-///
-/// # Errors
-///
-/// An [`ExParseError`](ExParseError) is returned, if
-///
-//
-// from apply_regexes
-//
-/// * the argument `number_regex_pattern` cannot be compiled,
-/// * the argument `text` contained a character that did not match any regex (e.g.,
-///   if there is a `Δ` in `text` but no [operator](Operator) with
-///   [`repr`](Operator::repr) equal to `Δ` is given),
-//
-// from check_preconditions
-//
-/// * the to-be-parsed string is empty,
-/// * a number or variable is next to another one, e.g., `2 {x}`,
-/// * wlog a number or variable is on the right of a closing parenthesis, e.g., `)5`,
-/// * a binary operator is next to another binary operator, e.g., `2*/4`,
-/// * wlog a closing parenthesis is next to an opening one, e.g., `)(` or `()`,
-/// * too many closing parentheses at some position, e.g., `(4+6) - 5)*2`,
-/// * the last element is an operator, e.g., `1+`,
-/// * the number of opening and closing parenthesis do not match, e.g., `((4-2)`,
-//
-// from make_expression
-//
-/// * in `parsed_tokens` a closing parentheses is directly following an operator, e.g., `+)`, or
-/// * a unary operator is followed directly by a binary operator, e.g., `sin*`.
-///
-pub fn parse_with_number_pattern<'a, 'b, T>(
-    text: &'b str,
-    ops: &[Operator<'a, T>],
-    number_regex_pattern: &str,
-) -> Result<FlatEx<'a, T>, ExParseError>
-where
-    <T as std::str::FromStr>::Err: Debug,
-    T: Copy + FromStr + Debug,
-{
-    let beginning_number_regex_regex = format!("^({})", number_regex_pattern);
-    let re_number = match Regex::new(beginning_number_regex_regex.as_str()) {
-        Ok(regex) => regex,
-        Err(_) => {
-            return Err(ExParseError {
-                msg: "Cannot compile the passed number regex.".to_string(),
-            })
-        }
-    };
-    let is_numeric = |text: &'b str| is_numeric_regex(&re_number, &text);
-    let parsed_tokens = tokenize_and_analyze(text, ops, is_numeric)?;
-    let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-    let overloaded_ops = find_overloaded_ops(ops);
-    match overloaded_ops {
-        Err(_) => (),
-        Ok(ops) => deepex.set_overloaded_ops(ops),
-    }
-    Ok(flatten(deepex))
-}
-
-/// Parses a string into an expression that can be evaluated using default operators.
-///
-/// # Errors
-///
-/// An error is returned in case [`parse`](parse)
-/// returns one.
-pub fn parse_with_default_ops<T>(text: &str) -> Result<FlatEx<T>, ExParseError>
-where
-    <T as std::str::FromStr>::Err: Debug,
-    T: Float + FromStr + Debug,
-{
-    let ops = make_default_operators::<T>();
-    Ok(parse(&text, &ops)?)
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse::{
-            check_preconditions, is_numeric_text, make_default_operators, tokenize_and_analyze,
-        },
+        make_default_operators,
+        parse::{check_preconditions, is_numeric_text, tokenize_and_analyze},
         ExParseError,
     };
 
