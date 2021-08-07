@@ -26,7 +26,6 @@ const ADD_REPR: &str = "+";
 const SUB_REPR: &str = "-";
 const MUL_REPR: &str = "*";
 const DIV_REPR: &str = "/";
-const POW_REPR: &str = "^";
 
 pub type FlatNodeVec<T> = SmallVec<[FlatNode<T>; N_NODES_ON_STACK]>;
 pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
@@ -429,7 +428,6 @@ pub fn find_overloaded_ops<'a, T: Copy>(
         sub: find_op(SUB_REPR).ok_or(make_err(SUB_REPR))?,
         mul: find_op(MUL_REPR).ok_or(make_err(MUL_REPR))?,
         div: find_op(DIV_REPR).ok_or(make_err(DIV_REPR))?,
-        pow: find_op(POW_REPR).ok_or(make_err(POW_REPR))?,
     })
 }
 
@@ -609,7 +607,6 @@ pub struct OverloadedOps<'a, T: Copy> {
     pub sub: Operator<'a, T>,
     pub mul: Operator<'a, T>,
     pub div: Operator<'a, T>,
-    pub pow: Operator<'a, T>,
 }
 impl<'a, T: Copy> OverloadedOps<'a, T> {
     pub fn by_repr(&self, repr: &str) -> Operator<'a, T> {
@@ -618,7 +615,6 @@ impl<'a, T: Copy> OverloadedOps<'a, T> {
             SUB_REPR => self.sub,
             MUL_REPR => self.mul,
             DIV_REPR => self.div,
-            POW_REPR => self.pow,
             _ => panic!("{} is not a repr of an overloaded operator", repr),
         }
     }
@@ -987,20 +983,12 @@ fn test_operator_overloading() {
     let two = one.clone() + one.clone();
     eval(&two, &[], 2.0);
 
-    let x_squared = from_str("x^2");
-    let x_to_the_4 = x_squared.clone().operate_bin(two.clone(), POW_REPR);
-    eval(&x_to_the_4, &[0.0], 0.0);
-    eval(&x_to_the_4, &[1.0], 1.0);
-    eval(&x_to_the_4, &[2.0], 16.0);
-    eval(&x_to_the_4, &[3.0], 81.0);
+    let x_squared = from_str("x*x");
     let two_x_squared = two.clone() * x_squared.clone();
     eval(&two_x_squared, &[0.0], 0.0);
     eval(&two_x_squared, &[1.0], 2.0);
     eval(&two_x_squared, &[2.0], 8.0);
     eval(&two_x_squared, &[3.0], 18.0);
-    let sqrt = from_str("x").operate_bin(from_str("1") - from_str(".5"), POW_REPR);
-    eval(&sqrt, &[4.0], 2.0);
-    eval(&sqrt, &[25.0], 5.0);
     let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
     eval(&some_expr, &[4.0], 8.0);
 }
