@@ -97,8 +97,8 @@
 //! [`FromStr`](std::str::FromStr). In case the representation of your data type in the
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
 //! suitable regex and use the function
-//! [`parse_with_number_pattern`](parse::parse_with_number_pattern) instead of
-//! [`parse`](parse::parse). Here is an example for `bool`.
+//! [`parse_with_number_pattern`](parse_with_number_pattern) instead of
+//! [`parse`](parse). Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -171,7 +171,7 @@
 mod definitions;
 mod expression;
 mod operators;
-mod parse;
+mod parser;
 mod util;
 
 use std::{fmt::Debug, str::FromStr};
@@ -180,7 +180,7 @@ use expression::DeepEx;
 pub use expression::FlatEx;
 
 use num::Float;
-pub use parse::ExParseError;
+pub use parser::ExParseError;
 
 pub use operators::{make_default_operators, BinOp, Operator};
 

@@ -2,8 +2,8 @@ use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::{
     operators,
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
-    parse,
-    parse::{Paren, ParsedToken},
+    parser,
+    parser::{Paren, ParsedToken},
     ExParseError, Operator,
 };
 use num::Float;
@@ -553,7 +553,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression
     /// that is not necessary for evaluation. This functions removes the deep expression
     /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and
-    /// [`Display`](FlatEx::Display) is will stop working after calling this function.
+    /// `Display` is will stop working after calling this function.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
     }
@@ -785,7 +785,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
     {
-        let parsed_tokens = parse::tokenize_and_analyze(text, &ops, parse::is_numeric_text)?;
+        let parsed_tokens = parser::tokenize_and_analyze(text, &ops, parser::is_numeric_text)?;
         let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
         let overloaded_ops = find_overloaded_ops(ops);
         match overloaded_ops {
@@ -813,8 +813,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 })
             }
         };
-        let is_numeric = |text: &'a str| parse::is_numeric_regex(&re_number, &text);
-        let parsed_tokens = parse::tokenize_and_analyze(text, ops, is_numeric)?;
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, &text);
+        let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
         let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
         let overloaded_ops = find_overloaded_ops(ops);
         match overloaded_ops {
