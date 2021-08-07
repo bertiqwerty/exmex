@@ -776,7 +776,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// Careful, if two expressions have different variables this will not work
     /// as expected since variables are identified by the index of their occurrence
     /// instead of their name.
-    fn operate_bin(self, other: Self, repr: &str) -> Self {
+    pub fn operate_bin(self, other: Self, repr: &str) -> Self {
         if self.overloaded_ops.is_none() {
             panic!("overloaded operators not available");
         }
@@ -796,10 +796,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         resex.overloaded_ops = Some(overloaded_ops.unwrap());
         resex.compile();
         resex
-    }
-
-    pub fn pow(self, exponent: Self) -> Self {
-        self.operate_bin(exponent, POW_REPR)
     }
 
     pub fn from_ops(
@@ -976,11 +972,7 @@ fn test_deep_compile() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        expression::{flatten, DeepEx},
-        parse_with_default_ops,
-        util::assert_float_eq_f64,
-    };
+    use crate::{expression::{DeepEx, POW_REPR, flatten}, parse_with_default_ops, util::assert_float_eq_f64};
 
     #[test]
     fn test_operator_overloading() {
@@ -996,7 +988,7 @@ mod tests {
         eval(&two, &[], 2.0);
 
         let x_squared = from_str("x^2");
-        let x_to_the_4 = x_squared.clone().pow(two.clone());
+        let x_to_the_4 = x_squared.clone().operate_bin(two.clone(), POW_REPR);
         eval(&x_to_the_4, &[0.0], 0.0);
         eval(&x_to_the_4, &[1.0], 1.0);
         eval(&x_to_the_4, &[2.0], 16.0);
@@ -1006,7 +998,7 @@ mod tests {
         eval(&two_x_squared, &[1.0], 2.0);
         eval(&two_x_squared, &[2.0], 8.0);
         eval(&two_x_squared, &[3.0], 18.0);
-        let sqrt = from_str("x").pow(from_str("1") - from_str(".5"));
+        let sqrt = from_str("x").operate_bin(from_str("1") - from_str(".5"), POW_REPR);
         eval(&sqrt, &[4.0], 2.0);
         eval(&sqrt, &[25.0], 5.0);
         let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
