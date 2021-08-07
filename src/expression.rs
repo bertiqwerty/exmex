@@ -771,31 +771,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         self.overloaded_ops = Some(overloaded_ops);
     }
 
-    /// Careful, if two expressions have different variables this will not work
-    /// as expected since variables are identified by the index of their occurrence
-    /// instead of their name.
-    pub fn operate_bin(self, other: Self, repr: &str) -> Self {
-        if self.overloaded_ops.is_none() {
-            panic!("overloaded operators not available");
-        }
-        let overloaded_ops = self.overloaded_ops.clone();
-        let op = overloaded_ops.clone().unwrap().by_repr(repr);
-
-        let ops = smallvec![op.bin_op.unwrap()];
-        let mut resex = DeepEx::new(
-            vec![DeepNode::Expr(self), DeepNode::Expr(other)],
-            BinOpsWithReprs {
-                reprs: vec![ADD_REPR],
-                ops: ops,
-            },
-            UnaryOpWithReprs::new(),
-        )
-        .unwrap();
-        resex.overloaded_ops = Some(overloaded_ops.unwrap());
-        resex.compile();
-        resex
-    }
-
     pub fn from_str(text: &'a str) -> Result<DeepEx<'a, T>, ExParseError>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -847,6 +822,31 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             Ok(ops) => deepex.set_overloaded_ops(ops),
         }
         Ok(deepex)
+    }
+
+    /// Careful, if two expressions have different variables this will not work
+    /// as expected since variables are identified by the index of their occurrence
+    /// instead of their name.
+    pub fn operate_bin(self, other: Self, repr: &str) -> Self {
+        if self.overloaded_ops.is_none() {
+            panic!("overloaded operators not available");
+        }
+        let overloaded_ops = self.overloaded_ops.clone();
+        let op = overloaded_ops.clone().unwrap().by_repr(repr);
+
+        let ops = smallvec![op.bin_op.unwrap()];
+        let mut resex = DeepEx::new(
+            vec![DeepNode::Expr(self), DeepNode::Expr(other)],
+            BinOpsWithReprs {
+                reprs: vec![ADD_REPR],
+                ops: ops,
+            },
+            UnaryOpWithReprs::new(),
+        )
+        .unwrap();
+        resex.overloaded_ops = Some(overloaded_ops.unwrap());
+        resex.compile();
+        resex
     }
 }
 
