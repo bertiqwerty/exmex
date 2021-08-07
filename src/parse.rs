@@ -1,4 +1,4 @@
-use crate::definitions::{N_NODES_ON_STACK};
+use crate::definitions::N_NODES_ON_STACK;
 use crate::operators::Operator;
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -298,67 +298,59 @@ where
         Ok(0)
     }
 }
-
 #[cfg(test)]
-mod tests {
-    use crate::{
-        make_default_operators,
-        parse::{check_preconditions, is_numeric_text, tokenize_and_analyze},
-        ExParseError,
-    };
+use crate::operators;
+#[test]
+fn test_apply_regexes() {
+    let text = r"5\6";
+    let ops = operators::make_default_operators::<f32>();
+    let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+    assert!(elts.is_err());
+}
 
-    #[test]
-    fn test_apply_regexes() {
-        let text = r"5\6";
-        let ops = make_default_operators::<f32>();
-        let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-        assert!(elts.is_err());
-    }
-
-    #[test]
-    fn test_preconditions() {
-        fn test(text: &str, msg_part: &str) {
-            fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
-                match err {
-                    Ok(_) => assert!(false),
-                    Err(e) => {
-                        println!("{}", e.msg);
-                        assert!(e.msg.contains(msg_part));
-                    }
+#[test]
+fn test_preconditions() {
+    fn test(text: &str, msg_part: &str) {
+        fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
+            match err {
+                Ok(_) => assert!(false),
+                Err(e) => {
+                    println!("{}", e.msg);
+                    assert!(e.msg.contains(msg_part));
                 }
-            }
-            let ops = make_default_operators::<f32>();
-            let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-            match elts {
-                Ok(elts_unwr) => {
-                    let err = check_preconditions(&elts_unwr[..]);
-                    check_err_msg(err, msg_part);
-                }
-                Err(_) => check_err_msg(elts, msg_part),
             }
         }
-        test("", "empty string");
-        test("++", "the last element cannot be an operator");
-        test(
-            "a12 (",
-            "wlog a number/variable cannot be on the right of a closing paren",
-        );
-        test("++)", "closing parentheses until");
-        test(")12-(1+1) / (", "closing parentheses until position");
-        test("12-()+(", "wlog an opening paren");
-        test("12-() ())", "wlog an opening paren");
-        test("12-(3-4)*2+ (1/2))", "closing parentheses until");
-        test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
-        test(r"5\6", r"how to parse the beginning of \");
-        test(r"3 * log2 * 5", r"binary operator cannot be next");
-        test(r"3.4.", r"how to parse the beginning of 3.4.");
-        test(
-            r"3. .4",
-            r"a number/variable cannot be next to a number/variable",
-        );
-        test(
-            r"2sin({x})",
-            r"number/variable cannot be on the left of a unary",
-        );
+        let ops = operators::make_default_operators::<f32>();
+        let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+        match elts {
+            Ok(elts_unwr) => {
+                let err = check_preconditions(&elts_unwr[..]);
+                check_err_msg(err, msg_part);
+            }
+            Err(_) => check_err_msg(elts, msg_part),
+        }
     }
+    test("", "empty string");
+    test("++", "the last element cannot be an operator");
+    test(
+        "a12 (",
+        "wlog a number/variable cannot be on the right of a closing paren",
+    );
+    test("++)", "closing parentheses until");
+    test(")12-(1+1) / (", "closing parentheses until position");
+    test("12-()+(", "wlog an opening paren");
+    test("12-() ())", "wlog an opening paren");
+    test("12-(3-4)*2+ (1/2))", "closing parentheses until");
+    test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
+    test(r"5\6", r"how to parse the beginning of \");
+    test(r"3 * log2 * 5", r"binary operator cannot be next");
+    test(r"3.4.", r"how to parse the beginning of 3.4.");
+    test(
+        r"3. .4",
+        r"a number/variable cannot be next to a number/variable",
+    );
+    test(
+        r"2sin({x})",
+        r"number/variable cannot be on the left of a unary",
+    );
 }

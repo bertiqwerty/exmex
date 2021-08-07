@@ -266,8 +266,7 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Float + FromStr + Debug,
 {
-    let ops = make_default_operators::<T>();
-    Ok(parse(&text, &ops)?)
+    Ok(expression::flatten(DeepEx::from_str(text)?))
 }
 
 #[cfg(test)]

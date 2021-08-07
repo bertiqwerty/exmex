@@ -1,10 +1,12 @@
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::{
+    operators,
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
     parse,
     parse::{Paren, ParsedToken},
     ExParseError, Operator,
 };
+use num::Float;
 use regex::Regex;
 use smallvec::{smallvec, SmallVec};
 use std::{
@@ -798,6 +800,15 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         resex
     }
 
+    pub fn from_str(text: &'a str) -> Result<DeepEx<'a, T>, ExParseError>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Float + FromStr,
+    {
+        let ops = operators::make_default_operators::<T>();
+        Ok(DeepEx::from_ops(&text, &ops)?)
+    }
+
     pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -963,85 +974,75 @@ fn test_deep_compile() {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::{
-        expression::{flatten, DeepEx, POW_REPR},
-        parse_with_default_ops,
-        util::assert_float_eq_f64,
-    };
-
-    #[test]
-    fn test_operator_overloading() {
-        fn from_str<'a>(s: &'a str) -> DeepEx<'a, f64> {
-            parse_with_default_ops::<f64>(s).unwrap().deepex.unwrap()
-        }
-        fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
-            assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
-        }
-
-        let one = from_str("1");
-        let two = one.clone() + one.clone();
-        eval(&two, &[], 2.0);
-
-        let x_squared = from_str("x^2");
-        let x_to_the_4 = x_squared.clone().operate_bin(two.clone(), POW_REPR);
-        eval(&x_to_the_4, &[0.0], 0.0);
-        eval(&x_to_the_4, &[1.0], 1.0);
-        eval(&x_to_the_4, &[2.0], 16.0);
-        eval(&x_to_the_4, &[3.0], 81.0);
-        let two_x_squared = two.clone() * x_squared.clone();
-        eval(&two_x_squared, &[0.0], 0.0);
-        eval(&two_x_squared, &[1.0], 2.0);
-        eval(&two_x_squared, &[2.0], 8.0);
-        eval(&two_x_squared, &[3.0], 18.0);
-        let sqrt = from_str("x").operate_bin(from_str("1") - from_str(".5"), POW_REPR);
-        eval(&sqrt, &[4.0], 2.0);
-        eval(&sqrt, &[25.0], 5.0);
-        let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
-        eval(&some_expr, &[4.0], 8.0);
+#[test]
+fn test_operator_overloading() {
+    fn from_str(text: &str) -> DeepEx<f64> {
+        DeepEx::from_str(text).unwrap()
+    }
+    fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
+        assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
     }
 
-    #[test]
-    fn test_display() {
-        let mut flatex = parse_with_default_ops::<f64>("sin(var)/5").unwrap();
-        assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
-        flatex.clear_deepex();
-        assert_eq!(
-            format!("{}", flatex),
-            "unparse impossible, since deep expression optimized away"
-        );
-    }
+    let one = from_str("1");
+    let two = one.clone() + one.clone();
+    eval(&two, &[], 2.0);
 
-    #[test]
-    fn test_unparse() {
-        fn test(text: &str, text_ref: &str) {
-            let flatex = parse_with_default_ops::<f64>(text);
-            let deepex = flatex.unwrap().deepex.unwrap();
+    let x_squared = from_str("x^2");
+    let x_to_the_4 = x_squared.clone().operate_bin(two.clone(), POW_REPR);
+    eval(&x_to_the_4, &[0.0], 0.0);
+    eval(&x_to_the_4, &[1.0], 1.0);
+    eval(&x_to_the_4, &[2.0], 16.0);
+    eval(&x_to_the_4, &[3.0], 81.0);
+    let two_x_squared = two.clone() * x_squared.clone();
+    eval(&two_x_squared, &[0.0], 0.0);
+    eval(&two_x_squared, &[1.0], 2.0);
+    eval(&two_x_squared, &[2.0], 8.0);
+    eval(&two_x_squared, &[3.0], 18.0);
+    let sqrt = from_str("x").operate_bin(from_str("1") - from_str(".5"), POW_REPR);
+    eval(&sqrt, &[4.0], 2.0);
+    eval(&sqrt, &[25.0], 5.0);
+    let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
+    eval(&some_expr, &[4.0], 8.0);
+}
+#[test]
+fn test_display() {
+    let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
+    assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
+    flatex.clear_deepex();
+    assert_eq!(
+        format!("{}", flatex),
+        "unparse impossible, since deep expression optimized away"
+    );
+}
 
-            assert_eq!(deepex.unparse(), text_ref);
-            let mut flatex_reparsed = parse_with_default_ops::<f64>(text_ref).unwrap();
-            assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
-            flatex_reparsed.clear_deepex();
-            assert!(flatex_reparsed.unparse().is_err());
-        }
-        let text = "5+x";
-        let text_ref = "5.0+{x0}";
-        test(text, text_ref);
-        let text = "sin(5+var)^(1/{y})+{var}";
-        let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
-        test(text, text_ref);
-        let text = "-(5+var)^(1/{y})+{var}";
-        let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
-        let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-5+var^(1/{y})))-{var}";
-        let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
-        test(text, text_ref);
-        let text = "cos(sin(-z+var*(1/{y})))+{var}";
-        let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
-        test(text, text_ref);
+#[test]
+fn test_unparse() {
+    fn test(text: &str, text_ref: &str) {
+        let flatex = flatten(DeepEx::<f64>::from_str(text).unwrap());
+        let deepex = flatex.deepex.unwrap();
+
+        assert_eq!(deepex.unparse(), text_ref);
+        let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
+        assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
+        flatex_reparsed.clear_deepex();
+        assert!(flatex_reparsed.unparse().is_err());
     }
+    let text = "5+x";
+    let text_ref = "5.0+{x0}";
+    test(text, text_ref);
+    let text = "sin(5+var)^(1/{y})+{var}";
+    let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
+    test(text, text_ref);
+    let text = "-(5+var)^(1/{y})+{var}";
+    let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
+    test(text, text_ref);
+    let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
+    let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
+    test(text, text_ref);
+    let text = "cos(sin(-5+var^(1/{y})))-{var}";
+    let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
+    test(text, text_ref);
+    let text = "cos(sin(-z+var*(1/{y})))+{var}";
+    let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
+    test(text, text_ref);
 }
