@@ -173,7 +173,7 @@ where
             },
             ParsedToken::Var(name) => {
                 let expr = DeepEx::new(
-                    vec![DeepNode::Var(find_var_index(&name))],
+                    vec![DeepNode::Var((find_var_index(name), name))],
                     BinOpsWithReprs {
                         reprs: Vec::new(),
                         ops: BinOpVec::new(),
@@ -249,7 +249,7 @@ where
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var(find_var_index(&name)));
+                nodes.push(DeepNode::Var((find_var_index(name), name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {
@@ -299,7 +299,7 @@ fn flatten_vecs<T: Copy + Debug>(
                 let flat_node = FlatNode::from_kind(FlatNodeKind::Num(*num));
                 flat_nodes.push(flat_node);
             }
-            DeepNode::Var(idx) => {
+            DeepNode::Var((idx, _)) => {
                 let flat_node = FlatNode::from_kind(FlatNodeKind::Var(*idx));
                 flat_nodes.push(flat_node);
             }
@@ -578,7 +578,7 @@ pub enum DeepNode<'a, T: Copy + Debug> {
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval`](Expression::eval).
-    Var(usize),
+    Var((usize, &'a str)),
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -723,7 +723,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     pub fn unparse(&self) -> String {
         let mut node_strings = self.nodes.iter().map(|n| match n {
             DeepNode::Num(n) => format!("{:?}", n),
-            DeepNode::Var(idx) => format!("{{x{}}}", idx),
+            DeepNode::Var((idx, _)) => format!("{{x{}}}", idx),
             DeepNode::Expr(e) => {
                 if e.unary_op.op.len() == 0 {
                     format!("({})", e.unparse())
