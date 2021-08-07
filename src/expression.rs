@@ -5,6 +5,7 @@ use crate::{
 use smallvec::{smallvec, SmallVec};
 use std::{
     fmt,
+    fmt::{Debug, Display, Formatter},
     iter::repeat,
     ops::{Add, Div, Mul, Sub},
 };
@@ -27,19 +28,19 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 
 /// A `FlatOp` contains besides a binary operation an optional unary operation that
 /// will be executed after the binary operation in case of its existence.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatOp<T: Copy> {
     unary_op: UnaryOp<T>,
     bin_op: BinOp<T>,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum FlatNodeKind<T: Copy> {
     Num(T),
     Var(usize),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatNode<T: Copy> {
     kind: FlatNodeKind<T>,
     unary_op: UnaryOp<T>,
@@ -54,7 +55,7 @@ impl<T: Copy> FlatNode<T> {
     }
 }
 
-fn flatten_vecs<T: Copy>(
+fn flatten_vecs<T: Copy + Debug>(
     deep_expr: &DeepEx<T>,
     prio_offset: i32,
 ) -> (FlatNodeVec<T>, FlatOpVec<T>) {
@@ -109,7 +110,7 @@ fn flatten_vecs<T: Copy>(
     (flat_nodes, flat_ops)
 }
 
-pub fn flatten<T: Copy>(deepex: DeepEx<T>) -> FlatEx<T> {
+pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
     let (nodes, ops) = flatten_vecs(&deepex, 0);
     let indices = prioritized_indices_flat(&ops, &nodes);
     let mut found_vars = SmallVec::<[usize; 16]>::new();
@@ -154,7 +155,7 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
     indices
 }
 
-fn prioritized_indices<T: Copy>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
+fn prioritized_indices<T: Copy + Debug>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
     let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
         (DeepNode::Num(_), DeepNode::Num(_)) => {
             let prio_inc = 5;
@@ -219,7 +220,7 @@ pub fn find_overloaded_ops<'a, T: Copy>(
 /// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T: Copy> {
+pub struct FlatEx<'a, T: Copy + Debug> {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
@@ -227,7 +228,7 @@ pub struct FlatEx<'a, T: Copy> {
     deepex: Option<DeepEx<'a, T>>,
 }
 
-impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
+impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
@@ -319,8 +320,8 @@ impl<'a, T: Copy + fmt::Debug> FlatEx<'a, T> {
 }
 
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
-impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
         match unparsed {
             Err(e) => write!(f, "{}", e.msg),
@@ -331,8 +332,8 @@ impl<'a, T: Copy + fmt::Debug> fmt::Display for FlatEx<'a, T> {
 
 /// A deep node can be an expression, a number, or
 /// a variable.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
-pub enum DeepNode<'a, T: Copy> {
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub enum DeepNode<'a, T: Copy + Debug> {
     Expr(DeepEx<'a, T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
@@ -340,13 +341,13 @@ pub enum DeepNode<'a, T: Copy> {
     Var(usize),
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
     pub ops: BinOpVec<T>,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
     pub op: UnaryOp<T>,
@@ -360,7 +361,7 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct OverloadedOps<'a, T: Copy> {
     pub add: Operator<'a, T>,
     pub sub: Operator<'a, T>,
@@ -382,8 +383,8 @@ impl<'a, T: Copy> OverloadedOps<'a, T> {
 }
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, fmt::Debug)]
-pub struct DeepEx<'a, T: Copy> {
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct DeepEx<'a, T: Copy + Debug> {
     /// Nodes can be numbers, variables, or other expressions.
     nodes: Vec<DeepNode<'a, T>>,
     /// Binary operators applied to the nodes according to their priority.
@@ -395,7 +396,7 @@ pub struct DeepEx<'a, T: Copy> {
     overloaded_ops: Option<OverloadedOps<'a, T>>,
 }
 
-impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
         // change from exression to number if an expression contains only a number
@@ -532,7 +533,10 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
         self.overloaded_ops = Some(overloaded_ops);
     }
 
-    fn operate(self, other: Self, repr: &str) -> Self {
+    /// Careful, if two expressions have different variables this will not work
+    /// as expected since variables are identified by the index of their occurrence
+    /// instead of their name.
+    fn operate_bin(self, other: Self, repr: &str) -> Self {
         if self.overloaded_ops.is_none() {
             panic!("overloaded operators not available");
         }
@@ -550,48 +554,49 @@ impl<'a, T: Copy + fmt::Debug> DeepEx<'a, T> {
         )
         .unwrap();
         resex.overloaded_ops = Some(overloaded_ops.unwrap());
+        resex.compile();
         resex
     }
 
     pub fn pow(self, exponent: Self) -> Self {
-        self.operate(exponent, POW_REPR)
+        self.operate_bin(exponent, POW_REPR)
     }
 }
 
-impl<'a, T: Copy + fmt::Debug> Add for DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
     type Output = Self;
 
     fn add(self, other: Self) -> Self {
-        self.operate(other, ADD_REPR)
+        self.operate_bin(other, ADD_REPR)
     }
 }
 
-impl<'a, T: Copy + fmt::Debug> Sub for DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> Sub for DeepEx<'a, T> {
     type Output = Self;
 
     fn sub(self, other: Self) -> Self {
-        self.operate(other, SUB_REPR)
+        self.operate_bin(other, SUB_REPR)
     }
 }
 
-impl<'a, T: Copy + fmt::Debug> Mul for DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> Mul for DeepEx<'a, T> {
     type Output = Self;
 
     fn mul(self, other: Self) -> Self {
-        self.operate(other, MUL_REPR)
+        self.operate_bin(other, MUL_REPR)
     }
 }
 
-impl<'a, T: Copy + fmt::Debug> Div for DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> Div for DeepEx<'a, T> {
     type Output = Self;
 
     fn div(self, other: Self) -> Self {
-        self.operate(other, DIV_REPR)
+        self.operate_bin(other, DIV_REPR)
     }
 }
 
-impl<'a, T: Copy + fmt::Debug> fmt::Display for DeepEx<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse())
     }
 }
