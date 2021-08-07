@@ -59,7 +59,7 @@ impl<T: Copy> FlatNode<T> {
     }
 }
 
-pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
+fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
     parsed_tokens: &[ParsedToken<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
@@ -67,9 +67,9 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
         .iter()
         .filter_map(|pt| match pt {
             ParsedToken::Var(name) => {
-                if !found_vars.contains(&name.as_str()) {
-                    found_vars.push(name.as_str());
-                    Some(name)
+                if !found_vars.contains(name) {
+                    found_vars.push(*name);
+                    Some(*name)
                 } else {
                     None
                 }
@@ -103,7 +103,7 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
 ///
 fn make_expression<'a, T>(
     parsed_tokens: &[ParsedToken<'a, T>],
-    parsed_vars: &[&String],
+    parsed_vars: &[&'a str],
     unary_ops: UnaryOpWithReprs<'a, T>,
 ) -> Result<(DeepEx<'a, T>, usize), ExParseError>
 where
@@ -123,7 +123,7 @@ where
         let idx = parsed_vars
             .iter()
             .enumerate()
-            .find(|(_, n)| n.as_str() == name);
+            .find(|(_, n)| **n == name);
         match idx {
             Some((i, _)) => i,
             None => {

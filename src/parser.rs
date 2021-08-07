@@ -31,7 +31,7 @@ pub enum ParsedToken<'a, T: Copy + FromStr> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
-    Var(String),
+    Var(&'a str),
 }
 
 pub fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
@@ -124,7 +124,7 @@ where
             } else if c == '{' {
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
                 cur_offset += n_count + 1;
-                ParsedToken::<T>::Var(text_rest[1..n_count].to_string())
+                ParsedToken::<T>::Var(&text_rest[1..n_count])
             } else if {
                 maybe_num = is_numeric(text_rest);
                 maybe_num.is_some()
@@ -148,7 +148,7 @@ where
                 let var_str = maybe_name.unwrap().as_str();
                 let n_chars = var_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Var(maybe_name.unwrap().as_str().to_string())
+                ParsedToken::<T>::Var(maybe_name.unwrap().as_str())
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
                 return Err(ExParseError { msg: msg });
