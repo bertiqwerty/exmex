@@ -552,8 +552,8 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     }
     /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression
     /// that is not necessary for evaluation. This functions removes the deep expression
-    /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and
-    /// `Display` is will stop working after calling this function.
+    /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and the
+    /// [`Display`](std::fmt::Display) implementation will stop working after calling this function.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
     }
