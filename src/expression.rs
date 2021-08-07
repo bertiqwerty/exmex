@@ -412,9 +412,9 @@ pub fn find_overloaded_ops<'a, T: Copy>(
             Some(op) => Some(Operator {
                 bin_op: op.bin_op,
                 unary_op: op.unary_op,
-                repr: repr
+                repr: repr,
             }),
-            None => None 
+            None => None,
         }
     };
 
@@ -798,10 +798,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         resex
     }
 
-    pub fn from_ops(
-        text: &'a str,
-        ops: &[Operator<'a, T>],
-    ) -> Result<DeepEx<'a, T>, ExParseError>
+    pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -848,7 +845,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
 impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
     type Output = Self;
-
     fn add(self, other: Self) -> Self {
         self.operate_bin(other, ADD_REPR)
     }
@@ -856,7 +852,6 @@ impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
 
 impl<'a, T: Copy + Debug> Sub for DeepEx<'a, T> {
     type Output = Self;
-
     fn sub(self, other: Self) -> Self {
         self.operate_bin(other, SUB_REPR)
     }
@@ -864,7 +859,6 @@ impl<'a, T: Copy + Debug> Sub for DeepEx<'a, T> {
 
 impl<'a, T: Copy + Debug> Mul for DeepEx<'a, T> {
     type Output = Self;
-
     fn mul(self, other: Self) -> Self {
         self.operate_bin(other, MUL_REPR)
     }
@@ -872,7 +866,6 @@ impl<'a, T: Copy + Debug> Mul for DeepEx<'a, T> {
 
 impl<'a, T: Copy + Debug> Div for DeepEx<'a, T> {
     type Output = Self;
-
     fn div(self, other: Self) -> Self {
         self.operate_bin(other, DIV_REPR)
     }
@@ -972,7 +965,11 @@ fn test_deep_compile() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{expression::{DeepEx, POW_REPR, flatten}, parse_with_default_ops, util::assert_float_eq_f64};
+    use crate::{
+        expression::{flatten, DeepEx, POW_REPR},
+        parse_with_default_ops,
+        util::assert_float_eq_f64,
+    };
 
     #[test]
     fn test_operator_overloading() {
