@@ -60,7 +60,7 @@ impl<T: Copy> FlatNode<T> {
 }
 
 pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
-    parsed_tokens: &SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>,
+    parsed_tokens: &[ParsedToken<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     let parsed_vars = parsed_tokens
@@ -93,7 +93,7 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
 ///
 /// # Arguments
 ///
-/// * `parsed_tokens` - parsed tokens created with [`apply_regexes`]
+/// * `parsed_tokens` - parsed tokens created with [`tokenize_and_analyze`](parse::tokenize_and_analyze)
 /// * `parsed_vars` - elements of `parsed_tokens` that are variables
 /// * `unary_ops` - unary operators of the expression to be build
 ///

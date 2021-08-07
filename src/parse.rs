@@ -77,7 +77,7 @@ pub fn tokenize_and_analyze<'a, T: Copy + FromStr + Debug, F: Fn(&'a str) -> Opt
     text: &'a str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
-) -> Result<SmallVec<[ParsedToken<'a, T>; 2 * N_NODES_ON_STACK]>, ExParseError>
+) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -103,7 +103,8 @@ where
         })
     };
 
-    let mut res = SmallVec::<[_; 2 * N_NODES_ON_STACK]>::new();
+    let mut res = Vec::new();
+    res.reserve(2 * N_NODES_ON_STACK);
 
     for (i, c) in text.chars().enumerate() {
         if c == ' ' {
