@@ -338,33 +338,6 @@ fn flatten_vecs<T: Copy + Debug>(
     (flat_nodes, flat_ops)
 }
 
-pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
-    let (nodes, ops) = flatten_vecs(&deepex, 0);
-    let indices = prioritized_indices_flat(&ops, &nodes);
-    let mut found_vars = SmallVec::<[usize; 16]>::new();
-    let n_unique_vars = nodes
-        .iter()
-        .filter_map(|n| match n.kind {
-            FlatNodeKind::Var(idx) => {
-                if !found_vars.contains(&idx) {
-                    found_vars.push(idx);
-                    Some(idx)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .count();
-    FlatEx {
-        nodes: nodes,
-        ops: ops,
-        prio_indices: indices,
-        n_unique_vars: n_unique_vars,
-        deepex: Some(deepex),
-    }
-}
-
 fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
@@ -401,7 +374,7 @@ fn prioritized_indices<T: Copy + Debug>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<
     indices
 }
 
-pub fn find_overloaded_ops<'a, T: Copy>(
+fn find_overloaded_ops<'a, T: Copy>(
     all_ops: &[Operator<T>],
 ) -> Result<OverloadedOps<'a, T>, ExParseError> {
     let find_op = |repr| {
@@ -426,6 +399,35 @@ pub fn find_overloaded_ops<'a, T: Copy>(
         mul: find_op(MUL_REPR).ok_or(make_err(MUL_REPR))?,
         div: find_op(DIV_REPR).ok_or(make_err(DIV_REPR))?,
     })
+}
+
+/// Flattens a deep expression
+/// The result does not contain any recursive structures and is faster to evaluate.
+pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
+    let (nodes, ops) = flatten_vecs(&deepex, 0);
+    let indices = prioritized_indices_flat(&ops, &nodes);
+    let mut found_vars = SmallVec::<[usize; 16]>::new();
+    let n_unique_vars = nodes
+        .iter()
+        .filter_map(|n| match n.kind {
+            FlatNodeKind::Var(idx) => {
+                if !found_vars.contains(&idx) {
+                    found_vars.push(idx);
+                    Some(idx)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .count();
+    FlatEx {
+        nodes: nodes,
+        ops: ops,
+        prio_indices: indices,
+        n_unique_vars: n_unique_vars,
+        deepex: Some(deepex),
+    }
 }
 
 /// This is the core data type representing a flattened expression and the result of
@@ -857,7 +859,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             }
         }
     }
-    
+
     pub fn operate_bin(self, other: Self, repr: &'a str) -> Self {
         if self.overloaded_ops.is_none() {
             panic!("overloaded operators not available");
@@ -873,11 +875,14 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
         let mut self_vars_updated = self;
         let mut other_vars_updated = other;
-        self_vars_updated.reset_vars(&all_var_names); 
+        self_vars_updated.reset_vars(&all_var_names);
         other_vars_updated.reset_vars(&all_var_names);
         let ops = smallvec![op.bin_op.unwrap()];
         let mut resex = DeepEx::new(
-            vec![DeepNode::Expr(self_vars_updated), DeepNode::Expr(other_vars_updated)],
+            vec![
+                DeepNode::Expr(self_vars_updated),
+                DeepNode::Expr(other_vars_updated),
+            ],
             BinOpsWithReprs {
                 reprs: vec![repr],
                 ops: ops,
@@ -1045,16 +1050,15 @@ fn test_operator_overloading() {
     let y_minus_z = from_str("y-z");
     let prod_of_above = x_plus_y_plus_z.clone() * y_minus_z.clone();
     eval(&prod_of_above, &[1.0, 4.0, 8.0], -52.0);
-    let div_of_above = x_plus_y_plus_z.clone() / y_minus_z.clone(); 
+    let div_of_above = x_plus_y_plus_z.clone() / y_minus_z.clone();
     eval(&div_of_above, &[1.0, 4.0, 8.0], -3.25);
-    let sub_of_above = x_plus_y_plus_z.clone() - y_minus_z.clone(); 
+    let sub_of_above = x_plus_y_plus_z.clone() - y_minus_z.clone();
     eval(&sub_of_above, &[1.0, 4.0, 8.0], 17.0);
-    let add_of_above = x_plus_y_plus_z + y_minus_z.clone(); 
+    let add_of_above = x_plus_y_plus_z + y_minus_z.clone();
     eval(&add_of_above, &[1.0, 4.0, 8.0], 9.0);
     let x_plus_cossin_y_plus_z = from_str("x+cos(sin(y+z))");
     let prod_of_above = x_plus_cossin_y_plus_z * y_minus_z;
     eval(&prod_of_above, &[1.0, 4.0, 8.0], -7.4378625090980925);
-
 }
 #[test]
 fn test_display() {
