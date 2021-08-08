@@ -842,21 +842,44 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         Ok(deepex)
     }
 
-    /// Careful, if two expressions have different variables this will not work
-    /// as expected since variables are identified by the index of their occurrence
-    /// instead of their name.
-    pub fn operate_bin(self, other: Self, repr: &str) -> Self {
+    fn reset_vars(&mut self, new_var_names: &[&str]) {
+        for n in &mut self.nodes {
+            match n {
+                DeepNode::Expr(e) => e.reset_vars(new_var_names),
+                DeepNode::Var((i, n)) => {
+                    for (new_idx, new_name) in new_var_names.iter().enumerate() {
+                        if n == new_name {
+                            *i = new_idx;
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+    
+    pub fn operate_bin(self, other: Self, repr: &'a str) -> Self {
         if self.overloaded_ops.is_none() {
             panic!("overloaded operators not available");
         }
         let overloaded_ops = self.overloaded_ops.clone();
         let op = overloaded_ops.clone().unwrap().by_repr(repr);
 
+        let mut all_var_names = self.var_names.clone();
+        for name in other.var_names.clone() {
+            if !all_var_names.contains(&name) {
+                all_var_names.push(name);
+            }
+        }
+        let mut self_vars_updated = self;
+        let mut other_vars_updated = other;
+        self_vars_updated.reset_vars(&all_var_names); 
+        other_vars_updated.reset_vars(&all_var_names);
         let ops = smallvec![op.bin_op.unwrap()];
         let mut resex = DeepEx::new(
-            vec![DeepNode::Expr(self), DeepNode::Expr(other)],
+            vec![DeepNode::Expr(self_vars_updated), DeepNode::Expr(other_vars_updated)],
             BinOpsWithReprs {
-                reprs: vec![ADD_REPR],
+                reprs: vec![repr],
                 ops: ops,
             },
             UnaryOpWithReprs::new(),
@@ -1017,6 +1040,21 @@ fn test_operator_overloading() {
     eval(&two_x_squared, &[3.0], 18.0);
     let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
     eval(&some_expr, &[4.0], 8.0);
+
+    let x_plus_y_plus_z = from_str("x+y+z");
+    let y_minus_z = from_str("y-z");
+    let prod_of_above = x_plus_y_plus_z.clone() * y_minus_z.clone();
+    eval(&prod_of_above, &[1.0, 4.0, 8.0], -52.0);
+    let div_of_above = x_plus_y_plus_z.clone() / y_minus_z.clone(); 
+    eval(&div_of_above, &[1.0, 4.0, 8.0], -3.25);
+    let sub_of_above = x_plus_y_plus_z.clone() - y_minus_z.clone(); 
+    eval(&sub_of_above, &[1.0, 4.0, 8.0], 17.0);
+    let add_of_above = x_plus_y_plus_z + y_minus_z.clone(); 
+    eval(&add_of_above, &[1.0, 4.0, 8.0], 9.0);
+    let x_plus_cossin_y_plus_z = from_str("x+cos(sin(y+z))");
+    let prod_of_above = x_plus_cossin_y_plus_z * y_minus_z;
+    eval(&prod_of_above, &[1.0, 4.0, 8.0], -7.4378625090980925);
+
 }
 #[test]
 fn test_display() {
