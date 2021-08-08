@@ -120,10 +120,7 @@ where
     }
 
     let find_var_index = |name: &str| {
-        let idx = parsed_vars
-            .iter()
-            .enumerate()
-            .find(|(_, n)| **n == name);
+        let idx = parsed_vars.iter().enumerate().find(|(_, n)| **n == name);
         match idx {
             Some((i, _)) => i,
             None => {
@@ -632,6 +629,7 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     unary_op: UnaryOpWithReprs<'a, T>,
     prio_indices: ExprIdxVec,
     overloaded_ops: Option<OverloadedOps<'a, T>>,
+    var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
 
 impl<'a, T: Copy + Debug> DeepEx<'a, T> {
@@ -707,6 +705,25 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 msg: "mismatch between number of nodes and binary operators".to_string(),
             })
         } else {
+            let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
+            for node in &nodes {
+                match node {
+                    DeepNode::Num(_) => (),
+                    DeepNode::Var((_, name)) => {
+                        if !found_vars.contains(name) {
+                            found_vars.push(name);
+                        }
+                    }
+                    DeepNode::Expr(e) => {
+                        for name in &e.var_names {
+                            if !found_vars.contains(name) {
+                                found_vars.push(name);
+                            }
+                        }
+                    }
+                }
+            }
+
             let indices = prioritized_indices(&bin_ops.ops, &nodes);
             let mut expr = DeepEx {
                 nodes: nodes,
@@ -714,6 +731,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 unary_op,
                 prio_indices: indices,
                 overloaded_ops: None,
+                var_names: found_vars,
             };
             expr.compile();
             Ok(expr)
@@ -886,6 +904,14 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
 
 #[cfg(test)]
 use crate::{make_default_operators, parse_with_default_ops, util::assert_float_eq_f64};
+
+#[test]
+fn test_var_names() {
+    let deepex = DeepEx::<f64>::from_str("x+y+{x}+z*(-y)").unwrap();
+    let reference: SmallVec<[&str; N_VARS_ON_STACK]> = smallvec!["x", "y", "z"];
+    assert_eq!(deepex.var_names, reference);
+}
+
 #[test]
 fn test_flat_clear() {
     let mut flatex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
