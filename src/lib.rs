@@ -176,8 +176,8 @@ mod util;
 
 use std::{fmt::Debug, str::FromStr};
 
-use expression::DeepEx;
-pub use expression::FlatEx;
+pub use expression::flat::FlatEx;
+use expression::{deep::DeepEx, flat};
 
 use num::Float;
 pub use parser::ExParseError;
@@ -208,7 +208,7 @@ where
     T: Copy + FromStr + Debug,
 {
     let deepex = DeepEx::from_ops(text, ops)?;
-    Ok(expression::flatten(deepex))
+    Ok(flat::flatten(deepex))
 }
 
 /// Parses a string and a vector of operators and a regex pattern that defines the looks
@@ -252,7 +252,7 @@ where
     T: Copy + FromStr + Debug,
 {
     let deepex = DeepEx::from_pattern(text, ops, number_regex_pattern)?;
-    Ok(expression::flatten(deepex))
+    Ok(flat::flatten(deepex))
 }
 
 /// Parses a string into an expression that can be evaluated using default operators.
@@ -266,7 +266,7 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: Float + FromStr + Debug,
 {
-    Ok(expression::flatten(DeepEx::from_str(text)?))
+    Ok(flat::flatten(DeepEx::from_str(text)?))
 }
 
 #[cfg(test)]
