@@ -860,67 +860,81 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn operate_bin(self, other: Self, repr: &'a str) -> Self {
-        if self.overloaded_ops.is_none() {
-            panic!("overloaded operators not available");
-        }
-        let overloaded_ops = self.overloaded_ops.clone();
-        let op = overloaded_ops.clone().unwrap().by_repr(repr);
-
+    /// Applies a binary operator to self and other
+    pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
+        
         let mut all_var_names = self.var_names.clone();
         for name in other.var_names.clone() {
             if !all_var_names.contains(&name) {
                 all_var_names.push(name);
             }
         }
+        let overloaded_ops = self.overloaded_ops.clone();
         let mut self_vars_updated = self;
         let mut other_vars_updated = other;
         self_vars_updated.reset_vars(&all_var_names);
         other_vars_updated.reset_vars(&all_var_names);
-        let ops = smallvec![op.bin_op.unwrap()];
         let mut resex = DeepEx::new(
             vec![
                 DeepNode::Expr(self_vars_updated),
                 DeepNode::Expr(other_vars_updated),
             ],
-            BinOpsWithReprs {
-                reprs: vec![repr],
-                ops: ops,
-            },
+            bin_op,
             UnaryOpWithReprs::new(),
         )
         .unwrap();
-        resex.overloaded_ops = Some(overloaded_ops.unwrap());
+        resex.overloaded_ops = overloaded_ops;
         resex.compile();
         resex
+    }
+
+    /// Applies one of the binary overloaded operators to self and other.
+    ///
+    /// # Panics
+    ///
+    /// if an overloaded operator has not been defined
+    /// 
+    pub fn operate_overloaded(self, other: Self, repr: &'a str) -> Self {
+        if self.overloaded_ops.is_none() {
+            panic!("overloaded operators not available");
+        }
+        let overloaded_ops = self.overloaded_ops.clone();
+        let op = overloaded_ops.clone().unwrap().by_repr(repr);
+
+        let ops = smallvec![op.bin_op.unwrap()];
+        let bin_op = BinOpsWithReprs {
+            reprs: vec![repr],
+            ops: ops,
+        };
+        self.operate_bin(other, bin_op)
     }
 }
 
 impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
     type Output = Self;
     fn add(self, other: Self) -> Self {
-        self.operate_bin(other, ADD_REPR)
+        self.operate_overloaded(other, ADD_REPR)
     }
 }
 
 impl<'a, T: Copy + Debug> Sub for DeepEx<'a, T> {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
-        self.operate_bin(other, SUB_REPR)
+        self.operate_overloaded(other, SUB_REPR)
     }
 }
 
 impl<'a, T: Copy + Debug> Mul for DeepEx<'a, T> {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
-        self.operate_bin(other, MUL_REPR)
+        self.operate_overloaded(other, MUL_REPR)
     }
 }
 
 impl<'a, T: Copy + Debug> Div for DeepEx<'a, T> {
     type Output = Self;
     fn div(self, other: Self) -> Self {
-        self.operate_bin(other, DIV_REPR)
+        self.operate_overloaded(other, DIV_REPR)
     }
 }
 
