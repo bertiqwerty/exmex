@@ -598,6 +598,14 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
             op: UnaryOp::new(),
         }
     }
+    pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
+        self.op.append_front(&mut other.op);
+        self.reprs = other.reprs
+            .iter()
+            .chain(self.reprs.iter())
+            .map(|f| *f)
+            .collect::<Vec<_>>();
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -888,6 +896,13 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         resex
     }
 
+    /// Applies a unary operator to self
+    pub fn operate_unary(mut self, mut unary_op: UnaryOpWithReprs<'a, T>) -> Self {
+        self.unary_op.append_front(&mut unary_op);
+        self.compile();
+        self
+    }
+    
     /// Applies one of the binary overloaded operators to self and other.
     ///
     /// # Panics
@@ -946,6 +961,19 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
 
 #[cfg(test)]
 use crate::{make_default_operators, parse_with_default_ops, util::assert_float_eq_f64};
+
+#[test]
+fn test_operate_unary() {
+    let deepex = DeepEx::<f64>::from_str("x+y+{x}+z*(-y)").unwrap();
+    let mut funcs = VecOfUnaryFuncs::new();
+    funcs.push(|x: f64| x* 1.23456);
+    let deepex = deepex.operate_unary(UnaryOpWithReprs{
+        reprs: vec!["eagle"],
+        op: UnaryOp::from_vec(funcs),
+    });
+    let flatex = flatten(deepex);
+    assert_float_eq_f64(flatex.eval(&[1.0, 1.75, 2.25]).unwrap(), -0.23148000000000002); 
+}
 
 #[test]
 fn test_var_names() {
