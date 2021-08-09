@@ -79,7 +79,6 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators.
     unary_op: UnaryOpWithReprs<'a, T>,
-    prio_indices: ExprIdxVec,
     overloaded_ops: Option<OverloadedOps<'a, T>>,
     var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
@@ -101,11 +100,11 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             };
         }
         // after changing from expressions to numbers where possible the prios might change
-        self.prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
+        let prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
 
-        let mut num_inds = self.prio_indices.clone();
+        let mut num_inds = prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
-        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
+        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
@@ -144,7 +143,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 _ => (),
             }
         }
-        self.prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
     }
 
     pub fn new(
@@ -176,12 +174,10 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 }
             }
 
-            let indices = deep_details::prioritized_indices(&bin_ops.ops, &nodes);
             let mut expr = DeepEx {
                 nodes: nodes,
                 bin_ops: bin_ops,
                 unary_op,
-                prio_indices: indices,
                 overloaded_ops: None,
                 var_names: found_vars,
             };
