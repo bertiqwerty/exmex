@@ -1,4 +1,4 @@
-use super::deep_details::{parsed_tokens_to_deepex, prioritized_indices};
+use super::deep_details::{self, ADD_REPR, DIV_REPR, MUL_REPR, OverloadedOps, SUB_REPR, find_overloaded_ops};
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::{
     operators,
@@ -21,38 +21,6 @@ pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
-const ADD_REPR: &str = "+";
-const SUB_REPR: &str = "-";
-const MUL_REPR: &str = "*";
-const DIV_REPR: &str = "/";
-
-fn find_overloaded_ops<'a, T: Copy>(
-    all_ops: &[Operator<T>],
-) -> Result<OverloadedOps<'a, T>, ExParseError> {
-    let find_op = |repr| {
-        let found = all_ops.iter().cloned().find(|op| op.repr == repr);
-        match found {
-            Some(op) => Some(Operator {
-                bin_op: op.bin_op,
-                unary_op: op.unary_op,
-                repr: repr,
-            }),
-            None => None,
-        }
-    };
-
-    let make_err = |repr| ExParseError {
-        msg: format!("did not find overloaded operator {}", repr),
-    };
-
-    Ok(OverloadedOps {
-        add: find_op(ADD_REPR).ok_or(make_err(ADD_REPR))?,
-        sub: find_op(SUB_REPR).ok_or(make_err(SUB_REPR))?,
-        mul: find_op(MUL_REPR).ok_or(make_err(MUL_REPR))?,
-        div: find_op(DIV_REPR).ok_or(make_err(DIV_REPR))?,
-    })
-}
-
 /// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -69,7 +37,14 @@ pub struct BinOpsWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
     pub ops: BinOpVec<T>,
 }
-
+impl<'a, T: Copy> BinOpsWithReprs<'a, T> {
+    pub fn new() -> BinOpsWithReprs<'a, T> {
+        BinOpsWithReprs {
+            reprs: vec![],
+            ops: BinOpVec::new(),
+        }
+    }
+}
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprs<'a, T: Copy> {
     pub reprs: Vec<&'a str>,
@@ -93,24 +68,6 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OverloadedOps<'a, T: Copy> {
-    pub add: Operator<'a, T>,
-    pub sub: Operator<'a, T>,
-    pub mul: Operator<'a, T>,
-    pub div: Operator<'a, T>,
-}
-impl<'a, T: Copy> OverloadedOps<'a, T> {
-    pub fn by_repr(&self, repr: &str) -> Operator<'a, T> {
-        match repr {
-            ADD_REPR => self.add,
-            SUB_REPR => self.sub,
-            MUL_REPR => self.mul,
-            DIV_REPR => self.div,
-            _ => panic!("{} is not a repr of an overloaded operator", repr),
-        }
-    }
-}
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -144,7 +101,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             };
         }
         // after changing from expressions to numbers where possible the prios might change
-        self.prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
+        self.prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
 
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
@@ -187,7 +144,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 _ => (),
             }
         }
-        self.prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
+        self.prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
     }
 
     pub fn new(
@@ -219,7 +176,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 }
             }
 
-            let indices = prioritized_indices(&bin_ops.ops, &nodes);
+            let indices = deep_details::prioritized_indices(&bin_ops.ops, &nodes);
             let mut expr = DeepEx {
                 nodes: nodes,
                 bin_ops: bin_ops,
@@ -280,10 +237,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn set_overloaded_ops(&mut self, overloaded_ops: OverloadedOps<'a, T>) {
-        self.overloaded_ops = Some(overloaded_ops);
-    }
-
     pub fn from_str(text: &'a str) -> Result<DeepEx<'a, T>, ExParseError>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -299,12 +252,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         T: Copy + FromStr + Debug,
     {
         let parsed_tokens = parser::tokenize_and_analyze(text, &ops, parser::is_numeric_text)?;
-        let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-        let overloaded_ops = find_overloaded_ops(ops);
-        match overloaded_ops {
-            Err(_) => (),
-            Ok(ops) => deepex.set_overloaded_ops(ops),
-        }
+        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
+        deepex.set_overloaded_ops(find_overloaded_ops(ops));
         Ok(deepex)
     }
 
@@ -328,13 +277,13 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         };
         let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, &text);
         let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-        let mut deepex = parsed_tokens_to_deepex(&parsed_tokens)?;
-        let overloaded_ops = find_overloaded_ops(ops);
-        match overloaded_ops {
-            Err(_) => (),
-            Ok(ops) => deepex.set_overloaded_ops(ops),
-        }
+        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
+        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
         Ok(deepex)
+    }
+
+    fn set_overloaded_ops(&mut self, ops: Option<OverloadedOps<'a, T>>) {
+        self.overloaded_ops = ops;
     }
 
     fn reset_vars(&mut self, new_var_names: &[&str]) {
@@ -353,12 +302,12 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn bin_ops(&self) -> &BinOpVec<T> {
-        &self.bin_ops.ops
+    pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
+        &self.bin_ops
     }
 
-    pub fn unary_op(&self) -> &UnaryOp<T> {
-        &self.unary_op.op
+    pub fn unary_op(&self) -> &UnaryOpWithReprs<T> {
+        &self.unary_op
     }
 
     pub fn nodes(&self) -> &Vec<DeepNode<'a, T>> {
@@ -456,7 +405,7 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
 }
 
 #[cfg(test)]
-use crate::make_default_operators;
+use crate::operators::make_default_operators;
 
 #[test]
 fn test_var_names() {

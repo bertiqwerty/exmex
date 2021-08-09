@@ -62,10 +62,10 @@ fn flatten_vecs<T: Copy + Debug>(
                 flat_ops.append(&mut sub_ops);
             }
         };
-        if node_idx < deep_expr.bin_ops().len() {
+        if node_idx < deep_expr.bin_ops().ops.len() {
             let prio_adapted_bin_op = BinOp {
-                apply: deep_expr.bin_ops()[node_idx].apply,
-                prio: deep_expr.bin_ops()[node_idx].prio + prio_offset,
+                apply: deep_expr.bin_ops().ops[node_idx].apply,
+                prio: deep_expr.bin_ops().ops[node_idx].prio + prio_offset,
             };
             flat_ops.push(FlatOp {
                 bin_op: prio_adapted_bin_op,
@@ -74,7 +74,7 @@ fn flatten_vecs<T: Copy + Debug>(
         }
     }
 
-    if deep_expr.unary_op().len() > 0 {
+    if deep_expr.unary_op().op.len() > 0 {
         if flat_ops.len() > 0 {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
@@ -84,11 +84,11 @@ fn flatten_vecs<T: Copy + Debug>(
             };
             low_prio_op
                 .unary_op
-                .append_front(&mut deep_expr.unary_op().clone());
+                .append_front(&mut deep_expr.unary_op().op.clone());
         } else {
             flat_nodes[0]
                 .unary_op
-                .append_front(&mut deep_expr.unary_op().clone());
+                .append_front(&mut deep_expr.unary_op().op.clone());
         }
     }
     (flat_nodes, flat_ops)

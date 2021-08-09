@@ -5,13 +5,59 @@ use smallvec::SmallVec;
 use crate::{
     definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
-    parser::{Paren, ParsedToken, ExParseError},
+    parser::{ExParseError, Paren, ParsedToken},
+    Operator,
 };
 
-use super::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs, ExprIdxVec};
+use super::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs};
+
+pub const ADD_REPR: &str = "+";
+pub const SUB_REPR: &str = "-";
+pub const MUL_REPR: &str = "*";
+pub const DIV_REPR: &str = "/";
+
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct OverloadedOps<'a, T: Copy> {
+    pub add: Operator<'a, T>,
+    pub sub: Operator<'a, T>,
+    pub mul: Operator<'a, T>,
+    pub div: Operator<'a, T>,
+}
+impl<'a, T: Copy> OverloadedOps<'a, T> {
+    pub fn by_repr(&self, repr: &str) -> Operator<'a, T> {
+        match repr {
+            ADD_REPR => self.add,
+            SUB_REPR => self.sub,
+            MUL_REPR => self.mul,
+            DIV_REPR => self.div,
+            _ => panic!("{} is not a repr of an overloaded operator", repr),
+        }
+    }
+}
+
+pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<T>]) -> Option<OverloadedOps<'a, T>> {
+    let find_op = |repr| {
+        let found = all_ops.iter().cloned().find(|op| op.repr == repr);
+        match found {
+            Some(op) => Some(Operator {
+                bin_op: op.bin_op,
+                unary_op: op.unary_op,
+                repr: repr,
+            }),
+            None => None,
+        }
+    };
+
+    Some(OverloadedOps {
+        add: find_op(ADD_REPR)?,
+        sub: find_op(SUB_REPR)?,
+        mul: find_op(MUL_REPR)?,
+        div: find_op(DIV_REPR)?,
+    })
+}
 
 pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
-    parsed_tokens: &[ParsedToken<'a, T>],
+    parsed_tokens: &[ParsedToken<'a, T>]
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     let parsed_vars = parsed_tokens
@@ -209,7 +255,7 @@ where
                         UnaryOpWithReprs {
                             reprs: Vec::new(),
                             op: UnaryOp::new(),
-                        },
+                        }
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
@@ -228,13 +274,16 @@ where
                 reprs: reprs_bin_ops,
                 ops: bin_ops,
             },
-            unary_ops,
+            unary_ops
         )?,
         idx_tkn,
     ))
 }
 
-pub fn prioritized_indices<T: Copy + Debug>(bin_ops: &[BinOp<T>], nodes: &[DeepNode<T>]) -> ExprIdxVec {
+pub fn prioritized_indices<T: Copy + Debug>(
+    bin_ops: &[BinOp<T>],
+    nodes: &[DeepNode<T>],
+) -> ExprIdxVec {
     let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
         (DeepNode::Num(_), DeepNode::Num(_)) => {
             let prio_inc = 5;
