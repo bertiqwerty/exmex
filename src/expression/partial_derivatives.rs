@@ -39,7 +39,7 @@ pub struct PartialDerivative<'a, T: Copy + Debug> {
             &'a [Operator<'a, T>],
         ) -> Result<DeepEx<'a, T>, ExParseError>,
     >,
-    unary_op: Option<&'a str>,
+    unary_op: Option<UnaryOpWithReprs<'a, T>>,
 }
 
 fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
@@ -101,12 +101,8 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                     .iter()
                     .find(|pdo| &pdo.repr == repr)
                     .ok_or(make_err(repr))?;
-                let repr_derivative = op.unary_op.ok_or(make_err(repr))?;
-                let unary_func = find_op(repr_derivative, ops)
-                    .ok_or(make_err(repr_derivative))?
-                    .unary_op
-                    .ok_or(make_err(repr_derivative))?;
-                let unary_op = UnaryOpWithReprs::from_tuple((repr_derivative, unary_func));
+                let unary_op = op.unary_op.clone().ok_or(make_err(repr))?;
+
                 DeepEx::new(
                     nodes.clone(),
                     BinOpsWithReprs {
@@ -225,7 +221,7 @@ pub fn partial_deepex<'a, T: Float + Debug + 'a>(
     Ok(res)
 }
 
-pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> [PartialDerivative<'a, T>; 2] {
+pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> [PartialDerivative<'a, T>; 3] {
     [
         PartialDerivative {
             repr: "^",
@@ -260,7 +256,12 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> [PartialDerivative
         PartialDerivative {
             repr: "sin",
             bin_op: None,
-            unary_op: Some("cos"),
+            unary_op: Some(UnaryOpWithReprs::from_tuple(("cos", |a: T| a.cos()))),
+        },
+        PartialDerivative {
+            repr: "cos",
+            bin_op: None,
+            unary_op: Some(UnaryOpWithReprs::from_tuple(("-sin", |a: T| -a.sin()))),
         },
     ]
 }
@@ -326,4 +327,17 @@ fn test_partial_derivative() {
     assert_float_eq_f64(result, 1.0);
     let result = flatten(derivative).eval(&[1.0]).unwrap();
     assert_float_eq_f64(result, 0.5403023058681398);
+
+    let deepex = DeepEx::<f64>::from_str("sin(x) + cos(y)").unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
+    let result = flatten(derivative.clone()).eval(&[0.0]).unwrap();
+    assert_float_eq_f64(result, 1.0);
+    let result = flatten(derivative).eval(&[1.0]).unwrap();
+    assert_float_eq_f64(result, 0.5403023058681398);
+
+    let derivative = partial_deepex(1, deepex.clone(), &ops).unwrap();
+    let result = flatten(derivative.clone()).eval(&[0.0]).unwrap();
+    assert_float_eq_f64(result, 0.0);
+    let result = flatten(derivative).eval(&[1.0]).unwrap();
+    assert_float_eq_f64(result, -0.8414709848078965);
 }
