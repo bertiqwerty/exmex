@@ -2,6 +2,7 @@ use super::deep_details::{
     self, find_overloaded_ops, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
 };
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
+use crate::operators::VecOfUnaryFuncs;
 use crate::{
     operators,
     operators::{BinOp, UnaryOp},
@@ -68,6 +69,14 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
             op: UnaryOp::new(),
         }
     }
+    pub fn from_tuple((repr, func): (&'a str, fn(T)-> T)) -> UnaryOpWithReprs<'a, T> {
+        
+        let funcs: VecOfUnaryFuncs<T> = smallvec![func];
+        UnaryOpWithReprs {
+            reprs: vec![repr],
+            op: UnaryOp::from_vec(funcs),
+        }
+    }
     pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
         self.op.append_front(&mut other.op);
         self.reprs = other
@@ -86,7 +95,7 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     /// Nodes can be numbers, variables, or other expressions.
     nodes: Vec<DeepNode<'a, T>>,
     /// Binary operators applied to the nodes according to their priority.
-    bin_ops: BinOpsWithReprs<'a, T>,
+    pub bin_ops: BinOpsWithReprs<'a, T>,
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators.
     unary_op: UnaryOpWithReprs<'a, T>,

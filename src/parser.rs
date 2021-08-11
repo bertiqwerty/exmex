@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 /// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExParseError {
     pub msg: String,
 }
