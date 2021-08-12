@@ -287,6 +287,18 @@ use {
 };
 
 #[test]
+fn test_partial_combined() {
+    let ops = make_default_operators::<f64>();
+    let deepex = DeepEx::<f64>::from_str("sin(x) + cos(y) ^ 2").unwrap();
+    let derivative = partial_deepex(1, deepex.clone(), &ops).unwrap();
+    let result = flatten(derivative.clone()).eval(&[231.431, 0.0]).unwrap();
+    assert_float_eq_f64(result, 0.0);
+    let result = flatten(derivative).eval(&[-12.0, 1.0]).unwrap();
+    assert_float_eq_f64(result, -1.682941969615793);
+}
+
+
+#[test]
 fn test_partial_derivative_second_var() {
     let ops = make_default_operators::<f64>();
     let deepex = DeepEx::<f64>::from_str("sin(x) + cos(y)").unwrap();
