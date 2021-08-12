@@ -208,7 +208,7 @@ pub fn partial_deepex<'a, T: Float + Debug + 'a>(
     let overloaded_ops = find_overloaded_ops(ops).ok_or(ExParseError {
         msg: "one of overloaded ops not found".to_string(),
     })?;
-    
+
     let inner = partial_derivative_inner(
         var_idx,
         deepex.clone(),
@@ -307,7 +307,6 @@ fn test_partial_derivative_first_var() {
     assert_float_eq_f64(result, 1.0);
     let result = flatten(derivative).eval(&[1.0, 43212.43]).unwrap();
     assert_float_eq_f64(result, 0.5403023058681398);
-    
 }
 
 #[test]
