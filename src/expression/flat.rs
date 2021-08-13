@@ -213,7 +213,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
                 })
             })
             .collect::<SmallVec<[T; 32]>>();
-        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; N_NODES_ON_STACK];
+        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; self.nodes.len()];
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = self.prio_indices[i];
             let mut shift_left = 0usize;
@@ -285,7 +285,8 @@ use crate::{expression::deep::UnaryOpWithReprs, operators::VecOfUnaryFuncs};
 
 #[test]
 fn test_operate_unary() {
-    let deepex = DeepEx::<f64>::from_str("x+y+{x}+z*(-y)").unwrap();
+    let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
+    let deepex = DeepEx::<f64>::from_str(lstr).unwrap();
     let mut funcs = VecOfUnaryFuncs::new();
     funcs.push(|x: f64| x * 1.23456);
     let deepex = deepex.operate_unary(UnaryOpWithReprs {
@@ -295,7 +296,7 @@ fn test_operate_unary() {
     let flatex = flatten(deepex);
     assert_float_eq_f64(
         flatex.eval(&[1.0, 1.75, 2.25]).unwrap(),
-        -0.23148000000000002,
+        -0.23148000000000002 * 8.0,
     );
 }
 
