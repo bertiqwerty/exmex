@@ -117,21 +117,7 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
 pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
     let (nodes, ops) = flatten_vecs(&deepex, 0);
     let indices = prioritized_indices_flat(&ops, &nodes);
-    let mut found_vars = SmallVec::<[usize; 16]>::new();
-    let n_unique_vars = nodes
-        .iter()
-        .filter_map(|n| match n.kind {
-            FlatNodeKind::Var(idx) => {
-                if !found_vars.contains(&idx) {
-                    found_vars.push(idx);
-                    Some(idx)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .count();
+    let n_unique_vars = deepex.n_vars();
     FlatEx {
         nodes: nodes,
         ops: ops,

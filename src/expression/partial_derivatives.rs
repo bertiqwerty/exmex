@@ -13,6 +13,12 @@ use crate::{
     ExParseError,
 };
 
+#[derive(Clone)]
+struct ValueDerivative<'a, T: Copy + Debug> {
+    val: DeepEx<'a, T>,
+    der: DeepEx<'a, T>,
+}
+
 pub fn find_op<'a, T: Copy + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
@@ -33,13 +39,13 @@ pub struct PartialDerivative<'a, T: Copy + Debug> {
     repr: &'a str,
     bin_op: Option<
         fn(
-            i: usize,
-            DeepEx<'a, T>,
-            DeepEx<'a, T>,
+            ValueDerivative<'a, T>,
+            ValueDerivative<'a, T>,
             &'a [Operator<'a, T>],
-        ) -> Result<DeepEx<'a, T>, ExParseError>,
+        ) -> Result<ValueDerivative<'a, T>, ExParseError>,
     >,
-    unary_op: Option<UnaryOpWithReprs<'a, T>>,
+    unary_op:
+        Option<fn(DeepEx<'a, T>, &'a [Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>>,
 }
 
 fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
@@ -74,16 +80,16 @@ fn find_as_unary_op_with_reprs<'a, T: Copy + Debug>(
 
 fn make_op_missing_err(repr: &str) -> ExParseError {
     ExParseError {
-        msg: format!("operator {} needed for partial derivative", repr),
+        msg: format!("operator {} needed for outer partial derivative", repr),
     }
 }
 
 fn partial_derivative_outer<'a, T: Float + Debug>(
     deepex: DeepEx<'a, T>,
     partial_derivative_ops: &[PartialDerivative<'a, T>],
+    overloaded_ops: OverloadedOps<'a, T>,
+    ops: &'a [Operator<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
-    let bin_ops = deepex.bin_ops.clone();
-    let nodes = deepex.nodes().clone();
     let factorexes =
         deepex
             .unary_op()
@@ -96,23 +102,11 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                     .ok_or(make_op_missing_err(repr))?;
                 let unary_op = op.unary_op.clone().ok_or(make_op_missing_err(repr))?;
 
-                DeepEx::new(
-                    nodes.clone(),
-                    BinOpsWithReprs {
-                        ops: bin_ops.ops.clone(),
-                        reprs: bin_ops.reprs.clone(),
-                    },
-                    unary_op,
-                )
+                unary_op(deepex.clone(), ops)
             });
     let resex = factorexes.fold(
-        Ok(DeepEx::from_node(
-            DeepNode::Num(T::from(1.0).unwrap()),
-            deepex.overloaded_ops().clone().ok_or(ExParseError {
-                msg: "need overloaded ops for outer derivatives".to_string(),
-            })?,
-        )),
-        |dp1, dp2| -> Result<DeepEx<T>, ExParseError> { Ok(dp1? * dp2?) },
+        Ok(DeepEx::one(overloaded_ops)),
+        |dp1, dp2| -> Result<DeepEx<T>, ExParseError> { Ok(mul_num(dp1?, dp2?)?) },
     );
     resex
 }
@@ -124,20 +118,15 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
     overloaded_ops: OverloadedOps<'a, T>,
     ops: &'a [Operator<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
-    let mut nodes = deepex.nodes().clone();
     // special case, partial derivative of only 1 node
-    if nodes.len() == 1 {
-        let node = nodes.pop().unwrap();
-        let zero_node = DeepNode::Num(T::from(0.0).unwrap());
-        let one_node = DeepNode::Num(T::from(1.0).unwrap());
-
-        match node {
-            DeepNode::Num(_) => return Ok(DeepEx::from_node(zero_node, overloaded_ops.clone())),
+    if deepex.nodes().len() == 1 {
+        match deepex.nodes()[0].clone() {
+            DeepNode::Num(_) => return Ok(DeepEx::zero(overloaded_ops.clone())),
             DeepNode::Var((var_i, _)) => {
                 return if var_i == var_idx {
-                    Ok(DeepEx::from_node(one_node, overloaded_ops.clone()))
+                    Ok(DeepEx::one(overloaded_ops.clone()))
                 } else {
-                    Ok(DeepEx::from_node(zero_node, overloaded_ops.clone()))
+                    Ok(DeepEx::zero(overloaded_ops.clone()))
                 };
             }
             DeepNode::Expr(mut e) => {
@@ -146,6 +135,29 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
             }
         }
     }
+
+    let prio_indices = deep_details::prioritized_indices(&deepex.bin_ops().ops, deepex.nodes());
+
+    let make_deepex = |node: DeepNode<'a, T>| match node {
+        DeepNode::Expr(mut e) => {
+            e.set_overloaded_ops(Some(overloaded_ops.clone()));
+            e
+        }
+        _ => DeepEx::from_node(node, overloaded_ops.clone()),
+    };
+
+    let mut nodes = deepex
+        .nodes()
+        .iter()
+        .map(|node| -> Result<_, ExParseError> {
+            let deepex_val = make_deepex(node.clone());
+            let deepex_der = partial_deepex(var_idx, deepex_val.clone(), ops)?;
+            Ok(Some(ValueDerivative {
+                val: deepex_val,
+                der: deepex_der,
+            }))
+        })
+        .collect::<Result<Vec<_>, ExParseError>>()?;
 
     let partial_bin_ops_of_deepex =
         deepex
@@ -168,23 +180,23 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
                 ExParseError,
             >>()?;
 
-    let prio_indices = deep_details::prioritized_indices(&deepex.bin_ops().ops, &nodes);
     let mut num_inds = prio_indices.clone();
     let mut used_prio_indices = ExprIdxVec::new();
+
     for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
         let num_idx = num_inds[i];
-        let node_1 = &nodes[num_idx];
-        let node_2 = &nodes[num_idx + 1];
-        let pdo = &partial_bin_ops_of_deepex[bin_op_idx];
-        let pd_deepex = (pdo.bin_op.unwrap())(
-            var_idx,
-            DeepEx::from_node(node_1.clone(), overloaded_ops.clone()),
-            DeepEx::from_node(node_2.clone(), overloaded_ops.clone()),
-            ops,
-        )
-        .unwrap();
+        let node_1 = nodes[num_idx].take();
+        let node_2 = nodes[num_idx + 1].take();
 
-        nodes[num_idx] = DeepNode::Expr(pd_deepex);
+        let pd_deepex = if let (Some(n1), Some(n2)) = (node_1, node_2) {
+            let pdo = &partial_bin_ops_of_deepex[bin_op_idx];
+            (pdo.bin_op.unwrap())(n1, n2, ops)
+        } else {
+            Err(ExParseError {
+                msg: "nodes do not contain values in partial derivative".to_string(),
+            })
+        }?;
+        nodes[num_idx] = Some(pd_deepex);
         nodes.remove(num_idx + 1);
         // reduce indices after removed position
         for num_idx_after in num_inds.iter_mut() {
@@ -194,8 +206,13 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
         }
         used_prio_indices.push(bin_op_idx);
     }
-    let mut res = DeepEx::from_node(nodes[0].clone(), overloaded_ops.clone());
-    res.set_overloaded_ops(deepex.overloaded_ops().clone());
+    let mut res = nodes[0]
+        .take()
+        .ok_or(ExParseError {
+            msg: "node 0 needs to contain valder at the end of partial derviative".to_string(),
+        })?
+        .der;
+    res.set_overloaded_ops(Some(overloaded_ops));
     Ok(res)
 }
 
@@ -216,40 +233,100 @@ pub fn partial_deepex<'a, T: Float + Debug + 'a>(
         overloaded_ops.clone(),
         ops,
     )?;
-    let outer = partial_derivative_outer(deepex, &partial_derivative_ops)?;
-    let mut res = inner * outer;
+    let outer =
+        partial_derivative_outer(deepex, &partial_derivative_ops, overloaded_ops.clone(), ops)?;
+    let mut res = mul_num(inner, outer)?;
+    res.compile();
     res.set_overloaded_ops(Some(overloaded_ops));
     Ok(res)
 }
 
-pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> [PartialDerivative<'a, T>; 4] {
-    [
+
+fn add_num<'a, T: Float + Debug>(
+    summand_1: DeepEx<'a, T>,
+    summand_2: DeepEx<'a, T>,
+) -> Result<DeepEx<'a, T>, ExParseError> {
+    let (summand_1, summand_2) = summand_1.var_names_union(summand_2);
+    Ok(if summand_1.is_zero() {
+        summand_2
+    } else if summand_2.is_zero() {
+        summand_1
+    } else {
+        summand_1 + summand_2
+    })
+}
+
+fn mul_num<'a, T: Float + Debug>(
+    factor_1: DeepEx<'a, T>,
+    factor_2: DeepEx<'a, T>,
+) -> Result<DeepEx<'a, T>, ExParseError> {
+    let zero = DeepEx::zero(factor_1.unpack_and_clone_overloaded_ops()?);
+    let (factor_1, factor_2) = factor_1.var_names_union(factor_2);
+    let zero = zero.var_names_like_other(&factor_1);
+    Ok(if factor_1.is_zero() || factor_2.is_zero() {
+        zero
+    } else if factor_1.is_one() {
+        factor_2
+    } else if factor_2.is_one() {
+        factor_1
+    } else {
+        factor_1 * factor_2
+    })
+}
+
+fn pow_num<'a, T: Float + Debug>(
+    base: DeepEx<'a, T>,
+    exponent: DeepEx<'a, T>,
+    power_op: BinOpsWithReprs<'a, T>,
+) -> Result<DeepEx<'a, T>, ExParseError> {
+    let zero = DeepEx::zero(base.unpack_and_clone_overloaded_ops()?);
+    let one = DeepEx::one(base.unpack_and_clone_overloaded_ops()?);
+    let (base, exponent) = base.var_names_union(exponent);
+    let zero = zero.var_names_like_other(&base);
+    let one = one.var_names_like_other(&base);
+    Ok(if base.is_zero() && exponent.is_zero() {
+        Err(ExParseError {
+            msg: "base and exponent both zero. help. fatal. ah. help.".to_string(),
+        })?
+    } else if base.is_zero() {
+        zero
+    } else if exponent.is_zero() {
+        one
+    } else {
+        base.operate_bin(exponent, power_op)
+    })
+}
+
+pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivative<'a, T>> {
+    vec![
         PartialDerivative {
             repr: "^",
             bin_op: Some(
-                |i: usize,
-                 f: DeepEx<T>,
-                 g: DeepEx<T>,
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
                  ops: &'a [Operator<'a, T>]|
-                 -> Result<DeepEx<T>, ExParseError> {
+                 -> Result<ValueDerivative<T>, ExParseError> {
                     let power_op = find_as_bin_op_with_reprs("^", ops)?;
                     let log_op = find_as_unary_op_with_reprs("log", ops)?;
 
-                    let one = match f.overloaded_ops() {
-                        Some(ovops) => {
-                            DeepEx::from_node(DeepNode::Num(T::from(1.0).unwrap()), ovops.clone())
-                        }
-                        None => Err(ExParseError {
-                            msg: "overloaded operators needed for partial derivatives".to_string(),
-                        })?,
-                    };
+                    let one = DeepEx::one(f.val.unpack_and_clone_overloaded_ops()?);
+                    let val = pow_num(f.val.clone(), g.val.clone(), power_op.clone())?;
 
-                    Ok(f.clone().operate_bin(g.clone() - one, power_op.clone())
-                        * g.clone()
-                        * partial_deepex(i, f.clone(), ops)?
-                        + f.clone().operate_bin(g.clone(), power_op)
-                            * f.operate_unary(log_op)
-                            * partial_deepex(i, g, ops)?)
+                    let der_1 = mul_num(
+                        mul_num(
+                            pow_num(f.val.clone(), g.val.clone() - one, power_op.clone())?,
+                            g.val.clone(),
+                        )?,
+                        f.der.clone(),
+                    )?;
+
+                    let der_2 = mul_num(
+                        mul_num(val.clone(), f.val.operate_unary(log_op))?,
+                        g.der.clone(),
+                    )?;
+
+                    let der = add_num(der_1, der_2)?;
+                    Ok(ValueDerivative { val: val, der: der })
                 },
             ),
             unary_op: None,
@@ -257,25 +334,83 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> [PartialDerivative
         PartialDerivative {
             repr: "+",
             bin_op: Some(
-                |i: usize,
-                 f: DeepEx<T>,
-                 g: DeepEx<T>,
-                 ops: &'a [Operator<'a, T>]|
-                 -> Result<DeepEx<T>, ExParseError> {
-                    Ok(partial_deepex(i, f, ops)? + partial_deepex(i, g, ops)?)
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
+                 _: &'a [Operator<'a, T>]|
+                 -> Result<ValueDerivative<T>, ExParseError> {
+                    Ok(ValueDerivative {
+                        val: add_num(f.val, g.val)?,
+                        der: add_num(f.der, g.der)?,
+                    })
                 },
             ),
-            unary_op: Some(UnaryOpWithReprs::from_tuple(("-sin", |a: T| a))),
+            unary_op: Some(
+                |f: DeepEx<T>, _: &'a [Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    Ok(f.clone())
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "*",
+            bin_op: Some(
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
+                 _: &'a [Operator<'a, T>]|
+                 -> Result<ValueDerivative<T>, ExParseError> {
+                    let val = mul_num(f.val.clone(), g.val.clone())?;
+
+                    let der_1 = mul_num(g.val, f.der)?;
+                    let der_2 = mul_num(g.der, f.val)?;
+                    let der = add_num(der_1, der_2)?;
+                    Ok(ValueDerivative { val: val, der: der })
+                },
+            ),
+            unary_op: None,
         },
         PartialDerivative {
             repr: "sin",
             bin_op: None,
-            unary_op: Some(UnaryOpWithReprs::from_tuple(("cos", |a: T| a.cos()))),
+            unary_op: Some(
+                |f: DeepEx<T>, ops: &'a [Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let unary_op = find_as_unary_op_with_reprs("cos", ops)?;
+                    Ok(f.with_new_unary_op(unary_op))
+                },
+            ),
         },
         PartialDerivative {
             repr: "cos",
             bin_op: None,
-            unary_op: Some(UnaryOpWithReprs::from_tuple(("-sin", |a: T| -a.sin()))),
+            unary_op: Some(
+                |f: DeepEx<T>, ops: &'a [Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let mut unary_op = find_as_unary_op_with_reprs("sin", ops)?;
+                    let mut minus = find_as_unary_op_with_reprs("-", ops)?;
+                    unary_op.append_front(&mut minus);
+                    Ok(f.with_new_unary_op(unary_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "-",
+            bin_op: None,
+            unary_op: Some(
+                |f: DeepEx<'a, T>,
+                 ops: &'a [Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    let minus = find_as_unary_op_with_reprs("-", ops)?;
+                    Ok(f.with_new_unary_op(minus))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "log",
+            bin_op: None,
+            unary_op: Some(
+                |f: DeepEx<'a, T>,
+                 _: &'a [Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    Ok(DeepEx::one(f.unpack_and_clone_overloaded_ops()?) / f)
+                },
+            ),
         },
     ]
 }
@@ -287,6 +422,28 @@ use {
 };
 
 #[test]
+fn test_partial_x2x() {
+    let ops = make_default_operators::<f64>();
+    let deepex = DeepEx::<f64>::from_str("x * 2 * x").unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
+    let result = flatten(derivative.clone()).eval(&[0.0]).unwrap();
+    assert_float_eq_f64(result, 0.0);
+    let result = flatten(derivative).eval(&[1.0]).unwrap();
+    assert_float_eq_f64(result, 4.0);
+}
+
+#[test]
+fn test_partial_cos_squared() {
+    let ops = make_default_operators::<f64>();
+    let deepex = DeepEx::<f64>::from_str("cos(y) ^ 2").unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
+    let result = flatten(derivative.clone()).eval(&[0.0]).unwrap();
+    assert_float_eq_f64(result, 0.0);
+    let result = flatten(derivative).eval(&[1.0]).unwrap();
+    assert_float_eq_f64(result, -0.9092974268256818);
+}
+
+#[test]
 fn test_partial_combined() {
     let ops = make_default_operators::<f64>();
     let deepex = DeepEx::<f64>::from_str("sin(x) + cos(y) ^ 2").unwrap();
@@ -294,9 +451,8 @@ fn test_partial_combined() {
     let result = flatten(derivative.clone()).eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
     let result = flatten(derivative).eval(&[-12.0, 1.0]).unwrap();
-    assert_float_eq_f64(result, -1.682941969615793);
+    assert_float_eq_f64(result, -0.9092974268256818);
 }
-
 
 #[test]
 fn test_partial_derivative_second_var() {
@@ -324,13 +480,20 @@ fn test_partial_derivative_first_var() {
 #[test]
 fn test_partial_outer() {
     let partial_derivative_ops = make_partial_derivative_ops::<f64>();
+    let ops = make_default_operators::<f64>();
+
     let deepex_1 = DeepEx::<f64>::from_str("sin(x)").unwrap();
     let deepex = deepex_1.nodes()[0].clone();
 
     match deepex {
-        DeepNode::Expr(mut e) => {
-            e.set_overloaded_ops(deepex_1.overloaded_ops().clone());
-            let deri = partial_derivative_outer(e, &partial_derivative_ops).unwrap();
+        DeepNode::Expr(e) => {
+            let deri = partial_derivative_outer(
+                e,
+                &partial_derivative_ops,
+                deepex_1.overloaded_ops().clone().unwrap(),
+                &ops,
+            )
+            .unwrap();
             assert_eq!(deri.nodes().len(), 2);
             let flatex = flatten(deri);
             assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 0.5403023058681398);
@@ -342,7 +505,7 @@ fn test_partial_outer() {
 }
 
 #[test]
-fn test_partial_derivative() {
+fn test_partial_derivative_simple() {
     let ops = make_default_operators::<f64>();
 
     let deepex = DeepEx::<f64>::from_str("1").unwrap();
