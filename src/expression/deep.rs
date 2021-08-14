@@ -77,13 +77,7 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
             op: UnaryOp::new(),
         }
     }
-    pub fn from_tuple((repr, func): (&'a str, fn(T) -> T)) -> UnaryOpWithReprs<'a, T> {
-        let funcs: VecOfUnaryFuncs<T> = smallvec![func];
-        UnaryOpWithReprs {
-            reprs: vec![repr],
-            op: UnaryOp::from_vec(funcs),
-        }
-    }
+    
     pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
         self.op.append_front(&mut other.op);
         self.reprs = other

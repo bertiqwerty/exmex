@@ -447,11 +447,16 @@ fn test_partial_cos_squared() {
 fn test_partial_combined() {
     let ops = make_default_operators::<f64>();
     let deepex = DeepEx::<f64>::from_str("sin(x) + cos(y) ^ 2").unwrap();
-    let derivative = partial_deepex(1, deepex.clone(), &ops).unwrap();
-    let result = flatten(derivative.clone()).eval(&[231.431, 0.0]).unwrap();
+    let d_y = partial_deepex(1, deepex.clone(), &ops).unwrap();
+    let result = flatten(d_y.clone()).eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
-    let result = flatten(derivative).eval(&[-12.0, 1.0]).unwrap();
+    let result = flatten(d_y).eval(&[-12.0, 1.0]).unwrap();
     assert_float_eq_f64(result, -0.9092974268256818);
+    let d_x = partial_deepex(0, deepex.clone(), &ops).unwrap();
+    let result = flatten(d_x.clone()).eval(&[231.431, 0.0]).unwrap();
+    assert_float_eq_f64(result, 0.5002954462477305);
+    let result = flatten(d_x).eval(&[-12.0, 1.0]).unwrap();
+    assert_float_eq_f64(result, 0.8438539587324921);
 }
 
 #[test]
@@ -494,7 +499,6 @@ fn test_partial_outer() {
                 &ops,
             )
             .unwrap();
-            assert_eq!(deri.nodes().len(), 2);
             let flatex = flatten(deri);
             assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 0.5403023058681398);
             assert_float_eq_f64(flatex.eval(&[0.0]).unwrap(), 1.0);
