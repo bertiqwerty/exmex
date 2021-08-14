@@ -1,5 +1,5 @@
 #[cfg(test)]
-fn assert_float_eq<T: num::Float + std::fmt::Display>(f1: T, f2: T, tol: T) {
+pub fn assert_float_eq<T: num::Float + std::fmt::Display>(f1: T, f2: T, tol: T) {
     if (f1 - f2).abs() >= tol {
         println!("Floats not almost equal.\nf1: {}\nf2: {}\n", f1, f2);
         assert!(false);

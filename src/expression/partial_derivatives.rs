@@ -1,6 +1,7 @@
 use num::Float;
+use rand::{Rng, SeedableRng, prelude::ThreadRng, thread_rng};
 use smallvec::{smallvec, SmallVec};
-use std::fmt::Debug;
+use std::{env::var, fmt::Debug, ops::Range};
 
 use super::{
     deep::{BinOpsWithReprs, DeepEx, ExprIdxVec},
@@ -10,6 +11,7 @@ use crate::{
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
     expression::deep::{DeepNode, UnaryOpWithReprs},
     operators::{Operator, UnaryOp},
+    util::assert_float_eq,
     ExParseError,
 };
 
@@ -241,7 +243,6 @@ pub fn partial_deepex<'a, T: Float + Debug + 'a>(
     Ok(res)
 }
 
-
 fn add_num<'a, T: Float + Debug>(
     summand_1: DeepEx<'a, T>,
     summand_2: DeepEx<'a, T>,
@@ -420,6 +421,43 @@ use {
     super::flat::flatten,
     crate::{operators::make_default_operators, util::assert_float_eq_f64},
 };
+
+#[test]
+fn test_partial() {
+    let ops = make_default_operators::<f64>();
+    fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
+        let dut = DeepEx::<f64>::from_str(sut).unwrap();
+        let n_vars = dut.n_vars();
+        let step = 1e-5;
+        let mut rng = thread_rng();
+
+        let x0s: Vec<f64> = (0..n_vars)
+            .map(|_| rng.gen_range(range.clone()))
+            .collect();
+        println!("checking derivatives at {:?}", x0s);
+        for var_idx in 0..n_vars {
+            let x1s: Vec<f64> = x0s
+                .iter()
+                .enumerate()
+                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
+                .collect();
+            let flat_dut = flatten(dut.clone());
+            let f0 = flat_dut.eval(&x0s[..]).unwrap();
+            let f1 = flat_dut.eval(&x1s[..]).unwrap();
+            let finite_diff = (f1 - f0) / step;
+            let flat_deri = flatten(partial_deepex(var_idx, dut.clone(), &ops).unwrap())
+                .eval(&x0s)
+                .unwrap();
+            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-3);
+        }
+    }
+
+    test("x^x", &ops, 500.0..1100.0);
+    test("x^y", &ops, -900.0..10230.0);
+    test("x^y", &ops, -1.01..0.02);
+    test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
+    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
+}
 
 #[test]
 fn test_partial_x2x() {
