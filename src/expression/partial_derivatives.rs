@@ -501,9 +501,9 @@ fn test_partial() {
     let d_x = partial_deepex(0, dut, &ops).unwrap();
     let flat = flatten(d_x);
     assert_float_eq_f64(
-        flat.eval(&[7.576238699615246, 14.101147591648584])
+        flat.eval(&[7.5, 3.5])
             .unwrap(),
-            7.576238699615246,
+            539.164392544148,
     );
 
 
