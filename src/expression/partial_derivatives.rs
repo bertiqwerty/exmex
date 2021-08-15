@@ -288,6 +288,24 @@ fn mul_num<'a, T: Float + Debug>(
     })
 }
 
+fn div_num<'a, T: Float + Debug>(
+    numerator: DeepEx<'a, T>,
+    denominator: DeepEx<'a, T>,
+) -> Result<DeepEx<'a, T>, ExParseError> {
+    let zero = DeepEx::zero(numerator.unpack_and_clone_overloaded_ops()?);
+    let (numerator, denominator) = numerator.var_names_union(denominator);
+    let zero = zero.var_names_like_other(&numerator);
+    if numerator.is_zero() && !denominator.is_zero() {
+        Ok(zero)
+    } else if denominator.is_one() {
+        Ok(numerator)
+    } else if denominator.is_zero() {
+        Err(ExParseError{msg: format!("division by zero, {}/{}", numerator, denominator)})
+    } else {
+        Ok(numerator / denominator)
+    }
+}
+
 fn pow_num<'a, T: Float + Debug>(
     base: DeepEx<'a, T>,
     exponent: DeepEx<'a, T>,
@@ -365,6 +383,28 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             ),
         },
         PartialDerivative {
+            repr: "-",
+            bin_op: Some(
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
+                 _: &[Operator<'a, T>]|
+                 -> Result<ValueDerivative<T>, ExParseError> {
+                    Ok(ValueDerivative {
+                        val: sub_num(f.val, g.val)?,
+                        der: sub_num(f.der, g.der)?,
+                    })
+                },
+            ),
+            unary_op: Some(
+                |f: DeepEx<'a, T>,
+                 ops: &[Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    let minus = find_as_unary_op_with_reprs("-", ops)?;
+                    Ok(f.with_new_unary_op(minus))
+                },
+            ),
+        },
+        PartialDerivative {
             repr: "*",
             bin_op: Some(
                 |f: ValueDerivative<T>,
@@ -377,6 +417,22 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let der_2 = mul_num(g.der, f.val)?;
                     let der = add_num(der_1, der_2)?;
                     Ok(ValueDerivative { val: val, der: der })
+                },
+            ),
+            unary_op: None,
+        },
+        PartialDerivative {
+            repr: "/",
+            bin_op: Some(
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
+                 _: &[Operator<'a, T>]|
+                 -> Result<ValueDerivative<T>, ExParseError> {
+                    let val = div_num(f.val.clone(), g.val.clone())?;
+
+                    let numerator = sub_num(mul_num(f.der, g.val.clone())?, mul_num(g.der, f.val)?)?;
+                    let denominator = mul_num(g.val.clone(), g.val)?;                    
+                    Ok(ValueDerivative { val: val, der: div_num(numerator, denominator)? })
                 },
             ),
             unary_op: None,
@@ -404,28 +460,6 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             ),
         },
         PartialDerivative {
-            repr: "-",
-            bin_op: Some(
-                |f: ValueDerivative<T>,
-                 g: ValueDerivative<T>,
-                 _: &[Operator<'a, T>]|
-                 -> Result<ValueDerivative<T>, ExParseError> {
-                    Ok(ValueDerivative {
-                        val: sub_num(f.val, g.val)?,
-                        der: sub_num(f.der, g.der)?,
-                    })
-                },
-            ),
-            unary_op: Some(
-                |f: DeepEx<'a, T>,
-                 ops: &[Operator<'a, T>]|
-                 -> Result<DeepEx<'a, T>, ExParseError> {
-                    let minus = find_as_unary_op_with_reprs("-", ops)?;
-                    Ok(f.with_new_unary_op(minus))
-                },
-            ),
-        },
-        PartialDerivative {
             repr: "log",
             bin_op: None,
             unary_op: Some(
@@ -444,7 +478,7 @@ use {
 };
 
 #[test]
-fn test_partial_str() {
+fn test_partial() {
     let ops = make_default_operators::<f64>();
     let dut = DeepEx::<f64>::from_str("z*sin(x)+cos(y)^(sin(z))").unwrap();
     let d_z = partial_deepex(2, dut.clone(), &ops).unwrap();
@@ -454,6 +488,25 @@ fn test_partial_str() {
             .unwrap(),
         -0.18346624475117082,
     );
+    let dut = DeepEx::<f64>::from_str("sin(x)/x^2").unwrap();
+    let d_x = partial_deepex(0, dut, &ops).unwrap();
+    let flat = flatten(d_x);
+    assert_float_eq_f64(
+        flat.eval(&[-0.18961918881278095])
+            .unwrap(),
+            -27.977974668662565,
+    );
+
+    let dut = DeepEx::<f64>::from_str("x^y").unwrap();
+    let d_x = partial_deepex(0, dut, &ops).unwrap();
+    let flat = flatten(d_x);
+    assert_float_eq_f64(
+        flat.eval(&[7.576238699615246, 14.101147591648584])
+            .unwrap(),
+            7.576238699615246,
+    );
+
+
 }
 
 #[test]

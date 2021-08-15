@@ -633,7 +633,7 @@ fn test_partial_finite() {
     fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
         let dut = DeepEx::<f64>::from_str(sut).unwrap();
         let n_vars = dut.n_vars();
-        let step = 1e-5;
+        let step = 1e-4;
         let mut rng = thread_rng();
 
         let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
@@ -670,14 +670,16 @@ fn test_partial_finite() {
     test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
     test("sin(sin(x+z))", &ops, -10.0..10.0);
     test("x^x", &ops, 500.0..1100.0);
-    test("x^y", &ops, -900.0..10230.0);
-    test("x^y", &ops, -1.01..0.02);
+    test("x^y", &ops, -1.02..1.02);
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
     test("sin(cos(sin(z)))", &ops, -10.0..10.0);
     test("sin(x+z)", &ops, -10.0..10.0);
     test("sin(x-z)", &ops, -10.0..10.0);
     test("y-sin(x-z)", &ops, -10.0..10.0);
-    test("sin(x-z)^2-cos(x)^(y-log(x-(z*5)))", &ops, -10.0..10.0);
+    test("(sin(x)^2)/x/4", &ops, -10.0..10.0);
+    test("1/x", &ops, -10.0..10.0);
+    test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
+
 }
 
 #[test]
