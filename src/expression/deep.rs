@@ -346,23 +346,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         self.overloaded_ops = ops;
     }
 
-    fn reset_vars(&mut self, new_var_names: &[&str]) {
-        for n in &mut self.nodes {
-            match n {
-                DeepNode::Expr(e) => e.reset_vars(new_var_names),
-                DeepNode::Var((i, n)) => {
-                    for (new_idx, new_name) in new_var_names.iter().enumerate() {
-                        if n == new_name {
-                            *i = new_idx;
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-    }
-
-    pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
+        pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
         &self.bin_ops
     }
 
@@ -404,18 +388,33 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     }
 
     pub fn var_names_union(self, other: Self) -> (Self, Self) {
+        fn reset_vars<'a, T : Copy + Debug>(deepex: &mut DeepEx<'a, T>, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
+            for node in &mut deepex.nodes {
+                match node {
+                    DeepNode::Expr(e) => reset_vars(e, new_var_names.clone()),
+                    DeepNode::Var((i, var_name)) => {
+                        for (new_idx, new_name) in new_var_names.iter().enumerate() {
+                            if var_name == new_name {
+                                *i = new_idx;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+            deepex.var_names = new_var_names;
+        }
         let mut all_var_names = self.var_names.clone();
         for name in other.var_names.clone() {
             if !all_var_names.contains(&name) {
                 all_var_names.push(name);
             }
         }
+        all_var_names.sort();
         let mut self_vars_updated = self;
         let mut other_vars_updated = other;
-        self_vars_updated.reset_vars(&all_var_names);
-        other_vars_updated.reset_vars(&all_var_names);
-        self_vars_updated.var_names = all_var_names.clone();
-        other_vars_updated.var_names = all_var_names;
+        reset_vars(&mut self_vars_updated, all_var_names.clone());
+        reset_vars(&mut other_vars_updated, all_var_names);
         (self_vars_updated, other_vars_updated)
     }
 
@@ -513,6 +512,27 @@ use super::flat::flatten;
 #[cfg(test)]
 use crate::{operators::make_default_operators, util::assert_float_eq_f64};
 
+#[test]
+fn test_reset_vars() {
+    let deepex = DeepEx::<f64>::from_str("2*z+x+y * .5").unwrap();
+    let deepex2 = DeepEx::<f64>::from_str("a*c*b").unwrap();
+    let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
+    let all_vars = ["a", "b", "c", "x", "y", "z"];
+    for i in 0..all_vars.len() {
+        assert_eq!(deepex_.var_names()[i], all_vars[i]);
+        assert_eq!(deepex2_.var_names()[i], all_vars[i]);
+    }
+    assert_eq!(deepex.unparse(), deepex_.unparse());
+    assert_eq!(deepex2.unparse(), deepex2_.unparse());
+    let flatex = flatten(deepex);
+    let flatex2 = flatten(deepex2);
+    let flatex_ = flatten(deepex_);
+    let flatex2_ = flatten(deepex2_);
+    assert_float_eq_f64(flatex.eval(&[2.0, 6.0, 1.5]).unwrap(), 8.0);
+    assert_float_eq_f64(flatex2.eval(&[3.0, 5.0, 4.0]).unwrap(), 60.0);
+    assert_float_eq_f64(flatex_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(), 8.0);
+    assert_float_eq_f64(flatex2_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(), 60.0);
+}
 
 #[test]
 fn test_var_name_union() {

@@ -25,15 +25,15 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{make_default_operators, parse};
-//! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
-//! assert!((expr.eval(&[2.5, 3.7])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! let sut = "log(z) + 2* (-z^2 + sin(4*y))";
+//! let expr = parse::<f64>(sut, &make_default_operators::<f64>())?;
+//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
-//! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby only the
-//! first occurence of the variables is relevant. In this example, we have `z=2.5` and `y=3.7`.
+//! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby, the
+//! alphatical order of the variables is relevant. In this example, we have `y=2.5` and `z=3.7`.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
 //! `{456/549*(}`, `{x}`, and confusingly even `{x+y}` are valid variable names as shown in the following.
 //! ```rust
@@ -43,8 +43,8 @@
 //! use exmex::{make_default_operators, parse};
 //! let x = 2.1f64;
 //! let y = 0.1f64;
-//! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
-//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! let sut = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
+//! let expr = parse::<f64>(sut, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -69,8 +69,8 @@
 //!         unary_op: None,
 //!     },
 //! ];
-//! let to_be_parsed = "19 % 5 / 2 / a";
-//! let expr = parse::<i32>(to_be_parsed, &ops)?;
+//! let sut = "19 % 5 / 2 / a";
+//! let expr = parse::<i32>(sut, &ops)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -121,8 +121,8 @@
 //!         unary_op: Some(|a: bool| !a),
 //!     },
 //! ];
-//! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, &ops, "true|false")?;
+//! let sut = "!(true && false) || (!false || (true && false))";
+//! let expr = parse_with_number_pattern::<bool>(sut, &ops, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -149,7 +149,7 @@
 //!
 //! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this
 //! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original
-//! string. Especially, [`FlatEx`](FlatEx) does not keep track of variable names.
+//! string, since curly brackets are added.
 //!
 //! ```rust
 //! # use std::error::Error;
@@ -157,7 +157,7 @@
 //! #
 //! use exmex::parse_with_default_ops;
 //! let flatex = parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
-//! assert_eq!(format!("{}", flatex), "-(sin({x0}))/cos({x1})");
+//! assert_eq!(format!("{}", flatex), "-(sin({z}))/cos({mother_of_names})");
 //! #
 //! #     Ok(())
 //! # }
@@ -318,26 +318,36 @@ mod tests {
     }
     #[test]
     fn test_variables_curly() {
-        let to_be_parsed =
+        let sut =
             "5*{x} + 4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 11.429314405093656);
-        let to_be_parsed = "2*(4*{x} + y^2)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "2*(4*{x} + y^2)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
 
-        let to_be_parsed = "sin({myvwmlf4i58eo;w/-😕+sin(a)r_25})";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "sin({myvwmlf4i58eo;w/-😕+sin(a)r_25})";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 
-        let to_be_parsed = "((sin({myvar_25})))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "((sin({myvar_25})))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
     }
     #[test]
     fn test_variables() {
-        let to_be_parsed = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "sin({x})+(((cos({y})^(sin({z})))*log(cos({y})))*cos({z}))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let reference =
+            |x: f64, y: f64, z: f64| x.sin() + y.cos().powf(z.sin()) * y.cos().ln() * z.cos() ;
+
+        assert_float_eq_f64(
+            expr.eval(&[-0.18961918881278095, -6.383306547710852, 3.1742139703464503]).unwrap(),
+            reference(-0.18961918881278095, -6.383306547710852, 3.1742139703464503),
+        );
+
+        let sut = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         let reference =
             |x: f64, y: f64, z: f64| ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin();
         assert_float_eq_f64(
@@ -345,85 +355,85 @@ mod tests {
             reference(1.0, 2.0, 4.0),
         );
 
-        let to_be_parsed = "0.02*sin(-(3*(2*(5.0 - 1/z))))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "0.02*sin(-(3*(2*(5.0 - 1/z))))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         let reference = |z: f64| 0.02 * (-(3.0 * (2.0 * (5.0 - 1.0 / z)))).sin();
         assert_float_eq_f64(expr.eval(&[4.0]).unwrap(), reference(4.0));
 
-        let to_be_parsed = "y + 1 + 0.5 * x";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
-        assert_float_eq_f64(expr.eval(&[1.0, 3.0]).unwrap(), 3.5);
+        let sut = "y + 1 + 0.5 * x";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        assert_float_eq_f64(expr.eval(&[3.0, 1.0]).unwrap(), 3.5);
 
-        let to_be_parsed = " -(-(1+x))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = " -(-(1+x))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 2.0);
 
-        let to_be_parsed = " sin(cos(-3.14159265358979*x))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = " sin(cos(-3.14159265358979*x))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), -0.841470984807896);
 
-        let to_be_parsed = "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5, 0.2532]).unwrap(), -3.1164569260604176);
 
-        let to_be_parsed = "5*x + 4*y + 3*x";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "5*x + 4*y + 3*x";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 8.0);
 
-        let to_be_parsed = "5*x + 4*y";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "5*x + 4*y";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[0.0, 1.0]).unwrap(), 4.0);
 
-        let to_be_parsed = "5*x + 4*y + x^2";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "5*x + 4*y + x^2";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.5, 3.7]).unwrap(), 33.55);
         assert_float_eq_f64(expr.eval(&[12.0, 9.3]).unwrap(), 241.2);
 
-        let to_be_parsed = "2*(4*x + y^2)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "2*(4*x + y^2)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
 
-        let to_be_parsed = "sin(myvar_25)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "sin(myvar_25)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 
-        let to_be_parsed = "((sin(myvar_25)))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "((sin(myvar_25)))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 
-        let to_be_parsed = "(0 * myvar_25 + cos(x))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "(0 * myvar_25 + cos(x))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(
             expr.eval(&[1.5707963267948966, 3.141592653589793]).unwrap(),
             -1.0,
         );
 
-        let to_be_parsed = "(-x^2)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "(-x^2)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 1.0);
 
-        let to_be_parsed = "log(x) + 2* (-x^2 + sin(4*y))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "log(x) + 2* (-x^2 + sin(4*y))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.5, 3.7]).unwrap(), 14.992794866624788);
 
-        let to_be_parsed = "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(-x^2 + sin(4*sinh(y)))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(-x^2 + sin(4*sinh(y)))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(
             expr.eval(&[2.5, 3.7]).unwrap(),
             -2.5f64.sqrt() / (2.5f64.tanh() * 2.0)
                 + 2.0 / ((3.7f64.sinh() * 4.0).sin() + 2.5 * 2.5).asin(),
         );
 
-        let to_be_parsed = "asin(sin(x)) + acos(cos(x)) + atan(tan(x))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "asin(sin(x)) + acos(cos(x)) + atan(tan(x))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[0.5]).unwrap(), 1.5);
 
-        let to_be_parsed = "sqrt(alpha^ceil(centauri))";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "sqrt(alpha^ceil(centauri))";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.1]).unwrap(), 4.0);
 
-        let to_be_parsed = "trunc(x) + fract(x)";
-        let expr = parse_with_default_ops::<f64>(to_be_parsed).unwrap();
+        let sut = "trunc(x) + fract(x)";
+        let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[23422.52345]).unwrap(), 23422.52345);
     }
 

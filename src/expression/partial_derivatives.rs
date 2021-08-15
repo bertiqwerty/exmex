@@ -425,6 +425,15 @@ use {
     std::ops::Range,
 };
 
+#[test]
+fn test_partial_str() {
+    let ops = make_default_operators::<f64>();
+    let dut = DeepEx::<f64>::from_str("z*sin(x)+cos(y)^(sin(z))").unwrap();
+    let d_z = partial_deepex(2, dut.clone(), &ops).unwrap();
+    let flat = flatten(d_z);
+    assert_float_eq_f64(flat.eval(&[-0.18961918881278095, -6.383306547710852, 3.1742139703464503]).unwrap(), -0.18346624475117082);
+
+} 
 
 #[test]
 fn test_partial_finite() {
@@ -439,7 +448,7 @@ fn test_partial_finite() {
             .map(|_| rng.gen_range(range.clone()))
             .collect();
         println!("test_partial_finite - checking derivatives at {:?} for {}", x0s, sut);
-        for var_idx in 0..n_vars {
+        for (var_idx, var_name) in dut.var_names().iter().enumerate() {
             let x1s: Vec<f64> = x0s
                 .iter()
                 .enumerate()
@@ -450,22 +459,24 @@ fn test_partial_finite() {
             let f1 = flat_dut.eval(&x1s).unwrap();
             let finite_diff = (f1 - f0) / step;
             let deri = partial_deepex(var_idx, dut.clone(), &ops).unwrap();
-            println!("test_partial_finite - d_{} is {} for {}", deri.var_names()[var_idx], deri, sut);
+            println!("test_partial_finite - d_{} is {} for {}", var_name, deri, sut);
 
-            let flat_deri = flatten(deri)
+            let flat_deri = flatten(deri.clone())
                 .eval(&x0s)
                 .unwrap();
-            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-3, sut);
+            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-3, format!("sut {}, d_{} is {}", sut, var_name, deri).as_str());
         }
     }
+    
+    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
     test("sin(sin(x+z))", &ops, -10.0..10.0);
     test("x^x", &ops, 500.0..1100.0);
     test("x^y", &ops, -900.0..10230.0);
     test("x^y", &ops, -1.01..0.02);
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
-    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
     test("sin(cos(sin(z)))", &ops, -10.0..10.0);
     test("sin(x+z)", &ops, -10.0..10.0);
+    
 }
 
 

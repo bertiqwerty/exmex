@@ -144,14 +144,14 @@ pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
 ///
 /// // create an expression by parsing a string
 /// let expr = parse_with_default_ops::<f32>("sin(1+y)*x")?;
-/// assert!((expr.eval(&[2.0, 1.5])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
+/// assert!((expr.eval(&[1.5, 2.0])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument `&[2.0, 1.5]` in the call of [`eval`](FlatEx::eval) specifies the
-/// variable values in the order of their occurrence in the string.
-/// In this example, we want to evaluate the expression for the varibale values `y=2.0` and `x=1.5`.
+/// The second argument `&[1.5, 2.0]` in the call of [`eval`](FlatEx::eval) specifies the
+/// variable values in the alphabetical order of the variable names.
+/// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 /// Variables in the string to-be-parsed are all substrings that are no numbers, no
 /// operators, and no parentheses.
 ///
@@ -232,7 +232,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// #
     /// use exmex::parse_with_default_ops;
     /// let flatex = parse_with_default_ops::<f64>("--sin(z)")?;
-    /// assert_eq!(format!("{}", flatex), "-(-(sin({x0})))");
+    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))");
     /// #
     /// #     Ok(())
     /// # }
@@ -323,7 +323,7 @@ fn test_flat_compile() {
     let flatex = parse_with_default_ops::<f64>("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
         _ => assert!(false),
     }
     match flatex.nodes[1].kind {
@@ -331,7 +331,7 @@ fn test_flat_compile() {
         _ => assert!(false),
     }
     match flatex.nodes[2].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
 }
@@ -375,7 +375,7 @@ fn test_operator_overloading() {
 #[test]
 fn test_display() {
     let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
-    assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
+    assert_eq!(format!("{}", flatex), "sin({var})/5.0");
     flatex.clear_deepex();
     assert_eq!(
         format!("{}", flatex),
