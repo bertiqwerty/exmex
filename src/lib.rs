@@ -145,6 +145,26 @@
 //! ```
 //! If you want to be on the safe side, we suggest using parentheses.
 //!
+//! ## Partial Derivatives
+//!
+//! For default operators, expressions can be transformed into their partial derivatives 
+//! again represented by expressions.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{parse_with_default_ops};
+//!
+//! let expr = parse_with_default_ops::<f64>("x^2 + y^2")?;
+//! let d_x = expr.clone().partial(0)?;
+//! let d_y = expr.partial(1)?;
+//! assert!((d_x.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
+//! assert!((d_y.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//!
 //! ## Display
 //!
 //! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this

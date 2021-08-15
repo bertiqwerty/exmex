@@ -232,16 +232,17 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// #
     /// use exmex::{parse_with_default_ops};
     ///
-    /// // create an expression by parsing a string
     /// let expr = parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
     /// let d_x = expr.clone().partial(0)?;
-    /// let d_y = expr.clone().partial(1)?;
+    /// let d_y = expr.partial(1)?;
+    ///
     /// assert!((d_x.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
-    /// //                   |    |
-    /// //                   x    y
+    /// //                   |    
+    /// //             This partial derivative d_x does depend on x. Still, it expects
+    /// //             the same number of parameters as the corresponding 
+    /// //             antiderivative. Hence, you can pass any number for x.  
+    ///
     /// assert!((d_y.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
-    /// //                   |    |
-    /// //                   x    y
     /// #
     /// #     Ok(())
     /// # }
