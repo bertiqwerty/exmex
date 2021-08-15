@@ -425,6 +425,50 @@ use {
     std::ops::Range,
 };
 
+
+#[test]
+fn test_partial_finite() {
+    let ops = make_default_operators::<f64>();
+    fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
+        let dut = DeepEx::<f64>::from_str(sut).unwrap();
+        let n_vars = dut.n_vars();
+        let step = 1e-5;
+        let mut rng = thread_rng();
+
+        let x0s: Vec<f64> = (0..n_vars)
+            .map(|_| rng.gen_range(range.clone()))
+            .collect();
+        println!("test_partial_finite - checking derivatives at {:?} for {}", x0s, sut);
+        for var_idx in 0..n_vars {
+            let x1s: Vec<f64> = x0s
+                .iter()
+                .enumerate()
+                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
+                .collect();
+            let flat_dut = flatten(dut.clone());
+            let f0 = flat_dut.eval(&x0s[..]).unwrap();
+            let f1 = flat_dut.eval(&x1s[..]).unwrap();
+            let finite_diff = (f1 - f0) / step;
+            let deri = partial_deepex(var_idx, dut.clone(), &ops).unwrap();
+            println!("test_partial_finite - d_{} is {} for {}", deri.var_names()[var_idx], deri, sut);
+
+            let flat_deri = flatten(deri)
+                .eval(&x0s)
+                .unwrap();
+            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-3, sut);
+        }
+    }
+    test("sin(sin(x+z))", &ops, -10.0..10.0);
+    test("x^x", &ops, 500.0..1100.0);
+    test("x^y", &ops, -900.0..10230.0);
+    test("x^y", &ops, -1.01..0.02);
+    test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
+    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
+    test("sin(cos(sin(z)))", &ops, -10.0..10.0);
+    test("sin(x+z)", &ops, -10.0..10.0);
+}
+
+
 #[test]
 fn test_partial_3_vars() {
     fn eval(deepex: DeepEx<f64>, vars: &[f64]) -> f64 {
@@ -441,45 +485,7 @@ fn test_partial_3_vars() {
         assert_float_eq_f64(eval(d_z, vars), ref_vals[2]);
     }
     assert("x+y+z", &[2345.3, 4523.5, 1.2], &[1.0, 1.0, 1.0]);
-    
-
-}
-
-#[test]
-fn test_partial_finite() {
-    let ops = make_default_operators::<f64>();
-    fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
-        let dut = DeepEx::<f64>::from_str(sut).unwrap();
-        let n_vars = dut.n_vars();
-        let step = 1e-5;
-        let mut rng = thread_rng();
-
-        let x0s: Vec<f64> = (0..n_vars)
-            .map(|_| rng.gen_range(range.clone()))
-            .collect();
-        println!("test_partial_finite - checking derivatives at {:?}", x0s);
-        for var_idx in 0..n_vars {
-            let x1s: Vec<f64> = x0s
-                .iter()
-                .enumerate()
-                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
-                .collect();
-            let flat_dut = flatten(dut.clone());
-            let f0 = flat_dut.eval(&x0s[..]).unwrap();
-            let f1 = flat_dut.eval(&x1s[..]).unwrap();
-            let finite_diff = (f1 - f0) / step;
-            let flat_deri = flatten(partial_deepex(var_idx, dut.clone(), &ops).unwrap())
-                .eval(&x0s)
-                .unwrap();
-            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-3);
-        }
-    }
-
-    test("x^x", &ops, 500.0..1100.0);
-    test("x^y", &ops, -900.0..10230.0);
-    test("x^y", &ops, -1.01..0.02);
-    test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
-    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
+    assert("x^2+y^2+z^2", &[2345.3, 4523.5, 1.2], &[2345.3 * 2.0, 4523.5 * 2.0, 2.4]);
 }
 
 #[test]
