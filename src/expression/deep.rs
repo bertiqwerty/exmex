@@ -675,6 +675,7 @@ fn test_partial_finite() {
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
     test("sin(cos(sin(z)))", &ops, -10.0..10.0);
     test("sin(x+z)", &ops, -10.0..10.0);
+    test("sin(x-z)", &ops, -10.0..10.0);
 }
 
 #[test]

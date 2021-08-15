@@ -43,8 +43,7 @@ pub struct PartialDerivative<'a, T: Copy + Debug> {
             &[Operator<'a, T>],
         ) -> Result<ValueDerivative<'a, T>, ExParseError>,
     >,
-    unary_op:
-        Option<fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>>,
+    unary_op: Option<fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>>,
 }
 
 fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
@@ -191,7 +190,9 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
 
         let pd_deepex = if let (Some(n1), Some(n2)) = (node_1, node_2) {
             let pdo = &partial_bin_ops_of_deepex[bin_op_idx];
-            (pdo.bin_op.unwrap())(n1, n2, ops)
+            pdo.bin_op.ok_or(ExParseError {
+                msg: format!("cannot find binary op for {}", pdo.repr),
+            })?(n1, n2, ops)
         } else {
             Err(ExParseError {
                 msg: "nodes do not contain values in partial derivative".to_string(),
@@ -406,9 +407,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             repr: "log",
             bin_op: None,
             unary_op: Some(
-                |f: DeepEx<'a, T>,
-                 _: &[Operator<'a, T>]|
-                 -> Result<DeepEx<'a, T>, ExParseError> {
+                |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
                     Ok(DeepEx::one(f.unpack_and_clone_overloaded_ops()?) / f)
                 },
             ),
@@ -419,7 +418,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 #[cfg(test)]
 use {
     super::flat::flatten,
-    crate::{util::{assert_float_eq_f64}, operators::make_default_operators},
+    crate::{operators::make_default_operators, util::assert_float_eq_f64},
 };
 
 #[test]
@@ -560,13 +559,9 @@ fn test_partial_outer() {
 
         match deepex {
             DeepNode::Expr(e) => {
-                let deri = partial_derivative_outer(
-                    e.clone(),
-                    &partial_derivative_ops,
-                    ovops,
-                    &ops,
-                )
-                .unwrap();
+                let deri =
+                    partial_derivative_outer(e.clone(), &partial_derivative_ops, ovops, &ops)
+                        .unwrap();
                 let flatex = flatten(deri);
                 for i in 0..vals.len() {
                     assert_float_eq_f64(flatex.eval(&[vals[i]]).unwrap(), ref_vals[i]);
