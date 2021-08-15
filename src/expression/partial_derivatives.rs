@@ -258,6 +258,18 @@ fn add_num<'a, T: Float + Debug>(
     })
 }
 
+fn sub_num<'a, T: Float + Debug>(
+    sub_1: DeepEx<'a, T>,
+    sub_2: DeepEx<'a, T>,
+) -> Result<DeepEx<'a, T>, ExParseError> {
+    let (sub_1, sub_2) = sub_1.var_names_union(sub_2);
+    Ok(if sub_2.is_zero() {
+        sub_1
+    } else {
+        sub_1 - sub_2
+    })
+}
+
 fn mul_num<'a, T: Float + Debug>(
     factor_1: DeepEx<'a, T>,
     factor_2: DeepEx<'a, T>,
@@ -393,7 +405,17 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
         },
         PartialDerivative {
             repr: "-",
-            bin_op: None,
+            bin_op: Some(
+                |f: ValueDerivative<T>,
+                 g: ValueDerivative<T>,
+                 _: &[Operator<'a, T>]|
+                 -> Result<ValueDerivative<T>, ExParseError> {
+                    Ok(ValueDerivative {
+                        val: sub_num(f.val, g.val)?,
+                        der: sub_num(f.der, g.der)?,
+                    })
+                },
+            ),
             unary_op: Some(
                 |f: DeepEx<'a, T>,
                  ops: &[Operator<'a, T>]|
