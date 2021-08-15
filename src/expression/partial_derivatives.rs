@@ -1,7 +1,6 @@
 use num::Float;
-use rand::{Rng, SeedableRng, prelude::ThreadRng, thread_rng};
 use smallvec::{smallvec, SmallVec};
-use std::{env::var, fmt::Debug, ops::Range};
+use std::{fmt::Debug};
 
 use super::{
     deep::{BinOpsWithReprs, DeepEx, ExprIdxVec},
@@ -11,7 +10,6 @@ use crate::{
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
     expression::deep::{DeepNode, UnaryOpWithReprs},
     operators::{Operator, UnaryOp},
-    util::assert_float_eq,
     ExParseError,
 };
 
@@ -102,9 +100,9 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                     .iter()
                     .find(|pdo| &pdo.repr == repr)
                     .ok_or(make_op_missing_err(repr))?;
-                let unary_op = op.unary_op.clone().ok_or(make_op_missing_err(repr))?;
+                let unary_deri_op = op.unary_op.clone().ok_or(make_op_missing_err(repr))?;
 
-                unary_op(deepex.clone(), ops)
+                unary_deri_op(deepex.clone(), ops)
             });
     let resex = factorexes.fold(
         Ok(DeepEx::one(overloaded_ops)),
@@ -122,20 +120,22 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     // special case, partial derivative of only 1 node
     if deepex.nodes().len() == 1 {
-        match deepex.nodes()[0].clone() {
-            DeepNode::Num(_) => return Ok(DeepEx::zero(overloaded_ops.clone())),
+        let res = match deepex.nodes()[0].clone() {
+            DeepNode::Num(_) => DeepEx::zero(overloaded_ops.clone()),
             DeepNode::Var((var_i, _)) => {
-                return if var_i == var_idx {
-                    Ok(DeepEx::one(overloaded_ops.clone()))
+                if var_i == var_idx {
+                    DeepEx::one(overloaded_ops.clone())
                 } else {
-                    Ok(DeepEx::zero(overloaded_ops.clone()))
-                };
+                    DeepEx::zero(overloaded_ops.clone())
+                }
             }
             DeepNode::Expr(mut e) => {
                 e.set_overloaded_ops(Some(overloaded_ops.clone()));
-                return partial_deepex(var_idx, e, ops);
+                partial_deepex(var_idx, e, ops)?
             }
-        }
+        };
+        let (res, _) = res.var_names_union(deepex);
+        return Ok(res);
     }
 
     let prio_indices = deep_details::prioritized_indices(&deepex.bin_ops().ops, deepex.nodes());
@@ -215,6 +215,7 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
         })?
         .der;
     res.set_overloaded_ops(Some(overloaded_ops));
+    let (res, _) = res.var_names_union(deepex);
     Ok(res)
 }
 
@@ -419,11 +420,33 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 #[cfg(test)]
 use {
     super::flat::flatten,
-    crate::{operators::make_default_operators, util::assert_float_eq_f64},
+    crate::{operators::make_default_operators, util::{assert_float_eq_f64, assert_float_eq}},
+    rand::{Rng, thread_rng},
+    std::ops::Range,
 };
 
 #[test]
-fn test_partial() {
+fn test_partial_3_vars() {
+    fn eval(deepex: DeepEx<f64>, vars: &[f64]) -> f64 {
+        flatten(deepex).eval(vars).unwrap()
+    }
+    fn assert(s: &str, vars: &[f64], ref_vals: &[f64]) {
+        let ops = make_default_operators::<f64>();
+        let dut = DeepEx::<f64>::from_str(s).unwrap();
+        let d_x = partial_deepex(0, dut.clone(), &ops).unwrap();
+        assert_float_eq_f64(eval(d_x, vars), ref_vals[0]);
+        let d_y = partial_deepex(1, dut.clone(), &ops).unwrap();
+        assert_float_eq_f64(eval(d_y, vars), ref_vals[1]);
+        let d_z = partial_deepex(2, dut.clone(), &ops).unwrap();
+        assert_float_eq_f64(eval(d_z, vars), ref_vals[2]);
+    }
+    assert("x+y+z", &[2345.3, 4523.5, 1.2], &[1.0, 1.0, 1.0]);
+    
+
+}
+
+#[test]
+fn test_partial_finite() {
     let ops = make_default_operators::<f64>();
     fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
         let dut = DeepEx::<f64>::from_str(sut).unwrap();
@@ -434,7 +457,7 @@ fn test_partial() {
         let x0s: Vec<f64> = (0..n_vars)
             .map(|_| rng.gen_range(range.clone()))
             .collect();
-        println!("checking derivatives at {:?}", x0s);
+        println!("test_partial_finite - checking derivatives at {:?}", x0s);
         for var_idx in 0..n_vars {
             let x1s: Vec<f64> = x0s
                 .iter()
@@ -521,29 +544,65 @@ fn test_partial_derivative_first_var() {
 }
 
 #[test]
-fn test_partial_outer() {
-    let partial_derivative_ops = make_partial_derivative_ops::<f64>();
-    let ops = make_default_operators::<f64>();
-
-    let deepex_1 = DeepEx::<f64>::from_str("sin(x)").unwrap();
-    let deepex = deepex_1.nodes()[0].clone();
-
-    match deepex {
-        DeepNode::Expr(e) => {
-            let deri = partial_derivative_outer(
-                e,
-                &partial_derivative_ops,
-                deepex_1.overloaded_ops().clone().unwrap(),
-                &ops,
-            )
-            .unwrap();
-            let flatex = flatten(deri);
-            assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 0.5403023058681398);
-            assert_float_eq_f64(flatex.eval(&[0.0]).unwrap(), 1.0);
-            assert_float_eq_f64(flatex.eval(&[2.0]).unwrap(), -0.4161468365471424);
-        }
-        _ => (),
+fn test_partial_inner() {
+    
+    fn test(text: &str, vals: &[f64], ref_vals: &[f64], var_idx: usize) {
+        let partial_derivative_ops = make_partial_derivative_ops::<f64>();
+        let ops = make_default_operators::<f64>();
+        let deepex_1 = DeepEx::<f64>::from_str(text).unwrap();
+        match deepex_1.nodes()[0].clone() {
+            DeepNode::Expr(e) => {
+                let deri = partial_derivative_inner(
+                    var_idx,
+                    e.clone(),
+                    &partial_derivative_ops,
+                    deepex_1.overloaded_ops().clone().unwrap(),
+                    &ops,
+                ).unwrap();
+                
+                assert_eq!(e.var_names(), deri.var_names());
+                let flatex = flatten(deri);
+                for i in 0..vals.len() {
+                    assert_float_eq_f64(flatex.eval(&[vals[i]]).unwrap(), ref_vals[i]);
+                }
+            },
+            _ => panic!("test should not end up here"),
+        };
+            
     }
+    test("sin(x)", &[1.0, 0.0, 2.0], &[1.0, 1.0, 1.0], 0);
+    test("sin(x^2)", &[1.0, 0.0, 2.0], &[2.0, 0.0, 4.0], 0);
+}
+
+#[test]
+fn test_partial_outer() {
+    
+    fn test(text: &str, vals: &[f64], ref_vals: &[f64]) {
+        let partial_derivative_ops = make_partial_derivative_ops::<f64>();
+        let ops = make_default_operators::<f64>();
+        let deepex_1 = DeepEx::<f64>::from_str(text).unwrap();
+        let deepex = deepex_1.nodes()[0].clone();
+
+        match deepex {
+            DeepNode::Expr(e) => {
+                let deri = partial_derivative_outer(
+                    e.clone(),
+                    &partial_derivative_ops,
+                    deepex_1.overloaded_ops().clone().unwrap(),
+                    &ops,
+                )
+                .unwrap();
+                assert_eq!(e.var_names(), deri.var_names());
+                let flatex = flatten(deri);
+                for i in 0..vals.len() {
+                    assert_float_eq_f64(flatex.eval(&[vals[i]]).unwrap(), ref_vals[i]);
+                }
+            }
+            _ => (),
+        } 
+    }
+    test("x", &[1.0, 0.0, 2.0], &[1.0, 0.0, 2.0]);
+    test("sin(x)", &[1.0, 0.0, 2.0], &[0.5403023058681398, 1.0, -0.4161468365471424]);
 }
 
 #[test]

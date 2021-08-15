@@ -2,7 +2,6 @@ use super::deep_details::{
     self, find_overloaded_ops, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
 };
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
-use crate::operators::VecOfUnaryFuncs;
 use crate::{
     operators,
     operators::{BinOp, UnaryOp},
