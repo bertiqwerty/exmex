@@ -2,6 +2,7 @@ use super::deep_details::{
     self, find_overloaded_ops, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
 };
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
+
 use crate::{
     operators,
     operators::{BinOp, UnaryOp},
@@ -33,7 +34,10 @@ pub enum DeepNode<'a, T: Copy + Debug> {
     /// variables passed to [`eval`](Expression::eval).
     Var((usize, &'a str)),
 }
-impl<'a, T: Copy + Debug> DeepNode<'a, T> where T: Float {
+impl<'a, T: Copy + Debug> DeepNode<'a, T>
+where
+    T: Float,
+{
     pub fn zero() -> Self {
         DeepNode::Num(T::from(0.0).unwrap())
     }
@@ -76,7 +80,7 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
             op: UnaryOp::new(),
         }
     }
-    
+
     pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
         self.op.append_front(&mut other.op);
         self.reprs = other
@@ -170,7 +174,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
     pub fn n_vars(&self) -> usize {
         self.var_names.len()
-    } 
+    }
 
     pub fn new(
         nodes: Vec<DeepNode<'a, T>>,
@@ -346,7 +350,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         self.overloaded_ops = ops;
     }
 
-        pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
+    pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
         &self.bin_ops
     }
 
@@ -358,37 +362,43 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         &self.nodes
     }
 
-    pub fn overloaded_ops(&self) -> &Option<OverloadedOps<'a, T>> {
-        &self.overloaded_ops
-    }
-    pub fn var_names(&self) -> &SmallVec<[& 'a str; N_VARS_ON_STACK]> {
-        &self.var_names
-    }
-
     pub fn unpack_and_clone_overloaded_ops(&self) -> Result<OverloadedOps<'a, T>, ExParseError> {
         self.overloaded_ops.clone().ok_or(ExParseError {
             msg: "cannot unpack overloaded ops when there are none".to_string(),
         })
     }
 
-    fn is_num(&self, num: T) -> bool where T: Float {
-        self.nodes.len() == 1 && match &self.nodes[0] {
-            DeepNode::Num(n) => *n == num,
-            DeepNode::Expr(e) => e.is_num(num),
-            _ => false,
-        }
+    fn is_num(&self, num: T) -> bool
+    where
+        T: Float,
+    {
+        self.nodes.len() == 1
+            && match &self.nodes[0] {
+                DeepNode::Num(n) => *n == num,
+                DeepNode::Expr(e) => e.is_num(num),
+                _ => false,
+            }
     }
 
-    pub fn is_one(&self) -> bool where T: Float {
+    pub fn is_one(&self) -> bool
+    where
+        T: Float,
+    {
         self.is_num(T::from(1.0).unwrap())
     }
 
-    pub fn is_zero(&self) -> bool where T: Float {
+    pub fn is_zero(&self) -> bool
+    where
+        T: Float,
+    {
         self.is_num(T::from(0.0).unwrap())
     }
 
     pub fn var_names_union(self, other: Self) -> (Self, Self) {
-        fn reset_vars<'a, T : Copy + Debug>(deepex: &mut DeepEx<'a, T>, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
+        fn reset_vars<'a, T: Copy + Debug>(
+            deepex: &mut DeepEx<'a, T>,
+            new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
+        ) {
             for node in &mut deepex.nodes {
                 match node {
                     DeepNode::Expr(e) => reset_vars(e, new_var_names.clone()),
@@ -425,9 +435,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
     /// Applies a binary operator to self and other
     pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
-        
         let overloaded_ops = self.overloaded_ops.clone();
-        
+
         let (self_vars_updated, other_vars_updated) = self.var_names_union(other);
         let mut resex = DeepEx::new(
             vec![
@@ -508,9 +517,16 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
 }
 
 #[cfg(test)]
-use super::flat::flatten;
-#[cfg(test)]
-use crate::{operators::make_default_operators, util::assert_float_eq_f64};
+use {
+    super::flat::flatten,
+    crate::{
+        expression::partial_derivatives::partial_deepex,
+        operators::make_default_operators,
+        util::{assert_float_eq, assert_float_eq_f64},
+    },
+    rand::{thread_rng, Rng},
+    std::ops::Range,
+};
 
 #[test]
 fn test_reset_vars() {
@@ -519,8 +535,8 @@ fn test_reset_vars() {
     let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
     let all_vars = ["a", "b", "c", "x", "y", "z"];
     for i in 0..all_vars.len() {
-        assert_eq!(deepex_.var_names()[i], all_vars[i]);
-        assert_eq!(deepex2_.var_names()[i], all_vars[i]);
+        assert_eq!(deepex_.var_names[i], all_vars[i]);
+        assert_eq!(deepex2_.var_names[i], all_vars[i]);
     }
     assert_eq!(deepex.unparse(), deepex_.unparse());
     assert_eq!(deepex2.unparse(), deepex2_.unparse());
@@ -531,7 +547,10 @@ fn test_reset_vars() {
     assert_float_eq_f64(flatex.eval(&[2.0, 6.0, 1.5]).unwrap(), 8.0);
     assert_float_eq_f64(flatex2.eval(&[3.0, 5.0, 4.0]).unwrap(), 60.0);
     assert_float_eq_f64(flatex_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(), 8.0);
-    assert_float_eq_f64(flatex2_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(), 60.0);
+    assert_float_eq_f64(
+        flatex2_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(),
+        60.0,
+    );
 }
 
 #[test]
@@ -546,17 +565,16 @@ fn test_var_name_union() {
 
         assert_eq!(first.n_vars(), var_names.len());
         assert_eq!(second.n_vars(), var_names.len());
-        for vn in first.var_names() {
-            assert!(var_names.contains(vn));
+        for vn in first.var_names {
+            assert!(var_names.contains(&vn));
         }
-        for vn in second.var_names() {
-            assert!(var_names.contains(vn));
+        for vn in second.var_names {
+            assert!(var_names.contains(&vn));
         }
     }
 
     test("x", "y", &vec!["x", "y"]);
     test("x+y*z", "z+y", &vec!["x", "y", "z"]);
-    
 }
 
 #[test]
@@ -607,6 +625,56 @@ fn test_operator_overloading() {
     let x_plus_cossin_y_plus_z = from_str("x+cos(sin(y+z))");
     let prod_of_above = x_plus_cossin_y_plus_z * y_minus_z;
     eval(&prod_of_above, &[1.0, 4.0, 8.0], -7.4378625090980925);
+}
+
+#[test]
+fn test_partial_finite() {
+    let ops = make_default_operators::<f64>();
+    fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
+        let dut = DeepEx::<f64>::from_str(sut).unwrap();
+        let n_vars = dut.n_vars();
+        let step = 1e-5;
+        let mut rng = thread_rng();
+
+        let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
+        println!(
+            "test_partial_finite - checking derivatives at {:?} for {}",
+            x0s, sut
+        );
+        for (var_idx, var_name) in dut.var_names.iter().enumerate() {
+            let x1s: Vec<f64> = x0s
+                .iter()
+                .enumerate()
+                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
+                .collect();
+            let flat_dut = flatten(dut.clone());
+            let f0 = flat_dut.eval(&x0s).unwrap();
+            let f1 = flat_dut.eval(&x1s).unwrap();
+            let finite_diff = (f1 - f0) / step;
+            let deri = partial_deepex(var_idx, dut.clone(), &ops).unwrap();
+            println!(
+                "test_partial_finite - d_{} is {} for {}",
+                var_name, deri, sut
+            );
+
+            let flat_deri = flatten(deri.clone()).eval(&x0s).unwrap();
+            assert_float_eq::<f64>(
+                flat_deri,
+                finite_diff,
+                1e-3,
+                format!("sut {}, d_{} is {}", sut, var_name, deri).as_str(),
+            );
+        }
+    }
+
+    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
+    test("sin(sin(x+z))", &ops, -10.0..10.0);
+    test("x^x", &ops, 500.0..1100.0);
+    test("x^y", &ops, -900.0..10230.0);
+    test("x^y", &ops, -1.01..0.02);
+    test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
+    test("sin(cos(sin(z)))", &ops, -10.0..10.0);
+    test("sin(x+z)", &ops, -10.0..10.0);
 }
 
 #[test]

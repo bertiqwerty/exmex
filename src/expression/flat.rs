@@ -1,12 +1,14 @@
+use super::partial_derivatives::partial_deepex;
 use crate::{
     definitions::N_NODES_ON_STACK,
     expression::deep::{DeepEx, DeepNode, ExprIdxVec},
+    make_default_operators,
     operators::UnaryOp,
     BinOp, ExParseError,
 };
+use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::{self, Debug, Display, Formatter};
-
 pub type FlatNodeVec<T> = SmallVec<[FlatNode<T>; N_NODES_ON_STACK]>;
 pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 
@@ -221,6 +223,56 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
         Ok(numbers[0])
     }
 
+    /// This method computes a `FlatEx` instance that is a partial derivative of `self` with default operators
+    /// as shown in the following example.
+    ///
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::{parse_with_default_ops};
+    ///
+    /// // create an expression by parsing a string
+    /// let expr = parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
+    /// let d_x = expr.clone().partial(0)?;
+    /// let d_y = expr.clone().partial(1)?;
+    /// assert!((d_x.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
+    /// //                   |    |
+    /// //                   x    y
+    /// assert!((d_y.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
+    /// //                   |    |
+    /// //                   x    y
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// # Arguments
+    ///
+    /// * `var_idx` - variable with respect to which the partial derivative is computed
+    ///
+    /// # Errors
+    ///
+    /// * If `self` has been `clear_deepex`ed we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
+    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if 
+    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
+    ///
+    pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    where
+        T: Float,
+    {
+        let ops = make_default_operators();
+
+        let d_i = partial_deepex(
+            var_idx,
+            self.deepex.ok_or(ExParseError {
+                msg: "need deep expression for derivation, not possible after calling `clear`"
+                    .to_string(),
+            })?,
+            &ops,
+        )?;
+        Ok(flatten(d_i))
+    }
+
     /// Creates an expression string that corresponds to the `FlatEx` instance. This is
     /// not necessarily the input string. More precisely,
     /// * variable names are forgotten,
@@ -388,7 +440,6 @@ fn test_unparse() {
     fn test(text: &str, text_ref: &str) {
         let flatex = flatten(DeepEx::<f64>::from_str(text).unwrap());
         let deepex = flatex.deepex.unwrap();
-        println!("deepex vars {:?} of {}", deepex.var_names(), deepex);
         assert_eq!(deepex.unparse(), text_ref);
         let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
         assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
