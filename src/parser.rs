@@ -46,7 +46,7 @@ pub fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
             c.is_digit(10) || is_dot
         })
         .count();
-    if n_num_chars > 0 && n_dots < 2 {
+    if (n_num_chars > 1 && n_dots < 2) || (n_num_chars == 1 && n_dots == 0) {
         Some(&text[0..n_num_chars])
     } else {
         None
@@ -220,18 +220,59 @@ where
         },
         _ => Ok(0),
     };
-    let binop_pred_succ = |idx: usize| match parsed_tokens[idx] {
-        ParsedToken::Op(op) => {
-            if op.unary_op == None {
-                Err(ExParseError {
-                    msg: "a binary operator cannot be next to a binary operator".to_string(),
-                })
-            } else {
-                Ok(0)
+    let op_pred_succ =
+        |central_op: &Operator<T>, idx: usize, neighbor_type: NeighborType| match &parsed_tokens
+            [idx]
+        {
+            ParsedToken::Op(neighbor_op) => {
+                if neighbor_op.unary_op.is_none() && central_op.unary_op.is_none() {
+                    Err(ExParseError {
+                        msg: "a binary operator cannot be next to a binary operator".to_string(),
+                    })
+                } else if neighbor_op.unary_op.is_some() && central_op.unary_op.is_none() {
+                    match neighbor_type {
+                        NeighborType::Predecessor => Err(ExParseError {
+                            msg: "a binary operator cannot be on the right of a unary"
+                                .to_string(),
+                        }),
+                        _ => Ok(0),
+                    }
+                } else {
+                    Ok(0)
+                }
             }
-        }
-        _ => Ok(0),
-    };
+            ParsedToken::Paren(paren) => match paren {
+                Paren::Close => match neighbor_type {
+                    NeighborType::Successor => Err(ExParseError {
+                        msg: "an operator cannot be on the left of a closing paren".to_string(),
+                    }),
+                    NeighborType::Predecessor => {
+                        if central_op.bin_op.is_some() {
+                            Ok(0)
+                        } else {
+                            Err(ExParseError {
+                                msg: "a unary operator cannot be on the right of a closing paren"
+                                    .to_string(),
+                            })
+                        }
+                    }
+                },
+                Paren::Open => {
+                    if central_op.unary_op.is_none() {
+                        match neighbor_type {
+                            NeighborType::Predecessor => Err(ExParseError {
+                                msg: "a binary operator cannot be on the right of an opening paren"
+                                    .to_string(),
+                            }),
+                            NeighborType::Successor => Ok(0),
+                        }
+                    } else {
+                        Ok(0)
+                    }
+                }
+            },
+            _ => Ok(0),
+        };
     let paren_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
         ParsedToken::Paren(p) => {
             if p == &forbidden {
@@ -244,7 +285,7 @@ where
         }
         _ => Ok(0),
     };
-    let mut open_paren_cnt = 0i8;
+    let mut open_paren_cnt = 0i32;
     parsed_tokens
         .iter()
         .enumerate()
@@ -278,9 +319,12 @@ where
                     }
                     Ok(0)
                 }
-                ParsedToken::Op(_) => {
+                ParsedToken::Op(op) => {
                     if i < parsed_tokens.len() - 1 {
-                        binop_pred_succ(i + 1)?;
+                        if i > 0 {
+                            op_pred_succ(op, i - 1, NeighborType::Predecessor)?;
+                        };
+                        op_pred_succ(op, i + 1, NeighborType::Successor)?;
                         Ok(0)
                     } else {
                         Err(ExParseError {
@@ -310,6 +354,17 @@ fn test_apply_regexes() {
 }
 
 #[test]
+fn test_is_numeric() {
+    assert_eq!(is_numeric_text("5/6").unwrap(), "5");
+    assert!(is_numeric_text(".").is_none());
+    assert!(is_numeric_text("o.4").is_none());
+    assert_eq!(is_numeric_text("6").unwrap(), "6");
+    assert_eq!(is_numeric_text("4.").unwrap(), "4.");
+    assert_eq!(is_numeric_text(".4").unwrap(), ".4");
+    assert_eq!(is_numeric_text("23.414").unwrap(), "23.414");
+}
+
+#[test]
 fn test_preconditions() {
     fn test(text: &str, msg_part: &str) {
         fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
@@ -331,20 +386,23 @@ fn test_preconditions() {
             Err(_) => check_err_msg(elts, msg_part),
         }
     }
+    test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
+    test("fi.g", "parse the beginning of .g");
+    test("(nc7)sqrtE", "unary operator cannot be on the right");
     test("", "empty string");
     test("++", "the last element cannot be an operator");
     test(
         "a12 (",
         "wlog a number/variable cannot be on the right of a closing paren",
     );
-    test("++)", "closing parentheses until");
+    test("++)", "operator cannot be on the left of a closing");
     test(")12-(1+1) / (", "closing parentheses until position");
     test("12-()+(", "wlog an opening paren");
     test("12-() ())", "wlog an opening paren");
     test("12-(3-4)*2+ (1/2))", "closing parentheses until");
     test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
     test(r"5\6", r"how to parse the beginning of \");
-    test(r"3 * log2 * 5", r"binary operator cannot be next");
+    test(r"3 * log2 * 5", r"a binary operator cannot be on the right of a unary");
     test(r"3.4.", r"how to parse the beginning of 3.4.");
     test(
         r"3. .4",
