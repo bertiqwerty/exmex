@@ -388,7 +388,7 @@ fn test_unparse() {
     fn test(text: &str, text_ref: &str) {
         let flatex = flatten(DeepEx::<f64>::from_str(text).unwrap());
         let deepex = flatex.deepex.unwrap();
-
+        println!("deepex vars {:?} of {}", deepex.var_names(), deepex);
         assert_eq!(deepex.unparse(), text_ref);
         let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
         assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
@@ -396,21 +396,21 @@ fn test_unparse() {
         assert!(flatex_reparsed.unparse().is_err());
     }
     let text = "5+x";
-    let text_ref = "5.0+{x0}";
+    let text_ref = "5.0+{x}";
     test(text, text_ref);
     let text = "sin(5+var)^(1/{y})+{var}";
-    let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
+    let text_ref = "sin(5.0+{var})^(1.0/{y})+{var}";
     test(text, text_ref);
     let text = "-(5+var)^(1/{y})+{var}";
-    let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
+    let text_ref = "-(5.0+{var})^(1.0/{y})+{var}";
     test(text, text_ref);
     let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
-    let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
+    let text_ref = "cos(sin(-(5.0+{var})^(1.0/{y})))+{var}";
     test(text, text_ref);
     let text = "cos(sin(-5+var^(1/{y})))-{var}";
-    let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
+    let text_ref = "cos(sin(-5.0+{var}^(1.0/{y})))-{var}";
     test(text, text_ref);
     let text = "cos(sin(-z+var*(1/{y})))+{var}";
-    let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
+    let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
     test(text, text_ref);
 }

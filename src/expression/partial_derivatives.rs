@@ -446,8 +446,8 @@ fn test_partial_finite() {
                 .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
                 .collect();
             let flat_dut = flatten(dut.clone());
-            let f0 = flat_dut.eval(&x0s[..]).unwrap();
-            let f1 = flat_dut.eval(&x1s[..]).unwrap();
+            let f0 = flat_dut.eval(&x0s).unwrap();
+            let f1 = flat_dut.eval(&x1s).unwrap();
             let finite_diff = (f1 - f0) / step;
             let deri = partial_deepex(var_idx, dut.clone(), &ops).unwrap();
             println!("test_partial_finite - d_{} is {} for {}", deri.var_names()[var_idx], deri, sut);

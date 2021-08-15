@@ -222,7 +222,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     pub fn unparse(&self) -> String {
         let mut node_strings = self.nodes.iter().map(|n| match n {
             DeepNode::Num(n) => format!("{:?}", n),
-            DeepNode::Var((idx, _)) => format!("{{x{}}}", idx),
+            DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
             DeepNode::Expr(e) => {
                 if e.unary_op.op.len() == 0 {
                     format!("({})", e.unparse())
