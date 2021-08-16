@@ -651,20 +651,22 @@ fn test_partial_finite() {
                 "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
                 flat_deri, finite_diff
             );
-
+            let msg = format!("sut {}, d_{} is {}", sut, var_name, deri);
+            println!("test_partial_finite - {}", msg);
             assert_float_eq::<f64>(
                 flat_deri,
                 finite_diff,
                 1e-3,
-                format!("sut {}, d_{} is {}", sut, var_name, deri).as_str(),
+                1e-5,
+                msg.as_str(),
             );
         }
     }
 
-    test("z*sin(x)+cos(y)^(sin(z))", &ops, -10.0..10.0);
+    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.001..1.0);
     test("sin(sin(x+z))", &ops, -10.0..10.0);
-    test("x^x", &ops, 0.001..5.0);
-    test("x^y", &ops, 0.001..5.0);
+    test("x^x", &ops, 0.001..2.0);
+    test("x^y", &ops, 4.036286084344371..4.036286084344372);
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
     test("sin(cos(sin(z)))", &ops, -10.0..10.0);
     test("sin(x+z)", &ops, -10.0..10.0);
@@ -673,6 +675,7 @@ fn test_partial_finite() {
     test("(sin(x)^2)/x/4", &ops, -10.0..10.0);
     test("1/x", &ops, -10.0..10.0);
     test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
+    test("log(x^2)", &ops, 0.1..10.0);
 }
 
 #[test]
