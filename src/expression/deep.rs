@@ -87,8 +87,8 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
             .reprs
             .iter()
             .chain(self.reprs.iter())
-            .map(|f| *f)
-            .collect::<Vec<_>>();
+            .copied()
+            .collect();
     }
 }
 
@@ -110,15 +110,12 @@ pub struct DeepEx<'a, T: Copy + Debug> {
 impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
-        // change from exression to number if an expression contains only a number
+        // change from expression to number if an expression contains only a number
         for node in &mut self.nodes {
             if let DeepNode::Expr(ref e) = node {
                 if e.nodes.len() == 1 {
-                    match e.nodes[0] {
-                        DeepNode::Num(n) => {
-                            *node = DeepNode::Num(n);
-                        }
-                        _ => (),
+                    if let DeepNode::Num(n) = e.nodes[0] {
+                        *node = DeepNode::Num(n);
                     }
                 }
             };
@@ -137,7 +134,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 // reduce indices after removed position
                 for num_idx_after in num_inds.iter_mut() {
                     if *num_idx_after > num_idx {
-                        *num_idx_after = *num_idx_after - 1;
+                        *num_idx_after -= 1;
                     }
                 }
                 used_prio_indices.push(bin_op_idx);
@@ -161,13 +158,10 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         self.bin_ops.reprs = resulting_reprs;
 
         if self.nodes.len() == 1 {
-            match self.nodes[0] {
-                DeepNode::Num(n) => {
-                    self.nodes[0] = DeepNode::Num(self.unary_op.op.apply(n));
-                    self.unary_op.op.clear();
-                    self.unary_op.reprs.clear();
-                }
-                _ => (),
+            if let DeepNode::Num(n) = self.nodes[0] {
+                self.nodes[0] = DeepNode::Num(self.unary_op.op.apply(n));
+                self.unary_op.op.clear();
+                self.unary_op.reprs.clear();
             }
         }
     }
@@ -212,8 +206,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             }
 
             let mut expr = DeepEx {
-                nodes: nodes,
-                bin_ops: bin_ops,
+                nodes,
+                bin_ops,
                 unary_op,
                 overloaded_ops: None,
                 var_names: found_vars,
@@ -250,7 +244,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             .iter()
             .fold(String::new(), |mut res, uop_str| {
                 res.push_str(uop_str);
-                res.push_str("(");
+                res.push('(');
                 res
             });
         let closings =
@@ -297,7 +291,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             overloaded_ops: self.overloaded_ops,
             bin_ops: self.bin_ops,
             var_names: self.var_names,
-            unary_op: unary_op,
+            unary_op,
         }
     }
 
@@ -307,7 +301,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         T: Float + FromStr,
     {
         let ops = operators::make_default_operators::<T>();
-        Ok(DeepEx::from_ops(&text, &ops)?)
+        DeepEx::from_ops(text, &ops)
     }
 
     pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>
@@ -315,7 +309,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
     {
-        let parsed_tokens = parser::tokenize_and_analyze(text, &ops, parser::is_numeric_text)?;
+        let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
         let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
         deepex.set_overloaded_ops(find_overloaded_ops(ops));
         Ok(deepex)
@@ -339,7 +333,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 })
             }
         };
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, &text);
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
         let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
         let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
         deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
@@ -420,7 +414,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 all_var_names.push(name);
             }
         }
-        all_var_names.sort();
+        // sort_unstable is much faster
+        all_var_names.sort_unstable();
         let mut self_vars_updated = self;
         let mut other_vars_updated = other;
         reset_vars(&mut self_vars_updated, all_var_names.clone());
@@ -476,7 +471,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
         let bin_op = BinOpsWithReprs {
             reprs: vec![repr],
-            ops: ops,
+            ops,
         };
         self.operate_bin(other, bin_op)
     }
@@ -679,7 +674,6 @@ fn test_partial_finite() {
     test("(sin(x)^2)/x/4", &ops, -10.0..10.0);
     test("1/x", &ops, -10.0..10.0);
     test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
-
 }
 
 #[test]
