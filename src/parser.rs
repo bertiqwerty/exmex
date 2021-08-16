@@ -160,6 +160,109 @@ where
     Ok(res)
 }
 
+struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
+    apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> bool,
+    error_msg: &'b str,
+}
+
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> Vec<PairPreCondition<'a, 'b, T>> {
+    vec![
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Num(_), ParsedToken::Var(_))
+                | (ParsedToken::Var(_), ParsedToken::Num(_))
+                | (ParsedToken::Num(_), ParsedToken::Num(_))
+                | (ParsedToken::Var(_), ParsedToken::Var(_)) => false,
+                _ => true,
+            },
+            error_msg: "a number/variable cannot be next to a number/variable",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
+                | (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Var(_))
+                | (ParsedToken::Num(_), ParsedToken::Paren(_p @ Paren::Open))
+                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => false,
+                _ => true,
+            },
+            error_msg: "wlog a number/variable cannot be on the right of a closing parenthesis",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Num(_), ParsedToken::Op(op))
+                | (ParsedToken::Var(_), ParsedToken::Op(op))
+                    if op.bin_op.is_none() =>
+                {
+                    false
+                }
+                _ => true,
+            },
+            error_msg: "a number/variable cannot be on the left of a unary operator",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                    if op_l.unary_op.is_none() && op_r.unary_op.is_none() =>
+                {
+                    false
+                }
+                _ => true,
+            },
+            error_msg: "a binary operator cannot be next to a binary operator",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                    if op_l.bin_op.is_none() && op_r.unary_op.is_none() =>
+                {
+                    false
+                }
+                _ => true,
+            },
+            error_msg: "a binary operator cannot be on the right of a unary",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Op(_), ParsedToken::Paren(_p @ Paren::Close)) => false,
+                _ => true,
+            },
+            error_msg: "an operator cannot be on the left of a closing paren",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op))
+                    if op.bin_op.is_none() =>
+                {
+                    false
+                }
+                _ => true,
+            },
+            error_msg: "a unary operator cannot be on the right of a closing paren",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op))
+                    if op.unary_op.is_none() =>
+                {
+                    false
+                }
+                _ => true,
+            },
+            error_msg: "a binary operator cannot be on the right of an opening paren",
+        },
+        PairPreCondition {
+            apply: |left, right| match (left, right) {
+                (
+                    ParsedToken::Paren(_p_l @ Paren::Open),
+                    ParsedToken::Paren(_p_r @ Paren::Close),
+                ) => false,
+                _ => true,
+            },
+            error_msg: "wlog an opening paren cannot be next to a closing paren",
+        },
+    ]
+}
+
 /// Tries to give useful error messages for invalid constellations of the parsed tokens
 ///
 /// # Arguments
@@ -180,133 +283,29 @@ where
         });
     };
 
-    enum NeighborType {
-        Predecessor,
-        Successor,
-    }
+    let pair_pre_conditions = make_pair_pre_conditions::<T>();
+    (0..parsed_tokens.len() - 1)
+        .map(|i| -> Result<(), ExParseError> {
+            let failed = pair_pre_conditions
+                .iter()
+                .map(|ppc| (ppc, (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1])))
+                .find(|(_, ppc_passed)| !ppc_passed);
+            match failed {
+                Some((failed_ppc, _)) => Err(ExParseError {
+                    msg: failed_ppc.error_msg.to_string(),
+                }),
+                None => Ok(()),
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-    let num_pred_succ = |idx: usize, neighbor_type: NeighborType| match &parsed_tokens[idx] {
-        ParsedToken::Num(_) => Err(ExParseError {
-            msg: "a number/variable cannot be next to a number/variable".to_string(),
-        }),
-        ParsedToken::Paren(p) => {
-            let forbidden = match neighbor_type {
-                NeighborType::Predecessor => Paren::Close,
-                NeighborType::Successor => Paren::Open,
-            };
-            if p == &forbidden {
-                Err(ExParseError {
-                    msg: "wlog a number/variable cannot be on the right of a closing parenthesis"
-                        .to_string(),
-                })
-            } else {
-                Ok(0)
-            }
-        }
-        ParsedToken::Op(op) => match neighbor_type {
-            NeighborType::Predecessor => Ok(0),
-            NeighborType::Successor => {
-                if let Some(_) = op.bin_op {
-                    Ok(0)
-                } else if let Some(_) = op.unary_op {
-                    Err(ExParseError {
-                        msg: "a number/variable cannot be on the left of a unary operator"
-                            .to_string(),
-                    })
-                } else {
-                    Ok(0)
-                }
-            }
-        },
-        _ => Ok(0),
-    };
-    let op_pred_succ =
-        |central_op: &Operator<T>, idx: usize, neighbor_type: NeighborType| match &parsed_tokens
-            [idx]
-        {
-            ParsedToken::Op(neighbor_op) => {
-                if neighbor_op.unary_op.is_none() && central_op.unary_op.is_none() {
-                    Err(ExParseError {
-                        msg: "a binary operator cannot be next to a binary operator".to_string(),
-                    })
-                } else if neighbor_op.unary_op.is_some() && central_op.unary_op.is_none() {
-                    match neighbor_type {
-                        NeighborType::Predecessor => Err(ExParseError {
-                            msg: "a binary operator cannot be on the right of a unary"
-                                .to_string(),
-                        }),
-                        _ => Ok(0),
-                    }
-                } else {
-                    Ok(0)
-                }
-            }
-            ParsedToken::Paren(paren) => match paren {
-                Paren::Close => match neighbor_type {
-                    NeighborType::Successor => Err(ExParseError {
-                        msg: "an operator cannot be on the left of a closing paren".to_string(),
-                    }),
-                    NeighborType::Predecessor => {
-                        if central_op.bin_op.is_some() {
-                            Ok(0)
-                        } else {
-                            Err(ExParseError {
-                                msg: "a unary operator cannot be on the right of a closing paren"
-                                    .to_string(),
-                            })
-                        }
-                    }
-                },
-                Paren::Open => {
-                    if central_op.unary_op.is_none() {
-                        match neighbor_type {
-                            NeighborType::Predecessor => Err(ExParseError {
-                                msg: "a binary operator cannot be on the right of an opening paren"
-                                    .to_string(),
-                            }),
-                            NeighborType::Successor => Ok(0),
-                        }
-                    } else {
-                        Ok(0)
-                    }
-                }
-            },
-            _ => Ok(0),
-        };
-    let paren_pred_succ = |idx: usize, forbidden: Paren| match &parsed_tokens[idx] {
-        ParsedToken::Paren(p) => {
-            if p == &forbidden {
-                Err(ExParseError {
-                    msg: "wlog an opening paren cannot be next to a closing paren".to_string(),
-                })
-            } else {
-                Ok(0)
-            }
-        }
-        _ => Ok(0),
-    };
     let mut open_paren_cnt = 0i32;
     parsed_tokens
         .iter()
         .enumerate()
-        .map(|(i, expr_elt)| -> Result<usize, ExParseError> {
+        .map(|(i, expr_elt)| -> Result<(), ExParseError> {
             match expr_elt {
-                ParsedToken::Num(_) | ParsedToken::Var(_) => {
-                    if i < parsed_tokens.len() - 1 {
-                        num_pred_succ(i + 1, NeighborType::Successor)?;
-                    }
-                    if i > 0 {
-                        num_pred_succ(i - 1, NeighborType::Predecessor)?;
-                    }
-                    Ok(0)
-                }
                 ParsedToken::Paren(p) => {
-                    if i < parsed_tokens.len() - 1 {
-                        match p {
-                            Paren::Open => paren_pred_succ(i + 1, Paren::Close)?,
-                            Paren::Close => paren_pred_succ(i + 1, Paren::Open)?,
-                        };
-                    }
                     open_paren_cnt += match p {
                         Paren::Close => -1,
                         Paren::Open => 1,
@@ -317,21 +316,18 @@ where
                                 .to_string(),
                         });
                     }
-                    Ok(0)
+                    Ok(())
                 }
-                ParsedToken::Op(op) => {
+                ParsedToken::Op(_) => {
                     if i < parsed_tokens.len() - 1 {
-                        if i > 0 {
-                            op_pred_succ(op, i - 1, NeighborType::Predecessor)?;
-                        };
-                        op_pred_succ(op, i + 1, NeighborType::Successor)?;
-                        Ok(0)
+                        Ok(())
                     } else {
                         Err(ExParseError {
                             msg: "the last element cannot be an operator".to_string(),
                         })
                     }
                 }
+                _ => Ok(()),
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -369,9 +365,13 @@ fn test_preconditions() {
     fn test(text: &str, msg_part: &str) {
         fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
             match err {
-                Ok(_) => assert!(false),
+                Ok(_) => {
+                    println!("expected an error that should contain '{}'", msg_part);
+
+                    assert!(false)
+                }
                 Err(e) => {
-                    println!("{}", e.msg);
+                    println!("msg '{}' should contain '{}'", e.msg, msg_part);
                     assert!(e.msg.contains(msg_part));
                 }
             }
@@ -392,17 +392,20 @@ fn test_preconditions() {
     test("", "empty string");
     test("++", "the last element cannot be an operator");
     test(
-        "a12 (",
+        "a12 (1)",
         "wlog a number/variable cannot be on the right of a closing paren",
     );
     test("++)", "operator cannot be on the left of a closing");
-    test(")12-(1+1) / (", "closing parentheses until position");
+    test(")+12-(1+1) / (", "closing parentheses until position");
     test("12-()+(", "wlog an opening paren");
     test("12-() ())", "wlog an opening paren");
     test("12-(3-4)*2+ (1/2))", "closing parentheses until");
     test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
     test(r"5\6", r"how to parse the beginning of \");
-    test(r"3 * log2 * 5", r"a binary operator cannot be on the right of a unary");
+    test(
+        r"3 * log2 * 5",
+        r"a binary operator cannot be on the right of a unary",
+    );
     test(r"3.4.", r"how to parse the beginning of 3.4.");
     test(
         r"3. .4",
