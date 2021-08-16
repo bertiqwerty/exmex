@@ -168,14 +168,12 @@ struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
 fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> Vec<PairPreCondition<'a, 'b, T>> {
     vec![
         PairPreCondition {
-            apply: |left, right| {
-                !matches!(
-                    (left, right),
-                    (ParsedToken::Num(_), ParsedToken::Var(_))
-                        | (ParsedToken::Var(_), ParsedToken::Num(_))
-                        | (ParsedToken::Num(_), ParsedToken::Num(_))
-                        | (ParsedToken::Var(_), ParsedToken::Var(_))
-                )
+            apply: |left, right| match (left, right) {
+                (ParsedToken::Num(_), ParsedToken::Var(_))
+                | (ParsedToken::Var(_), ParsedToken::Num(_))
+                | (ParsedToken::Num(_), ParsedToken::Num(_))
+                | (ParsedToken::Var(_), ParsedToken::Var(_)) => false,
+                _ => true,
             },
             error_msg: "a number/variable cannot be next to a number/variable",
         },
@@ -314,8 +312,7 @@ where
                     };
                     if open_paren_cnt < 0 {
                         return Err(ExParseError {
-                            msg: format!("too many closing parentheses until position {}", i)
-                                ,
+                            msg: format!("too many closing parentheses until position {}", i),
                         });
                     }
                     Ok(())
@@ -328,10 +325,7 @@ where
         Err(ExParseError {
             msg: "parentheses mismatch".to_string(),
         })
-    } else if match parsed_tokens[parsed_tokens.len() - 1] {
-        ParsedToken::Op(_) => true,
-        _ => false,
-    } {
+    } else if let ParsedToken::Op(_) = parsed_tokens[parsed_tokens.len() - 1] {
         Err(ExParseError {
             msg: "the last element cannot be an operator".to_string(),
         })
@@ -339,6 +333,7 @@ where
         Ok(0)
     }
 }
+
 #[cfg(test)]
 use crate::operators;
 #[test]

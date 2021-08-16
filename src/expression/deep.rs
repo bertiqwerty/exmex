@@ -414,7 +414,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 all_var_names.push(name);
             }
         }
-        // sort_unstable is much faster
         all_var_names.sort_unstable();
         let mut self_vars_updated = self;
         let mut other_vars_updated = other;
