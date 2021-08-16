@@ -34,10 +34,10 @@ pub struct FlatNode<T: Copy> {
 
 impl<T: Copy> FlatNode<T> {
     pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
-        return FlatNode {
-            kind: kind,
+        FlatNode {
+            kind,
             unary_op: UnaryOp::new(),
-        };
+        }
     }
 }
 
@@ -77,7 +77,7 @@ fn flatten_vecs<T: Copy + Debug>(
     }
 
     if deep_expr.unary_op().op.len() > 0 {
-        if flat_ops.len() > 0 {
+        if !flat_ops.is_empty() {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
             let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
@@ -121,10 +121,10 @@ pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
     let indices = prioritized_indices_flat(&ops, &nodes);
     let n_unique_vars = deepex.n_vars();
     FlatEx {
-        nodes: nodes,
-        ops: ops,
+        nodes,
+        ops,
         prio_indices: indices,
-        n_unique_vars: n_unique_vars,
+        n_unique_vars,
         deepex: Some(deepex),
     }
 }
@@ -239,7 +239,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// assert!((d_x.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
     /// //                   |    
     /// //             This partial derivative d_x does depend on x. Still, it expects
-    /// //             the same number of parameters as the corresponding 
+    /// //             the same number of parameters as the corresponding
     /// //             antiderivative. Hence, you can pass any number for x.  
     ///
     /// assert!((d_y.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
@@ -254,7 +254,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// # Errors
     ///
     /// * If `self` has been `clear_deepex`ed we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
-    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if 
+    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
     pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>

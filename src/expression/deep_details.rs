@@ -57,7 +57,7 @@ pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<T>]) -> Option<Overl
 }
 
 pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
-    parsed_tokens: &[ParsedToken<'a, T>]
+    parsed_tokens: &[ParsedToken<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     let mut parsed_vars = parsed_tokens
@@ -74,7 +74,7 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
             _ => None,
         })
         .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
-    parsed_vars.sort();
+    parsed_vars.sort_unstable();
     let (expr, _) = make_expression(
         &parsed_tokens[0..],
         &parsed_vars,
@@ -156,7 +156,7 @@ where
                 Paren::Open => {
                     let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[i + n_uops + 1..],
-                        &parsed_vars,
+                        parsed_vars,
                         UnaryOpWithReprs {
                             reprs: vec_of_uop_reprs,
                             op: uop,
@@ -251,11 +251,11 @@ where
                     idx_tkn += 1;
                     let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[idx_tkn..],
-                        &parsed_vars,
+                        parsed_vars,
                         UnaryOpWithReprs {
                             reprs: Vec::new(),
                             op: UnaryOp::new(),
-                        }
+                        },
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
@@ -274,7 +274,7 @@ where
                 reprs: reprs_bin_ops,
                 ops: bin_ops,
             },
-            unary_ops
+            unary_ops,
         )?,
         idx_tkn,
     ))

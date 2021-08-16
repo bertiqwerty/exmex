@@ -151,7 +151,7 @@ where
                 ParsedToken::<T>::Var(maybe_name.unwrap().as_str())
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
-                return Err(ExParseError { msg: msg });
+                return Err(ExParseError { msg });
             };
             res.push(next_parsed_token);
         }
@@ -168,12 +168,14 @@ struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
 fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> Vec<PairPreCondition<'a, 'b, T>> {
     vec![
         PairPreCondition {
-            apply: |left, right| match (left, right) {
-                (ParsedToken::Num(_), ParsedToken::Var(_))
-                | (ParsedToken::Var(_), ParsedToken::Num(_))
-                | (ParsedToken::Num(_), ParsedToken::Num(_))
-                | (ParsedToken::Var(_), ParsedToken::Var(_)) => false,
-                _ => true,
+            apply: |left, right| {
+                !matches!(
+                    (left, right),
+                    (ParsedToken::Num(_), ParsedToken::Var(_))
+                        | (ParsedToken::Var(_), ParsedToken::Num(_))
+                        | (ParsedToken::Num(_), ParsedToken::Num(_))
+                        | (ParsedToken::Var(_), ParsedToken::Var(_))
+                )
             },
             error_msg: "a number/variable cannot be next to a number/variable",
         },
@@ -313,7 +315,7 @@ where
                     if open_paren_cnt < 0 {
                         return Err(ExParseError {
                             msg: format!("too many closing parentheses until position {}", i)
-                                .to_string(),
+                                ,
                         });
                     }
                     Ok(())

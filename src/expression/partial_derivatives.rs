@@ -24,14 +24,11 @@ pub fn find_op<'a, T: Copy + Debug>(
     ops: &[Operator<'a, T>],
 ) -> Option<Operator<'a, T>> {
     let found = ops.iter().cloned().find(|op| op.repr == repr);
-    match found {
-        Some(op) => Some(Operator {
-            bin_op: op.bin_op,
-            unary_op: op.unary_op,
-            repr: repr,
-        }),
-        None => None,
-    }
+    found.map(|op| Operator {
+        bin_op: op.bin_op,
+        unary_op: op.unary_op,
+        repr,
+    })
 }
 
 pub struct PartialDerivative<'a, T: Copy + Debug> {
@@ -97,14 +94,14 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                 let op = partial_derivative_ops
                     .iter()
                     .find(|pdo| &pdo.repr == repr)
-                    .ok_or(make_op_missing_err(repr))?;
-                let unary_deri_op = op.unary_op.clone().ok_or(make_op_missing_err(repr))?;
+                    .ok_or_else(|| make_op_missing_err(repr))?;
+                let unary_deri_op = op.unary_op.ok_or_else(|| make_op_missing_err(repr))?;
 
                 unary_deri_op(deepex.clone(), ops)
             });
     let resex = factorexes.fold(
         Ok(DeepEx::one(overloaded_ops)),
-        |dp1, dp2| -> Result<DeepEx<T>, ExParseError> { Ok(mul_num(dp1?, dp2?)?) },
+        |dp1, dp2| -> Result<DeepEx<T>, ExParseError> { mul_num(dp1?, dp2?) },
     );
     resex
 }
@@ -203,7 +200,7 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
         // reduce indices after removed position
         for num_idx_after in num_inds.iter_mut() {
             if *num_idx_after > num_idx {
-                *num_idx_after = *num_idx_after - 1;
+                *num_idx_after -= 1;
             }
         }
         used_prio_indices.push(bin_op_idx);
@@ -300,7 +297,9 @@ fn div_num<'a, T: Float + Debug>(
     } else if denominator.is_one() {
         Ok(numerator)
     } else if denominator.is_zero() {
-        Err(ExParseError{msg: format!("division by zero, {}/{}", numerator, denominator)})
+        Err(ExParseError {
+            msg: format!("division by zero, {}/{}", numerator, denominator),
+        })
     } else {
         Ok(numerator / denominator)
     }
@@ -317,9 +316,9 @@ fn pow_num<'a, T: Float + Debug>(
     let zero = zero.var_names_like_other(&base);
     let one = one.var_names_like_other(&base);
     Ok(if base.is_zero() && exponent.is_zero() {
-        Err(ExParseError {
+        return Err(ExParseError {
             msg: "base and exponent both zero. help. fatal. ah. help.".to_string(),
-        })?
+        })
     } else if base.is_zero() {
         zero
     } else if exponent.is_zero() {
@@ -358,7 +357,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     )?;
 
                     let der = add_num(der_1, der_2)?;
-                    Ok(ValueDerivative { val: val, der: der })
+                    Ok(ValueDerivative { val, der })
                 },
             ),
             unary_op: None,
@@ -416,7 +415,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let der_1 = mul_num(g.val, f.der)?;
                     let der_2 = mul_num(g.der, f.val)?;
                     let der = add_num(der_1, der_2)?;
-                    Ok(ValueDerivative { val: val, der: der })
+                    Ok(ValueDerivative { val, der })
                 },
             ),
             unary_op: None,
@@ -430,9 +429,13 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                  -> Result<ValueDerivative<T>, ExParseError> {
                     let val = div_num(f.val.clone(), g.val.clone())?;
 
-                    let numerator = sub_num(mul_num(f.der, g.val.clone())?, mul_num(g.der, f.val)?)?;
-                    let denominator = mul_num(g.val.clone(), g.val)?;                    
-                    Ok(ValueDerivative { val: val, der: div_num(numerator, denominator)? })
+                    let numerator =
+                        sub_num(mul_num(f.der, g.val.clone())?, mul_num(g.der, f.val)?)?;
+                    let denominator = mul_num(g.val.clone(), g.val)?;
+                    Ok(ValueDerivative {
+                        val,
+                        der: div_num(numerator, denominator)?,
+                    })
                 },
             ),
             unary_op: None,
@@ -492,21 +495,14 @@ fn test_partial() {
     let d_x = partial_deepex(0, dut, &ops).unwrap();
     let flat = flatten(d_x);
     assert_float_eq_f64(
-        flat.eval(&[-0.18961918881278095])
-            .unwrap(),
-            -27.977974668662565,
+        flat.eval(&[-0.18961918881278095]).unwrap(),
+        -27.977974668662565,
     );
 
     let dut = DeepEx::<f64>::from_str("x^y").unwrap();
     let d_x = partial_deepex(0, dut, &ops).unwrap();
     let flat = flatten(d_x);
-    assert_float_eq_f64(
-        flat.eval(&[7.5, 3.5])
-            .unwrap(),
-            539.164392544148,
-    );
-
-
+    assert_float_eq_f64(flat.eval(&[7.5, 3.5]).unwrap(), 539.164392544148);
 }
 
 #[test]

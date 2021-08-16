@@ -1,11 +1,11 @@
 use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
-use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 use itertools::{izip, Itertools};
-use meval;
+
 use rsc::{
     computer::Computer,
     lexer::tokenize,
@@ -67,15 +67,19 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
     }
 }
 
-fn run_benchmark_parse<'a, T, F: Fn(&'a[&str]) -> Vec<T>>(func: F, parse_name: &str, c: &mut Criterion) {
-    c.bench_function(format!("{}", parse_name).as_str(), |b| {
+fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
+    func: F,
+    parse_name: &str,
+    c: &mut Criterion,
+) {
+    c.bench_function(parse_name.to_string().as_str(), |b| {
         b.iter(|| {
             func(black_box(&BENCH_EXPRESSIONS_STRS));
         })
     });
 }
 
-fn exmex_parse<'a>(strings: &'a[&str]) -> Vec<FlatEx<'a, f64>> {
+fn exmex_parse<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
     strings
         .iter()
         .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
@@ -86,7 +90,7 @@ fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
 }
 
-fn exmex_parse_optimized<'a>(strings: &'a[&str]) -> Vec<FlatEx<'a, f64>> {
+fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
     let ops = vec![
         Operator {
             repr: "^",
@@ -235,9 +239,9 @@ fn fasteval_bench_eval(c: &mut Criterion) {
             let context = &mut tuple_of_tuples.1;
             let (instr, slab) = &tuple_of_tuples.0;
             move |x: f64| {
-                context.insert("x".to_string(), x.into());
-                context.insert("y".to_string(), BENCH_Y.into());
-                context.insert("z".to_string(), BENCH_Z.into());
+                context.insert("x".to_string(), x);
+                context.insert("y".to_string(), BENCH_Y);
+                context.insert("z".to_string(), BENCH_Z);
                 || -> Result<f64, fasteval::Error> {
                     Ok(fasteval::eval_compiled_ref!(
                         instr,
