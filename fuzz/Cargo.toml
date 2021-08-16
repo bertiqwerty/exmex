@@ -24,9 +24,3 @@ name = "eval_str"
 path = "fuzz_targets/eval_str.rs"
 test = false
 doc = false
-
-[[bin]]
-name = "parse_with_default_ops"
-path = "fuzz_targets/parse_with_default_ops.rs"
-test = false
-doc = false
