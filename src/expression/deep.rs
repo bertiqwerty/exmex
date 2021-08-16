@@ -204,7 +204,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                     }
                 }
             }
-
+            found_vars.sort_unstable();
             let mut expr = DeepEx {
                 nodes,
                 bin_ops,
@@ -533,7 +533,15 @@ use {
 #[test]
 fn test_reset_vars() {
     let deepex = DeepEx::<f64>::from_str("2*z+x+y * .5").unwrap();
+    let ref_vars = ["x", "y", "z"];
+    for i in 0..ref_vars.len() {
+        assert_eq!(deepex.var_names[i], ref_vars[i]);
+    }
     let deepex2 = DeepEx::<f64>::from_str("a*c*b").unwrap();
+    let ref_vars = ["a", "b", "c"];
+    for i in 0..ref_vars.len() {
+        assert_eq!(deepex2.var_names[i], ref_vars[i]);
+    }
     let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
     let all_vars = ["a", "b", "c", "x", "y", "z"];
     for i in 0..all_vars.len() {
