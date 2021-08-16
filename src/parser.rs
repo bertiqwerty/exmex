@@ -318,15 +318,6 @@ where
                     }
                     Ok(())
                 }
-                ParsedToken::Op(_) => {
-                    if i < parsed_tokens.len() - 1 {
-                        Ok(())
-                    } else {
-                        Err(ExParseError {
-                            msg: "the last element cannot be an operator".to_string(),
-                        })
-                    }
-                }
                 _ => Ok(()),
             }
         })
@@ -334,6 +325,13 @@ where
     if open_paren_cnt != 0 {
         Err(ExParseError {
             msg: "parentheses mismatch".to_string(),
+        })
+    } else if match parsed_tokens[parsed_tokens.len() - 1] {
+        ParsedToken::Op(_) => true,
+        _ => false,
+    } {
+        Err(ExParseError {
+            msg: "the last element cannot be an operator".to_string(),
         })
     } else {
         Ok(0)
