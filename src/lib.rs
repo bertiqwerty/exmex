@@ -345,7 +345,7 @@ mod tests {
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
 
-        let sut = "sin({myvwmlf4i58eo;w/-😕+sin(a)r_25})";
+        let sut = "sin({myvwmlf4i58eo;w/-sin(a)r_25})";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 

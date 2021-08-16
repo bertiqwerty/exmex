@@ -81,6 +81,11 @@ pub fn tokenize_and_analyze<'a, T: Copy + FromStr + Debug, F: Fn(&'a str) -> Opt
 where
     <T as std::str::FromStr>::Err: Debug,
 {
+    // Make sure that the text does not contain unicode characters
+    if text.chars().any(|c| !c.is_ascii()) {
+        return Err(ExParseError{msg: "only ascii characters are supported".to_string()});
+    };
+
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
 
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
@@ -156,7 +161,7 @@ where
             res.push(next_parsed_token);
         }
     }
-    check_preconditions(&res)?;
+    check_parsed_token_preconditions(&res)?;
     Ok(res)
 }
 
@@ -273,7 +278,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> Vec<PairPreCondition
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
+pub fn check_parsed_token_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
 where
     T: Copy + FromStr + std::fmt::Debug,
 {
@@ -337,11 +342,17 @@ where
 #[cfg(test)]
 use crate::operators;
 #[test]
-fn test_apply_regexes() {
-    let text = r"5\6";
+fn test_tokenize_and_analze() {
     let ops = operators::make_default_operators::<f32>();
+    
+    let text = r"5\6";
     let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
     assert!(elts.is_err());
+
+    let text = "ӭ";
+    let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+    assert!(elts.is_err());
+
 }
 
 #[test]
@@ -375,7 +386,7 @@ fn test_preconditions() {
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
             Ok(elts_unwr) => {
-                let err = check_preconditions(&elts_unwr[..]);
+                let err = check_parsed_token_preconditions(&elts_unwr[..]);
                 check_err_msg(err, msg_part);
             }
             Err(_) => check_err_msg(elts, msg_part),
