@@ -467,7 +467,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             bin_op: None,
             unary_op: Some(
                 |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
-                    Ok(DeepEx::one(f.unpack_and_clone_overloaded_ops()?) / f)
+                    Ok(DeepEx::one(f.unpack_and_clone_overloaded_ops()?) / f.with_new_unary_op(UnaryOpWithReprs::new()))
                 },
             ),
         },
