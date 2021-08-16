@@ -60,7 +60,7 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
     parsed_tokens: &[ParsedToken<'a, T>]
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
-    let parsed_vars = parsed_tokens
+    let mut parsed_vars = parsed_tokens
         .iter()
         .filter_map(|pt| match pt {
             ParsedToken::Var(name) => {
@@ -74,7 +74,7 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
             _ => None,
         })
         .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
-
+    parsed_vars.sort();
     let (expr, _) = make_expression(
         &parsed_tokens[0..],
         &parsed_vars,

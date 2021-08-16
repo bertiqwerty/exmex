@@ -1,12 +1,14 @@
+use super::partial_derivatives::partial_deepex;
 use crate::{
     definitions::N_NODES_ON_STACK,
     expression::deep::{DeepEx, DeepNode, ExprIdxVec},
+    make_default_operators,
     operators::UnaryOp,
     BinOp, ExParseError,
 };
+use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::{self, Debug, Display, Formatter};
-
 pub type FlatNodeVec<T> = SmallVec<[FlatNode<T>; N_NODES_ON_STACK]>;
 pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 
@@ -117,21 +119,7 @@ fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) 
 pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
     let (nodes, ops) = flatten_vecs(&deepex, 0);
     let indices = prioritized_indices_flat(&ops, &nodes);
-    let mut found_vars = SmallVec::<[usize; 16]>::new();
-    let n_unique_vars = nodes
-        .iter()
-        .filter_map(|n| match n.kind {
-            FlatNodeKind::Var(idx) => {
-                if !found_vars.contains(&idx) {
-                    found_vars.push(idx);
-                    Some(idx)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .count();
+    let n_unique_vars = deepex.n_vars();
     FlatEx {
         nodes: nodes,
         ops: ops,
@@ -158,14 +146,14 @@ pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
 ///
 /// // create an expression by parsing a string
 /// let expr = parse_with_default_ops::<f32>("sin(1+y)*x")?;
-/// assert!((expr.eval(&[2.0, 1.5])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
+/// assert!((expr.eval(&[1.5, 2.0])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument `&[2.0, 1.5]` in the call of [`eval`](FlatEx::eval) specifies the
-/// variable values in the order of their occurrence in the string.
-/// In this example, we want to evaluate the expression for the varibale values `y=2.0` and `x=1.5`.
+/// The second argument `&[1.5, 2.0]` in the call of [`eval`](FlatEx::eval) specifies the
+/// variable values in the alphabetical order of the variable names.
+/// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 /// Variables in the string to-be-parsed are all substrings that are no numbers, no
 /// operators, and no parentheses.
 ///
@@ -235,6 +223,57 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
         Ok(numbers[0])
     }
 
+    /// This method computes a `FlatEx` instance that is a partial derivative of `self` with default operators
+    /// as shown in the following example.
+    ///
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::{parse_with_default_ops};
+    ///
+    /// let expr = parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
+    /// let d_x = expr.clone().partial(0)?;
+    /// let d_y = expr.partial(1)?;
+    ///
+    /// assert!((d_x.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
+    /// //                   |    
+    /// //             This partial derivative d_x does depend on x. Still, it expects
+    /// //             the same number of parameters as the corresponding 
+    /// //             antiderivative. Hence, you can pass any number for x.  
+    ///
+    /// assert!((d_y.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// # Arguments
+    ///
+    /// * `var_idx` - variable with respect to which the partial derivative is computed
+    ///
+    /// # Errors
+    ///
+    /// * If `self` has been `clear_deepex`ed we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
+    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if 
+    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
+    ///
+    pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    where
+        T: Float,
+    {
+        let ops = make_default_operators();
+
+        let d_i = partial_deepex(
+            var_idx,
+            self.deepex.ok_or(ExParseError {
+                msg: "need deep expression for derivation, not possible after calling `clear`"
+                    .to_string(),
+            })?,
+            &ops,
+        )?;
+        Ok(flatten(d_i))
+    }
+
     /// Creates an expression string that corresponds to the `FlatEx` instance. This is
     /// not necessarily the input string. More precisely,
     /// * variable names are forgotten,
@@ -246,7 +285,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// #
     /// use exmex::parse_with_default_ops;
     /// let flatex = parse_with_default_ops::<f64>("--sin(z)")?;
-    /// assert_eq!(format!("{}", flatex), "-(-(sin({x0})))");
+    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))");
     /// #
     /// #     Ok(())
     /// # }
@@ -337,7 +376,7 @@ fn test_flat_compile() {
     let flatex = parse_with_default_ops::<f64>("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
         _ => assert!(false),
     }
     match flatex.nodes[1].kind {
@@ -345,7 +384,7 @@ fn test_flat_compile() {
         _ => assert!(false),
     }
     match flatex.nodes[2].kind {
-        FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
+        FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => assert!(false),
     }
 }
@@ -389,7 +428,7 @@ fn test_operator_overloading() {
 #[test]
 fn test_display() {
     let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
-    assert_eq!(format!("{}", flatex), "sin({x0})/5.0");
+    assert_eq!(format!("{}", flatex), "sin({var})/5.0");
     flatex.clear_deepex();
     assert_eq!(
         format!("{}", flatex),
@@ -402,7 +441,6 @@ fn test_unparse() {
     fn test(text: &str, text_ref: &str) {
         let flatex = flatten(DeepEx::<f64>::from_str(text).unwrap());
         let deepex = flatex.deepex.unwrap();
-
         assert_eq!(deepex.unparse(), text_ref);
         let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
         assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
@@ -410,21 +448,21 @@ fn test_unparse() {
         assert!(flatex_reparsed.unparse().is_err());
     }
     let text = "5+x";
-    let text_ref = "5.0+{x0}";
+    let text_ref = "5.0+{x}";
     test(text, text_ref);
     let text = "sin(5+var)^(1/{y})+{var}";
-    let text_ref = "sin(5.0+{x0})^(1.0/{x1})+{x0}";
+    let text_ref = "sin(5.0+{var})^(1.0/{y})+{var}";
     test(text, text_ref);
     let text = "-(5+var)^(1/{y})+{var}";
-    let text_ref = "-(5.0+{x0})^(1.0/{x1})+{x0}";
+    let text_ref = "-(5.0+{var})^(1.0/{y})+{var}";
     test(text, text_ref);
     let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
-    let text_ref = "cos(sin(-(5.0+{x0})^(1.0/{x1})))+{x0}";
+    let text_ref = "cos(sin(-(5.0+{var})^(1.0/{y})))+{var}";
     test(text, text_ref);
     let text = "cos(sin(-5+var^(1/{y})))-{var}";
-    let text_ref = "cos(sin(-5.0+{x0}^(1.0/{x1})))-{x0}";
+    let text_ref = "cos(sin(-5.0+{var}^(1.0/{y})))-{var}";
     test(text, text_ref);
     let text = "cos(sin(-z+var*(1/{y})))+{var}";
-    let text_ref = "cos(sin(-({x0})+{x1}*(1.0/{x2})))+{x1}";
+    let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
     test(text, text_ref);
 }
