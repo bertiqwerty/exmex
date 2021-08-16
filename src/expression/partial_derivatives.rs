@@ -40,7 +40,8 @@ pub struct PartialDerivative<'a, T: Copy + Debug> {
             &[Operator<'a, T>],
         ) -> Result<ValueDerivative<'a, T>, ExParseError>,
     >,
-    unary_op: Option<fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>>,
+    unary_outer_op:
+        Option<fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>>,
 }
 
 fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
@@ -95,7 +96,7 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                     .iter()
                     .find(|pdo| &pdo.repr == repr)
                     .ok_or_else(|| make_op_missing_err(repr))?;
-                let unary_deri_op = op.unary_op.ok_or_else(|| make_op_missing_err(repr))?;
+                let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
 
                 unary_deri_op(deepex.clone(), ops)
             });
@@ -360,7 +361,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     Ok(ValueDerivative { val, der })
                 },
             ),
-            unary_op: None,
+            unary_outer_op: None,
         },
         PartialDerivative {
             repr: "+",
@@ -375,7 +376,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     })
                 },
             ),
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<T>, _: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
                     Ok(f.clone())
                 },
@@ -394,7 +395,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     })
                 },
             ),
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<'a, T>,
                  ops: &[Operator<'a, T>]|
                  -> Result<DeepEx<'a, T>, ExParseError> {
@@ -418,7 +419,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     Ok(ValueDerivative { val, der })
                 },
             ),
-            unary_op: None,
+            unary_outer_op: None,
         },
         PartialDerivative {
             repr: "/",
@@ -438,12 +439,12 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     })
                 },
             ),
-            unary_op: None,
+            unary_outer_op: None,
         },
         PartialDerivative {
             repr: "sin",
             bin_op: None,
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
                     let unary_op = find_as_unary_op_with_reprs("cos", ops)?;
                     Ok(f.with_new_unary_op(unary_op))
@@ -453,7 +454,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
         PartialDerivative {
             repr: "cos",
             bin_op: None,
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
                     let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
                     let mut minus = find_as_unary_op_with_reprs("-", ops)?;
@@ -465,7 +466,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
         PartialDerivative {
             repr: "log",
             bin_op: None,
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
                     Ok(DeepEx::one_like(&f)? / f.with_new_unary_op(UnaryOpWithReprs::new()))
                 },
@@ -474,7 +475,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
         PartialDerivative {
             repr: "exp",
             bin_op: None,
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
                     Ok(f)
                 },
@@ -483,7 +484,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
         PartialDerivative {
             repr: "tan",
             bin_op: None,
-            unary_op: Some(
+            unary_outer_op: Some(
                 |f: DeepEx<'a, T>,
                  ops: &[Operator<'a, T>]|
                  -> Result<DeepEx<'a, T>, ExParseError> {
