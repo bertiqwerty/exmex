@@ -673,7 +673,7 @@ fn test_partial_finite() {
             assert_float_eq::<f64>(
                 flat_deri,
                 finite_diff,
-                1e-3,
+                1e-5,
                 1e-3,
                 msg.as_str(),
             );
