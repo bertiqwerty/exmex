@@ -1,35 +1,45 @@
 # Fuzzing exmex
 
-## Prerequisites:
-Install cargo fuzz via:
-`cargo install cargo-fuzz`
+## Installation
+### Nightly on Linux
+To run fuzzing, Linux or WSL and a nightly compiler is necenssary due to [unstable compiler flags](https://doc.rust-lang.org/beta/unstable-book/compiler-flags.html). To install nightly, one can run
+```
+curl https://sh.rustup.rs -sSf | sh
+rustup toolchain install nightly
+```
+and switch to `nightly` via
+```
+rustup default nightly
+```
+For more information about the different channels, see [the rustup documentation](https://rust-lang.github.io/rustup/concepts/channels.html).
+### Cargo Fuzz
+Install cargo fuzz via `cargo install cargo-fuzz`.
 
-## Fuzzing:
-List targets via:
-`cargo fuzz list`
+## Fuzzing
+List targets via 
+```
+cargo fuzz list
+```
 
-Choose one of the targets and begin fuzzing via: 
+Choose one of the targets and begin fuzzing via 
 ```
 cargo fuzz run TARGET
 ```
 
-## Extras:
-Multithreading:
+## Extras
+For multithreading use
 ```
 cargo fuzz run TARGET --jobs=THREADS
 ```
 
-
-Print std::fmt::Debug for a test case:
+To print `std::fmt::Debug` for a test case, use
 ```
 cargo fuzz fmt TARGET INPUT
 ```
 
-
-Coverage:
+For coverage use
 ```
 cargo fuzz coverage TARGET
 ```
 
-For more information look at the [Rust Fuzz Book](https://rust-fuzz.github.io/book/introduction.html) and the 
-[Rust Unstable Book](https://doc.rust-lang.org/beta/unstable-book/compiler-flags.html)
+For more information about fuzzing look at the [Rust Fuzz Book](https://rust-fuzz.github.io/book/introduction.html). 
