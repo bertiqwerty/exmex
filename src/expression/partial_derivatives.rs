@@ -318,7 +318,7 @@ fn pow_num<'a, T: Float + Debug>(
     Ok(if base.is_zero() && exponent.is_zero() {
         return Err(ExParseError {
             msg: "base and exponent both zero. help. fatal. ah. help.".to_string(),
-        })
+        });
     } else if base.is_zero() {
         zero
     } else if exponent.is_zero() {
@@ -340,7 +340,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let power_op = find_as_bin_op_with_reprs("^", ops)?;
                     let log_op = find_as_unary_op_with_reprs("log", ops)?;
 
-                    let one = DeepEx::one(f.val.unpack_and_clone_overloaded_ops()?);
+                    let one = DeepEx::one_like(&f.val)?;
                     let val = pow_num(f.val.clone(), g.val.clone(), power_op.clone())?;
 
                     let der_1 = mul_num(
@@ -455,10 +455,10 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             bin_op: None,
             unary_op: Some(
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
-                    let mut unary_op = find_as_unary_op_with_reprs("sin", ops)?;
+                    let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
                     let mut minus = find_as_unary_op_with_reprs("-", ops)?;
-                    unary_op.append_front(&mut minus);
-                    Ok(f.with_new_unary_op(unary_op))
+                    sin.append_front(&mut minus);
+                    Ok(f.with_new_unary_op(sin))
                 },
             ),
         },
@@ -467,7 +467,34 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             bin_op: None,
             unary_op: Some(
                 |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
-                    Ok(DeepEx::one(f.unpack_and_clone_overloaded_ops()?) / f.with_new_unary_op(UnaryOpWithReprs::new()))
+                    Ok(DeepEx::one_like(&f)? / f.with_new_unary_op(UnaryOpWithReprs::new()))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "exp",
+            bin_op: None,
+            unary_op: Some(
+                |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
+                    Ok(f)
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "tan",
+            bin_op: None,
+            unary_op: Some(
+                |f: DeepEx<'a, T>,
+                 ops: &[Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    let cos_op = find_as_unary_op_with_reprs("cos", ops)?;
+                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let two = DeepEx::one_like(&f)? + DeepEx::one_like(&f)?;
+                    let cos_squared_ex = f
+                        .clone()
+                        .with_new_unary_op(cos_op)
+                        .operate_bin(two, power_op);
+                    Ok(DeepEx::one_like(&f)? / cos_squared_ex)
                 },
             ),
         },

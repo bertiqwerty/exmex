@@ -278,6 +278,14 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         DeepEx::from_node(DeepNode::one(), overloaded_ops)
     }
 
+    pub fn one_like(other: &DeepEx<'a, T>) -> Result<DeepEx<'a, T>, ExParseError>
+    where
+        T: Float,
+    {
+        Ok(DeepEx::one(other.unpack_and_clone_overloaded_ops()?))
+    }
+
+
     pub fn zero(overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T>
     where
         T: Float,
@@ -635,6 +643,7 @@ fn test_partial_finite() {
             "test_partial_finite - checking derivatives at {:?} for {}",
             x0s, sut
         );
+        println!("test_partial_finite - dut vars {:?}", dut.var_names);
         for (var_idx, var_name) in dut.var_names.iter().enumerate() {
             let x1s: Vec<f64> = x0s
                 .iter()
@@ -676,6 +685,9 @@ fn test_partial_finite() {
     test("1/x", &ops, -10.0..10.0);
     test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
     test("log(x^2)", &ops, 0.1..10.0);
+    test("tan(x)", &ops, -1.0..1.0);
+    test("tan(exp(x))", &ops, -1.0..1.0);
+    test("exp(y-x)", &ops, -1.0..1.0);
 }
 
 #[test]
