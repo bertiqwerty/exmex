@@ -499,6 +499,19 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                 },
             ),
         },
+        PartialDerivative {
+            repr: "sqrt",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<'a, T>,
+                 _: &[Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    let one = DeepEx::one_like(&f)?;
+                    let two = one.clone() + one.clone();
+                    Ok(one / (two * f))
+                },
+            ),
+        },
     ]
 }
 

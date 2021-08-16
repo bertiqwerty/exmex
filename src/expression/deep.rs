@@ -696,6 +696,8 @@ fn test_partial_finite() {
     test("tan(x)", &ops, -1.0..1.0);
     test("tan(exp(x))", &ops, -1.0..1.0);
     test("exp(y-x)", &ops, -1.0..1.0);
+    test("sqrt(exp(y-x))", &ops, -1.0..1.0);
+    test("sqrt(x)", &ops, 0.0..10000.0);
 }
 
 #[test]
