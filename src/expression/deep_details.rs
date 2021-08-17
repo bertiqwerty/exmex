@@ -1,15 +1,12 @@
-use std::{fmt::Debug, iter::once, str::FromStr};
-
-use smallvec::SmallVec;
-
 use crate::{
     definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
-    operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
+    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    operators::{BinOp, Operator, UnaryOp, VecOfUnaryFuncs},
     parser::{ExParseError, Paren, ParsedToken},
-    Operator,
 };
+use std::{fmt::Debug, iter, str::FromStr};
 
-use super::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs};
+use smallvec::SmallVec;
 
 pub const ADD_REPR: &str = "+";
 pub const SUB_REPR: &str = "-";
@@ -129,7 +126,7 @@ where
     // variable 'tokens' from the outer scope
     let process_unary = |i: usize, uo, repr| {
         // gather subsequent unary operators from the beginning
-        let iter_of_uops = once((repr, uo)).chain(
+        let iter_of_uops = iter::once((repr, uo)).chain(
             (i + 1..parsed_tokens.len())
                 .map(|j| match parsed_tokens[j] {
                     ParsedToken::Op(op) => (op.repr, op.unary_op),

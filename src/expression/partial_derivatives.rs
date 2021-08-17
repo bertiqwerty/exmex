@@ -1,17 +1,15 @@
-use num::Float;
-use smallvec::{smallvec, SmallVec};
-use std::fmt::Debug;
-
-use super::{
-    deep::{BinOpsWithReprs, DeepEx, ExprIdxVec},
-    deep_details::{self, find_overloaded_ops, OverloadedOps},
-};
 use crate::{
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
-    expression::deep::{DeepNode, UnaryOpWithReprs},
+    expression::{
+        deep::{BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+        deep_details::{self, OverloadedOps},
+    },
     operators::{Operator, UnaryOp},
     ExParseError,
 };
+use num::Float;
+use smallvec::{smallvec, SmallVec};
+use std::fmt::Debug;
 
 #[derive(Clone)]
 struct ValueDerivative<'a, T: Copy + Debug> {
@@ -223,7 +221,7 @@ pub fn partial_deepex<'a, T: Float + Debug>(
     ops: &[Operator<'a, T>],
 ) -> Result<DeepEx<'a, T>, ExParseError> {
     let partial_derivative_ops = make_partial_derivative_ops::<T>();
-    let overloaded_ops = find_overloaded_ops(ops).ok_or(ExParseError {
+    let overloaded_ops = deep_details::find_overloaded_ops(ops).ok_or(ExParseError {
         msg: "one of overloaded ops not found".to_string(),
     })?;
 
@@ -713,7 +711,7 @@ fn test_partial_inner() {
         let partial_derivative_ops = make_partial_derivative_ops::<f64>();
         let ops = make_default_operators::<f64>();
         let deepex_1 = DeepEx::<f64>::from_str(text).unwrap();
-        let ovops = find_overloaded_ops(&ops).unwrap();
+        let ovops = deep_details::find_overloaded_ops(&ops).unwrap();
         match deepex_1.nodes()[0].clone() {
             DeepNode::Expr(e) => {
                 let deri = partial_derivative_inner(
@@ -744,7 +742,7 @@ fn test_partial_outer() {
         let ops = make_default_operators::<f64>();
         let deepex_1 = DeepEx::<f64>::from_str(text).unwrap();
         let deepex = deepex_1.nodes()[0].clone();
-        let ovops = find_overloaded_ops(&ops).unwrap();
+        let ovops = deep_details::find_overloaded_ops(&ops).unwrap();
 
         match deepex {
             DeepNode::Expr(e) => {

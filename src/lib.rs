@@ -4,8 +4,8 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::eval_str;
-//! assert!((eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
+//! use exmex;
+//! assert!((exmex::eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
@@ -24,9 +24,9 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{make_default_operators, parse};
+//! use exmex::{self, make_default_operators};
 //! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! let expr = exmex::parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -40,11 +40,11 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{make_default_operators, parse};
+//! use exmex::{self, make_default_operators};
 //! let x = 2.1f64;
 //! let y = 0.1f64;
 //! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
-//! let expr = parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! let expr = exmex::parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -56,7 +56,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{parse, BinOp, Operator};
+//! use exmex::{BinOp, Operator};
 //! let ops = [
 //!     Operator {
 //!         repr: "%",
@@ -70,7 +70,7 @@
 //!     },
 //! ];
 //! let to_be_parsed = "19 % 5 / 2 / a";
-//! let expr = parse::<i32>(to_be_parsed, &ops)?;
+//! let expr = exmex::parse::<i32>(to_be_parsed, &ops)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -103,7 +103,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{parse_with_number_pattern, BinOp, Operator};
+//! use exmex::{self, BinOp, Operator};
 //! let ops = [
 //!     Operator {
 //!         repr: "&&",
@@ -122,7 +122,7 @@
 //!     },
 //! ];
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = parse_with_number_pattern::<bool>(to_be_parsed, &ops, "true|false")?;
+//! let expr = exmex::parse_with_number_pattern::<bool>(to_be_parsed, &ops, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -137,8 +137,8 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::eval_str;
-//! assert_eq!(eval_str("---1")?, -1.0);
+//! use exmex;
+//! assert_eq!(exmex::eval_str("---1")?, -1.0);
 //! #
 //! #     Ok(())
 //! # }
@@ -153,9 +153,9 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{parse_with_default_ops};
+//! use exmex;
 //!
-//! let expr = parse_with_default_ops::<f64>("x^2 + y^2")?;
+//! let expr = exmex::parse_with_default_ops::<f64>("x^2 + y^2")?;
 //! let d_x = expr.clone().partial(0)?;
 //! let d_y = expr.partial(1)?;
 //! assert!((d_x.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
@@ -175,8 +175,8 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::parse_with_default_ops;
-//! let flatex = parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
+//! use exmex;
+//! let flatex = exmex::parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
 //! assert_eq!(format!("{}", flatex), "-(sin({z}))/cos({mother_of_names})");
 //! #
 //! #     Ok(())
@@ -200,9 +200,8 @@ pub use expression::flat::FlatEx;
 use expression::{deep::DeepEx, flat};
 
 use num::Float;
-pub use parser::ExParseError;
-
 pub use operators::{make_default_operators, BinOp, Operator};
+pub use parser::ExParseError;
 
 /// Parses a string, evaluates a string, and returns the resulting number.
 ///
@@ -554,10 +553,7 @@ mod tests {
             2.256637061435916,
         );
         assert_float_eq_f64(eval_str("((2-4)/5)*2").unwrap(), -0.8);
-        assert_float_eq_f64(
-            eval_str("-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(),
-            1.0,
-        );
+        assert_float_eq_f64(eval_str("-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(), 1.0);
         assert_float_eq_f64(
             eval_str("-(-1+sin(cos(-3.14159265358979)/5)*2)").unwrap(),
             1.3973386615901224,

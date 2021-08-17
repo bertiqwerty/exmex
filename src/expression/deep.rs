@@ -1,11 +1,7 @@
-use super::deep_details::{
-    self, find_overloaded_ops, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
-};
-use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
-
 use crate::{
-    operators,
-    operators::{BinOp, UnaryOp},
+    definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
+    expression::deep_details::{self, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR},
+    operators::{self, BinOp, UnaryOp},
     parser, ExParseError, Operator,
 };
 use num::Float;
@@ -14,7 +10,7 @@ use smallvec::{smallvec, SmallVec};
 use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
-    iter::repeat,
+    iter,
     ops::{Add, Div, Mul, Sub},
     str::FromStr,
 };
@@ -247,13 +243,13 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 res.push('(');
                 res
             });
-        let closings =
-            repeat(")")
-                .take(self.unary_op.op.len())
-                .fold(String::new(), |mut res, closing| {
-                    res.push_str(closing);
-                    res
-                });
+        let closings = iter::repeat(")").take(self.unary_op.op.len()).fold(
+            String::new(),
+            |mut res, closing| {
+                res.push_str(closing);
+                res
+            },
+        );
         if self.unary_op.op.len() == 0 {
             node_with_bin_ops_string
         } else {
@@ -284,7 +280,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     {
         Ok(DeepEx::one(other.unpack_and_clone_overloaded_ops()?))
     }
-
 
     pub fn zero(overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T>
     where
@@ -319,7 +314,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     {
         let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
         let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
-        deepex.set_overloaded_ops(find_overloaded_ops(ops));
+        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
         Ok(deepex)
     }
 
@@ -670,13 +665,7 @@ fn test_partial_finite() {
             );
             let msg = format!("sut {}, d_{} is {}", sut, var_name, deri);
             println!("test_partial_finite - {}", msg);
-            assert_float_eq::<f64>(
-                flat_deri,
-                finite_diff,
-                1e-5,
-                1e-3,
-                msg.as_str(),
-            );
+            assert_float_eq::<f64>(flat_deri, finite_diff, 1e-5, 1e-3, msg.as_str());
         }
     }
 

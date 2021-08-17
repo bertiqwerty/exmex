@@ -1,10 +1,11 @@
-use super::partial_derivatives::partial_deepex;
 use crate::{
     definitions::N_NODES_ON_STACK,
-    expression::deep::{DeepEx, DeepNode, ExprIdxVec},
-    make_default_operators,
-    operators::UnaryOp,
-    BinOp, ExParseError,
+    expression::{
+        deep::{DeepEx, DeepNode, ExprIdxVec},
+        partial_derivatives,
+    },
+    operators::{self, BinOp, UnaryOp},
+    parser::ExParseError,
 };
 use num::Float;
 use smallvec::{smallvec, SmallVec};
@@ -200,7 +201,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
                     FlatNodeKind::Var(idx) => vars[idx],
                 })
             })
-            .collect::<SmallVec<[T; 32]>>();
+            .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
         let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; self.nodes.len()];
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
             let num_idx = self.prio_indices[i];
@@ -233,16 +234,16 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     /// use exmex::{parse_with_default_ops};
     ///
     /// let expr = parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
-    /// let d_x = expr.clone().partial(0)?;
-    /// let d_y = expr.partial(1)?;
+    /// let dexpr_dx = expr.clone().partial(0)?;
+    /// let dexpr_dy = expr.partial(1)?;
     ///
-    /// assert!((d_x.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
+    /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
     /// //                   |    
     /// //             This partial derivative d_x does depend on x. Still, it expects
     /// //             the same number of parameters as the corresponding
     /// //             antiderivative. Hence, you can pass any number for x.  
     ///
-    /// assert!((d_y.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
+    /// assert!((dexpr_dy.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
     /// #
     /// #     Ok(())
     /// # }
@@ -253,7 +254,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     ///
     /// # Errors
     ///
-    /// * If `self` has been `clear_deepex`ed we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
+    /// * If `self` has been `clear_deepex`ed, we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
     /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
@@ -261,9 +262,9 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     where
         T: Float,
     {
-        let ops = make_default_operators();
+        let ops = operators::make_default_operators();
 
-        let d_i = partial_deepex(
+        let d_i = partial_derivatives::partial_deepex(
             var_idx,
             self.deepex.ok_or(ExParseError {
                 msg: "need deep expression for derivation, not possible after calling `clear`"
