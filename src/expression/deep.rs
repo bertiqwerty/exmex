@@ -698,6 +698,13 @@ fn test_partial_finite() {
     test("exp(y-x)", &ops, -1.0..1.0);
     test("sqrt(exp(y-x))", &ops, -1.0..1.0);
     test("sqrt(x)", &ops, 0.0..10000.0);
+    test("asin(x)", &ops, -1.0..1.0);
+    test("acos(x)", &ops, -1.0..1.0);
+    test("atan(x)", &ops, -1.0..1.0);
+    test("asin(sqrt(x+y))", &ops, 0.0..0.5);
+    test("sinh(x)", &ops, -1.0..1.0);
+    test("cosh(x)", &ops, -1.0..1.0);
+    test("tanh(x)", &ops, -1.0..1.0);
 }
 
 #[test]

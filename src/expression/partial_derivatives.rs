@@ -297,7 +297,7 @@ fn div_num<'a, T: Float + Debug>(
         Ok(zero)
     } else if denominator.is_one() {
         Ok(numerator)
-    }  else {
+    } else {
         Ok(numerator / denominator)
     }
 }
@@ -441,9 +441,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             repr: "sqrt",
             bin_op: None,
             unary_outer_op: Some(
-                |f: DeepEx<'a, T>,
-                 _: &[Operator<'a, T>]|
-                 -> Result<DeepEx<'a, T>, ExParseError> {
+                |f: DeepEx<'a, T>, _: &[Operator<'a, T>]| -> Result<DeepEx<'a, T>, ExParseError> {
                     let one = DeepEx::one_like(&f)?;
                     let two = one.clone() + one.clone();
                     Ok(one / (two * f))
@@ -507,7 +505,90 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     Ok(DeepEx::one_like(&f)? / cos_squared_ex)
                 },
             ),
-        }
+        },
+        PartialDerivative {
+            repr: "asin",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let sqrt_op = find_as_unary_op_with_reprs("sqrt", ops)?;
+                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let one = DeepEx::one_like(&f)?;
+                    let two = one.clone() + one.clone();
+                    let inner_squared = f
+                        .with_new_unary_op(UnaryOpWithReprs::new())
+                        .operate_bin(two, power_op);
+                    Ok(one.clone() / (one - inner_squared).operate_unary(sqrt_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "acos",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let sqrt_op = find_as_unary_op_with_reprs("sqrt", ops)?;
+                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let minus_op = find_as_unary_op_with_reprs("-", ops)?;
+
+                    let one = DeepEx::one_like(&f)?;
+                    let two = one.clone() + one.clone();
+                    let inner_squared = f
+                        .with_new_unary_op(UnaryOpWithReprs::new())
+                        .operate_bin(two, power_op);
+                    Ok((one.clone() / (one - inner_squared).operate_unary(sqrt_op))
+                        .operate_unary(minus_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "atan",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let one = DeepEx::one_like(&f)?;
+                    let two = one.clone() + one.clone();
+                    let inner_squared = f
+                        .with_new_unary_op(UnaryOpWithReprs::new())
+                        .operate_bin(two, power_op);
+                    Ok(one.clone() / (one + inner_squared))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "sinh",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let cosh_op = find_as_unary_op_with_reprs("cosh", ops)?;
+                    Ok(f.with_new_unary_op(cosh_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "cosh",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let sinh_op = find_as_unary_op_with_reprs("sinh", ops)?;
+                    Ok(f.with_new_unary_op(sinh_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "tanh",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let one = DeepEx::one_like(&f)?;
+                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let tanh_op = find_as_unary_op_with_reprs("tanh", ops)?;
+                    let two = one.clone() + one.clone();
+                    Ok(one - f.with_new_unary_op(tanh_op).operate_bin(two, power_op))
+                },
+            ),
+        },
     ]
 }
 
