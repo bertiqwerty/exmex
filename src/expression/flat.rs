@@ -239,7 +239,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     ///
     /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
     /// //                   |    
-    /// //             This partial derivative d_x does depend on x. Still, it expects
+    /// //             This partial derivative dexpr_dx does depend on x. Still, it expects
     /// //             the same number of parameters as the corresponding
     /// //             antiderivative. Hence, you can pass any number for x.  
     ///

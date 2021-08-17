@@ -1,5 +1,6 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.8.4")]
-//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator.  
+//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator 
+//! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -24,9 +25,9 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{self, make_default_operators};
+//! use exmex;
 //! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//! let expr = exmex::parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! let expr = exmex::parse::<f64>(to_be_parsed, &exmex::make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -40,11 +41,11 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{self, make_default_operators};
+//! use exmex;
 //! let x = 2.1f64;
 //! let y = 0.1f64;
 //! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
-//! let expr = exmex::parse::<f64>(to_be_parsed, &make_default_operators::<f64>())?;
+//! let expr = exmex::parse::<f64>(to_be_parsed, &exmex::make_default_operators::<f64>())?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -129,6 +130,26 @@
 //! # }
 //! ```
 //!
+//! ## Partial Derivatives
+//!
+//! For default operators, expressions can be transformed into their partial derivatives
+//! again represented by expressions.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex;
+//!
+//! let expr = exmex::parse_with_default_ops::<f64>("x^2 + y^2")?;
+//! let dexpr_dx = expr.clone().partial(0)?;
+//! let dexpr_dy = expr.partial(1)?;
+//! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
+//! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//!
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
 //! `-2^2=4` instead of `-2^2=-4`. Moreover, we are not too strict regarding parentheses.
@@ -144,26 +165,6 @@
 //! # }
 //! ```
 //! If you want to be on the safe side, we suggest using parentheses.
-//!
-//! ## Partial Derivatives
-//!
-//! For default operators, expressions can be transformed into their partial derivatives
-//! again represented by expressions.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex;
-//!
-//! let expr = exmex::parse_with_default_ops::<f64>("x^2 + y^2")?;
-//! let d_x = expr.clone().partial(0)?;
-//! let d_y = expr.partial(1)?;
-//! assert!((d_x.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
-//! assert!((d_y.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
 //!
 //! ## Display
 //!
