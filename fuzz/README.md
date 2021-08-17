@@ -1,4 +1,4 @@
-# Fuzzing exmex
+# Fuzzing
 > Fuzzing or fuzz testing is an automated software testing technique that involves providing invalid, unexpected, or random data as inputs to a computer program. The program is then monitored for exceptions such as crashes, failing built-in code assertions, or potential memory leaks. 
 
 _from [Wikipedia](https://en.m.wikipedia.org/wiki/Fuzzing)_
@@ -16,9 +16,9 @@ rustup default nightly
 ```
 For more information about the different channels, see [the rustup documentation](https://rust-lang.github.io/rustup/concepts/channels.html).
 ### Cargo Fuzz
-Install cargo fuzz via `cargo install cargo-fuzz`.
+To fuzz Exmex, install cargo fuzz via `cargo install cargo-fuzz`.
 
-## Fuzzing
+## Fuzzing Exmex
 List targets via 
 ```
 cargo fuzz list
@@ -32,7 +32,7 @@ cargo fuzz run TARGET
 ## Extras
 For multithreading use
 ```
-cargo fuzz run TARGET --jobs=THREADS
+cargo fuzz run TARGET --jobs=N_THREADS
 ```
 
 To print `std::fmt::Debug` for a test case, use
@@ -40,7 +40,7 @@ To print `std::fmt::Debug` for a test case, use
 cargo fuzz fmt TARGET INPUT
 ```
 
-For coverage use
+You can check code coverage via
 ```
 cargo fuzz coverage TARGET
 ```
