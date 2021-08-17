@@ -63,7 +63,7 @@ let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
 
-## Benchmarks
+## Benchmarks for Version 0.8.4
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
 hand, Exmex is slower than the other crates during parsing. 
