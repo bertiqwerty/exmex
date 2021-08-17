@@ -17,7 +17,7 @@ Add
 # ...
 exmex = "0.8.4"
 ```
-to your `Cargo.toml` for the latest stable relase. If you want to use the newest version, add
+to your `Cargo.toml` for the latest relase. If you want to use the newest version, add
 ```
 [dependencies]
 # ...
