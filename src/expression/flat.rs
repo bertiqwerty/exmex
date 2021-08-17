@@ -320,7 +320,10 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 }
 
 #[cfg(test)]
-use crate::{expression::deep::UnaryOpWithReprs, operators::VecOfUnaryFuncs};
+use crate::{
+    expression::deep::UnaryOpWithReprs, operators::VecOfUnaryFuncs, parse_with_default_ops,
+    util::assert_float_eq_f64,
+};
 
 #[test]
 fn test_operate_unary() {
@@ -338,9 +341,6 @@ fn test_operate_unary() {
         -0.23148000000000002 * 8.0,
     );
 }
-
-#[cfg(test)]
-use crate::{parse_with_default_ops, util::assert_float_eq_f64};
 
 #[test]
 fn test_flat_clear() {
