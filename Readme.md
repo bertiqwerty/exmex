@@ -17,8 +17,13 @@ Add
 # ...
 exmex = "0.8.4"
 ```
+to your `Cargo.toml` for the latest stable relase. If you want to use the newest version, add
+```
+[dependencies]
+# ...
+exmex = { git = "https://github.com/bertiqwerty/exmex.git", branch = "main" }
+```
 to your `Cargo.toml`.
-
 ## Basic Usage
 To simply evaluate a string there is
 ```rust
