@@ -43,6 +43,7 @@ To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
 ```
+The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names.
 Besides predefined operators for floats, you can pass custom operators to the 
 function `parse` to create an expression. 
 ```rust
