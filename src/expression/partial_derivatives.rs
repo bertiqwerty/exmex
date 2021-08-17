@@ -297,11 +297,7 @@ fn div_num<'a, T: Float + Debug>(
         Ok(zero)
     } else if denominator.is_one() {
         Ok(numerator)
-    } else if denominator.is_zero() {
-        Err(ExParseError {
-            msg: format!("division by zero, {}/{}", numerator, denominator),
-        })
-    } else {
+    }  else {
         Ok(numerator / denominator)
     }
 }
@@ -442,24 +438,15 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             unary_outer_op: None,
         },
         PartialDerivative {
-            repr: "sin",
+            repr: "sqrt",
             bin_op: None,
             unary_outer_op: Some(
-                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
-                    let unary_op = find_as_unary_op_with_reprs("cos", ops)?;
-                    Ok(f.with_new_unary_op(unary_op))
-                },
-            ),
-        },
-        PartialDerivative {
-            repr: "cos",
-            bin_op: None,
-            unary_outer_op: Some(
-                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
-                    let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
-                    let mut minus = find_as_unary_op_with_reprs("-", ops)?;
-                    sin.append_front(&mut minus);
-                    Ok(f.with_new_unary_op(sin))
+                |f: DeepEx<'a, T>,
+                 _: &[Operator<'a, T>]|
+                 -> Result<DeepEx<'a, T>, ExParseError> {
+                    let one = DeepEx::one_like(&f)?;
+                    let two = one.clone() + one.clone();
+                    Ok(one / (two * f))
                 },
             ),
         },
@@ -482,6 +469,28 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             ),
         },
         PartialDerivative {
+            repr: "sin",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let unary_op = find_as_unary_op_with_reprs("cos", ops)?;
+                    Ok(f.with_new_unary_op(unary_op))
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "cos",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
+                    let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
+                    let mut minus = find_as_unary_op_with_reprs("-", ops)?;
+                    sin.append_front(&mut minus);
+                    Ok(f.with_new_unary_op(sin))
+                },
+            ),
+        },
+        PartialDerivative {
             repr: "tan",
             bin_op: None,
             unary_outer_op: Some(
@@ -498,20 +507,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     Ok(DeepEx::one_like(&f)? / cos_squared_ex)
                 },
             ),
-        },
-        PartialDerivative {
-            repr: "sqrt",
-            bin_op: None,
-            unary_outer_op: Some(
-                |f: DeepEx<'a, T>,
-                 _: &[Operator<'a, T>]|
-                 -> Result<DeepEx<'a, T>, ExParseError> {
-                    let one = DeepEx::one_like(&f)?;
-                    let two = one.clone() + one.clone();
-                    Ok(one / (two * f))
-                },
-            ),
-        },
+        }
     ]
 }
 
