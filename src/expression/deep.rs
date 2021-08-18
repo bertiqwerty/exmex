@@ -103,19 +103,41 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
 
+fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
+    if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
+        match &deepex.nodes[0].clone() {
+            DeepNode::Expr(e) => {
+                *deepex = e.clone();
+            }
+            _ => (),
+        }
+    } else {
+        for node in &mut deepex.nodes {
+            if let DeepNode::Expr(e) = node {
+                if e.nodes.len() == 1 && e.unary_op.op.len() == 0 {
+                    match &mut e.nodes[0] {
+                        DeepNode::Num(n) => *node = DeepNode::Num(*n),
+                        DeepNode::Var(v) => {
+                            *node = DeepNode::Var(*v);
+                        }
+                        DeepNode::Expr(e_deeper) => {
+                            lift_nodes(e_deeper);
+                            if e_deeper.nodes.len() == 1 && e_deeper.unary_op.op.len() == 0 {
+                                *node = DeepNode::Expr(e_deeper.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
-        // change from expression to number if an expression contains only a number
-        for node in &mut self.nodes {
-            if let DeepNode::Expr(ref e) = node {
-                if e.nodes.len() == 1 {
-                    if let DeepNode::Num(n) = e.nodes[0] {
-                        *node = DeepNode::Num(n);
-                    }
-                }
-            };
-        }
+        lift_nodes(self);
+
         let prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
         let mut num_inds = prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
@@ -683,9 +705,9 @@ fn test_partial_finite() {
     test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
     test("log(x^2)", &ops, 0.1..10.0);
     test("tan(x)", &ops, -1.0..1.0);
-    test("tan(exp(x))", &ops, -1.0..1.0);
+    test("tan(exp(x))", &ops, -1000.0..0.0);
     test("exp(y-x)", &ops, -1.0..1.0);
-    test("sqrt(exp(y-x))", &ops, -1.0..1.0);
+    test("sqrt(exp(y-x))", &ops, -1000.0..0.0);
     test("sqrt(x)", &ops, 0.0..10000.0);
     test("asin(x)", &ops, -1.0..1.0);
     test("acos(x)", &ops, -1.0..1.0);
@@ -730,12 +752,36 @@ fn test_deep_compile() {
         DeepNode::Num(0.5),
         DeepNode::Expr(deep_ex),
     ];
-    let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
-    assert_eq!(deep_ex.nodes.len(), 1);
-    match deep_ex.nodes[0] {
-        DeepNode::Num(n) => assert_eq!(deep_ex.unary_op.op.apply(n), n),
+    let deepex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
+    assert_eq!(deepex.nodes.len(), 1);
+    match deepex.nodes[0] {
+        DeepNode::Num(n) => assert_eq!(deepex.unary_op.op.apply(n), n),
         _ => {
             assert!(false);
         }
     }
+}
+
+#[test]
+fn test_deep_compile_2() {
+    let deepex =
+        DeepEx::<f64>::from_str("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
+    println!("{}", deepex);
+    assert_eq!(
+        format!("{}", deepex),
+        "(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))"
+    );
+
+    let deepex = DeepEx::<f64>::from_str("(((a+x^2*x^2)))").unwrap();
+    println!("{}", deepex);
+    assert_eq!(format!("{}", deepex), "{a}+{x}^2.0*{x}^2.0");
+
+    let deepex = DeepEx::<f64>::from_str("1+(((a+x^2*x^2)))").unwrap();
+    println!("{}", deepex);
+    assert_eq!(format!("{}", deepex), "1.0+({a}+{x}^2.0*{x}^2.0)");
+    let mut ddeepex = partial_deepex(1, deepex, &make_default_operators()).unwrap();
+    ddeepex.compile();
+    println!("{}", ddeepex);
+    assert_eq!(format!("{}", ddeepex), "(({x}^2.0)*({x}*2.0))+(({x}*2.0)*({x}^2.0))");
+    
 }

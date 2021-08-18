@@ -318,6 +318,8 @@ fn pow_num<'a, T: Float + Debug>(
         zero
     } else if exponent.is_zero() {
         one
+    } else if exponent.is_one() {
+        base
     } else {
         base.operate_bin(exponent, power_op)
     })
@@ -712,24 +714,13 @@ fn test_partial_inner() {
         let ops = make_default_operators::<f64>();
         let deepex_1 = DeepEx::<f64>::from_str(text).unwrap();
         let ovops = deep_details::find_overloaded_ops(&ops).unwrap();
-        match deepex_1.nodes()[0].clone() {
-            DeepNode::Expr(e) => {
-                let deri = partial_derivative_inner(
-                    var_idx,
-                    e.clone(),
-                    &partial_derivative_ops,
-                    ovops,
-                    &ops,
-                )
+        let deri =
+            partial_derivative_inner(var_idx, deepex_1, &partial_derivative_ops, ovops, &ops)
                 .unwrap();
-
-                let flatex = flatten(deri);
-                for i in 0..vals.len() {
-                    assert_float_eq_f64(flatex.eval(&[vals[i]]).unwrap(), ref_vals[i]);
-                }
-            }
-            _ => panic!("test should not end up here"),
-        };
+        let flatex = flatten(deri);
+        for i in 0..vals.len() {
+            assert_float_eq_f64(flatex.eval(&[vals[i]]).unwrap(), ref_vals[i]);
+        }
     }
     test("sin(x)", &[1.0, 0.0, 2.0], &[1.0, 1.0, 1.0], 0);
     test("sin(x^2)", &[1.0, 0.0, 2.0], &[2.0, 0.0, 4.0], 0);

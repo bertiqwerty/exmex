@@ -429,6 +429,7 @@ fn test_operator_overloading() {
 #[test]
 fn test_display() {
     let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
+    println!("{}", flatex);
     assert_eq!(format!("{}", flatex), "sin({var})/5.0");
     flatex.clear_deepex();
     assert_eq!(
