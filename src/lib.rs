@@ -1,5 +1,5 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.8.4")]
-//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator 
+//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator
 //! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
 //! ```rust
 //! # use std::error::Error;
@@ -292,14 +292,17 @@ where
 #[cfg(test)]
 mod tests {
 
-    use std::iter::once;
+    use std::{iter::once, ops::Range};
+
+    use rand::Rng;
+    use smallvec::{smallvec, SmallVec};
 
     use crate::{
         eval_str,
         operators::{make_default_operators, BinOp, Operator},
         parse, parse_with_default_ops,
         util::{assert_float_eq_f32, assert_float_eq_f64},
-        ExParseError,
+        ExParseError, FlatEx,
     };
 
     #[test]
@@ -520,6 +523,77 @@ mod tests {
         let expr = parse("2^2*1/(berti) + zer0(4)", &extended_operators).unwrap();
         let val = expr.eval(&[4.0]).unwrap();
         assert_float_eq_f32(val, 1.0);
+    }
+
+    #[test]
+    fn test_partial() {
+        fn test(
+            var_idx: usize,
+            n_vars: usize,
+            random_range: Range<f64>,
+            deri: &FlatEx<f64>,
+            reference: fn(f64) -> f64,
+        ) {
+            println!("partial {}", deri);
+            let mut rng = rand::thread_rng();
+            let vut = rng.gen_range(random_range);
+            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
+            vars[var_idx] = vut;
+            println!("value under test {}.", vut);
+            assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
+        }
+
+        let sut = "sin(x)-cos(x)+tan(x)+a";
+        println!("{}", sut);
+        let var_idx = 1;
+        let n_vars = 2;
+        let flatex_1 = parse_with_default_ops::<f64>("sin(x)-cos(x)+tan(x)+a").unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |x: f64| x.cos() + x.sin() + 1.0 / (x.cos().powf(2.0));
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "log(v)*exp(v)+cos(x)+tan(x)+a";
+        println!("{}", sut);
+        let var_idx = 1;
+        let n_vars = 3;
+        let flatex = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex.partial(var_idx).unwrap();
+        let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
+        test(var_idx, n_vars, 0.001..100.0, &deri, reference);
+
+        let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
+        println!("{}", sut);
+        let var_idx = 2;
+        let n_vars = 4;
+        let flatex = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex.partial(var_idx).unwrap();
+        let reference = |x: f64| {
+            (x.cosh() * x.cosh() - x.sinh() * x.sinh()) / x.cosh().powf(2.0)
+                + 1.0 / (x.cosh().powf(2.0))
+        };
+        test(var_idx, n_vars, -100.0..100.0, &deri, reference);
+
+        let sut = "w+z+acos(v)+asin(v)+b+atan({v})";
+        println!("{}", sut);
+        let var_idx = 1;
+        let n_vars = 4;
+        let flatex = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex.partial(var_idx).unwrap();
+        let reference = |x: f64| {
+            1.0 / (1.0 - x.powf(2.0)).sqrt() - 1.0 / (1.0 - x.powf(2.0)).sqrt()
+                + 1.0 / (1.0 + x.powf(2.0))
+        };
+        test(var_idx, n_vars, -1.0..1.0, &deri, reference);
+
+        let sut = "sqrt(var)*var^1.57";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex.partial(var_idx).unwrap();
+        let reference =
+            |x: f64| 1.0 / (2.0 * x.sqrt()) * x.powf(1.57) + x.sqrt() * 1.57 * x.powf(0.57);
+        test(var_idx, n_vars, 0.0..100.0, &deri, reference);
     }
 
     #[test]
