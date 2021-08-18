@@ -15,7 +15,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.8.4"
+exmex = "0.9.0"
 ```
 to your `Cargo.toml` for the latest relase. If you want to use the newest version, add
 ```
@@ -67,7 +67,7 @@ let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
 
-## Benchmarks for Version 0.8.4
+## Benchmarks `v0.9.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
 hand, Exmex is slower than the other crates during parsing. 
@@ -102,7 +102,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |        |all expressions|
 |--------|--------------------------|
 |[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|69.94|
-|**Exmex**   |54.5|
+|**Exmex**   |60.1|
 |[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
 |[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
 |[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|
