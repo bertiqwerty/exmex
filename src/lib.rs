@@ -316,12 +316,12 @@ mod tests {
             // d_xy
             let ddexpr_dxy = dexpr_dx.partial(1)?;
             assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
-            assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, 37.0])?, 4.0);
+            assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
             
             // d_xyx
             let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
             assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
-            assert_float_eq_f64(dddexpr_dxyx.eval(&[34234.0, 23437.0])?, 2.0);
+            assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
             
             Ok(())
         }
