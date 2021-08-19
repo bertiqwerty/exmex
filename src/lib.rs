@@ -341,9 +341,9 @@ mod tests {
     }
     #[test]
     fn test_variables_curly() {
-        let sut = "5*{x} +  4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
+        let sut = "5*{x} +  4*log2(log(1.5+{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
-        assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 11.429314405093656);
+        assert_float_eq_f64(expr.eval(&[1.2, 1.0]).unwrap(), 8.040556934857268);
         let sut = "2*(4*{x} + y^2)";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
