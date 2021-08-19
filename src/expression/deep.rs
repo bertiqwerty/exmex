@@ -782,6 +782,8 @@ fn test_deep_compile_2() {
     let mut ddeepex = partial_deepex(1, deepex, &make_default_operators()).unwrap();
     ddeepex.compile();
     println!("{}", ddeepex);
-    assert_eq!(format!("{}", ddeepex), "(({x}^2.0)*({x}*2.0))+(({x}*2.0)*({x}^2.0))");
-    
+    assert_eq!(
+        format!("{}", ddeepex),
+        "(({x}^2.0)*({x}*2.0))+(({x}*2.0)*({x}^2.0))"
+    );
 }
