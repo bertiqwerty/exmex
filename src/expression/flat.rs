@@ -280,16 +280,18 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
 
     /// Creates an expression string that corresponds to the `FlatEx` instance. This is
     /// not necessarily the input string. More precisely,
-    /// * variable names are forgotten,
-    /// * variables are put into curly braces, and
-    /// * expressions will be put between parentheses, e.g.,
+    /// * variables are put between curly braces,
+    /// * spaces outside of curly brackets are ignored, 
+    /// * parentheses can be different from the input, and
+    /// * expressions are compiled
+    /// as shown in the following example.
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
     /// use exmex::parse_with_default_ops;
-    /// let flatex = parse_with_default_ops::<f64>("--sin(z)")?;
-    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))");
+    /// let flatex = parse_with_default_ops::<f64>("--sin ( z) +  {another var} + 1 + 2")?;
+    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))+{another var}+3.0");
     /// #
     /// #     Ok(())
     /// # }

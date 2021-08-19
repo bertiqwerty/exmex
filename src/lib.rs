@@ -170,15 +170,15 @@
 //!
 //! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this
 //! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original
-//! string, since curly brackets are added.
+//! string, since, e.g., curly brackets are added and expressions are compiled.
 //!
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//! let flatex = exmex::parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names)")?;
-//! assert_eq!(format!("{}", flatex), "-(sin({z}))/cos({mother_of_names})");
+//! let flatex = exmex::parse_with_default_ops::<f64>("-sin(z)/cos(mother_of_names) + 2^7")?;
+//! assert_eq!(format!("{}", flatex), "-(sin({z}))/cos({mother_of_names})+128.0");
 //! #
 //! #     Ok(())
 //! # }
