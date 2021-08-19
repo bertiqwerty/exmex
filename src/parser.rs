@@ -123,8 +123,11 @@ where
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if c == '{' {
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
-                cur_offset += n_count + 1;
-                ParsedToken::<T>::Var(&text_rest[1..n_count])
+                let var_name = &text_rest[1..n_count];
+                let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
+                // we need to subtract spaces from the offset, since they are added in the first if again.
+                cur_offset += n_count + 1 - n_spaces;
+                ParsedToken::<T>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_chars = num_str.chars().count();
                 cur_offset += n_chars;
