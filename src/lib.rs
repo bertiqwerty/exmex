@@ -348,7 +348,7 @@ mod tests {
         let sut = "2*(4*{ xasd sa } + { y z}^2)";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
-        assert_eq!(expr.unparse().unwrap(), "2*(4*{ xasd sa }+{ y z}^2)");
+        assert_eq!(expr.unparse().unwrap(), "2.0*(4.0*{ xasd sa }+{ y z}^2.0)");
     }
     #[test]
     fn test_variables_curly() {
