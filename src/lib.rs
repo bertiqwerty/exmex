@@ -139,7 +139,6 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//!
 //! let expr = exmex::parse_with_default_ops::<f64>("x^2 + y^2")?;
 //! let dexpr_dx = expr.clone().partial(0)?;
 //! let dexpr_dy = expr.partial(1)?;
@@ -304,18 +303,37 @@ mod tests {
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExParseError, FlatEx,
     };
-
+    
     #[test]
     fn test_readme() {
-        fn readme() -> Result<f64, ExParseError> {
+        fn readme_partial () -> Result<(), ExParseError> {
+            let expr = parse_with_default_ops::<f64>("y*x^2")?;
+            
+            // d_x
+            let dexpr_dx = expr.partial(0)?;
+            assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
+            
+            // d_xy
+            let ddexpr_dxy = dexpr_dx.partial(1)?;
+            assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
+            assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, 37.0])?, 4.0);
+            
+            // d_xyx
+            let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
+            assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
+            assert_float_eq_f64(dddexpr_dxyx.eval(&[34234.0, 23437.0])?, 2.0);
+            
+            Ok(())
+        }
+        fn readme() -> Result<(), ExParseError> {
             let result = eval_str("sin(73)")?;
             assert_float_eq_f64(result, 73f64.sin());
             let expr = parse_with_default_ops::<f64>("2*x^3-4/z")?;
             let value = expr.eval(&[5.3, 0.5])?;
             assert_float_eq_f64(value, 289.75399999999996);
-            Ok(value)
+            Ok(())
         }
-        fn readme_int() -> Result<u32, ExParseError> {
+        fn readme_int() -> Result<(), ExParseError> {
             let ops = vec![
                 Operator {
                     repr: "|",
@@ -334,8 +352,9 @@ mod tests {
             let expr = parse::<u32>("!(a|b)", &ops)?;
             let result = expr.eval(&[0, 1])?;
             assert_eq!(result, u32::MAX - 1);
-            Ok(result)
+            Ok(())
         }
+        assert!(!readme_partial().is_err());
         assert!(!readme().is_err());
         assert!(!readme_int().is_err());
     }

@@ -67,6 +67,30 @@ let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
 
+## Partial Derivatives
+
+To compute partial you can use the function `FlatEx::partial`. The result is again an instance
+of `FlatEx`.
+
+```rust
+use exmex;
+let expr = exmex::parse_with_default_ops::<f64>("y*x^2")?;
+
+// d_x
+let dexpr_dx = expr.partial(0)?;
+assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
+
+// d_xy
+let ddexpr_dxy = dexpr_dx.partial(1)?;
+assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
+assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, 37.0])?, 4.0);
+
+// d_xyx
+let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
+assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
+assert_float_eq_f64(dddexpr_dxyx.eval(&[34234.0, 23437.0])?, 2.0);
+```
+
 ## Benchmarks `v0.9.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
