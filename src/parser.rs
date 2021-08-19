@@ -96,7 +96,6 @@ where
         static ref RE_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
     }
 
-    let mut cur_offset = 0usize;
     let find_ops = |offset: usize| {
         ops.iter().find(|op| {
             let range_end = offset + op.repr.chars().count();
@@ -110,15 +109,11 @@ where
 
     let mut res = Vec::new();
     res.reserve(2 * N_NODES_ON_STACK);
-
+    let mut cur_offset = 0usize;
     for (i, c) in text.chars().enumerate() {
         if c == ' ' {
             cur_offset += 1;
-        }
-        if i == cur_offset && cur_offset < text.len() && c != ' ' {
-            let maybe_op;
-            let maybe_num;
-            let maybe_name;
+        } else if i == cur_offset && cur_offset < text.len() {
             let text_rest = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
@@ -130,30 +125,19 @@ where
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
                 cur_offset += n_count + 1;
                 ParsedToken::<T>::Var(&text_rest[1..n_count])
-            } else if {
-                maybe_num = is_numeric(text_rest);
-                maybe_num.is_some()
-            } {
-                let num_str = maybe_num.unwrap();
+            } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_chars = num_str.chars().count();
                 cur_offset += n_chars;
                 ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
-            } else if {
-                maybe_op = find_ops(cur_offset);
-                maybe_op.is_some()
-            } {
-                let op = **maybe_op.unwrap();
+            } else if let Some(op) = find_ops(cur_offset) {
                 let n_chars = op.repr.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Op(op)
-            } else if {
-                maybe_name = RE_NAME.find(text_rest);
-                maybe_name.is_some()
-            } {
-                let var_str = maybe_name.unwrap().as_str();
+                ParsedToken::<T>::Op(**op)
+            } else if let Some(var_str) = RE_NAME.find(text_rest) {
+                let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Var(maybe_name.unwrap().as_str())
+                ParsedToken::<T>::Var(var_str)
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
                 return Err(ExParseError { msg });

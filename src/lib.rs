@@ -341,7 +341,7 @@ mod tests {
     }
     #[test]
     fn test_variables_curly() {
-        let sut = "5*{x} + 4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
+        let sut = "5*{x} +  4*log2(log(1.5-{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 11.429314405093656);
         let sut = "2*(4*{x} + y^2)";
@@ -358,7 +358,7 @@ mod tests {
     }
     #[test]
     fn test_variables() {
-        let sut = "sin({x})+(((cos({y})^(sin({z})))*log(cos({y})))*cos({z}))";
+        let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*log(cos({y})))*cos({z}))";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         let reference =
             |x: f64, y: f64, z: f64| x.sin() + y.cos().powf(z.sin()) * y.cos().ln() * z.cos();
@@ -378,7 +378,7 @@ mod tests {
             reference(1.0, 2.0, 4.0),
         );
 
-        let sut = "0.02*sin(-(3*(2*(5.0 - 1/z))))";
+        let sut = "0.02*sin( - (3*(2*(5.0 - 1/z))))";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
         let reference = |z: f64| 0.02 * (-(3.0 * (2.0 * (5.0 - 1.0 / z)))).sin();
         assert_float_eq_f64(expr.eval(&[4.0]).unwrap(), reference(4.0));
