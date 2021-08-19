@@ -563,12 +563,90 @@ mod tests {
         ) {
             println!("partial {}", deri);
             let mut rng = rand::thread_rng();
-            let vut = rng.gen_range(random_range);
-            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
-            vars[var_idx] = vut;
-            println!("value under test {}.", vut);
-            assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
+            for _ in 0..3 {
+                let vut = rng.gen_range(random_range.clone());
+                let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
+                vars[var_idx] = vut;
+                println!("value under test {}.", vut);
+                assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
+            }
         }
+        
+        let sut = "+x";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |_: f64| 1.0;
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "++x";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |_: f64| 1.0;
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "+-+x";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |_: f64| -1.0;
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "-x";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |_: f64| -1.0;
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+
+        let sut = "--x";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |_: f64| 1.0;
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "sin(sin(x))";
+        println!("{}", sut);
+        let var_idx = 0;
+        let n_vars = 1;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |x: f64| x.sin().cos() * x.cos();
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+
+        let sut = "sin(x)-cos(x)+a";
+        println!("{}", sut);
+        let var_idx = 1;
+        let n_vars = 2;
+        let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
+        let deri = flatex_1.partial(var_idx).unwrap();
+        let reference = |x: f64| x.cos() + x.sin();
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        println!("{}", deri);
+        let deri = deri.partial(var_idx).unwrap();
+        let reference = |x: f64| -x.sin() + x.cos();
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        println!("{}", deri);
+        let deri = deri.partial(var_idx).unwrap();
+        let reference = |x: f64| -x.cos() - x.sin();
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        println!("{}", deri);
+        let deri = deri.partial(var_idx).unwrap();
+        let reference = |x: f64| x.sin() - x.cos();
+        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
 
         let sut = "sin(x)-cos(x)+tan(x)+a";
         println!("{}", sut);

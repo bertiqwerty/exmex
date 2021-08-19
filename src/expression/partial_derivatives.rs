@@ -95,7 +95,6 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
                     .find(|pdo| &pdo.repr == repr)
                     .ok_or_else(|| make_op_missing_err(repr))?;
                 let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
-
                 unary_deri_op(deepex.clone(), ops)
             });
     let resex = factorexes.fold(
@@ -374,7 +373,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             ),
             unary_outer_op: Some(
                 |f: DeepEx<T>, _: &[Operator<'a, T>]| -> Result<DeepEx<T>, ExParseError> {
-                    Ok(f.clone())
+                    DeepEx::one_like(&f)
                 },
             ),
         },
@@ -395,8 +394,9 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                 |f: DeepEx<'a, T>,
                  ops: &[Operator<'a, T>]|
                  -> Result<DeepEx<'a, T>, ExParseError> {
+                    let one = DeepEx::one_like(&f)?;
                     let minus = find_as_unary_op_with_reprs("-", ops)?;
-                    Ok(f.with_new_unary_op(minus))
+                    Ok(one.with_new_unary_op(minus))
                 },
             ),
         },
@@ -666,6 +666,23 @@ fn test_partial_cos_squared() {
     assert_float_eq_f64(result, 0.0);
     let result = flatten(derivative).eval(&[1.0]).unwrap();
     assert_float_eq_f64(result, -0.9092974268256818);
+}
+
+#[test]
+fn test_num_ops() {
+    fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
+        assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
+    }
+    fn check_shape<'a>(deepex: &DeepEx<'a, f64>, n_nodes: usize) {
+        assert_eq!(deepex.nodes().len(), n_nodes);
+        assert_eq!(deepex.bin_ops.ops.len(), n_nodes - 1);
+        assert_eq!(deepex.bin_ops.reprs.len(), n_nodes - 1);
+    }
+
+    let minus_one = DeepEx::from_str("-1").unwrap();
+    let one = mul_num(minus_one.clone(), minus_one.clone()).unwrap();
+    check_shape(&one, 1);
+    eval(&one, &[], 1.0);
 }
 
 #[test]

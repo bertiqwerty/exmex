@@ -393,7 +393,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     {
         self.nodes.len() == 1
             && match &self.nodes[0] {
-                DeepNode::Num(n) => *n == num,
+                DeepNode::Num(n) => self.unary_op.op.apply(*n) == num,
                 DeepNode::Expr(e) => e.is_num(num),
                 _ => false,
             }
@@ -623,6 +623,11 @@ fn test_operator_overloading() {
     let two = one.clone() + one.clone();
     check_shape(&two, 1);
     eval(&two, &[], 2.0);
+    
+    let minus_one = from_str("-1");
+    let one = minus_one.clone() * minus_one.clone();
+    check_shape(&one, 1);
+    eval(&one, &[], 1.0);
 
     let x_squared = from_str("x*x");
     check_shape(&x_squared, 2);
