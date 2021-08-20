@@ -104,10 +104,11 @@ pub struct DeepEx<'a, T: Copy + Debug> {
 }
 
 fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
+
     if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
-        match &deepex.nodes[0].clone() {
+        match deepex.nodes[0].clone() {
             DeepNode::Expr(e) => {
-                *deepex = e.clone();
+                *deepex = e;
             }
             _ => (),
         }
