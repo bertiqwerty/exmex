@@ -673,7 +673,7 @@ mod tests {
         let flatex = parse_with_default_ops::<f64>(sut).unwrap();
         let deri = flatex.partial(var_idx).unwrap();
         let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
-        test(var_idx, n_vars, 0.001..100.0, &deri, reference);
+        test(var_idx, n_vars, 0.01..100.0, &deri, reference);
 
         let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
         println!("{}", sut);

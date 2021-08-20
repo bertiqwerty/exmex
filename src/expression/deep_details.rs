@@ -83,6 +83,94 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
     Ok(expr)
 }
 
+fn is_operator_binary<T: Copy + FromStr>(
+    op: &Operator<T>,
+    parsed_token_on_the_left: &ParsedToken<T>,
+) -> bool {
+    match op.unary_op {
+        None => true,
+        Some(_) => match parsed_token_on_the_left {
+            ParsedToken::Num(_) | ParsedToken::Var(_) | ParsedToken::Paren(_) => true,
+            ParsedToken::Op(_) => false,
+        },
+    }
+}
+
+fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
+    let idx = parsed_vars.iter().enumerate().find(|(_, n)| **n == name);
+    match idx {
+        Some((i, _)) => i,
+        None => {
+            panic!("This is probably a bug. I don't know variable {}", name)
+        }
+    }
+}
+
+/// Handles the case that a token is a unary operator and returns a tuple.
+/// The first element is a node that is either an expression with a unary operator or a
+/// number where the unary operator has been applied to. the second element is the number
+/// of tokens that are covered by the unary operator and its argument. Note that a unary
+/// operator can be a composition of multiple functions.
+fn process_unary<'a, T: Copy + FromStr + Debug>(
+    token_idx: usize,
+    unary_op: fn(T) -> T,
+    repr: &'a str,
+    parsed_tokens: &[ParsedToken<'a, T>],
+    parsed_vars: &[&'a str],
+) -> Result<(DeepNode<'a, T>, usize), ExParseError> {
+    // gather subsequent unary operators from the beginning
+    let iter_of_uops = iter::once((repr, unary_op)).chain(
+        (token_idx + 1..parsed_tokens.len())
+            .map(|j| match parsed_tokens[j] {
+                ParsedToken::Op(op) => (op.repr, op.unary_op),
+                _ => ("", None),
+            })
+            .take_while(|(_, uo)| uo.is_some())
+            .map(|(repr_, uo)| (repr_, uo.unwrap())),
+    );
+    let vec_of_uops = iter_of_uops
+        .clone()
+        .map(|(_, uo_)| uo_)
+        .collect::<VecOfUnaryFuncs<_>>();
+    let vec_of_uop_reprs = iter_of_uops
+        .clone()
+        .map(|(repr_, _)| repr_)
+        .collect::<Vec<_>>();
+    let n_uops = vec_of_uops.len();
+    let uop = UnaryOp::from_vec(vec_of_uops);
+    match &parsed_tokens[token_idx + n_uops] {
+        ParsedToken::Paren(_) => {
+            let (expr, i_forward) = make_expression::<T>(
+                &parsed_tokens[token_idx + n_uops + 1..],
+                parsed_vars,
+                UnaryOpWithReprs {
+                    reprs: vec_of_uop_reprs,
+                    op: uop,
+                },
+            )?;
+            Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
+        }
+        ParsedToken::Var(name) => {
+            let expr = DeepEx::new(
+                vec![DeepNode::Var((find_var_index(name, &parsed_vars), name))],
+                BinOpsWithReprs {
+                    reprs: Vec::new(),
+                    ops: BinOpVec::new(),
+                },
+                UnaryOpWithReprs {
+                    reprs: vec_of_uop_reprs,
+                    op: uop,
+                },
+            )?;
+            Ok((DeepNode::Expr(expr), n_uops + 1))
+        }
+        ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
+        _ => Err(ExParseError {
+            msg: "Invalid parsed token configuration".to_string(),
+        }),
+    }
+}
+
 /// Returns an expression that is created recursively and can be evaluated
 ///
 /// # Arguments
@@ -103,109 +191,6 @@ pub fn make_expression<'a, T>(
 where
     T: Copy + FromStr + Debug,
 {
-    fn is_binary<T: Copy + FromStr>(
-        op: &Operator<T>,
-        idx_tkn: usize,
-        parsed_tokens: &[ParsedToken<T>],
-    ) -> bool {
-        match op.unary_op {
-            None => true,
-            Some(_) => {
-                // might the operator be unary?
-                if idx_tkn == 0 {
-                    // if the first element is an operator it must be unary
-                    false
-                } else {
-                    // decide type of operator based on predecessor
-                    match &parsed_tokens[idx_tkn - 1] {
-                        ParsedToken::Num(_) | ParsedToken::Var(_) => {
-                            // number or variable as predecessor means binary operator
-                            true
-                        }
-                        ParsedToken::Paren(p) => match p {
-                            Paren::Close => true,
-                            Paren::Open => {
-                                let msg = "Found an opening paren left of a binary operator. This should not be possible after check_preconditions.";
-                                panic!("{}", msg);
-                            }
-                        },
-                        ParsedToken::Op(_) => false,
-                    }
-                }
-            }
-        }
-    }
-
-    let find_var_index = |name: &str| {
-        let idx = parsed_vars.iter().enumerate().find(|(_, n)| **n == name);
-        match idx {
-            Some((i, _)) => i,
-            None => {
-                panic!("This is probably a bug. I don't know variable {}", name)
-            }
-        }
-    };
-    // this closure handles the case that a token is a unary operator and accesses the
-    // variable 'tokens' from the outer scope
-    let process_unary = |i: usize, uo, repr| {
-        // gather subsequent unary operators from the beginning
-        let iter_of_uops = iter::once((repr, uo)).chain(
-            (i + 1..parsed_tokens.len())
-                .map(|j| match parsed_tokens[j] {
-                    ParsedToken::Op(op) => (op.repr, op.unary_op),
-                    _ => ("", None),
-                })
-                .take_while(|(_, uo_)| uo_.is_some())
-                .map(|(repr_, uo_)| (repr_, uo_.unwrap())),
-        );
-        let vec_of_uops = iter_of_uops
-            .clone()
-            .map(|(_, uo_)| uo_)
-            .collect::<VecOfUnaryFuncs<_>>();
-        let vec_of_uop_reprs = iter_of_uops
-            .clone()
-            .map(|(repr_, _)| repr_)
-            .collect::<Vec<_>>();
-        let n_uops = vec_of_uops.len();
-        let uop = UnaryOp::from_vec(vec_of_uops);
-        match &parsed_tokens[i + n_uops] {
-            ParsedToken::Paren(p) => match p {
-                Paren::Close => Err(ExParseError {
-                    msg: "closing parenthesis after an operator".to_string(),
-                }),
-                Paren::Open => {
-                    let (expr, i_forward) = make_expression::<T>(
-                        &parsed_tokens[i + n_uops + 1..],
-                        parsed_vars,
-                        UnaryOpWithReprs {
-                            reprs: vec_of_uop_reprs,
-                            op: uop,
-                        },
-                    )?;
-                    Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
-                }
-            },
-            ParsedToken::Var(name) => {
-                let expr = DeepEx::new(
-                    vec![DeepNode::Var((find_var_index(name), name))],
-                    BinOpsWithReprs {
-                        reprs: Vec::new(),
-                        ops: BinOpVec::new(),
-                    },
-                    UnaryOpWithReprs {
-                        reprs: vec_of_uop_reprs,
-                        op: uop,
-                    },
-                )?;
-                Ok((DeepNode::Expr(expr), n_uops + 1))
-            }
-            ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
-            ParsedToken::Op(_) => Err(ExParseError {
-                msg: "a unary operator cannot be followed by a binary operator".to_string(),
-            }),
-        }
-    };
-
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: Vec<&str> = Vec::new();
     let mut nodes = Vec::<DeepNode<T>>::new();
@@ -219,7 +204,7 @@ where
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(op) => {
-                if is_binary(&op, idx_tkn, &parsed_tokens) {
+                if idx_tkn > 0 && is_operator_binary(&op, &parsed_tokens[idx_tkn - 1]) {
                     bin_ops.push(op.bin_op.ok_or(make_both_ops_none_error(op))?);
                     reprs_bin_ops.push(op.repr);
                     idx_tkn += 1;
@@ -228,6 +213,8 @@ where
                         idx_tkn,
                         op.unary_op.ok_or(make_both_ops_none_error(op))?,
                         op.repr,
+                        &parsed_tokens,
+                        &parsed_vars,
                     )?;
                     nodes.push(node);
                     idx_tkn += idx_forward;
@@ -238,7 +225,7 @@ where
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var((find_var_index(name), name)));
+                nodes.push(DeepNode::Var((find_var_index(name, &parsed_vars), name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {

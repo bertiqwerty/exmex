@@ -696,9 +696,9 @@ fn test_partial_finite() {
         }
     }
 
-    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.001..1.0);
+    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.01..1.0);
     test("sin(sin(x+z))", &ops, -10.0..10.0);
-    test("x^x", &ops, 0.001..2.0);
+    test("x^x", &ops, 0.01..2.0);
     test("x^y", &ops, 4.036286084344371..4.036286084344372);
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
     test("sin(cos(sin(z)))", &ops, -10.0..10.0);
