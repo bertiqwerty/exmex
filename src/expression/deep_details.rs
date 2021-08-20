@@ -103,13 +103,36 @@ pub fn make_expression<'a, T>(
 where
     T: Copy + FromStr + Debug,
 {
-    fn unpack_binop<S>(bo: Option<BinOp<S>>) -> BinOp<S>
-    where
-        S: Copy + FromStr + Debug,
-    {
-        match bo {
-            Some(bo) => bo,
-            None => panic!("This is probably a bug. Expected binary operator but there was none."),
+    fn is_binary<T: Copy + FromStr>(
+        op: &Operator<T>,
+        idx_tkn: usize,
+        parsed_tokens: &[ParsedToken<T>],
+    ) -> bool {
+        match op.unary_op {
+            None => true,
+            Some(_) => {
+                // might the operator be unary?
+                if idx_tkn == 0 {
+                    // if the first element is an operator it must be unary
+                    false
+                } else {
+                    // decide type of operator based on predecessor
+                    match &parsed_tokens[idx_tkn - 1] {
+                        ParsedToken::Num(_) | ParsedToken::Var(_) => {
+                            // number or variable as predecessor means binary operator
+                            true
+                        }
+                        ParsedToken::Paren(p) => match p {
+                            Paren::Close => true,
+                            Paren::Open => {
+                                let msg = "Found an opening paren left of a binary operator. This should not be possible after check_preconditions.";
+                                panic!("{}", msg);
+                            }
+                        },
+                        ParsedToken::Op(_) => false,
+                    }
+                }
+            }
         }
     }
 
@@ -186,55 +209,30 @@ where
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: Vec<&str> = Vec::new();
     let mut nodes = Vec::<DeepNode<T>>::new();
-
+    let make_both_ops_none_error = |op: &Operator<T>| ExParseError {
+        msg: format!("operator {} is neither unary nor binary", op.repr),
+    };
     // The main loop checks one token after the next whereby sub-expressions are
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
     // according to the length of the sub-expression.
     let mut idx_tkn: usize = 0;
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
-            ParsedToken::Op(op) => match op.unary_op {
-                None => {
-                    bin_ops.push(unpack_binop(op.bin_op));
+            ParsedToken::Op(op) => {
+                if is_binary(&op, idx_tkn, &parsed_tokens) {
+                    bin_ops.push(op.bin_op.ok_or(make_both_ops_none_error(op))?);
                     reprs_bin_ops.push(op.repr);
                     idx_tkn += 1;
+                } else {
+                    let (node, idx_forward) = process_unary(
+                        idx_tkn,
+                        op.unary_op.ok_or(make_both_ops_none_error(op))?,
+                        op.repr,
+                    )?;
+                    nodes.push(node);
+                    idx_tkn += idx_forward;
                 }
-                Some(uo) => {
-                    // might the operator be unary?
-                    if idx_tkn == 0 {
-                        // if the first element is an operator it must be unary
-                        let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
-                        nodes.push(node);
-                        idx_tkn += idx_forward;
-                    } else {
-                        // decide type of operator based on predecessor
-                        match &parsed_tokens[idx_tkn - 1] {
-                            ParsedToken::Num(_) | ParsedToken::Var(_) => {
-                                // number or variable as predecessor means binary operator
-                                bin_ops.push(unpack_binop(op.bin_op));
-                                reprs_bin_ops.push(op.repr);
-                                idx_tkn += 1;
-                            }
-                            ParsedToken::Paren(p) => match p {
-                                Paren::Open => {
-                                    let msg = "This is probably a bug. An opening paren cannot be the predecessor of a binary operator.";
-                                    panic!("{}", msg);
-                                }
-                                Paren::Close => {
-                                    bin_ops.push(unpack_binop(op.bin_op));
-                                    reprs_bin_ops.push(op.repr);
-                                    idx_tkn += 1;
-                                }
-                            },
-                            ParsedToken::Op(_) => {
-                                let (node, idx_forward) = process_unary(idx_tkn, uo, op.repr)?;
-                                nodes.push(node);
-                                idx_tkn += idx_forward;
-                            }
-                        }
-                    }
-                }
-            },
+            }
             ParsedToken::Num(n) => {
                 nodes.push(DeepNode::Num(*n));
                 idx_tkn += 1;

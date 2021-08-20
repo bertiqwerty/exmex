@@ -529,10 +529,18 @@ mod tests {
                 bin_op: None,
                 unary_op: Some(|a: f32| 1.0 / a),
             },
+            Operator {
+                repr: "None",
+                bin_op: None,
+                unary_op: None,
+            }
         ];
         let expr = parse("2**2*invert(3)", &custom_ops).unwrap();
         let val = expr.eval(&[]).unwrap();
         assert_float_eq_f32(val, 4.0 / 3.0);
+
+        let expr = parse("None(5)", &custom_ops);
+        assert!(expr.is_err());
 
         let zero_mapper = Operator {
             repr: "zer0",
@@ -550,6 +558,7 @@ mod tests {
         let expr = parse("2^2*1/(berti) + zer0(4)", &extended_operators).unwrap();
         let val = expr.eval(&[4.0]).unwrap();
         assert_float_eq_f32(val, 1.0);
+
     }
 
     #[test]
