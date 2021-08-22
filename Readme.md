@@ -139,7 +139,7 @@ Exmex parsing can be made faster by passing only the relevant operators.
 
 The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
 
-Note the unfortunate fact that Criterion does neither provide the option to simply report the minimum runtime nor to remove outliers before reporting a mean runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
+Note that Criterion does not provide the option to simply report the minimum runtime as mentioned in the following [quote](https://bheisler.github.io/criterion.rs/book/analysis.html).
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
 
 [This talk by
