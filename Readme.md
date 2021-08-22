@@ -85,9 +85,9 @@ let ddexpr_dxy = dexpr_dx.partial(1)?;
 assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
 assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
 //                                            |
-//                                    The partial derivative still 
-//                                    has 2 variables but is 
-//                                    constant in y.
+//                               The partial derivative still 
+//                               has 2 variables but is 
+//                               constant in y.
 
 // d_xyx
 let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
@@ -97,8 +97,7 @@ assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
 
 ## Benchmarks `v0.9.0`
 
-Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other
-hand, Exmex is slower than the other crates during parsing. 
+Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. 
 However, evaluation might be more performance critical depending on the application. 
 
 The expressions used to compare Exmex with other creates are:
@@ -117,23 +116,23 @@ cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 20
 to compute the results. Reported is the best result over multiple invocations. More about
 taking the minimum run-time for benchmarking can be found below.
 
-|        |sin|power|nested| compile|comment|
-|--------|---|-----|------|--------|-------|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|9.8|7.36|19.73|27.07|more than mathematical expressions|
-|**Exmex**   |**0.3**|**0.62**|**0.76**|**0.74**|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|1.88|2.24| 2.36|2.39|only `f64`, supports a faster, unsafe mode|
-|[Meval](https://docs.rs/meval/0.2.0/meval/)   |0.93|1.05| 1.25|1.56|only `f64`, no custom operators|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |8.2|9.25|36.74|50.56|
+|                                                      | sin     | power    | nested   | compile  | comment                                    |
+| ---------------------------------------------------- | ------- | -------- | -------- | -------- | ------------------------------------------ |
+| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 9.8     | 7.36     | 19.73    | 27.07    | more than mathematical expressions         |
+| **Exmex**                                            | **0.3** | **0.62** | **0.76** | **0.74** |
+| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.88    | 2.24     | 2.36     | 2.39     | only `f64`, supports a faster, unsafe mode |
+| [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.93    | 1.05     | 1.25     | 1.56     | only `f64`, no custom operators            |
+| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 8.2     | 9.25     | 36.74    | 50.56    |
 
 
 Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing all expressions again in μs on the aforementioned machine are shown in the following.
-|        |all expressions|
-|--------|--------------------------|
-|[Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)|69.94|
-|**Exmex**   |60.1|
-|[Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)|48.12|
-|[Meval](https://docs.rs/meval/0.2.0/meval/)   |**41.09**|
-|[Rsc](https://docs.rs/rsc/2.0.0/rsc/)     |48.99|
+|                                                      | all expressions |
+| ---------------------------------------------------- | --------------- |
+| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 69.94           |
+| **Exmex**                                            | 60.1            |
+| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 48.12           |
+| [Meval](https://docs.rs/meval/0.2.0/meval/)          | **41.09**       |
+| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 48.99           |
 
 Exmex parsing can be made faster by passing only the relevant operators. 
 
@@ -146,9 +145,6 @@ Note that Criterion does not provide the option to simply report the minimum run
 Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think
 taking the minimum is a good idea in many cases. See also 
 https://github.com/bheisler/criterion.rs/issues/485.
-
-
-
 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
