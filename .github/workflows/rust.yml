@@ -18,6 +18,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --verbose
+    - name: Build with features
       run: cargo build --verbose --features serde_support
     - name: Run tests
       run: cargo test --verbose --features serde_support
