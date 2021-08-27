@@ -183,6 +183,12 @@
 //! # }
 //! ```
 //!
+//! ## Serialization and Deserialization
+//!
+//! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`. 
+//! Currently, this only works for default operators. The implementation 
+//! un-parses and re-parses the whole expression.
+//!
 //! ## Unicode
 //! Unicode input strings are currently not supported 😕 but might be added in the
 //! future 😀.

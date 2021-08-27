@@ -95,6 +95,11 @@ assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
 assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
 ```
 
+## Serialization and Deserialization
+
+To use [`serde`](https://serde.rs/) for default operators you can activate the feature `serde_support`.
+ 
+
 ## Benchmarks `v0.9.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. 
