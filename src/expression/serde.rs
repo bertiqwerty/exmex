@@ -68,11 +68,18 @@ use serde_test::Token;
 fn test_ser_de() {
     let expr_str = "{x}+{y}*2.0";
 
+    let test = |exp, s| {
+        serde_test::assert_ser_tokens(&exp, &[Token::Str(s)]);
+        let serialized = serde_json::to_string(s).unwrap();
+        let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
+        assert_eq!(s, format!("{}", deserialized));
+    };
+
     let deepex = DeepEx::<f64>::from_str(expr_str).unwrap();
     let flatex = flat::flatten(deepex);
-    serde_test::assert_ser_tokens(&flatex, &[Token::Str("{x}+{y}*2.0")]);
+    test(&flatex, expr_str);
 
-    let serialized = serde_json::to_string(expr_str).unwrap();
-    let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
-    assert_eq!(expr_str, format!("{}", deserialized));
+    let dflatex_dy = flatex.clone().partial(1).unwrap();
+    test(&dflatex_dy, "2.0");
+   
 }
