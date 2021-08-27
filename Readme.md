@@ -15,7 +15,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.9.1"
+exmex = "0.9.2"
 ```
 to your `Cargo.toml` for the latest relase. If you want to use the newest version, add
 ```
