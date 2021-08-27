@@ -69,7 +69,7 @@ fn test_ser_de() {
 
     let test_inner = |exp, s| {
         serde_test::assert_ser_tokens(&exp, &[Token::Str(s)]);
-        let serialized = serde_json::to_string(s).unwrap();
+        let serialized = serde_json::to_string(&exp).unwrap();
         let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
         assert_eq!(s, format!("{}", deserialized));
     };

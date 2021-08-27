@@ -796,4 +796,13 @@ mod tests {
         assert!(eval_str(")2*(5+5)*3-2)*2").is_err());
         assert!(eval_str("2*(5+5))").is_err());
     }
+
+    #[cfg(feature="serde_support")]
+    #[test]
+    fn test_serde_public_interface() {
+        let s = "{x}^(3.0-{y})";
+        let flatex = parse_with_default_ops::<f64>(s).unwrap();
+        let serialized = serde_json::to_string(&flatex).unwrap();
+        let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
+        assert_eq!(s, format!("{}", deserialized));    }
 }
