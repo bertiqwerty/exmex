@@ -3,20 +3,24 @@ use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::Float;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{expression::deep::DeepEx, expression::flat, expression::flat::{FlatEx, OwnedFlatEx}};
+use crate::{ExParseError, expression::deep::DeepEx, expression::flat, expression::flat::{FlatEx, OwnedFlatEx}};
+
+fn serialize<S: Serializer>(serializer: S, unparsed: Result<String, ExParseError>) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(
+        unparsed
+            .map_err(|e| {
+                serde::ser::Error::custom(format!("serialization failed - {}", e.msg))
+            })?
+            .as_str(),
+    )
+}
 
 impl<'de: 'a, 'a, T: Copy + Debug> Serialize for FlatEx<'a, T> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        serializer.serialize_str(
-            self.unparse()
-                .map_err(|e| {
-                    serde::ser::Error::custom(format!("serialization failed - {}", e.msg))
-                })?
-                .as_str(),
-        )
+        serialize(serializer, self.unparse())
     }
 }
 
@@ -66,13 +70,7 @@ impl<'de, T: Copy + Debug> Serialize for OwnedFlatEx<T> {
     where
         S: Serializer,
     {
-        serializer.serialize_str(
-            self.unparse()
-                .map_err(|e| {
-                    serde::ser::Error::custom(format!("serialization failed - {}", e.msg))
-                })?
-                .as_str(),
-        )
+        serialize(serializer, self.unparse())
     }
 }
 
@@ -122,7 +120,6 @@ use serde_test::Token;
 
 #[test]
 fn test_ser_de() {
-
     let test_inner = |exp, s| {
         serde_test::assert_ser_tokens(&exp, &[Token::Str(s)]);
         let serialized = serde_json::to_string(&exp).unwrap();
@@ -134,7 +131,6 @@ fn test_ser_de() {
         let serialized = serde_json::to_string(&exp).unwrap();
         let deserialized = serde_json::from_str::<OwnedFlatEx<f64>>(serialized.as_str()).unwrap();
         assert_eq!(s, format!("{}", deserialized));
-
     };
 
     let test = |s, s_1| {
@@ -150,5 +146,4 @@ fn test_ser_de() {
     test("{x}+sin(2.0*{y})", "2.0*cos(2.0*{y})");
     test("1.0/{x}+cos({y})*2.0", "2.0*-(sin({y}))");
     test("{y}*{x}*2.0", "2.0*{x}");
-   
 }
