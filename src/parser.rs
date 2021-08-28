@@ -1,4 +1,3 @@
-use crate::definitions::N_NODES_ON_STACK;
 use crate::operators::Operator;
 use lazy_static::lazy_static;
 use regex::Regex;
