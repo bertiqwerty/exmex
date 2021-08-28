@@ -61,6 +61,7 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     }
 }
 
+
 /// Parses tokens of a text with regexes and returns them as a vector
 ///
 /// # Arguments
@@ -87,9 +88,8 @@ where
     };
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
-
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
-    ops_tmp.sort_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
+    ops_tmp.sort_unstable_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
     let ops = ops_tmp; // from now on const
 
     lazy_static! {
@@ -106,9 +106,7 @@ where
             }
         })
     };
-
     let mut res = Vec::new();
-    res.reserve(2 * N_NODES_ON_STACK);
     let mut cur_offset = 0usize;
     for (i, c) in text.chars().enumerate() {
         if c == ' ' {
@@ -157,8 +155,8 @@ struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
     error_msg: &'b str,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> Vec<PairPreCondition<'a, 'b, T>> {
-    vec![
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a, 'b, T>; 9] {
+    [
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Num(_), ParsedToken::Var(_))
