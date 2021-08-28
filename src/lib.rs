@@ -27,7 +27,7 @@
 //! #
 //! use exmex;
 //! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//! let expr = exmex::parse::<f64>(to_be_parsed, &exmex::make_default_operators::<f64>())?;
+//! let expr = exmex::parse_with_default_ops::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -144,6 +144,49 @@
 //! let dexpr_dy = expr.partial(1)?;
 //! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
 //! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//! 
+//! ## Owned Expression
+//! You cannot return a usual expression from a function without a lifetime parameter, 
+//! since expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of 
+//! `String`s of variable or operator names to make faster parsing possible.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{self, ExParseError, FlatEx};
+//! fn make<'a>() -> Result<FlatEx::<'a, f64>, ExParseError> {
+//! //            |                        |
+//! //           lifetime parameter necessary
+//!
+//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
+//!     exmex::parse_with_default_ops::<f64>(to_be_parsed)
+//! }
+//! let expr_owned = make()?;
+//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ``` 
+//! If you are willing to pay the price of roughly doubled parsing times, you can 
+//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns 
+//! its strings. Evaluation times should be comparable. However, a lifetime parameter is
+//! not needed anymore as shown in the following. 
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{self, ExParseError, OwnedFlatEx};
+//! fn make() -> Result<OwnedFlatEx::<f64>, ExParseError> {
+//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
+//!     let expr = exmex::parse_with_default_ops::<f64>(to_be_parsed)?;
+//!     Ok(OwnedFlatEx::from_flatex(expr))
+//! }
+//! let expr_owned = make()?;
+//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }

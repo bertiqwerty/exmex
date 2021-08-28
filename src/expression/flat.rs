@@ -27,9 +27,9 @@ pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
 
 /// This is the core data type representing a flattened expression and the result of
 /// parsing a string. We use flattened expressions to make efficient evaluation possible.
-/// Simplified, a flat expression consists of a [`SmallVec`](SmallVec) of nodes and a
-/// [`SmallVec`](SmallVec) of operators that are applied to the nodes in an order following
-/// operator priorities.
+/// Simplified, a flat expression consists of a [`SmallVec`](https://docs.rs/smallvec/) 
+/// of nodes and a [`SmallVec`](https://docs.rs/smallvec/) of operators that are applied
+/// to the nodes in an order following operator priorities.
 ///
 /// You create an expression with the `parse` function or one of its
 /// variants, namely `parse_with_default_ops` and `parse_with_number_pattern`.
