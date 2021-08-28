@@ -45,7 +45,7 @@
 //! let x = 2.1f64;
 //! let y = 0.1f64;
 //! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
-//! let expr = exmex::parse::<f64>(to_be_parsed, &exmex::make_default_operators::<f64>())?;
+//! let expr = exmex::parse_with_default_ops::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -159,8 +159,8 @@
 //! #
 //! use exmex::{self, ExParseError, FlatEx};
 //! fn make<'a>() -> Result<FlatEx::<'a, f64>, ExParseError> {
-//! //            |                        |
-//! //           lifetime parameter necessary
+//! //       |                        |
+//! //      lifetime parameter necessary
 //!
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     exmex::parse_with_default_ops::<f64>(to_be_parsed)
