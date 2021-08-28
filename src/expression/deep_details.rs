@@ -1,9 +1,4 @@
-use crate::{
-    definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
-    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
-    operators::{BinOp, Operator, UnaryOp, VecOfUnaryFuncs},
-    parser::{ExParseError, Paren, ParsedToken},
-};
+use crate::{definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, Operator, UnaryOp, VecOfUnaryFuncs}, parser::{ExParseError, Paren, ParsedToken}};
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
@@ -284,7 +279,7 @@ pub fn prioritized_indices<T: Copy + Debug>(
 }
 
 pub struct BinOpsWithReprsBuf<T: Copy> {
-    pub reprs: Vec<String>,
+    pub reprs: SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
 }
 impl<T: Copy> BinOpsWithReprsBuf<T> {
@@ -306,7 +301,7 @@ impl<T: Copy> BinOpsWithReprsBuf<T> {
     }
 }
 pub struct UnaryOpWithReprsBuf<T: Copy> {
-    pub reprs: Vec<String>,
+    pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
 impl<T: Copy> UnaryOpWithReprsBuf<T> {

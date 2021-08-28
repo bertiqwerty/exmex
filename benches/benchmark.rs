@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
-use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator};
+use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator, OwnedFlatEx};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
@@ -77,6 +77,17 @@ fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
             func(black_box(&BENCH_EXPRESSIONS_STRS));
         })
     });
+}
+
+fn exmex_parse_owned<'a>(strings: &'a [&str]) -> Vec<OwnedFlatEx<f64>> {
+    strings
+        .iter()
+        .map(|expr_str| OwnedFlatEx::from_flatex(parse_with_default_ops::<f64>(expr_str).unwrap()))
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse_owned(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse_owned, "exmex_parse_owned", c);
 }
 
 fn exmex_parse<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
@@ -155,6 +166,15 @@ fn exmex_bench_eval(c: &mut Criterion) {
         .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
         .collect::<Vec<_>>();
     run_benchmark(funcs, "exmex", c);
+}
+
+fn exmex_bench_eval_owned(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse_owned(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "exmex_owned", c);
 }
 
 fn evalexpr_parse(strings: &[&str]) -> Vec<(Node, HashMapContext)> {
@@ -296,11 +316,13 @@ criterion_group!(
     benches,
     fasteval_bench_eval,
     exmex_bench_eval,
+    exmex_bench_eval_owned,
     meval_bench_eval,
     rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
+    exmex_bench_parse_owned,
     exmex_bench_parse_optimized,
     meval_bench_parse,
     rsc_bench_parse,
