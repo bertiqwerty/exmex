@@ -185,8 +185,8 @@
 //!
 //! ## Serialization and Deserialization
 //!
-//! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`. 
-//! Currently, this only works for default operators. The implementation 
+//! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`.
+//! Currently, this only works for default operators. The implementation
 //! un-parses and re-parses the whole expression.
 //!
 //! ## Unicode
@@ -202,7 +202,7 @@ mod util;
 
 use std::{fmt::Debug, str::FromStr};
 
-pub use expression::flat::FlatEx;
+pub use expression::flat::{FlatEx, OwnedFlatEx};
 use expression::{deep::DeepEx, flat};
 
 use num::Float;
@@ -307,28 +307,28 @@ mod tests {
         operators::{make_default_operators, BinOp, Operator},
         parse, parse_with_default_ops,
         util::{assert_float_eq_f32, assert_float_eq_f64},
-        ExParseError, FlatEx,
+        ExParseError, FlatEx, OwnedFlatEx,
     };
-    
+
     #[test]
     fn test_readme() {
-        fn readme_partial () -> Result<(), ExParseError> {
+        fn readme_partial() -> Result<(), ExParseError> {
             let expr = parse_with_default_ops::<f64>("y*x^2")?;
-            
+
             // d_x
             let dexpr_dx = expr.partial(0)?;
             assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
-            
+
             // d_xy
             let ddexpr_dxy = dexpr_dx.partial(1)?;
             assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
             assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
-            
+
             // d_xyx
             let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
             assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
             assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
-            
+
             Ok(())
         }
         fn readme() -> Result<(), ExParseError> {
@@ -404,6 +404,7 @@ mod tests {
 
         let sut = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let expr = OwnedFlatEx::from_flatex(expr);
         let reference =
             |x: f64, y: f64, z: f64| ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin();
         assert_float_eq_f64(
@@ -418,10 +419,12 @@ mod tests {
 
         let sut = "y + 1 + 0.5 * x";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let expr = OwnedFlatEx::from_flatex(expr);
         assert_float_eq_f64(expr.eval(&[3.0, 1.0]).unwrap(), 3.5);
 
         let sut = " -(-(1+x))";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let expr = OwnedFlatEx::from_flatex(expr);
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 2.0);
 
         let sut = " sin(cos(-3.14159265358979*x))";
@@ -430,6 +433,7 @@ mod tests {
 
         let sut = "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let expr = OwnedFlatEx::from_flatex(expr);
         assert_float_eq_f64(expr.eval(&[1.5, 0.2532]).unwrap(), -3.1164569260604176);
 
         let sut = "5*x + 4*y + 3*x";
@@ -438,6 +442,7 @@ mod tests {
 
         let sut = "5*x + 4*y";
         let expr = parse_with_default_ops::<f64>(sut).unwrap();
+        let expr = OwnedFlatEx::from_flatex(expr);
         assert_float_eq_f64(expr.eval(&[0.0, 1.0]).unwrap(), 4.0);
 
         let sut = "5*x + 4*y + x^2";
@@ -539,7 +544,7 @@ mod tests {
                 repr: "None",
                 bin_op: None,
                 unary_op: None,
-            }
+            },
         ];
         let expr = parse("2**2*invert(3)", &custom_ops).unwrap();
         let val = expr.eval(&[]).unwrap();
@@ -564,7 +569,6 @@ mod tests {
         let expr = parse("2^2*1/(berti) + zer0(4)", &extended_operators).unwrap();
         let val = expr.eval(&[4.0]).unwrap();
         assert_float_eq_f32(val, 1.0);
-
     }
 
     #[test]
@@ -586,7 +590,7 @@ mod tests {
                 assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
             }
         }
-        
+
         let sut = "+x";
         println!("{}", sut);
         let var_idx = 0;
@@ -622,7 +626,6 @@ mod tests {
         let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| -1.0;
         test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
-
 
         let sut = "--x";
         println!("{}", sut);
@@ -803,12 +806,13 @@ mod tests {
         assert!(eval_str("2*(5+5))").is_err());
     }
 
-    #[cfg(feature="serde_support")]
+    #[cfg(feature = "serde_support")]
     #[test]
     fn test_serde_public_interface() {
         let s = "{x}^(3.0-{y})";
         let flatex = parse_with_default_ops::<f64>(s).unwrap();
         let serialized = serde_json::to_string(&flatex).unwrap();
         let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
-        assert_eq!(s, format!("{}", deserialized));    }
+        assert_eq!(s, format!("{}", deserialized));
+    }
 }

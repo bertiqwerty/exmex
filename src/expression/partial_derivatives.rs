@@ -593,9 +593,8 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 }
 
 #[cfg(test)]
-use {
-    super::flat::flatten,
-    crate::{operators::make_default_operators, util::assert_float_eq_f64},
+use crate::{
+    expression::flat::flatten, operators::make_default_operators, util::assert_float_eq_f64,
 };
 
 #[test]
