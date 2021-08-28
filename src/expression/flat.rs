@@ -1,7 +1,7 @@
 use crate::expression::flat_details::{self, FlatNodeVec, FlatOpVec};
 use crate::{
     expression::{
-        deep::{DeepEx, ExprIdxVec},
+        deep::{DeepBuf, DeepEx, ExprIdxVec},
         partial_derivatives,
     },
     operators,
@@ -264,8 +264,6 @@ use crate::{
     util::assert_float_eq_f64,
 };
 
-use super::deep_details::DeepBuf;
-
 #[test]
 fn test_operate_unary() {
     let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
@@ -385,7 +383,6 @@ fn test_display() {
         format!("{}", owned_flatex),
         "unparse impossible, since deep expression optimized away"
     );
-
 }
 
 #[test]

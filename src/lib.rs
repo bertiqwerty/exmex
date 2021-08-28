@@ -577,9 +577,11 @@ mod tests {
             var_idx: usize,
             n_vars: usize,
             random_range: Range<f64>,
-            deri: &FlatEx<f64>,
+            flatex: FlatEx<f64>,
             reference: fn(f64) -> f64,
         ) {
+            let deri = flatex.clone().partial(var_idx).unwrap();
+            println!("flatex {}", flatex);
             println!("partial {}", deri);
             let mut rng = rand::thread_rng();
             for _ in 0..3 {
@@ -589,6 +591,18 @@ mod tests {
                 println!("value under test {}.", vut);
                 assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
             }
+
+            let owned_flatex = OwnedFlatEx::from_flatex(flatex);
+            println!("flatex owned {}", owned_flatex);
+            let owned_deri = owned_flatex.partial(var_idx).unwrap();
+            println!("partial owned {}", owned_deri);
+            for _ in 0..3 {
+                let vut = rng.gen_range(random_range.clone());
+                let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
+                vars[var_idx] = vut;
+                println!("value under test {}.", vut);
+                assert_float_eq_f64(owned_deri.eval(&vars).unwrap(), reference(vut));
+            }
         }
 
         let sut = "+x";
@@ -596,127 +610,112 @@ mod tests {
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| 1.0;
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "++x";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| 1.0;
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "+-+x";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| -1.0;
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "-x";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| -1.0;
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "--x";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |_: f64| 1.0;
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "sin(sin(x))";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |x: f64| x.sin().cos() * x.cos();
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "sin(x)-cos(x)+a";
         println!("{}", sut);
         let var_idx = 1;
         let n_vars = 2;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |x: f64| x.cos() + x.sin();
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
-        println!("{}", deri);
-        let deri = deri.partial(var_idx).unwrap();
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1.clone(), reference);
+        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |x: f64| -x.sin() + x.cos();
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
-        println!("{}", deri);
+        test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference);
         let deri = deri.partial(var_idx).unwrap();
         let reference = |x: f64| -x.cos() - x.sin();
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
-        println!("{}", deri);
+        test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference);
         let deri = deri.partial(var_idx).unwrap();
         let reference = |x: f64| x.sin() - x.cos();
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference);
 
         let sut = "sin(x)-cos(x)+tan(x)+a";
         println!("{}", sut);
         let var_idx = 1;
         let n_vars = 2;
         let flatex_1 = parse_with_default_ops::<f64>("sin(x)-cos(x)+tan(x)+a").unwrap();
-        let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |x: f64| x.cos() + x.sin() + 1.0 / (x.cos().powf(2.0));
-        test(var_idx, n_vars, -10000.0..10000.0, &deri, reference);
+        test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference);
 
         let sut = "log(v)*exp(v)+cos(x)+tan(x)+a";
         println!("{}", sut);
         let var_idx = 1;
         let n_vars = 3;
         let flatex = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex.partial(var_idx).unwrap();
         let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
-        test(var_idx, n_vars, 0.01..100.0, &deri, reference);
+        test(var_idx, n_vars, 0.01..100.0, flatex, reference);
 
         let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
         println!("{}", sut);
         let var_idx = 2;
         let n_vars = 4;
         let flatex = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex.partial(var_idx).unwrap();
         let reference = |x: f64| {
             (x.cosh() * x.cosh() - x.sinh() * x.sinh()) / x.cosh().powf(2.0)
                 + 1.0 / (x.cosh().powf(2.0))
         };
-        test(var_idx, n_vars, -100.0..100.0, &deri, reference);
+        test(var_idx, n_vars, -100.0..100.0, flatex, reference);
 
         let sut = "w+z+acos(v)+asin(v)+b+atan({v})";
         println!("{}", sut);
         let var_idx = 1;
         let n_vars = 4;
         let flatex = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex.partial(var_idx).unwrap();
         let reference = |x: f64| {
             1.0 / (1.0 - x.powf(2.0)).sqrt() - 1.0 / (1.0 - x.powf(2.0)).sqrt()
                 + 1.0 / (1.0 + x.powf(2.0))
         };
-        test(var_idx, n_vars, -1.0..1.0, &deri, reference);
+        test(var_idx, n_vars, -1.0..1.0, flatex, reference);
 
         let sut = "sqrt(var)*var^1.57";
         println!("{}", sut);
         let var_idx = 0;
         let n_vars = 1;
         let flatex = parse_with_default_ops::<f64>(sut).unwrap();
-        let deri = flatex.partial(var_idx).unwrap();
         let reference =
             |x: f64| 1.0 / (2.0 * x.sqrt()) * x.powf(1.57) + x.sqrt() * 1.57 * x.powf(0.57);
-        test(var_idx, n_vars, 0.0..100.0, &deri, reference);
+        test(var_idx, n_vars, 0.0..100.0, flatex, reference);
     }
 
     #[test]

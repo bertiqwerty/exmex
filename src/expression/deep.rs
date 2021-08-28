@@ -1,6 +1,9 @@
 use crate::{
     definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
-    expression::deep_details::{self, OverloadedOps, ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR},
+    expression::deep_details::{
+        self, BinOpsWithReprsBuf, OverloadedOps, UnaryOpWithReprsBuf, ADD_REPR, DIV_REPR, MUL_REPR,
+        SUB_REPR,
+    },
     operators::{self, BinOp, UnaryOp},
     parser, ExParseError, Operator,
 };
@@ -104,7 +107,6 @@ pub struct DeepEx<'a, T: Copy + Debug> {
 }
 
 fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
-
     if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
         match deepex.nodes[0].clone() {
             DeepNode::Expr(e) => {
@@ -536,6 +538,64 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
     }
 }
 
+pub enum DeepBufNode<T: Copy + Debug> {
+    Expr(DeepBuf<T>),
+    Num(T),
+    /// The contained integer points to the index of the variable in the slice of
+    /// variables passed to [`eval`](Expression::eval).
+    Var((usize, String)),
+}
+
+pub struct DeepBuf<T: Copy + Debug> {
+    pub nodes: Vec<DeepBufNode<T>>,
+    /// Binary operators applied to the nodes according to their priority.
+    pub bin_ops: BinOpsWithReprsBuf<T>,
+    /// Unary operators are applied to the result of evaluating all nodes with all
+    /// binary operators.
+    pub unary_op: UnaryOpWithReprsBuf<T>,
+    pub unparsed: String,
+    pub var_names: SmallVec<[String; N_VARS_ON_STACK]>,
+}
+
+impl<'a, T: Copy + Debug> DeepBuf<T> {
+    pub fn from_deepex(deepex: &DeepEx<'a, T>) -> Self {
+        Self {
+            nodes: deepex
+                .nodes()
+                .iter()
+                .map(|node| match node {
+                    DeepNode::Expr(e) => DeepBufNode::Expr(Self::from_deepex(e)),
+                    DeepNode::Num(n) => DeepBufNode::Num(*n),
+                    DeepNode::Var(v) => DeepBufNode::Var((v.0, v.1.to_string())),
+                })
+                .collect(),
+            bin_ops: BinOpsWithReprsBuf::from_deepex(deepex.bin_ops()),
+            unary_op: UnaryOpWithReprsBuf::from_deepex(deepex.unary_op()),
+            unparsed: deepex.unparse(),
+            var_names: deepex.var_names.iter().map(|vn| vn.to_string()).collect(),
+        }
+    }
+    pub fn to_deepex(&'a self, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError> {
+        let mut deepex = DeepEx::new(
+            self.nodes
+                .iter()
+                .map(|node| -> Result<_, ExParseError> {
+                    match node {
+                        DeepBufNode::Expr(e) => Ok(DeepNode::Expr(e.to_deepex(ops)?)),
+                        DeepBufNode::Num(n) => Ok(DeepNode::Num(*n)),
+                        DeepBufNode::Var(v) => Ok(DeepNode::Var((v.0, v.1.as_str()))),
+                    }
+                })
+                .collect::<Result<_, ExParseError>>()?,
+            self.bin_ops.to_deepex(),
+            self.unary_op.to_deepex(),
+        )?;
+        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
+        deepex.var_names = self.var_names.iter().map(|vn| vn.as_str()).collect();
+        Ok(deepex)
+    }
+}
+
 #[cfg(test)]
 use {
     super::flat::flatten,
@@ -624,7 +684,7 @@ fn test_operator_overloading() {
     let two = one.clone() + one.clone();
     check_shape(&two, 1);
     eval(&two, &[], 2.0);
-    
+
     let minus_one = from_str("-1");
     let one = minus_one.clone() * minus_one.clone();
     check_shape(&one, 1);

@@ -283,15 +283,6 @@ pub fn prioritized_indices<T: Copy + Debug>(
     indices
 }
 
-
-pub enum DeepBufNode<T: Copy + Debug> {
-    Expr(DeepBuf<T>),
-    Num(T),
-    /// The contained integer points to the index of the variable in the slice of
-    /// variables passed to [`eval`](Expression::eval).
-    Var((usize, String)),
-}
-
 pub struct BinOpsWithReprsBuf<T: Copy> {
     pub reprs: Vec<String>,
     pub ops: BinOpVec<T>,
@@ -334,52 +325,5 @@ impl<T: Copy> UnaryOpWithReprsBuf<T> {
             reprs: self.reprs.iter().map(|repr| repr.as_str()).collect(),
             op: self.op.clone(),
         }
-    }
-}
-
-pub struct DeepBuf<T: Copy + Debug> {
-    pub nodes: Vec<DeepBufNode<T>>,
-    /// Binary operators applied to the nodes according to their priority.
-    pub bin_ops: BinOpsWithReprsBuf<T>,
-    /// Unary operators are applied to the result of evaluating all nodes with all
-    /// binary operators.
-    pub unary_op: UnaryOpWithReprsBuf<T>,
-    pub unparsed: String,
-}
-
-impl<'a, T: Copy + Debug> DeepBuf<T> {
-    pub fn from_deepex(deepex: &DeepEx<'a, T>) -> Self {
-        Self {
-            nodes: deepex
-                .nodes()
-                .iter()
-                .map(|node| match node {
-                    DeepNode::Expr(e) => DeepBufNode::Expr(Self::from_deepex(e)),
-                    DeepNode::Num(n) => DeepBufNode::Num(*n),
-                    DeepNode::Var(v) => DeepBufNode::Var((v.0, v.1.to_string())),
-                })
-                .collect(),
-            bin_ops: BinOpsWithReprsBuf::from_deepex(deepex.bin_ops()),
-            unary_op: UnaryOpWithReprsBuf::from_deepex(deepex.unary_op()),
-            unparsed: deepex.unparse(),
-        }
-    }
-    pub fn to_deepex(&'a self, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError> {
-        let mut deepex = DeepEx::new(
-            self.nodes
-                .iter()
-                .map(|node| -> Result<_, ExParseError> {
-                    match node {
-                        DeepBufNode::Expr(e) => Ok(DeepNode::Expr(e.to_deepex(ops)?)),
-                        DeepBufNode::Num(n) => Ok(DeepNode::Num(*n)),
-                        DeepBufNode::Var(v) => Ok(DeepNode::Var((v.0, v.1.as_str()))),
-                    }
-                })
-                .collect::<Result<_, ExParseError>>()?,
-            self.bin_ops.to_deepex(),
-            self.unary_op.to_deepex(),
-        )?;
-        deepex.set_overloaded_ops(find_overloaded_ops(ops));
-        Ok(deepex)
     }
 }
