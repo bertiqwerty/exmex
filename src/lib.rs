@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.9.2")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.9.3")]
 //! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator
 //! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
 //! ```rust
@@ -230,7 +230,10 @@
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`.
 //! Currently, this only works for default operators. The implementation
-//! un-parses and re-parses the whole expression.
+//! un-parses and re-parses the whole expression. 
+//! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and 
+//! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
+//! for both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
 //!
 //! ## Unicode
 //! Unicode input strings are currently not supported 😕 but might be added in the

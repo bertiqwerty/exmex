@@ -170,8 +170,9 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
     }
     /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression
     /// that is not necessary for evaluation. This functions removes the deep expression
-    /// to reduce memory consumption. [`unparse`](FlatEx::unparse) and the
-    /// [`Display`](std::fmt::Display) implementation will stop working after calling this function.
+    /// to reduce memory consumption. The methods [`partial`](FlatEx::partial) and 
+    /// [`unparse`](FlatEx::unparse) as well as the implementation of the 
+    /// [`Display`](std::fmt::Display) trait will stop working after calling this function.
     pub fn clear_deepex(&mut self) {
         self.deepex = None;
     }
@@ -188,6 +189,12 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
     }
 }
 
+/// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
+/// The interface is identical. The difference is that [`OwnedFlatEx`](OwnedFlatEx) can be used without
+/// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a 
+/// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
+/// additional allocations are necessary. Evaluation time should be about the same for 
+/// [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
 pub struct OwnedFlatEx<T: Copy + Debug> {
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,
@@ -196,6 +203,7 @@ pub struct OwnedFlatEx<T: Copy + Debug> {
     n_unique_vars: usize,
 }
 impl<T: Copy + Debug> OwnedFlatEx<T> {
+    /// see [`FlatEx::eval`](FlatEx::eval)
     pub fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
         flat_details::eval_flatex(
             vars,
@@ -205,7 +213,7 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
             self.n_unique_vars,
         )
     }
-
+    /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
     pub fn from_flatex<'a>(flatex: FlatEx<'a, T>) -> Self {
         Self {
             deepex_buf: flatex.deepex.map(|d| DeepBuf::from_deepex(&d)),
@@ -215,7 +223,7 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
             n_unique_vars: flatex.n_unique_vars,
         }
     }
-
+    /// See [`FlatEx::partial`](FlatEx::partial).
     pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
     where
         T: Float,
@@ -232,7 +240,7 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
         let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
         Ok(Self::from_flatex(flatten(d_i)))
     }
-
+    /// See [`FlatEx::unparse`](FlatEx::unparse).
     pub fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex_buf {
             Some(deepex) => Ok(deepex.unparsed.clone()),
@@ -241,6 +249,7 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
             }),
         }
     }
+    /// Clears buffer with owned data, see also [`FlatEx::unparse`](FlatEx::unparse).
     pub fn clear_deepex(&mut self) {
         self.deepex_buf = None;
     }
