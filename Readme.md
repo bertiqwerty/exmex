@@ -124,7 +124,7 @@ taking the minimum run-time for benchmarking can be found below.
 |                                                      | sin     | power    | nested   | compile  | comment                                    |
 | ---------------------------------------------------- | ------- | -------- | -------- | -------- | ------------------------------------------ |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 9.8     | 7.36     | 19.73    | 27.07    | more than mathematical expressions         |
-| **Exmex**                                            | **0.3** | **0.62** | **0.76** | **0.74** |
+| **[Exmex](https://docs.rs/exmex)**                   | **0.3** | **0.62** | **0.76** | **0.74** |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.88    | 2.24     | 2.36     | 2.39     | only `f64`, supports a faster, unsafe mode |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.93    | 1.05     | 1.25     | 1.56     | only `f64`, no custom operators            |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 8.2     | 9.25     | 36.74    | 50.56    |
@@ -134,7 +134,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |                                                      | all expressions |
 | ---------------------------------------------------- | --------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 69.94           |
-| **Exmex**                                            | 60.1            |
+| **[Exmex](https://docs.rs/exmex)**                   | 60.1            |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 48.12           |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | **41.09**       |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 48.99           |
