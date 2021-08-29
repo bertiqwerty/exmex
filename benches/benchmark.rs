@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, iter::repeat};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 use exmex::prelude::*;
-use exmex::{parse_with_default_ops, BinOp, Operator};
+use exmex::{BinOp, Operator, OwnedFlatEx};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
@@ -84,7 +84,7 @@ fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
 fn exmex_parse_owned<'a>(strings: &'a [&str]) -> Vec<OwnedFlatEx<f64>> {
     strings
         .iter()
-        .map(|expr_str| OwnedFlatEx::from_flatex(parse_with_default_ops::<f64>(expr_str).unwrap()))
+        .map(|expr_str| OwnedFlatEx::<f64>::from_str(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -95,7 +95,7 @@ fn exmex_bench_parse_owned(c: &mut Criterion) {
 fn exmex_parse<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
     strings
         .iter()
-        .map(|expr_str| parse_with_default_ops::<f64>(expr_str).unwrap())
+        .map(|expr_str| FlatEx::<f64>::from_str(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -153,7 +153,7 @@ fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
     ];
     strings
         .iter()
-        .map(|expr_str| exmex::parse(expr_str, &ops).unwrap())
+        .map(|expr_str| FlatEx::from_ops(expr_str, &ops).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -345,7 +345,7 @@ fn exmex_bench_serde(c: &mut Criterion) -> () {
         BENCH_EXPRESSIONS_NAMES.iter()
     ) {
         let expr_str_de = format!("\"{}\"", expr_str);
-        let flatex = exmex::parse_with_default_ops::<f64>(expr_str).unwrap();
+        let flatex = FlatEx::<f64>::from_str(expr_str).unwrap();
         let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
         let expr_name_ = format!("flatex {}", expr_name);
         run_benchmark_serialize(&flatex, &expr_name_, c);

@@ -13,7 +13,7 @@ Add
 # ...
 exmex = "0.9.3"
 ```
-to your `Cargo.toml` for the latest relase. If you want to use the newest version, add
+to your `Cargo.toml` for the latest relase. The corresponding [Readme.md](https://crates.io/crates/exmex) can be found under https://crates.io/crates/exmex. If you want to use the newest version of Exmex, add
 ```
 [dependencies]
 # ...
@@ -28,22 +28,24 @@ let result = exmex::eval_str("sin(73)")?;
 ```
 To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
-use exmex;
-let expr = exmex::parse_with_default_ops::<f64>("2*x^3-4/z")?;
+use exmex::prelude::*;
+let expr = FlatEx::<f64>::from_str("2*x^3-4/z")?;
+let value = expr.eval(&[5.3, 0.5])?;
+assert_float_eq_f64(value, 289.75399999999996);
 ```
-Especially, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
+The wildcard-import from `prelude` makes only the trait `Expression` and its implementation `FlatEx` accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
 ```
-The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the function `parse` to create an expression.
+The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the method `from_ops` to create an expression.
 ```rust
-use exmex::{self, Operator};
-
-let ops = [
+use exmex::prelude::*;
+use exmex::Operator;
+let ops = vec![
     Operator {
         repr: "|",
         bin_op: Some(BinOp {
-            apply: |a: u32, b: u32| a | b,  // needs to be a pure function
+            apply: |a: u32, b: u32| a | b,
             prio: 0,
         }),
         unary_op: None,
@@ -54,7 +56,7 @@ let ops = [
         unary_op: Some(|a: u32| !a),
     },
 ];
-let expr = exmex::parse::<u32>("!(a|b)", &ops)?;
+let expr = FlatEx::<u32>::from_ops("!(a|b)", &ops)?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
@@ -64,8 +66,8 @@ assert_eq!(result, u32::MAX - 1);
 To compute partial derivatives you can use the expression's method `partial`. The result is again an expression.
 
 ```rust
-use exmex;
-let expr = exmex::parse_with_default_ops::<f64>("y*x^2")?;
+use exmex::prelude::*;
+let expr = FlatEx::<f64>::from_str("y*x^2")?;
 
 // d_x
 let dexpr_dx = expr.partial(0)?;
@@ -75,10 +77,6 @@ assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
 let ddexpr_dxy = dexpr_dx.partial(1)?;
 assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
 assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
-//                                            |
-//                               The partial derivative still 
-//                               has 2 variables but is 
-//                               constant in y.
 
 // d_xyx
 let dddexpr_dxyx = ddexpr_dxy.partial(0)?;

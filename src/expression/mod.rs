@@ -1,6 +1,8 @@
+use std::{fmt::Debug, str::FromStr};
+
 use num::Float;
 
-use crate::ExParseError;
+use crate::{ExParseError, Operator};
 
 pub mod deep;
 mod deep_details;
@@ -10,7 +12,45 @@ mod partial_derivatives;
 #[cfg(feature = "serde_support")]
 mod serde;
 
-pub trait Expression<T: Copy> {
+pub trait Expression<'a, T: Copy> {
+    fn from_str(text: &'a str) -> Result<Self, ExParseError>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Float + FromStr,
+        Self: Sized;
+
+    /// Parses a string and a vector of operators into an expression that can be evaluated.
+    ///
+    /// # Errors
+    ///
+    /// An error is returned if `text` cannot be parsed.
+    ///
+    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<Self, ExParseError>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Copy + FromStr + Debug,
+        Self: Sized;
+
+    /// Parses a string and a vector of operators and a regex pattern that defines the looks
+    /// of a number into an expression that can be evaluated.
+    ///
+    /// # Errors
+    ///
+    /// An [`ExParseError`](ExParseError) is returned, if
+    ///
+    /// * the argument `number_regex_pattern` cannot be compiled or
+    /// * the text cannot be parsed.
+    ///
+    fn from_pattern(
+        text: &'a str,
+        ops: &[Operator<'a, T>],
+        number_regex_pattern: &str,
+    ) -> Result<Self, ExParseError>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Copy + FromStr + Debug,
+        Self: Sized;
+
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
@@ -31,23 +71,23 @@ pub trait Expression<T: Copy> {
     fn eval(&self, vars: &[T]) -> Result<T, ExParseError>;
 
     /// This method computes an `Expression` instance that is a partial derivative of
-    /// `self` with default operators as shown in the following example for a [`FlatEx`](super::flat::FlatEx).
+    /// `self` with default operators as shown in the following example for a [`FlatEx`](super::expression::flat::FlatEx).
     ///
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
-    /// use exmex::Expression;
+    /// use exmex::prelude::*;
     ///
-    /// let expr = exmex::parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
+    /// let expr = FlatEx::<f64>::from_str("sin(1+y^2)*x")?;
     /// let dexpr_dx = expr.clone().partial(0)?;
     /// let dexpr_dy = expr.partial(1)?;
     ///
     /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
-    /// //                   |    
-    /// //             This partial derivative dexpr_dx does depend on x. Still, it expects
-    /// //             the same number of parameters as the corresponding
-    /// //             antiderivative. Hence, you can pass any number for x.  
+    /// //             |    
+    /// //           The partial derivative dexpr_dx does depend on x. Still, it
+    /// //           expects the same number of parameters as the corresponding
+    /// //           antiderivative. Hence, you can pass any number for x.  
     ///
     /// assert!((dexpr_dy.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
     /// #
@@ -80,8 +120,8 @@ pub trait Expression<T: Copy> {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
-    /// use exmex;
-    /// let flatex = exmex::parse_with_default_ops::<f64>("--sin ( z) +  {another var} + 1 + 2")?;
+    /// use exmex::prelude::*;
+    /// let flatex = FlatEx::<f64>::from_str("--sin ( z) +  {another var} + 1 + 2")?;
     /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))+{another var}+3.0");
     /// #
     /// #     Ok(())

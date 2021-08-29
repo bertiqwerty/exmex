@@ -3,10 +3,10 @@ use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::Float;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{expression::deep::DeepEx, expression::flat};
+use crate::{OwnedFlatEx, expression::deep::DeepEx, expression::flat};
 use crate::prelude::*;
 
-fn serialize<T: Copy, S: Serializer, Ex: Expression<T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
+fn serialize<'a, T: Copy, S: Serializer, Ex: Expression<'a, T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
         expr.unparse()
             .map_err(|e| {
