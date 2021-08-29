@@ -181,7 +181,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{Expression, OwnedFlatEx, ExParseError};
+//! use exmex::{ExParseError, Expression, OwnedFlatEx};
 //! fn make() -> Result<OwnedFlatEx::<f64>, ExParseError> {
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
