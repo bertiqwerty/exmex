@@ -312,8 +312,39 @@ fn rsc_bench_eval(c: &mut Criterion) {
         .collect::<Vec<_>>();
     run_benchmark(funcs, "rsc", c);
 }
+
+fn exmex_bench_serde(c: &mut Criterion) -> () {
+    for (expr_str, expr_name, ref_func) in izip!(
+        BENCH_EXPRESSIONS_STRS.iter(),
+        BENCH_EXPRESSIONS_NAMES.iter(),
+        BENCH_EXPRESSIONS_REFS.iter()
+    ) {
+        let flatex = exmex::parse_with_default_ops::<f64>(expr_str).unwrap();
+        let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
+        c.bench_function(format!("exmex_serde {}", expr_name).as_str(), |b| {
+            b.iter(|| {
+                let serialized = serde_json::to_string(&flatex).unwrap();
+                let deserialized = serde_json::from_str::<FlatEx<f64>>(&serialized).unwrap();
+                let serialized_owned = serde_json::to_string(&flatex_owned).unwrap();
+                let deserialized_owned =
+                    serde_json::from_str::<OwnedFlatEx<f64>>(&serialized_owned).unwrap();
+                let vars = &[BENCH_Y + BENCH_Z, BENCH_Y, BENCH_Z];
+                assert_float_eq(
+                    deserialized.eval(vars).unwrap(),
+                    ref_func(vars[0], vars[1], vars[2]),
+                );
+                assert_float_eq(
+                    deserialized_owned.eval(vars).unwrap(),
+                    ref_func(vars[0], vars[1], vars[2]),
+                );
+            })
+        });
+    }
+}
+
 criterion_group!(
     benches,
+    exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,
     exmex_bench_eval_owned,
