@@ -160,6 +160,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
+//! use exmex::ExParseError;
 //! fn make<'a>() -> Result<FlatEx::<'a, f64>, ExParseError> {
 //! //       |                        |
 //! //      lifetime parameter necessary
@@ -255,13 +256,14 @@ pub use {
     operators::{make_default_operators, BinOp, Operator},
     parser::ExParseError,
 };
+
+/// To use the expression trait [`Expression`](Expression) and its implementation [`FlatEx`](FlatEx)
+/// one can `use exmex::prelude::*;`.
 pub mod prelude {
     pub use super::{
         expression::{flat::FlatEx, Expression},
-        parser::ExParseError,
     };
 }
-pub use prelude::*;
 
 /// Parses a string, evaluates a string, and returns the resulting number.
 ///
