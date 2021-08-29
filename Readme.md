@@ -26,20 +26,16 @@ To simply evaluate a string there is
 use exmex;
 let result = exmex::eval_str("sin(73)")?;
 ```
-To create an expression with variables that represents a mathematical function you can
-use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
+To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
 use exmex;
 let expr = exmex::parse_with_default_ops::<f64>("2*x^3-4/z")?;
 ```
-Especially, you do not need to use a context or tell the parser explicitly what variables are.
-To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
+Especially, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
 ```
-The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names.
-Besides predefined operators for floats, you can pass custom operators to the 
-function `parse` to create an expression. 
+The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the function `parse` to create an expression. 
 ```rust
 use exmex::{self, Operator};
 
@@ -65,8 +61,7 @@ assert_eq!(result, u32::MAX - 1);
 
 ## Partial Derivatives
 
-To compute partial derivatives you can use the expression's method `partial`. The result is again an 
-expression.
+To compute partial derivatives you can use the expression's method `partial`. The result is again an expression.
 
 ```rust
 use exmex;
@@ -98,8 +93,7 @@ To use [`serde`](https://serde.rs/) for default operators you can activate the f
 
 ## Benchmarks `v0.9.0`
 
-Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. 
-However, evaluation might be more performance critical depending on the application. 
+Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
 
 The expressions used to compare Exmex with other creates are:
 ```
@@ -108,14 +102,11 @@ power:   "x^2+y*y+z^z",
 nested:  "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
 compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
 ```
-The following
-table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i5-8350U 1.7 GHz processor in micro-seconds, i.e., smaller means better.
-[Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks can be executed via
+The following table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i5-8350U 1.7 GHz processor in micro-seconds, i.e., smaller means better. [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks can be executed via
 ```
 cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 20
 ```
-to compute the results. Reported is the best result over multiple invocations. More about
-taking the minimum run-time for benchmarking can be found below.
+to compute the results. Reported is the best result over multiple invocations. More about taking the minimum run-time for benchmarking can be found below.
 
 |                                                      | sin     | power    | nested   | compile  | comment                                    |
 | ---------------------------------------------------- | ------- | -------- | -------- | -------- | ------------------------------------------ |
@@ -143,9 +134,7 @@ Note that Criterion does not provide the option to simply report the minimum run
 > Note, however, that outlier samples are not dropped from the data, and are used in the following analysis steps along with all other samples.
 
 [This talk by
-Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think
-taking the minimum is a good idea in many cases. See also 
-https://github.com/bheisler/criterion.rs/issues/485.
+Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think taking the minimum is a good idea in many cases. See also https://github.com/bheisler/criterion.rs/issues/485.
 
 ## Documentation
 More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
