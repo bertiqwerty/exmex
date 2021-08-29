@@ -13,6 +13,7 @@ use rsc::{
     parser::{parse, Expr},
 };
 use serde::{Deserialize, Serialize};
+
 const N: usize = 4;
 
 const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested", "compile"];
