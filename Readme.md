@@ -35,7 +35,7 @@ Especially, you do not need to use a context or tell the parser explicitly what 
 ```rust
 let value = expr.eval(&[5.3, 0.5]);
 ```
-The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the function `parse` to create an expression. 
+The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the function `parse` to create an expression.
 ```rust
 use exmex::{self, Operator};
 
@@ -43,7 +43,7 @@ let ops = [
     Operator {
         repr: "|",
         bin_op: Some(BinOp {
-            apply: |a: u32, b: u32| a | b,
+            apply: |a: u32, b: u32| a | b,  // needs to be a pure function
             prio: 0,
         }),
         unary_op: None,
