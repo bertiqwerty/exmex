@@ -3,11 +3,12 @@ use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::Float;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{ExParseError, expression::deep::DeepEx, expression::flat, expression::flat::{FlatEx, OwnedFlatEx}};
+use crate::{expression::deep::DeepEx, expression::flat};
+use crate::prelude::*;
 
-fn serialize<S: Serializer>(serializer: S, unparsed: Result<String, ExParseError>) -> Result<S::Ok, S::Error> {
+fn serialize<T: Copy, S: Serializer, Ex: Expression<T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
-        unparsed
+        expr.unparse()
             .map_err(|e| {
                 serde::ser::Error::custom(format!("serialization failed - {}", e.msg))
             })?
@@ -20,7 +21,7 @@ impl<'de: 'a, 'a, T: Copy + Debug> Serialize for FlatEx<'a, T> {
     where
         S: Serializer,
     {
-        serialize(serializer, self.unparse())
+        serialize(serializer, self)
     }
 }
 
@@ -70,7 +71,7 @@ impl<'de, T: Copy + Debug> Serialize for OwnedFlatEx<T> {
     where
         S: Serializer,
     {
-        serialize(serializer, self.unparse())
+        serialize(serializer, self)
     }
 }
 

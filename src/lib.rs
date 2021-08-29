@@ -25,7 +25,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex;
+//! use exmex::Expression;
 //! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //! let expr = exmex::parse_with_default_ops::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
@@ -41,7 +41,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex;
+//! use exmex::Expression;
 //! let x = 2.1f64;
 //! let y = 0.1f64;
 //! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
@@ -57,7 +57,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{BinOp, Operator};
+//! use exmex::{BinOp, Expression, Operator};
 //! let ops = [
 //!     Operator {
 //!         repr: "%",
@@ -104,7 +104,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{self, BinOp, Operator};
+//! use exmex::{BinOp, Expression, Operator};
 //! let ops = [
 //!     Operator {
 //!         repr: "&&",
@@ -138,7 +138,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex;
+//! use exmex::Expression;
 //! let expr = exmex::parse_with_default_ops::<f64>("x^2 + y^2")?;
 //! let dexpr_dx = expr.clone().partial(0)?;
 //! let dexpr_dy = expr.partial(1)?;
@@ -148,16 +148,16 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! 
+//!
 //! ## Owned Expression
-//! You cannot return a usual expression from a function without a lifetime parameter, 
-//! since expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of 
+//! You cannot return a usual expression from a function without a lifetime parameter,
+//! since expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
 //! `String`s of variable or operator names to make faster parsing possible.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{self, ExParseError, FlatEx};
+//! use exmex::prelude::*;
 //! fn make<'a>() -> Result<FlatEx::<'a, f64>, ExParseError> {
 //! //       |                        |
 //! //      lifetime parameter necessary
@@ -170,16 +170,16 @@
 //! #
 //! #     Ok(())
 //! # }
-//! ``` 
-//! If you are willing to pay the price of roughly doubled parsing times, you can 
-//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns 
+//! ```
+//! If you are willing to pay the price of roughly doubled parsing times, you can
+//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns
 //! its strings. Evaluation times should be comparable. However, a lifetime parameter is
-//! not needed anymore as shown in the following. 
+//! not needed anymore as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{self, ExParseError, OwnedFlatEx};
+//! use exmex::prelude::*;
 //! fn make() -> Result<OwnedFlatEx::<f64>, ExParseError> {
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     let expr = exmex::parse_with_default_ops::<f64>(to_be_parsed)?;
@@ -230,8 +230,8 @@
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`.
 //! Currently, this only works for default operators. The implementation
-//! un-parses and re-parses the whole expression. 
-//! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and 
+//! un-parses and re-parses the whole expression.
+//! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
 //! for both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
 //!
@@ -248,12 +248,27 @@ mod util;
 
 use std::{fmt::Debug, str::FromStr};
 
-pub use expression::flat::{FlatEx, OwnedFlatEx};
 use expression::{deep::DeepEx, flat};
 
 use num::Float;
-pub use operators::{make_default_operators, BinOp, Operator};
-pub use parser::ExParseError;
+pub use {
+    expression::{
+        flat::{FlatEx, OwnedFlatEx},
+        Expression,
+    },
+    parser::ExParseError,
+    operators::{make_default_operators, BinOp, Operator}
+};
+pub mod prelude {
+    pub use super::{
+        expression::{
+            flat::{FlatEx, OwnedFlatEx},
+            Expression,
+        },
+        parser::ExParseError,
+    };
+}
+pub use prelude::*;
 
 /// Parses a string, evaluates a string, and returns the resulting number.
 ///
@@ -348,12 +363,13 @@ mod tests {
     use rand::Rng;
     use smallvec::{smallvec, SmallVec};
 
+    use crate::prelude::*;
     use crate::{
         eval_str,
         operators::{make_default_operators, BinOp, Operator},
         parse, parse_with_default_ops,
         util::{assert_float_eq_f32, assert_float_eq_f64},
-        ExParseError, FlatEx, OwnedFlatEx,
+        ExParseError,
     };
 
     #[test]
@@ -705,7 +721,13 @@ mod tests {
         let n_vars = 2;
         let flatex_1 = parse_with_default_ops::<f64>(sut).unwrap();
         let reference = |x: f64| x.cos() + x.sin();
-        test(var_idx, n_vars, -10000.0..10000.0, flatex_1.clone(), reference);
+        test(
+            var_idx,
+            n_vars,
+            -10000.0..10000.0,
+            flatex_1.clone(),
+            reference,
+        );
         let deri = flatex_1.partial(var_idx).unwrap();
         let reference = |x: f64| -x.sin() + x.cos();
         test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference);

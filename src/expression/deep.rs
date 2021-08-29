@@ -599,6 +599,7 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
 #[cfg(test)]
 use {
     super::flat::flatten,
+    crate::prelude::*,
     crate::{
         expression::partial_derivatives::partial_deepex,
         operators::make_default_operators,

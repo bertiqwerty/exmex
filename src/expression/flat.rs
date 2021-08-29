@@ -38,10 +38,10 @@ pub fn flatten<T: Copy + Debug>(deepex: DeepEx<T>) -> FlatEx<T> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{parse_with_default_ops};
+/// use exmex::Expression;
 ///
 /// // create an expression by parsing a string
-/// let expr = parse_with_default_ops::<f32>("sin(1+y)*x")?;
+/// let expr = exmex::parse_with_default_ops::<f32>("sin(1+y)*x")?;
 /// assert!((expr.eval(&[1.5, 2.0])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
@@ -62,25 +62,8 @@ pub struct FlatEx<'a, T: Copy + Debug> {
     deepex: Option<DeepEx<'a, T>>,
 }
 
-impl<'a, T: Copy + Debug> FlatEx<'a, T> {
-    /// Evaluates an expression with the given variable values and returns the computed
-    /// result.
-    ///
-    /// # Arguments
-    ///
-    /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
-    ///            the n-th variable in alphabetical order.
-    ///            Thereby, only the first occurrence of the variable in the string is relevant.
-    ///            If an expression has been created by partial derivation, the variables always
-    ///            coincide with those of the antiderivatives even in cases where variables are
-    ///            irrelevant such as `(x)'=1`.
-    ///
-    /// # Errors
-    ///
-    /// If the number of variables in the parsed expression are different from the length of
-    /// the variable slice, we return an [`ExParseError`](ExParseError).
-    ///
-    pub fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
+impl<'a, T: Copy + Debug> Expression<T> for FlatEx<'a, T> {
+    fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
         flat_details::eval_flatex(
             vars,
             &self.nodes,
@@ -89,42 +72,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
             self.n_unique_vars,
         )
     }
-
-    /// This method computes a `FlatEx` instance that is a partial derivative of `self` with default operators
-    /// as shown in the following example.
-    ///
-    /// ```rust
-    /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// #
-    /// use exmex::{parse_with_default_ops};
-    ///
-    /// let expr = parse_with_default_ops::<f64>("sin(1+y^2)*x")?;
-    /// let dexpr_dx = expr.clone().partial(0)?;
-    /// let dexpr_dy = expr.partial(1)?;
-    ///
-    /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
-    /// //                   |    
-    /// //             This partial derivative dexpr_dx does depend on x. Still, it expects
-    /// //             the same number of parameters as the corresponding
-    /// //             antiderivative. Hence, you can pass any number for x.  
-    ///
-    /// assert!((dexpr_dy.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    /// # Arguments
-    ///
-    /// * `var_idx` - variable with respect to which the partial derivative is computed
-    ///
-    /// # Errors
-    ///
-    /// * If `self` has been `clear_deepex`ed, we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
-    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if
-    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
-    ///
-    pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
     where
         T: Float,
     {
@@ -140,27 +88,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
         )?;
         Ok(flatten(d_i))
     }
-
-    /// Creates an expression string that corresponds to the `FlatEx` instance. This is
-    /// not necessarily the input string. More precisely,
-    /// * variables are put between curly braces,
-    /// * spaces outside of curly brackets are ignored,
-    /// * parentheses can be different from the input, and
-    /// * expressions are compiled
-    /// as shown in the following example.
-    /// ```rust
-    /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// #
-    /// use exmex::parse_with_default_ops;
-    /// let flatex = parse_with_default_ops::<f64>("--sin ( z) +  {another var} + 1 + 2")?;
-    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))+{another var}+3.0");
-    /// #
-    /// #     Ok(())
-    /// # }
-    /// ```
-    ///
-    pub fn unparse(&self) -> Result<String, ExParseError> {
+    fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex {
             Some(deepex) => Ok(deepex.unparse()),
             None => Err(ExParseError {
@@ -168,12 +96,7 @@ impl<'a, T: Copy + Debug> FlatEx<'a, T> {
             }),
         }
     }
-    /// Usually, a `FlatEx` instance keeps a nested, deep structure of the expression
-    /// that is not necessary for evaluation. This functions removes the deep expression
-    /// to reduce memory consumption. The methods [`partial`](FlatEx::partial) and 
-    /// [`unparse`](FlatEx::unparse) as well as the implementation of the 
-    /// [`Display`](std::fmt::Display) trait will stop working after calling this function.
-    pub fn clear_deepex(&mut self) {
+    fn reduce_memory(&mut self) {
         self.deepex = None;
     }
 }
@@ -203,16 +126,6 @@ pub struct OwnedFlatEx<T: Copy + Debug> {
     n_unique_vars: usize,
 }
 impl<T: Copy + Debug> OwnedFlatEx<T> {
-    /// see [`FlatEx::eval`](FlatEx::eval)
-    pub fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
-        flat_details::eval_flatex(
-            vars,
-            &self.nodes,
-            &self.ops,
-            &self.prio_indices,
-            self.n_unique_vars,
-        )
-    }
     /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
     pub fn from_flatex<'a>(flatex: FlatEx<'a, T>) -> Self {
         Self {
@@ -223,8 +136,19 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
             n_unique_vars: flatex.n_unique_vars,
         }
     }
-    /// See [`FlatEx::partial`](FlatEx::partial).
-    pub fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+}
+impl<T: Copy + Debug> Expression<T> for OwnedFlatEx<T> {
+    fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
+        flat_details::eval_flatex(
+            vars,
+            &self.nodes,
+            &self.ops,
+            &self.prio_indices,
+            self.n_unique_vars,
+        )
+    }
+    
+    fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
     where
         T: Float,
     {
@@ -240,8 +164,8 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
         let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
         Ok(Self::from_flatex(flatten(d_i)))
     }
-    /// See [`FlatEx::unparse`](FlatEx::unparse).
-    pub fn unparse(&self) -> Result<String, ExParseError> {
+
+    fn unparse(&self) -> Result<String, ExParseError> {
         match &self.deepex_buf {
             Some(deepex) => Ok(deepex.unparsed.clone()),
             None => Err(ExParseError {
@@ -249,8 +173,8 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
             }),
         }
     }
-    /// Clears buffer with owned data, see also [`FlatEx::unparse`](FlatEx::unparse).
-    pub fn clear_deepex(&mut self) {
+
+    fn reduce_memory(&mut self) {
         self.deepex_buf = None;
     }
 }
@@ -273,6 +197,8 @@ use crate::{
     util::assert_float_eq_f64,
 };
 
+use super::Expression;
+
 #[test]
 fn test_operate_unary() {
     let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
@@ -294,7 +220,7 @@ fn test_operate_unary() {
 fn test_flat_clear() {
     let mut flatex = parse_with_default_ops::<f64>("x*(2*(2*(2*4*8)))").unwrap();
     assert!(flatex.deepex.is_some());
-    flatex.clear_deepex();
+    flatex.reduce_memory();
     assert!(flatex.deepex.is_none());
     assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
     assert_eq!(flatex.nodes.len(), 2);
@@ -378,7 +304,7 @@ fn test_display() {
     let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
     println!("{}", flatex);
     assert_eq!(format!("{}", flatex), "sin({var})/5.0");
-    flatex.clear_deepex();
+    flatex.reduce_memory();
     assert_eq!(
         format!("{}", flatex),
         "unparse impossible, since deep expression optimized away"
@@ -387,7 +313,7 @@ fn test_display() {
     let flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
     let mut owned_flatex = OwnedFlatEx::from_flatex(flatex);
     assert_eq!(format!("{}", owned_flatex), "sin({var})/5.0");
-    owned_flatex.clear_deepex();
+    owned_flatex.reduce_memory();
     assert_eq!(
         format!("{}", owned_flatex),
         "unparse impossible, since deep expression optimized away"
@@ -402,7 +328,7 @@ fn test_unparse() {
         assert_eq!(deepex.unparse(), text_ref);
         let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
         assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
-        flatex_reparsed.clear_deepex();
+        flatex_reparsed.reduce_memory();
         assert!(flatex_reparsed.unparse().is_err());
     }
     let text = "5+x";

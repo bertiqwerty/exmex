@@ -2,7 +2,8 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
-use exmex::{parse_with_default_ops, BinOp, FlatEx, Operator, OwnedFlatEx};
+use exmex::prelude::*;
+use exmex::{parse_with_default_ops, BinOp, Operator};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
@@ -11,6 +12,7 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
+use serde::{Deserialize, Serialize};
 const N: usize = 4;
 
 const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested", "compile"];
@@ -313,32 +315,44 @@ fn rsc_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "rsc", c);
 }
 
+fn run_benchmark_serialize<Ex: Serialize>(
+    expr: &Ex,
+    expr_name: &str,
+    c: &mut Criterion,
+) {
+    c.bench_function(format!("exmex_serde_ser {}", expr_name).as_str(), |b| {
+        b.iter(|| {
+            serde_json::to_string(black_box(&expr)).unwrap();
+        })
+    });
+}
+
+fn run_benchmark_deserialize<'de, Ex: Deserialize<'de>>(
+    expr_str: &'de str,
+    expr_name: &str,
+    c: &mut Criterion,
+) {
+    c.bench_function(format!("exmex_serde_de {}", expr_name).as_str(), |b| {
+        b.iter(|| {
+            serde_json::from_str::<Ex>(black_box(expr_str)).unwrap();
+        })
+    });
+}
+
 fn exmex_bench_serde(c: &mut Criterion) -> () {
-    for (expr_str, expr_name, ref_func) in izip!(
+    for (expr_str, expr_name) in izip!(
         BENCH_EXPRESSIONS_STRS.iter(),
-        BENCH_EXPRESSIONS_NAMES.iter(),
-        BENCH_EXPRESSIONS_REFS.iter()
+        BENCH_EXPRESSIONS_NAMES.iter()
     ) {
+        let expr_str_de = format!("\"{}\"", expr_str);
         let flatex = exmex::parse_with_default_ops::<f64>(expr_str).unwrap();
         let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
-        c.bench_function(format!("exmex_serde {}", expr_name).as_str(), |b| {
-            b.iter(|| {
-                let serialized = serde_json::to_string(&flatex).unwrap();
-                let deserialized = serde_json::from_str::<FlatEx<f64>>(&serialized).unwrap();
-                let serialized_owned = serde_json::to_string(&flatex_owned).unwrap();
-                let deserialized_owned =
-                    serde_json::from_str::<OwnedFlatEx<f64>>(&serialized_owned).unwrap();
-                let vars = &[BENCH_Y + BENCH_Z, BENCH_Y, BENCH_Z];
-                assert_float_eq(
-                    deserialized.eval(vars).unwrap(),
-                    ref_func(vars[0], vars[1], vars[2]),
-                );
-                assert_float_eq(
-                    deserialized_owned.eval(vars).unwrap(),
-                    ref_func(vars[0], vars[1], vars[2]),
-                );
-            })
-        });
+        let expr_name_ = format!("flatex {}", expr_name);
+        run_benchmark_serialize(&flatex, &expr_name_, c);
+        run_benchmark_deserialize::<FlatEx::<f64>>(&expr_str_de, &expr_name_, c);
+        let expr_name_ = format!("owned_flatex {}", expr_name);
+        run_benchmark_serialize(&flatex_owned, &expr_name_, c);
+        run_benchmark_deserialize::<OwnedFlatEx::<f64>>(&expr_str_de, &expr_name_, c);
     }
 }
 
