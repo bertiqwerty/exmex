@@ -1,4 +1,13 @@
-use crate::{definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, Operator, UnaryOp, VecOfUnaryFuncs}, parser::{ExParseError, Paren, ParsedToken}};
+use crate::{
+    definitions::{
+        N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
+        N_VARS_ON_STACK,
+    },
+    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    operators::{BinOp, Operator, UnaryOp, VecOfUnaryFuncs},
+    parser::{Paren, ParsedToken},
+    ExError, ExResult,
+};
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
@@ -50,7 +59,7 @@ pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<T>]) -> Option<Overl
 
 pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug>(
     parsed_tokens: &[ParsedToken<'a, T>],
-) -> Result<DeepEx<'a, T>, ExParseError> {
+) -> ExResult<DeepEx<'a, T>> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     let mut parsed_vars = parsed_tokens
         .iter()
@@ -112,7 +121,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug>(
     repr: &'a str,
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
-) -> Result<(DeepNode<'a, T>, usize), ExParseError> {
+) -> ExResult<(DeepNode<'a, T>, usize)> {
     // gather subsequent unary operators from the beginning
     let iter_of_uops = iter::once((repr, unary_op)).chain(
         (token_idx + 1..parsed_tokens.len())
@@ -160,7 +169,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug>(
             Ok((DeepNode::Expr(expr), n_uops + 1))
         }
         ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
-        _ => Err(ExParseError {
+        _ => Err(ExError {
             msg: "Invalid parsed token configuration".to_string(),
         }),
     }
@@ -182,14 +191,14 @@ pub fn make_expression<'a, T>(
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
     unary_ops: UnaryOpWithReprs<'a, T>,
-) -> Result<(DeepEx<'a, T>, usize), ExParseError>
+) -> ExResult<(DeepEx<'a, T>, usize)>
 where
     T: Copy + FromStr + Debug,
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: Vec<&str> = Vec::new();
     let mut nodes = Vec::<DeepNode<T>>::new();
-    let make_both_ops_none_error = |op: &Operator<T>| ExParseError {
+    let make_both_ops_none_error = |op: &Operator<T>| ExError {
         msg: format!("operator {} is neither unary nor binary", op.repr),
     };
     // The main loop checks one token after the next whereby sub-expressions are

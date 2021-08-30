@@ -1,23 +1,10 @@
 use crate::operators::Operator;
+use crate::{ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
-use std::error::Error;
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
 use std::str::FromStr;
-
-/// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
-/// exception, so thrown needs to be understood figuratively.
-#[derive(Debug, Clone)]
-pub struct ExParseError {
-    pub msg: String,
-}
-impl fmt::Display for ExParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.msg)
-    }
-}
-impl Error for ExParseError {}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Paren {
@@ -60,7 +47,6 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     }
 }
 
-
 /// Parses tokens of a text with regexes and returns them as a vector
 ///
 /// # Arguments
@@ -77,13 +63,15 @@ pub fn tokenize_and_analyze<'a, T: Copy + FromStr + Debug, F: Fn(&'a str) -> Opt
     text: &'a str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
-) -> Result<Vec<ParsedToken<'a, T>>, ExParseError>
+) -> ExResult<Vec<ParsedToken<'a, T>>>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
     // Make sure that the text does not contain unicode characters
     if text.chars().any(|c| !c.is_ascii()) {
-        return Err(ExParseError{msg: "only ascii characters are supported".to_string()});
+        return Err(ExError {
+            msg: "only ascii characters are supported".to_string(),
+        });
     };
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
@@ -140,7 +128,7 @@ where
                 ParsedToken::<T>::Var(var_str)
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
-                return Err(ExParseError { msg });
+                return Err(ExError { msg });
             };
             res.push(next_parsed_token);
         }
@@ -262,37 +250,37 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_parsed_token_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> Result<u8, ExParseError>
+pub fn check_parsed_token_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> ExResult<u8>
 where
     T: Copy + FromStr + std::fmt::Debug,
 {
     if parsed_tokens.len() == 0 {
-        return Err(ExParseError {
+        return Err(ExError {
             msg: "cannot parse empty string".to_string(),
         });
     };
 
     let pair_pre_conditions = make_pair_pre_conditions::<T>();
     (0..parsed_tokens.len() - 1)
-        .map(|i| -> Result<(), ExParseError> {
+        .map(|i| -> ExResult<()> {
             let failed = pair_pre_conditions
                 .iter()
                 .map(|ppc| (ppc, (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1])))
                 .find(|(_, ppc_passed)| !ppc_passed);
             match failed {
-                Some((failed_ppc, _)) => Err(ExParseError {
+                Some((failed_ppc, _)) => Err(ExError {
                     msg: failed_ppc.error_msg.to_string(),
                 }),
                 None => Ok(()),
             }
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<ExResult<Vec<_>>>()?;
 
     let mut open_paren_cnt = 0i32;
     parsed_tokens
         .iter()
         .enumerate()
-        .map(|(i, expr_elt)| -> Result<(), ExParseError> {
+        .map(|(i, expr_elt)| -> ExResult<()> {
             match expr_elt {
                 ParsedToken::Paren(p) => {
                     open_paren_cnt += match p {
@@ -300,7 +288,7 @@ where
                         Paren::Open => 1,
                     };
                     if open_paren_cnt < 0 {
-                        return Err(ExParseError {
+                        return Err(ExError {
                             msg: format!("too many closing parentheses until position {}", i),
                         });
                     }
@@ -309,13 +297,13 @@ where
                 _ => Ok(()),
             }
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<ExResult<Vec<_>>>()?;
     if open_paren_cnt != 0 {
-        Err(ExParseError {
+        Err(ExError {
             msg: "parentheses mismatch".to_string(),
         })
     } else if let ParsedToken::Op(_) = parsed_tokens[parsed_tokens.len() - 1] {
-        Err(ExParseError {
+        Err(ExError {
             msg: "the last element cannot be an operator".to_string(),
         })
     } else {
@@ -328,7 +316,7 @@ use crate::operators;
 #[test]
 fn test_tokenize_and_analze() {
     let ops = operators::make_default_operators::<f32>();
-    
+
     let text = r"5\6";
     let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
     assert!(elts.is_err());
@@ -336,7 +324,6 @@ fn test_tokenize_and_analze() {
     let text = "ӭ";
     let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
     assert!(elts.is_err());
-
 }
 
 #[test]
@@ -353,7 +340,7 @@ fn test_is_numeric() {
 #[test]
 fn test_preconditions() {
     fn test(text: &str, msg_part: &str) {
-        fn check_err_msg<V>(err: Result<V, ExParseError>, msg_part: &str) {
+        fn check_err_msg<V>(err: ExResult<V>, msg_part: &str) {
             match err {
                 Ok(_) => {
                     println!("expected an error that should contain '{}'", msg_part);

@@ -2,7 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use num::Float;
 
-use crate::{ExParseError, Operator};
+use crate::{ExResult, Operator};
 
 pub mod deep;
 mod deep_details;
@@ -12,18 +12,18 @@ mod partial_derivatives;
 #[cfg(feature = "serde_support")]
 mod serde;
 
-/// Expressions implementing this trait can be evaluated for specific variable values, 
+/// Expressions implementing this trait can be evaluated for specific variable values,
 /// derived partially, and unparsed, e.g., transformed into a string representation.  
 pub trait Expression<'a, T: Copy> {
-    /// Parses a string with default operators defined in 
-    /// [`make_default_operators`](crate::operators::make_default_operators) into an 
+    /// Parses a string with default operators defined in
+    /// [`make_default_operators`](crate::operators::make_default_operators) into an
     /// expression that can be evaluated.
     ///
     /// # Errors
     ///
     /// An error is returned if `text` cannot be parsed.
     ///
-    fn from_str(text: &'a str) -> Result<Self, ExParseError>
+    fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Float + FromStr,
@@ -35,7 +35,7 @@ pub trait Expression<'a, T: Copy> {
     ///
     /// An error is returned if `text` cannot be parsed.
     ///
-    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<Self, ExParseError>
+    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -55,7 +55,7 @@ pub trait Expression<'a, T: Copy> {
         text: &'a str,
         ops: &[Operator<'a, T>],
         number_regex_pattern: &str,
-    ) -> Result<Self, ExParseError>
+    ) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -78,7 +78,7 @@ pub trait Expression<'a, T: Copy> {
     /// If the number of variables in the parsed expression are different from the length of
     /// the variable slice, we return an [`ExParseError`](ExParseError).
     ///
-    fn eval(&self, vars: &[T]) -> Result<T, ExParseError>;
+    fn eval(&self, vars: &[T]) -> ExResult<T>;
 
     /// This method computes an `Expression` instance that is a partial derivative of
     /// `self` with default operators as shown in the following example for a [`FlatEx`](super::expression::flat::FlatEx).
@@ -114,7 +114,7 @@ pub trait Expression<'a, T: Copy> {
     /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    fn partial(self, var_idx: usize) -> ExResult<Self>
     where
         Self: Sized,
         T: Float;
@@ -138,7 +138,7 @@ pub trait Expression<'a, T: Copy> {
     /// # }
     /// ```
     ///
-    fn unparse(&self) -> Result<String, ExParseError>;
+    fn unparse(&self) -> ExResult<String>;
 
     /// This function frees some memory. After calling this, the methods [`partial`](Expression::partial) and
     /// [`unparse`](Expression::unparse) as well as the implementation of the

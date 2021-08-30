@@ -5,7 +5,7 @@ use crate::{
         SUB_REPR,
     },
     operators::{self, BinOp, UnaryOp},
-    parser, ExParseError, Operator,
+    parser, ExError, ExResult, Operator,
 };
 use num::Float;
 use regex::Regex;
@@ -195,9 +195,9 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         nodes: Vec<DeepNode<'a, T>>,
         bin_ops: BinOpsWithReprs<'a, T>,
         unary_op: UnaryOpWithReprs<'a, T>,
-    ) -> Result<DeepEx<'a, T>, ExParseError> {
+    ) -> ExResult<DeepEx<'a, T>> {
         if nodes.len() != bin_ops.ops.len() + 1 {
-            Err(ExParseError {
+            Err(ExError {
                 msg: format!(
                     "mismatch between number of nodes {:?} and binary operators {:?} ({} vs {})",
                     nodes,
@@ -299,7 +299,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         DeepEx::from_node(DeepNode::one(), overloaded_ops)
     }
 
-    pub fn one_like(other: &DeepEx<'a, T>) -> Result<DeepEx<'a, T>, ExParseError>
+    pub fn one_like(other: &DeepEx<'a, T>) -> ExResult<DeepEx<'a, T>>
     where
         T: Float,
     {
@@ -323,7 +323,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn from_str(text: &'a str) -> Result<DeepEx<'a, T>, ExParseError>
+    pub fn from_str(text: &'a str) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Float + FromStr,
@@ -332,7 +332,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         DeepEx::from_ops(text, &ops)
     }
 
-    pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError>
+    pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -347,7 +347,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         text: &'a str,
         ops: &[Operator<'a, T>],
         number_regex_pattern: &str,
-    ) -> Result<DeepEx<'a, T>, ExParseError>
+    ) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -356,7 +356,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         let re_number = match Regex::new(beginning_number_regex_regex.as_str()) {
             Ok(regex) => regex,
             Err(_) => {
-                return Err(ExParseError {
+                return Err(ExError {
                     msg: "Cannot compile the passed number regex.".to_string(),
                 })
             }
@@ -384,8 +384,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         &self.nodes
     }
 
-    pub fn unpack_and_clone_overloaded_ops(&self) -> Result<OverloadedOps<'a, T>, ExParseError> {
-        self.overloaded_ops.clone().ok_or(ExParseError {
+    pub fn unpack_and_clone_overloaded_ops(&self) -> ExResult<OverloadedOps<'a, T>> {
+        self.overloaded_ops.clone().ok_or(ExError {
             msg: "cannot unpack overloaded ops when there are none".to_string(),
         })
     }
@@ -488,7 +488,9 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// if an overloaded operator has not been defined
     ///
     pub fn operate_overloaded(self, other: Self, repr: &'a str) -> Self {
-        let op = self.overloaded_ops.clone()
+        let op = self
+            .overloaded_ops
+            .clone()
             .expect("overloaded operators not available")
             .by_repr(repr);
 
@@ -573,18 +575,18 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
             var_names: deepex.var_names.iter().map(|vn| vn.to_string()).collect(),
         }
     }
-    pub fn to_deepex(&'a self, ops: &[Operator<'a, T>]) -> Result<DeepEx<'a, T>, ExParseError> {
+    pub fn to_deepex(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>> {
         let mut deepex = DeepEx::new(
             self.nodes
                 .iter()
-                .map(|node| -> Result<_, ExParseError> {
+                .map(|node| -> ExResult<_> {
                     match node {
                         DeepBufNode::Expr(e) => Ok(DeepNode::Expr(e.to_deepex(ops)?)),
                         DeepBufNode::Num(n) => Ok(DeepNode::Num(*n)),
                         DeepBufNode::Var(v) => Ok(DeepNode::Var((v.0, v.1.as_str()))),
                     }
                 })
-                .collect::<Result<_, ExParseError>>()?,
+                .collect::<ExResult<_>>()?,
             self.bin_ops.to_deepex(),
             self.unary_op.to_deepex(),
         )?;

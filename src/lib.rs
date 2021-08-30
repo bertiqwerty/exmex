@@ -160,8 +160,8 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::ExParseError;
-//! fn make<'a>() -> Result<FlatEx::<'a, f64>, ExParseError> {
+//! use exmex::ExResult;
+//! fn make<'a>() -> ExResult<FlatEx::<'a, f64>> {
 //! //       |                        |
 //! //      lifetime parameter necessary
 //!
@@ -182,8 +182,8 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{ExParseError, Expression, OwnedFlatEx};
-//! fn make() -> Result<OwnedFlatEx::<f64>, ExParseError> {
+//! use exmex::{ExResult, Expression, OwnedFlatEx};
+//! fn make() -> ExResult<OwnedFlatEx::<f64>> {
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
 //! }
@@ -246,23 +246,21 @@ mod definitions;
 mod expression;
 mod operators;
 mod parser;
+mod result;
 mod util;
-
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
         Expression,
     },
     operators::{make_default_operators, BinOp, Operator},
-    parser::ExParseError,
+    result::{ExError, ExResult},
 };
 
 /// To use the expression trait [`Expression`](Expression) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
 pub mod prelude {
-    pub use super::{
-        expression::{flat::FlatEx, Expression},
-    };
+    pub use super::expression::{flat::FlatEx, Expression};
 }
 
 /// Parses a string, evaluates a string, and returns the resulting number.
@@ -272,7 +270,7 @@ pub mod prelude {
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExParseError`](ExParseError) is returned.
 ///
-pub fn eval_str(text: &str) -> Result<f64, ExParseError> {
+pub fn eval_str(text: &str) -> ExResult<f64> {
     let flatex = FlatEx::from_str(text)?;
     flatex.eval(&[])
 }
@@ -288,15 +286,14 @@ mod tests {
     use crate::prelude::*;
     use crate::{
         eval_str,
-        OwnedFlatEx,
         operators::{make_default_operators, BinOp, Operator},
         util::{assert_float_eq_f32, assert_float_eq_f64},
-        ExParseError,
+        ExResult, OwnedFlatEx,
     };
 
     #[test]
     fn test_readme() {
-        fn readme_partial() -> Result<(), ExParseError> {
+        fn readme_partial() -> ExResult<()> {
             let expr = FlatEx::<f64>::from_str("y*x^2")?;
 
             // d_x
@@ -315,7 +312,7 @@ mod tests {
 
             Ok(())
         }
-        fn readme() -> Result<(), ExParseError> {
+        fn readme() -> ExResult<()> {
             let result = eval_str("sin(73)")?;
             assert_float_eq_f64(result, 73f64.sin());
             let expr = FlatEx::<f64>::from_str("2*x^3-4/z")?;
@@ -323,7 +320,7 @@ mod tests {
             assert_float_eq_f64(value, 289.75399999999996);
             Ok(())
         }
-        fn readme_int() -> Result<(), ExParseError> {
+        fn readme_int() -> ExResult<()> {
             let ops = vec![
                 Operator {
                     repr: "|",

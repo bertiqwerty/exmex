@@ -316,11 +316,7 @@ fn rsc_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "rsc", c);
 }
 
-fn run_benchmark_serialize<Ex: Serialize>(
-    expr: &Ex,
-    expr_name: &str,
-    c: &mut Criterion,
-) {
+fn run_benchmark_serialize<Ex: Serialize>(expr: &Ex, expr_name: &str, c: &mut Criterion) {
     c.bench_function(format!("exmex_serde_ser {}", expr_name).as_str(), |b| {
         b.iter(|| {
             serde_json::to_string(black_box(&expr)).unwrap();
@@ -350,10 +346,10 @@ fn exmex_bench_serde(c: &mut Criterion) -> () {
         let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
         let expr_name_ = format!("flatex {}", expr_name);
         run_benchmark_serialize(&flatex, &expr_name_, c);
-        run_benchmark_deserialize::<FlatEx::<f64>>(&expr_str_de, &expr_name_, c);
+        run_benchmark_deserialize::<FlatEx<f64>>(&expr_str_de, &expr_name_, c);
         let expr_name_ = format!("owned_flatex {}", expr_name);
         run_benchmark_serialize(&flatex_owned, &expr_name_, c);
-        run_benchmark_deserialize::<OwnedFlatEx::<f64>>(&expr_str_de, &expr_name_, c);
+        run_benchmark_deserialize::<OwnedFlatEx<f64>>(&expr_str_de, &expr_name_, c);
     }
 }
 

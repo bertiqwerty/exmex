@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use smallvec::{smallvec, SmallVec};
 
-use crate::{ExParseError, definitions::N_NODES_ON_STACK, operators::{BinOp, UnaryOp}};
+use crate::{ExError, ExResult, definitions::N_NODES_ON_STACK, operators::{BinOp, UnaryOp}};
 
 use super::deep::{DeepEx, DeepNode, ExprIdxVec};
 
@@ -117,9 +117,9 @@ pub fn eval_flatex<T: Copy + Debug>(
     ops: &FlatOpVec<T>,
     prio_indices: &ExprIdxVec,
     n_unique_vars: usize,
-) -> Result<T, ExParseError> {
+) -> ExResult<T> {
     if n_unique_vars != vars.len() {
-        return Err(ExParseError {
+        return Err(ExError {
             msg: format!(
                 "parsed expression contains {} vars but passed slice has {} elements",
                 n_unique_vars,

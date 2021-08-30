@@ -1,13 +1,12 @@
 use crate::expression::flat_details::{self, FlatNodeVec, FlatOpVec};
-use crate::Operator;
 use crate::{
     expression::{
         deep::{DeepBuf, DeepEx, ExprIdxVec},
         partial_derivatives,
     },
     operators,
-    parser::ExParseError,
 };
+use crate::{ExError, ExResult, Operator};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
@@ -65,7 +64,7 @@ pub struct FlatEx<'a, T: Copy + Debug> {
 }
 
 impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
-    fn from_str(text: &'a str) -> Result<Self, ExParseError>
+    fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Float + FromStr,
@@ -73,7 +72,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
         Ok(flatten(DeepEx::from_str(text)?))
     }
 
-    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<Self, ExParseError>
+    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -86,7 +85,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
         text: &'a str,
         ops: &[Operator<'a, T>],
         number_regex_pattern: &str,
-    ) -> Result<Self, ExParseError>
+    ) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -95,7 +94,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
         Ok(flatten(deepex))
     }
 
-    fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
+    fn eval(&self, vars: &[T]) -> ExResult<T> {
         flat_details::eval_flatex(
             vars,
             &self.nodes,
@@ -104,7 +103,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
             self.n_unique_vars,
         )
     }
-    fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    fn partial(self, var_idx: usize) -> ExResult<Self>
     where
         T: Float,
     {
@@ -112,7 +111,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
-            self.deepex.ok_or(ExParseError {
+            self.deepex.ok_or(ExError {
                 msg: "need deep expression for derivation, not possible after calling `clear`"
                     .to_string(),
             })?,
@@ -120,10 +119,10 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
         )?;
         Ok(flatten(d_i))
     }
-    fn unparse(&self) -> Result<String, ExParseError> {
+    fn unparse(&self) -> ExResult<String> {
         match &self.deepex {
             Some(deepex) => Ok(deepex.unparse()),
-            None => Err(ExParseError {
+            None => Err(ExError {
                 msg: "unparse impossible, since deep expression optimized away".to_string(),
             }),
         }
@@ -187,14 +186,13 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
     }
 }
 impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
-
     /// Parses a string into an expression that can be evaluated using default operators.
     ///
     /// # Errors
     ///
     /// An error is returned in case the text cannot be parsed.
     ///
-    fn from_str(text: &'a str) -> Result<Self, ExParseError>
+    fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Float + FromStr,
@@ -202,7 +200,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
         Ok(Self::from_flatex(FlatEx::from_str(text)?))
     }
 
-    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> Result<Self, ExParseError>
+    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -214,7 +212,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
         text: &'a str,
         ops: &[Operator<'a, T>],
         number_regex_pattern: &str,
-    ) -> Result<Self, ExParseError>
+    ) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
@@ -226,7 +224,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
         )?))
     }
 
-    fn eval(&self, vars: &[T]) -> Result<T, ExParseError> {
+    fn eval(&self, vars: &[T]) -> ExResult<T> {
         flat_details::eval_flatex(
             vars,
             &self.nodes,
@@ -236,14 +234,14 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
         )
     }
 
-    fn partial(self, var_idx: usize) -> Result<Self, ExParseError>
+    fn partial(self, var_idx: usize) -> ExResult<Self>
     where
         T: Float,
     {
         let ops = operators::make_default_operators();
         let deep_buf = match self.deepex_buf {
             Some(d) => Ok(d),
-            None => Err(ExParseError {
+            None => Err(ExError {
                 msg: "need deep expression for derivation, not possible after calling `clear`"
                     .to_string(),
             }),
@@ -253,10 +251,10 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
         Ok(Self::from_flatex(flatten(d_i)))
     }
 
-    fn unparse(&self) -> Result<String, ExParseError> {
+    fn unparse(&self) -> ExResult<String> {
         match &self.deepex_buf {
             Some(deepex) => Ok(deepex.unparsed.clone()),
-            None => Err(ExParseError {
+            None => Err(ExError {
                 msg: "unparse impossible, since deep expression optimized away".to_string(),
             }),
         }
