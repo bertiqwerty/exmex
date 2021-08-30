@@ -357,42 +357,6 @@ fn test_flat_compile() {
 }
 
 #[test]
-fn test_operator_overloading() {
-    fn from_str(text: &str) -> DeepEx<f64> {
-        DeepEx::from_str(text).unwrap()
-    }
-    fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
-        assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
-    }
-
-    let one = from_str("1");
-    let two = one.clone() + one.clone();
-    eval(&two, &[], 2.0);
-
-    let x_squared = from_str("x*x");
-    let two_x_squared = two.clone() * x_squared.clone();
-    eval(&two_x_squared, &[0.0], 0.0);
-    eval(&two_x_squared, &[1.0], 2.0);
-    eval(&two_x_squared, &[2.0], 8.0);
-    eval(&two_x_squared, &[3.0], 18.0);
-    let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
-    eval(&some_expr, &[4.0], 8.0);
-
-    let x_plus_y_plus_z = from_str("x+y+z");
-    let y_minus_z = from_str("y-z");
-    let prod_of_above = x_plus_y_plus_z.clone() * y_minus_z.clone();
-    eval(&prod_of_above, &[1.0, 4.0, 8.0], -52.0);
-    let div_of_above = x_plus_y_plus_z.clone() / y_minus_z.clone();
-    eval(&div_of_above, &[1.0, 4.0, 8.0], -3.25);
-    let sub_of_above = x_plus_y_plus_z.clone() - y_minus_z.clone();
-    eval(&sub_of_above, &[1.0, 4.0, 8.0], 17.0);
-    let add_of_above = x_plus_y_plus_z + y_minus_z.clone();
-    eval(&add_of_above, &[1.0, 4.0, 8.0], 9.0);
-    let x_plus_cossin_y_plus_z = from_str("x+cos(sin(y+z))");
-    let prod_of_above = x_plus_cossin_y_plus_z * y_minus_z;
-    eval(&prod_of_above, &[1.0, 4.0, 8.0], -7.4378625090980925);
-}
-#[test]
 fn test_display() {
     let mut flatex = flatten(DeepEx::<f64>::from_str("sin(var)/5").unwrap());
     println!("{}", flatex);
