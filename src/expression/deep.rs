@@ -488,11 +488,9 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     /// if an overloaded operator has not been defined
     ///
     pub fn operate_overloaded(self, other: Self, repr: &'a str) -> Self {
-        if self.overloaded_ops.is_none() {
-            panic!("overloaded operators not available");
-        }
-        let overloaded_ops = self.overloaded_ops.clone();
-        let op = overloaded_ops.clone().unwrap().by_repr(repr);
+        let op = self.overloaded_ops.clone()
+            .expect("overloaded operators not available")
+            .by_repr(repr);
 
         let ops = smallvec![op.bin_op.unwrap()];
 
