@@ -268,7 +268,7 @@ pub mod prelude {
 /// # Errrors
 ///
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
-/// [`ExParseError`](ExParseError) is returned.
+/// [`ExError`](ExError) is returned.
 ///
 pub fn eval_str(text: &str) -> ExResult<f64> {
     let flatex = FlatEx::from_str(text)?;

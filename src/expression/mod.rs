@@ -46,7 +46,7 @@ pub trait Expression<'a, T: Copy> {
     ///
     /// # Errors
     ///
-    /// An [`ExParseError`](ExParseError) is returned, if
+    /// An [`ExError`](super::result::ExError) is returned, if
     ///
     /// * the argument `number_regex_pattern` cannot be compiled or
     /// * the text cannot be parsed.
@@ -76,7 +76,7 @@ pub trait Expression<'a, T: Copy> {
     /// # Errors
     ///
     /// If the number of variables in the parsed expression are different from the length of
-    /// the variable slice, we return an [`ExParseError`](ExParseError).
+    /// the variable slice, we return an [`ExError`](super::result::ExError).
     ///
     fn eval(&self, vars: &[T]) -> ExResult<T>;
 
@@ -110,8 +110,8 @@ pub trait Expression<'a, T: Copy> {
     ///
     /// # Errors
     ///
-    /// * If `self` has been `clear_deepex`ed, we cannot compute the partial derivative and return an [`ExParseError`](ExParseError).
-    /// * If you use none-default operators this might not work as expected. It could return an [`ExParseError`](ExParseError) if
+    /// * If `self` has been `clear_deepex`ed, we cannot compute the partial derivative and return an [`ExError`](super::result::ExError).
+    /// * If you use none-default operators this might not work as expected. It could return an [`ExError`](super::result::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
     fn partial(self, var_idx: usize) -> ExResult<Self>
