@@ -535,7 +535,7 @@ impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
         write!(f, "{}", self.unparse())
     }
 }
-
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DeepBufNode<T: Copy + Debug> {
     Expr(DeepBuf<T>),
     Num(T),
@@ -543,7 +543,7 @@ pub enum DeepBufNode<T: Copy + Debug> {
     /// variables passed to [`eval`](Expression::eval).
     Var((usize, String)),
 }
-
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct DeepBuf<T: Copy + Debug> {
     pub nodes: Vec<DeepBufNode<T>>,
     /// Binary operators applied to the nodes according to their priority.

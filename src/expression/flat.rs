@@ -166,7 +166,7 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 /// #     Ok(())
 /// # }
 /// ```
-///
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct OwnedFlatEx<T: Copy + Debug> {
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,

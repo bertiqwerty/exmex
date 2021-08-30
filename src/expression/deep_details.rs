@@ -277,7 +277,7 @@ pub fn prioritized_indices<T: Copy + Debug>(
     });
     indices
 }
-
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprsBuf<T: Copy> {
     pub reprs: SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
@@ -300,6 +300,7 @@ impl<T: Copy> BinOpsWithReprsBuf<T> {
         }
     }
 }
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprsBuf<T: Copy> {
     pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
