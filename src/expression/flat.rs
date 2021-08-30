@@ -195,6 +195,7 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 /// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
 /// additional allocations are necessary. Evaluation time should be about the same for 
 /// [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct OwnedFlatEx<T: Copy + Debug> {
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,

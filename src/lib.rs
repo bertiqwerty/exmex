@@ -165,8 +165,8 @@
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     exmex::parse_with_default_ops::<f64>(to_be_parsed)
 //! }
-//! let expr_owned = make()?;
-//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! let expr = make()?;
+//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
