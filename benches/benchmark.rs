@@ -39,6 +39,15 @@ const BENCH_X_RANGE: (usize, usize) = (0, 5);
 const BENCH_Y: f64 = 3.0;
 const BENCH_Z: f64 = 4.0;
 
+const BENCH_PARSEVAL_STRS: [&str; N] = [
+    "2*3^2",
+    "sin(-(sin(2)))*2",
+    "-1*(1.3+(-0.7)*(2-1/10))",
+    "log(log2(2))*tan(2)+exp(1.5)",
+];
+
+const BENCH_PARSEVAL_REFS: [f64; N] = [18.0, -1.5781446871457767, 0.03, 4.4816890703380645];
+
 fn bench_ref_values() -> Vec<Vec<f64>> {
     BENCH_EXPRESSIONS_REFS
         .iter()
@@ -68,6 +77,21 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
             })
         });
     }
+}
+
+fn run_benchmark_parseval(func: fn(&str) -> f64, eval_name: &str, c: &mut Criterion) {
+    c.bench_function(
+        format!("parseval {}", eval_name).as_str(),
+        |b| {
+            b.iter(|| {
+                for (exp_str, ref_val) in
+                    izip!(BENCH_PARSEVAL_STRS.iter(), BENCH_PARSEVAL_REFS.iter())
+                {
+                    assert_float_eq(func(black_box(exp_str)), *ref_val);
+                }
+            })
+        },
+    );
 }
 
 fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
@@ -160,6 +184,21 @@ fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
 
 fn exmex_bench_parse_optimized(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_optimized, "exmex_parse_optimized", c);
+}
+
+fn exmex_bench_deepex_parseval(c: &mut Criterion) {
+    fn func(s: &str) -> f64 {
+        exmex::eval_str(s).unwrap()
+    }
+    run_benchmark_parseval(func, "exmex deepex", c);
+}
+
+fn exmex_bench_flatex_parseval(c: &mut Criterion) {
+    fn func(s: &str) -> f64 {
+        let flatex = FlatEx::<f64>::from_str(s).unwrap();
+        flatex.eval(&[]).unwrap()
+    }
+    run_benchmark_parseval(func, "exmex flatex", c);
 }
 
 fn exmex_bench_eval(c: &mut Criterion) {
@@ -355,6 +394,8 @@ fn exmex_bench_serde(c: &mut Criterion) -> () {
 
 criterion_group!(
     benches,
+    exmex_bench_deepex_parseval,
+    exmex_bench_flatex_parseval,
     exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,

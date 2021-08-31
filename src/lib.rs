@@ -242,6 +242,8 @@
 //! future 😀.
 //!
 
+use expression::deep::DeepEx;
+
 mod definitions;
 mod expression;
 mod operators;
@@ -271,8 +273,8 @@ pub mod prelude {
 /// [`ExError`](ExError) is returned.
 ///
 pub fn eval_str(text: &str) -> ExResult<f64> {
-    let flatex = FlatEx::from_str(text)?;
-    flatex.eval(&[])
+    let deepex = DeepEx::from_str(text)?;
+    deepex.eval(&[])
 }
 
 #[cfg(test)]

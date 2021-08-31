@@ -121,7 +121,7 @@ impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
     }
     fn unparse(&self) -> ExResult<String> {
         match &self.deepex {
-            Some(deepex) => Ok(deepex.unparse()),
+            Some(deepex) => Ok(deepex.unparse_raw()),
             None => Err(ExError {
                 msg: "unparse impossible, since deep expression optimized away".to_string(),
             }),
@@ -380,7 +380,7 @@ fn test_unparse() {
     fn test(text: &str, text_ref: &str) {
         let flatex = flatten(DeepEx::<f64>::from_str(text).unwrap());
         let deepex = flatex.deepex.unwrap();
-        assert_eq!(deepex.unparse(), text_ref);
+        assert_eq!(deepex.unparse_raw(), text_ref);
         let mut flatex_reparsed = flatten(DeepEx::<f64>::from_str(text).unwrap());
         assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
         flatex_reparsed.reduce_memory();

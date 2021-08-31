@@ -1,8 +1,11 @@
 use crate::{
     definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
-    expression::deep_details::{
-        self, BinOpsWithReprsBuf, OverloadedOps, UnaryOpWithReprsBuf, ADD_REPR, DIV_REPR, MUL_REPR,
-        SUB_REPR,
+    expression::{
+        deep_details::{
+            self, prioritized_indices, BinOpsWithReprsBuf, OverloadedOps, UnaryOpWithReprsBuf,
+            ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
+        },
+        Expression,
     },
     operators::{self, BinOp, UnaryOp},
     parser, ExError, ExResult, Operator,
@@ -17,6 +20,8 @@ use std::{
     ops::{Add, Div, Mul, Sub},
     str::FromStr,
 };
+
+use super::partial_derivatives;
 
 pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
 
@@ -238,53 +243,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn unparse(&self) -> String {
-        let mut node_strings = self.nodes.iter().map(|n| match n {
-            DeepNode::Num(n) => format!("{:?}", n),
-            DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
-            DeepNode::Expr(e) => {
-                if e.unary_op.op.len() == 0 {
-                    format!("({})", e.unparse())
-                } else {
-                    e.unparse()
-                }
-            }
-        });
-        let mut bin_op_strings = self.bin_ops.reprs.iter();
-        // a valid expression has at least one node
-        let first_node_str = node_strings.next().unwrap();
-        let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
-            let bin_op_str = bin_op_strings.next().unwrap();
-            res.push_str(bin_op_str);
-            res.push_str(node_str.as_str());
-            res
-        });
-        let unary_op_string = self
-            .unary_op
-            .reprs
-            .iter()
-            .fold(String::new(), |mut res, uop_str| {
-                res.push_str(uop_str);
-                res.push('(');
-                res
-            });
-        let closings = iter::repeat(")").take(self.unary_op.op.len()).fold(
-            String::new(),
-            |mut res, closing| {
-                res.push_str(closing);
-                res
-            },
-        );
-        if self.unary_op.op.len() == 0 {
-            node_with_bin_ops_string
-        } else {
-            format!(
-                "{}{}{}",
-                unary_op_string, node_with_bin_ops_string, closings
-            )
-        }
-    }
-
     pub fn from_node(node: DeepNode<'a, T>, overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T> {
         let mut deepex =
             DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap();
@@ -321,51 +279,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             var_names: self.var_names,
             unary_op,
         }
-    }
-
-    pub fn from_str(text: &'a str) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Float + FromStr,
-    {
-        let ops = operators::make_default_operators::<T>();
-        DeepEx::from_ops(text, &ops)
-    }
-
-    pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
-    {
-        let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
-        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
-        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
-        Ok(deepex)
-    }
-
-    pub fn from_pattern(
-        text: &'a str,
-        ops: &[Operator<'a, T>],
-        number_regex_pattern: &str,
-    ) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
-    {
-        let beginning_number_regex_regex = format!("^({})", number_regex_pattern);
-        let re_number = match Regex::new(beginning_number_regex_regex.as_str()) {
-            Ok(regex) => regex,
-            Err(_) => {
-                return Err(ExError {
-                    msg: "Cannot compile the passed number regex.".to_string(),
-                })
-            }
-        };
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
-        let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
-        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
-        Ok(deepex)
     }
 
     pub fn set_overloaded_ops(&mut self, ops: Option<OverloadedOps<'a, T>>) {
@@ -502,6 +415,158 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         };
         self.operate_bin(other, bin_op)
     }
+
+    pub fn unparse_raw(&self) -> String {
+        let mut node_strings = self.nodes.iter().map(|n| match n {
+            DeepNode::Num(n) => format!("{:?}", n),
+            DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
+            DeepNode::Expr(e) => {
+                if e.unary_op.op.len() == 0 {
+                    format!("({})", e.unparse_raw())
+                } else {
+                    e.unparse_raw()
+                }
+            }
+        });
+        let mut bin_op_strings = self.bin_ops.reprs.iter();
+        // a valid expression has at least one node
+        let first_node_str = node_strings.next().unwrap();
+        let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
+            let bin_op_str = bin_op_strings.next().unwrap();
+            res.push_str(bin_op_str);
+            res.push_str(node_str.as_str());
+            res
+        });
+        let unary_op_string = self
+            .unary_op
+            .reprs
+            .iter()
+            .fold(String::new(), |mut res, uop_str| {
+                res.push_str(uop_str);
+                res.push('(');
+                res
+            });
+        let closings = iter::repeat(")").take(self.unary_op.op.len()).fold(
+            String::new(),
+            |mut res, closing| {
+                res.push_str(closing);
+                res
+            },
+        );
+        if self.unary_op.op.len() == 0 {
+            node_with_bin_ops_string
+        } else {
+            format!(
+                "{}{}{}",
+                unary_op_string, node_with_bin_ops_string, closings
+            )
+        }
+    }
+}
+
+impl<'a, T: Copy + Debug> Expression<'a, T> for DeepEx<'a, T> {
+    fn eval(&self, vars: &[T]) -> ExResult<T> {
+        if self.var_names.len() != vars.len() {
+            return Err(ExError {
+                msg: format!(
+                    "parsed expression contains the vars {:?} but passed slice has {} elements",
+                    self.var_names,
+                    vars.len()
+                ),
+            });
+        }
+        let mut numbers = self
+            .nodes
+            .iter()
+            .map(|node| -> ExResult<T> {
+                match node {
+                    DeepNode::Num(n) => Ok(*n),
+                    DeepNode::Var((idx, _)) => Ok(vars[*idx]),
+                    DeepNode::Expr(e) => e.eval(vars),
+                }
+            })
+            .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
+        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; self.nodes.len()];
+        let prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
+        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
+            let num_idx = prio_indices[i];
+            let mut shift_left = 0usize;
+            while ignore[num_idx - shift_left] {
+                shift_left += 1usize;
+            }
+            let mut shift_right = 1usize;
+            while ignore[num_idx + shift_right] {
+                shift_right += 1usize;
+            }
+            let num_1 = numbers[num_idx - shift_left];
+            let num_2 = numbers[num_idx + shift_right];
+            numbers[num_idx - shift_left] = (self.bin_ops.ops[bin_op_idx].apply)(num_1, num_2);
+            ignore[num_idx + shift_right] = true;
+        }
+        Ok(numbers[0])
+    }
+
+    fn from_str(text: &'a str) -> ExResult<DeepEx<'a, T>>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Float + FromStr,
+    {
+        let ops = operators::make_default_operators::<T>();
+        DeepEx::from_ops(text, &ops)
+    }
+
+    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Copy + FromStr + Debug,
+    {
+        let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
+        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
+        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
+        Ok(deepex)
+    }
+
+    fn from_pattern(
+        text: &'a str,
+        ops: &[Operator<'a, T>],
+        number_regex_pattern: &str,
+    ) -> ExResult<DeepEx<'a, T>>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: Copy + FromStr + Debug,
+    {
+        let beginning_number_regex_regex = format!("^({})", number_regex_pattern);
+        let re_number = match Regex::new(beginning_number_regex_regex.as_str()) {
+            Ok(regex) => regex,
+            Err(_) => {
+                return Err(ExError {
+                    msg: "Cannot compile the passed number regex.".to_string(),
+                })
+            }
+        };
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
+        let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
+        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
+        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
+        Ok(deepex)
+    }
+
+    fn unparse(&self) -> ExResult<String> {
+        Ok(self.unparse_raw())
+    }
+
+    fn partial(self, var_idx: usize) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: Float,
+    {
+        let ops = operators::make_default_operators::<T>();
+        partial_derivatives::partial_deepex(var_idx, self, &ops)
+    }
+
+    fn reduce_memory(&mut self) {
+        self.overloaded_ops = None;
+    }
 }
 
 impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
@@ -534,7 +599,7 @@ impl<'a, T: Copy + Debug> Div for DeepEx<'a, T> {
 
 impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.unparse())
+        write!(f, "{}", self.unparse_raw())
     }
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -571,7 +636,7 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
                 .collect(),
             bin_ops: BinOpsWithReprsBuf::from_deepex(deepex.bin_ops()),
             unary_op: UnaryOpWithReprsBuf::from_deepex(deepex.unary_op()),
-            unparsed: deepex.unparse(),
+            unparsed: deepex.unparse_raw(),
             var_names: deepex.var_names.iter().map(|vn| vn.to_string()).collect(),
         }
     }
@@ -599,7 +664,6 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
 #[cfg(test)]
 use {
     super::flat::flatten,
-    crate::prelude::*,
     crate::{
         expression::partial_derivatives::partial_deepex,
         operators::make_default_operators,
@@ -627,8 +691,8 @@ fn test_reset_vars() {
         assert_eq!(deepex_.var_names[i], all_vars[i]);
         assert_eq!(deepex2_.var_names[i], all_vars[i]);
     }
-    assert_eq!(deepex.unparse(), deepex_.unparse());
-    assert_eq!(deepex2.unparse(), deepex2_.unparse());
+    assert_eq!(deepex.unparse_raw(), deepex_.unparse_raw());
+    assert_eq!(deepex2.unparse_raw(), deepex2_.unparse_raw());
     let flatex = flatten(deepex);
     let flatex2 = flatten(deepex2);
     let flatex_ = flatten(deepex_);
