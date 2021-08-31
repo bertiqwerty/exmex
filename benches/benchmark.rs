@@ -12,6 +12,7 @@ use rsc::{
     lexer::tokenize,
     parser::{parse, Expr},
 };
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 const N: usize = 4;
@@ -80,18 +81,14 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
 }
 
 fn run_benchmark_parseval(func: fn(&str) -> f64, eval_name: &str, c: &mut Criterion) {
-    c.bench_function(
-        format!("parseval {}", eval_name).as_str(),
-        |b| {
-            b.iter(|| {
-                for (exp_str, ref_val) in
-                    izip!(BENCH_PARSEVAL_STRS.iter(), BENCH_PARSEVAL_REFS.iter())
-                {
-                    assert_float_eq(func(black_box(exp_str)), *ref_val);
-                }
-            })
-        },
-    );
+    c.bench_function(format!("parseval {}", eval_name).as_str(), |b| {
+        b.iter(|| {
+            for (exp_str, ref_val) in izip!(BENCH_PARSEVAL_STRS.iter(), BENCH_PARSEVAL_REFS.iter())
+            {
+                assert_float_eq(func(black_box(exp_str)), *ref_val);
+            }
+        })
+    });
 }
 
 fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
@@ -355,6 +352,7 @@ fn rsc_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "rsc", c);
 }
 
+#[cfg(feature = "serde")]
 fn run_benchmark_serialize<Ex: Serialize>(expr: &Ex, expr_name: &str, c: &mut Criterion) {
     c.bench_function(format!("exmex_serde_ser {}", expr_name).as_str(), |b| {
         b.iter(|| {
@@ -363,6 +361,7 @@ fn run_benchmark_serialize<Ex: Serialize>(expr: &Ex, expr_name: &str, c: &mut Cr
     });
 }
 
+#[cfg(feature = "serde")]
 fn run_benchmark_deserialize<'de, Ex: Deserialize<'de>>(
     expr_str: &'de str,
     expr_name: &str,
@@ -375,20 +374,23 @@ fn run_benchmark_deserialize<'de, Ex: Deserialize<'de>>(
     });
 }
 
-fn exmex_bench_serde(c: &mut Criterion) -> () {
-    for (expr_str, expr_name) in izip!(
+fn exmex_bench_serde(_c: &mut Criterion) -> () {
+    for (_expr_str, _expr_name) in izip!(
         BENCH_EXPRESSIONS_STRS.iter(),
         BENCH_EXPRESSIONS_NAMES.iter()
     ) {
-        let expr_str_de = format!("\"{}\"", expr_str);
-        let flatex = FlatEx::<f64>::from_str(expr_str).unwrap();
-        let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
-        let expr_name_ = format!("flatex {}", expr_name);
-        run_benchmark_serialize(&flatex, &expr_name_, c);
-        run_benchmark_deserialize::<FlatEx<f64>>(&expr_str_de, &expr_name_, c);
-        let expr_name_ = format!("owned_flatex {}", expr_name);
-        run_benchmark_serialize(&flatex_owned, &expr_name_, c);
-        run_benchmark_deserialize::<OwnedFlatEx<f64>>(&expr_str_de, &expr_name_, c);
+        #[cfg(feature = "serde")]
+        {
+            let expr_str_de = format!("\"{}\"", _expr_str);
+            let flatex = FlatEx::<f64>::from_str(_expr_str).unwrap();
+            let flatex_owned = OwnedFlatEx::from_flatex(flatex.clone());
+            let expr_name_ = format!("flatex {}", _expr_name);
+            run_benchmark_serialize(&flatex, &expr_name_, _c);
+            run_benchmark_deserialize::<FlatEx<f64>>(&expr_str_de, &expr_name_, _c);
+            let expr_name_ = format!("owned_flatex {}", _expr_name);
+            run_benchmark_serialize(&flatex_owned, &expr_name_, _c);
+            run_benchmark_deserialize::<OwnedFlatEx<f64>>(&expr_str_de, &expr_name_, _c);
+        }
     }
 }
 

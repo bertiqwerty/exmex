@@ -9,7 +9,7 @@ mod deep_details;
 pub mod flat;
 mod flat_details;
 mod partial_derivatives;
-#[cfg(feature = "serde_support")]
+#[cfg(feature = "serde")]
 mod serde;
 
 /// Expressions implementing this trait can be evaluated for specific variable values,
