@@ -144,14 +144,12 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 }
 
 /// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
-/// The interface is identical. The difference is that [`OwnedFlatEx`](OwnedFlatEx) can be used without
+/// Both implement [`Expression`](Expression). The difference is that 
+/// [`OwnedFlatEx`](OwnedFlatEx) can be used without
 /// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a
 /// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
 /// additional allocations are necessary. Evaluation time should be about the same for
-/// [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx). To create an instance of
-/// [`OwnedFlatEx`](OwnedFlatEx) you first create a [`FlatEx`](FlatEx) with one of the
-/// parsing functions. In a second step you can convert this via
-/// [`from_flatex`](OwnedFlatEx::from_flatex) as shown in the following.
+/// [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
 ///
 /// ```rust
 /// # use std::error::Error;

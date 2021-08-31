@@ -164,8 +164,8 @@
 //! use exmex::prelude::*;
 //! use exmex::ExResult;
 //! fn make<'a>() -> ExResult<FlatEx::<'a, f64>> {
-//! //       |                        |
-//! //      lifetime parameter necessary
+//! //       |                          |
+//! //       lifetime parameter necessary
 //!
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     exmex::parse::<f64>(to_be_parsed)
