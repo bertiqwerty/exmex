@@ -6,7 +6,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//! assert!((exmex::eval_str("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
+//! assert!((exmex::eval_str::<f64>("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
@@ -20,14 +20,14 @@
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
 //! regular expression
 //! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
-//! Variables' values are passed as slices to [`eval`](FlatEx::eval).
+//! Variables' values are passed as slices to [`eval`](Expression::eval).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
 //! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//! let expr = FlatEx::<f64>::from_str(to_be_parsed)?;
+//! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -45,12 +45,14 @@
 //! let x = 2.1f64;
 //! let y = 0.1f64;
 //! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
-//! let expr = FlatEx::<f64>::from_str(to_be_parsed)?;
+//! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
+//! The value returned by [`parse`](parse) implements the [`Expression`](Expression) trait 
+//! and is an instance of the struct [`FlatEx`](FlatEx). 
 //! ## Extendability
 //! Library users can define their own set of operators as shown in the following.
 //! ```rust
@@ -141,7 +143,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let expr = FlatEx::<f64>::from_str("x^2 + y^2")?;
+//! let expr = exmex::parse::<f64>("x^2 + y^2")?;
 //! let dexpr_dx = expr.clone().partial(0)?;
 //! let dexpr_dy = expr.partial(1)?;
 //! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
@@ -152,8 +154,8 @@
 //! ```
 //!
 //! ## Owned Expression
-//! You cannot return a usual expression from a function without a lifetime parameter,
-//! since expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
+//! You cannot return all expression types from a function without a lifetime parameter.
+//! For instance, expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
 //! `String`s of variable or operator names to make faster parsing possible.
 //! ```rust
 //! # use std::error::Error;
@@ -166,7 +168,7 @@
 //! //      lifetime parameter necessary
 //!
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//!     FlatEx::<f64>::from_str(to_be_parsed)
+//!     exmex::parse::<f64>(to_be_parsed)
 //! }
 //! let expr = make()?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
@@ -203,7 +205,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//! assert_eq!(exmex::eval_str("---1")?, -1.0);
+//! assert_eq!(exmex::eval_str::<f64>("---1")?, -1.0);
 //! #
 //! #     Ok(())
 //! # }
@@ -221,8 +223,8 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let flatex = FlatEx::<f64>::from_str("-sin(z)/cos(mother_of_names) + 2^7")?;
-//! assert_eq!(format!("{}", flatex), "-(sin({z}))/cos({mother_of_names})+128.0");
+//! let expr = exmex::parse::<f64>("-sin(z)/cos(mother_of_names) + 2^7")?;
+//! assert_eq!(format!("{}", expr), "-(sin({z}))/cos({mother_of_names})+128.0");
 //! #
 //! #     Ok(())
 //! # }
@@ -235,14 +237,17 @@
 //! un-parses and re-parses the whole expression.
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
-//! for both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
+//! both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
 //!
 //! ## Unicode
 //! Unicode input strings are currently not supported 😕 but might be added in the
 //! future 😀.
 //!
 
+use std::{fmt::Debug, str::FromStr};
+
 use expression::deep::DeepEx;
+use num::Float;
 
 mod definitions;
 mod expression;
@@ -272,9 +277,26 @@ pub mod prelude {
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`](ExError) is returned.
 ///
-pub fn eval_str(text: &str) -> ExResult<f64> {
-    let deepex = DeepEx::from_str(text)?;
+pub fn eval_str<T: Float + FromStr + Debug>(text: &str) -> ExResult<T>
+where
+    <T as FromStr>::Err: Debug,
+{
+    let deepex = DeepEx::<T>::from_str(text)?;
     deepex.eval(&[])
+}
+
+/// Parses a string and returns the expression that can be evaluated.
+///
+/// # Errrors
+///
+/// In case the parsing went wrong, e.g., due to an invalid input string, an
+/// [`ExError`](ExError) is returned.
+///
+pub fn parse<T: Float + FromStr + Debug>(text: &str) -> ExResult<FlatEx<T>>
+where
+    <T as FromStr>::Err: Debug,
+{
+    FlatEx::<T>::from_str(text)
 }
 
 #[cfg(test)]
@@ -289,6 +311,7 @@ mod tests {
     use crate::{
         eval_str,
         operators::{make_default_operators, BinOp, Operator},
+        parse,
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExResult, OwnedFlatEx,
     };
@@ -296,7 +319,7 @@ mod tests {
     #[test]
     fn test_readme() {
         fn readme_partial() -> ExResult<()> {
-            let expr = FlatEx::<f64>::from_str("y*x^2")?;
+            let expr = parse::<f64>("y*x^2")?;
 
             // d_x
             let dexpr_dx = expr.partial(0)?;
@@ -317,7 +340,7 @@ mod tests {
         fn readme() -> ExResult<()> {
             let result = eval_str("sin(73)")?;
             assert_float_eq_f64(result, 73f64.sin());
-            let expr = FlatEx::<f64>::from_str("2*x^3-4/z")?;
+            let expr = parse::<f64>("2*x^3-4/z")?;
             let value = expr.eval(&[5.3, 0.5])?;
             assert_float_eq_f64(value, 289.75399999999996);
             Ok(())
@@ -783,10 +806,10 @@ mod tests {
 
     #[test]
     fn test_error_handling() {
-        assert!(eval_str("").is_err());
-        assert!(eval_str("5+5-(").is_err());
-        assert!(eval_str(")2*(5+5)*3-2)*2").is_err());
-        assert!(eval_str("2*(5+5))").is_err());
+        assert!(eval_str::<f64>("").is_err());
+        assert!(eval_str::<f64>("5+5-(").is_err());
+        assert!(eval_str::<f64>(")2*(5+5)*3-2)*2").is_err());
+        assert!(eval_str::<f64>("2*(5+5))").is_err());
     }
 
     #[cfg(feature = "serde_support")]

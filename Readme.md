@@ -29,7 +29,7 @@ let result = exmex::eval_str("sin(73)")?;
 To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
 use exmex::prelude::*;
-let expr = FlatEx::<f64>::from_str("2*x^3-4/z")?;
+let expr = exmex::parse::<f64>("2*x^3-4/z")?;
 ```
 The wildcard-import from `prelude` makes only the trait `Expression` and its implementation `FlatEx` accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
@@ -66,7 +66,7 @@ To compute partial derivatives you can use the expression's method `partial`. Th
 
 ```rust
 use exmex::prelude::*;
-let expr = FlatEx::<f64>::from_str("y*x^2")?;
+let expr = exmex::parse::<f64>("y*x^2")?;
 
 // d_x
 let dexpr_dx = expr.partial(0)?;
