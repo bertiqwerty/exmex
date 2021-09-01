@@ -3,7 +3,7 @@ use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
-/// Trait that needs to be implemented by operators. 
+/// Trait that needs to be implemented by operators.
 pub trait Operate<'a, T> {
     fn repr(&self) -> &'a str;
     fn bin(&self) -> ExResult<BinOp<T>>;
@@ -51,6 +51,22 @@ pub struct Operator<'a, T: Copy> {
     pub unary_op: Option<fn(T) -> T>,
 }
 
+fn is_kind<O1, O2>(
+    operator_to_be: &Option<O1>,
+    other_operator: &Option<O2>,
+    repr: &str,
+) -> ExResult<bool> {
+    match operator_to_be {
+        Some(_) => Ok(true),
+        None => match other_operator {
+            None => Err(ExError {
+                msg: format!("{} is neither unary nor binary", repr),
+            }),
+            Some(_) => Ok(false),
+        },
+    }
+}
+
 impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
     fn bin(&self) -> ExResult<BinOp<T>> {
         Ok(*self
@@ -69,26 +85,10 @@ impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
         self.repr
     }
     fn is_bin(&self) -> ExResult<bool> {
-        match self.bin_op {
-            Some(_) => Ok(true),
-            None => match self.unary_op {
-                None => Err(ExError {
-                    msg: format!("{} is neither unary nor binary", self.repr),
-                }),
-                Some(_) => Ok(false),
-            },
-        }
+        is_kind(&self.bin_op, &self.unary_op, self.repr)
     }
     fn is_unary(&self) -> ExResult<bool> {
-        match self.unary_op {
-            Some(_) => Ok(true),
-            None => match self.bin_op {
-                None => Err(ExError {
-                    msg: format!("{} is neither unary nor binary", self.repr),
-                }),
-                Some(_) => Ok(false),
-            },
-        }
+        is_kind(&self.unary_op, &self.bin_op, self.repr)
     }
 }
 
