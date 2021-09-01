@@ -86,9 +86,9 @@ fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
     parsed_token_on_the_left: &ParsedToken<'a, T, O>,
 ) -> ExResult<bool> {
 
-    if op.is_bin()? && !op.is_unary()? {
+    if op.has_bin()? && !op.has_unary()? {
         Ok(true)
-    } else if op.is_bin()? && op.is_unary()? {
+    } else if op.has_bin()? && op.has_unary()? {
         Ok(match parsed_token_on_the_left {
             ParsedToken::Num(_) | ParsedToken::Var(_) | ParsedToken::Paren(_) => true,
             ParsedToken::Op(_) => false,})
@@ -123,7 +123,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
         (token_idx + 1..parsed_tokens.len())
             .map(|j| -> ExResult<_> { match &parsed_tokens[j] {
-                ParsedToken::Op(op) => if op.is_unary()? { Ok(Some(op)) } else { Ok(None) },
+                ParsedToken::Op(op) => if op.has_unary()? { Ok(Some(op)) } else { Ok(None) },
                 _ => Ok(None),
             }})
             .take_while(| uo| match uo {

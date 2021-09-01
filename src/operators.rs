@@ -3,13 +3,21 @@ use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
-/// Trait that needs to be implemented by operators.
+/// Trait that needs to be implemented by operators. An operator can contain a binary
+/// or a unary operator or both, e.g., `-` in the list of default operators defined in
+/// [`make_default_operators`](make_default_operators).
 pub trait Operate<'a, T> {
+    /// Returns representation of the operator in the string to be parsed.
     fn repr(&self) -> &'a str;
+    /// Returns the binary operator or an error in case there is no binary operator.
     fn bin(&self) -> ExResult<BinOp<T>>;
+    /// Returns the unary operator or an error in case there is no unary operator.
     fn unary(&self) -> ExResult<fn(T) -> T>;
-    fn is_bin(&self) -> ExResult<bool>;
-    fn is_unary(&self) -> ExResult<bool>;
+    /// If a binary operator is contained, this returns true. If neither
+    /// a binary nor a unary operator is contained this returns an error. Otherwise false.
+    fn has_bin(&self) -> ExResult<bool>;
+    /// Analogous to `has_bin`
+    fn has_unary(&self) -> ExResult<bool>;
 }
 fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
     ExError {
@@ -83,10 +91,10 @@ impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
     fn repr(&self) -> &'a str {
         self.repr
     }
-    fn is_bin(&self) -> ExResult<bool> {
+    fn has_bin(&self) -> ExResult<bool> {
         is_kind(&self.bin_op, &self.unary_op, self.repr)
     }
-    fn is_unary(&self) -> ExResult<bool> {
+    fn has_unary(&self) -> ExResult<bool> {
         is_kind(&self.unary_op, &self.bin_op, self.repr)
     }
 }

@@ -175,7 +175,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
                 (ParsedToken::Num(_), ParsedToken::Op(op))
                 | (ParsedToken::Var(_), ParsedToken::Op(op))
                     // we do not ask for is_unary since operators can be both
-                    if !op.is_bin()? =>
+                    if !op.has_bin()? =>
                 {
                     Ok(false)
                 }
@@ -186,7 +186,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.is_unary()? && !op_r.is_unary()? =>
+                    if !op_l.has_unary()? && !op_r.has_unary()? =>
                 {
                     Ok(false)
                 }
@@ -197,7 +197,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.is_bin()? && !op_r.is_unary()? =>
+                    if !op_l.has_bin()? && !op_r.has_unary()? =>
                 {
                     Ok(false)
                 }
@@ -215,7 +215,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op))
-                    if !op.is_bin()? =>
+                    if !op.has_bin()? =>
                 {
                     Ok(false)
                 }
@@ -225,7 +225,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.is_unary()? => {
+                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.has_unary()? => {
                     Ok(false)
                 }
                 _ => Ok(true),
