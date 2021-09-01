@@ -51,8 +51,8 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! The value returned by [`parse`](parse) implements the [`Express`](Express) trait 
-//! and is an instance of the struct [`FlatEx`](FlatEx). 
+//! The value returned by [`parse`](parse) implements the [`Express`](Express) trait
+//! and is an instance of the struct [`FlatEx`](FlatEx).
 //! ## Extendability
 //! Library users can define their own set of operators as shown in the following.
 //! ```rust
@@ -260,7 +260,7 @@ pub use {
         flat::{FlatEx, OwnedFlatEx},
         Express,
     },
-    operators::{make_default_operators, BinOp, Operator},
+    operators::{make_default_operators, BinOp, Operate, Operator},
     result::{ExError, ExResult},
 };
 
