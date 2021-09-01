@@ -9,7 +9,7 @@ description = "fast, simple, and extendable mathematical expression evaluator ab
 repository = "https://github.com/bertiqwerty/exmex/"
 homepage = "https://github.com/bertiqwerty/exmex/"
 readme = "README.md"
-keywords = ["math", "parser", "expression", "eval", "derivatives"]
+keywords = ["math", "parser", "expression", "eval", "differentiation"]
 categories = ["parser-implementations", "science"]
 include = ["**/*.rs", "Cargo.toml"]
 
