@@ -6,7 +6,7 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use crate::{OwnedFlatEx, expression::deep::DeepEx, expression::flat};
 use crate::prelude::*;
 
-fn serialize<'a, T: Copy, S: Serializer, Ex: Expression<'a, T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
+fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
         expr.unparse()
             .map_err(|e| {

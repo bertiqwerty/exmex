@@ -5,7 +5,7 @@ use crate::{
             self, prioritized_indices, BinOpsWithReprsBuf, OverloadedOps, UnaryOpWithReprsBuf,
             ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
         },
-        Expression,
+        Express,
     },
     operators::{self, BinOp, UnaryOp},
     parser, ExError, ExResult, Operator,
@@ -464,7 +464,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     }
 }
 
-impl<'a, T: Copy + Debug> Expression<'a, T> for DeepEx<'a, T> {
+impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names.len() != vars.len() {
             return Err(ExError {

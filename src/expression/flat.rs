@@ -63,7 +63,7 @@ pub struct FlatEx<'a, T: Copy + Debug> {
     deepex: Option<DeepEx<'a, T>>,
 }
 
-impl<'a, T: Copy + Debug> Expression<'a, T> for FlatEx<'a, T> {
+impl<'a, T: Copy + Debug> Express<'a, T> for FlatEx<'a, T> {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -144,7 +144,7 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 }
 
 /// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
-/// Both implement [`Expression`](Expression). The difference is that 
+/// Both implement [`Express`](Express). The difference is that 
 /// [`OwnedFlatEx`](OwnedFlatEx) can be used without
 /// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a
 /// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
@@ -155,7 +155,7 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{Expression, OwnedFlatEx};
+/// use exmex::{Express, OwnedFlatEx};
 /// let to_be_parsed = "log(z) + 2* (-z^(x-2) + sin(4*y))";
 /// let expr_owned = OwnedFlatEx::<f64>::from_str(to_be_parsed)?;
 /// assert!((expr_owned.eval(&[4.0, 3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
@@ -183,7 +183,7 @@ impl<T: Copy + Debug> OwnedFlatEx<T> {
         }
     }
 }
-impl<'a, T: Copy + Debug> Expression<'a, T> for OwnedFlatEx<T> {
+impl<'a, T: Copy + Debug> Express<'a, T> for OwnedFlatEx<T> {
     /// Parses a string into an expression that can be evaluated using default operators.
     ///
     /// # Errors
@@ -280,7 +280,7 @@ use crate::{
     util::assert_float_eq_f64,
 };
 
-use super::Expression;
+use super::Express;
 
 #[test]
 fn test_operate_unary() {

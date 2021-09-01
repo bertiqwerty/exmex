@@ -20,7 +20,7 @@
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
 //! regular expression
 //! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
-//! Variables' values are passed as slices to [`eval`](Expression::eval).
+//! Variables' values are passed as slices to [`eval`](Express::eval).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -51,7 +51,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! The value returned by [`parse`](parse) implements the [`Expression`](Expression) trait 
+//! The value returned by [`parse`](parse) implements the [`Express`](Express) trait 
 //! and is an instance of the struct [`FlatEx`](FlatEx). 
 //! ## Extendability
 //! Library users can define their own set of operators as shown in the following.
@@ -101,8 +101,8 @@
 //! [`FromStr`](std::str::FromStr). In case the representation of your data type in the
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
 //! suitable regex and use the function
-//! [`from_pattern`](Expression::from_pattern) instead of
-//! [`from_ops`](Expression::from_ops). Here is an example for `bool`.
+//! [`from_pattern`](Express::from_pattern) instead of
+//! [`from_ops`](Express::from_ops). Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -184,7 +184,7 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
-//! use exmex::{ExResult, Expression, OwnedFlatEx};
+//! use exmex::{ExResult, Express, OwnedFlatEx};
 //! fn make() -> ExResult<OwnedFlatEx::<f64>> {
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
@@ -258,16 +258,16 @@ mod util;
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
-        Expression,
+        Express,
     },
     operators::{make_default_operators, BinOp, Operator},
     result::{ExError, ExResult},
 };
 
-/// To use the expression trait [`Expression`](Expression) and its implementation [`FlatEx`](FlatEx)
+/// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
 pub mod prelude {
-    pub use super::expression::{flat::FlatEx, Expression};
+    pub use super::expression::{flat::FlatEx, Express};
 }
 
 /// Parses a string, evaluates a string, and returns the resulting number.
