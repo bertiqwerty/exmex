@@ -67,19 +67,18 @@ fn is_kind<O1, O2>(
     }
 }
 
+fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
+    wrapped_op
+    .as_ref()
+    .ok_or(make_op_not_available_error(repr))
+}
+
 impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
     fn bin(&self) -> ExResult<BinOp<T>> {
-        Ok(*self
-            .bin_op
-            .as_ref()
-            .ok_or(make_op_not_available_error(self.repr))?)
+        Ok(*unwrap_operator(&self.bin_op, self.repr)?)
     }
-
     fn unary(&self) -> ExResult<fn(T) -> T> {
-        Ok(*self
-            .unary_op
-            .as_ref()
-            .ok_or(make_op_not_available_error(self.repr))?)
+        Ok(*unwrap_operator(&self.unary_op, self.repr)?)
     }
     fn repr(&self) -> &'a str {
         self.repr
