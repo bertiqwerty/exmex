@@ -3,6 +3,7 @@ use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
 
+/// Trait that needs to be implemented by operators. 
 pub trait Operate<'a, T> {
     fn repr(&self) -> &'a str;
     fn bin(&self) -> ExResult<BinOp<T>>;
