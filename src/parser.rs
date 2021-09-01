@@ -1,4 +1,4 @@
-use crate::operators::Operator;
+use crate::operators::Operate;
 use crate::{ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -13,10 +13,10 @@ pub enum Paren {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ParsedToken<'a, T: Copy + FromStr> {
+pub enum ParsedToken<'a, T: Copy + FromStr, O: Operate<'a, T>> {
     Num(T),
     Paren(Paren),
-    Op(Operator<'a, T>),
+    Op(O),
     Var(&'a str),
 }
 
@@ -59,11 +59,16 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn tokenize_and_analyze<'a, T: Copy + FromStr + Debug, F: Fn(&'a str) -> Option<&'a str>>(
+pub fn tokenize_and_analyze<
+    'a,
+    T: Copy + FromStr + Debug,
+    O: Copy + Operate<'a, T>,
+    F: Fn(&'a str) -> Option<&'a str>,
+>(
     text: &'a str,
-    ops_in: &[Operator<'a, T>],
+    ops_in: &[O],
     is_numeric: F,
-) -> ExResult<Vec<ParsedToken<'a, T>>>
+) -> ExResult<Vec<ParsedToken<'a, T, O>>>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -76,7 +81,7 @@ where
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
-    ops_tmp.sort_unstable_by(|o1, o2| o2.repr.partial_cmp(o1.repr).unwrap());
+    ops_tmp.sort_unstable_by(|o1, o2| o2.repr().partial_cmp(o1.repr()).unwrap());
     let ops = ops_tmp; // from now on const
 
     lazy_static! {
@@ -85,11 +90,11 @@ where
 
     let find_ops = |offset: usize| {
         ops.iter().find(|op| {
-            let range_end = offset + op.repr.chars().count();
+            let range_end = offset + op.repr().chars().count();
             if range_end > text.len() {
                 false
             } else {
-                op.repr == &text[offset..range_end]
+                op.repr() == &text[offset..range_end]
             }
         })
     };
@@ -102,30 +107,30 @@ where
             let text_rest = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Open)
+                ParsedToken::<T, O>::Paren(Paren::Open)
             } else if c == ')' {
                 cur_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Close)
+                ParsedToken::<T, O>::Paren(Paren::Close)
             } else if c == '{' {
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
                 let var_name = &text_rest[1..n_count];
                 let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
                 // we need to subtract spaces from the offset, since they are added in the first if again.
                 cur_offset += n_count + 1 - n_spaces;
-                ParsedToken::<T>::Var(var_name)
+                ParsedToken::<T, O>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_chars = num_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
+                ParsedToken::<T, O>::Num(num_str.parse::<T>().unwrap())
             } else if let Some(op) = find_ops(cur_offset) {
-                let n_chars = op.repr.chars().count();
+                let n_chars = op.repr().chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Op(**op)
+                ParsedToken::<T, O>::Op(**op)
             } else if let Some(var_str) = RE_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Var(var_str)
+                ParsedToken::<T, O>::Var(var_str)
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
                 return Err(ExError { msg });
@@ -137,20 +142,21 @@ where
     Ok(res)
 }
 
-struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
-    apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> bool,
+struct PairPreCondition<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>> {
+    apply: fn(&ParsedToken<'a, T, O>, &ParsedToken<'a, T, O>) -> ExResult<bool>,
     error_msg: &'b str,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a, 'b, T>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
+) -> [PairPreCondition<'a, 'b, T, O>; 9] {
     [
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Num(_), ParsedToken::Var(_))
                 | (ParsedToken::Var(_), ParsedToken::Num(_))
                 | (ParsedToken::Num(_), ParsedToken::Num(_))
-                | (ParsedToken::Var(_), ParsedToken::Var(_)) => false,
-                _ => true,
+                | (ParsedToken::Var(_), ParsedToken::Var(_)) => Ok(false),
+                _ => Ok(true),
             },
             error_msg: "a number/variable cannot be next to a number/variable",
         },
@@ -159,8 +165,8 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
                 | (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Var(_))
                 | (ParsedToken::Num(_), ParsedToken::Paren(_p @ Paren::Open))
-                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => false,
-                _ => true,
+                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => Ok(false),
+                _ => Ok(true),
             },
             error_msg: "wlog a number/variable cannot be on the right of a closing parenthesis",
         },
@@ -168,62 +174,61 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
             apply: |left, right| match (left, right) {
                 (ParsedToken::Num(_), ParsedToken::Op(op))
                 | (ParsedToken::Var(_), ParsedToken::Op(op))
-                    if op.bin_op.is_none() =>
+                    // we do not ask for is_unary since operators can be both
+                    if !op.is_bin()? =>
                 {
-                    false
+                    Ok(false)
                 }
-                _ => true,
+                _ => Ok(true),
             },
             error_msg: "a number/variable cannot be on the left of a unary operator",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if op_l.unary_op.is_none() && op_r.unary_op.is_none() =>
+                    if !op_l.is_unary()? && !op_r.is_unary()? =>
                 {
-                    false
+                    Ok(false)
                 }
-                _ => true,
+                _ => Ok(true),
             },
             error_msg: "a binary operator cannot be next to a binary operator",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if op_l.bin_op.is_none() && op_r.unary_op.is_none() =>
+                    if !op_l.is_bin()? && !op_r.is_unary()? =>
                 {
-                    false
+                    Ok(false)
                 }
-                _ => true,
+                _ => Ok(true),
             },
             error_msg: "a binary operator cannot be on the right of a unary",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Op(_), ParsedToken::Paren(_p @ Paren::Close)) => false,
-                _ => true,
+                (ParsedToken::Op(_), ParsedToken::Paren(_p @ Paren::Close)) => Ok(false),
+                _ => Ok(true),
             },
             error_msg: "an operator cannot be on the left of a closing paren",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op))
-                    if op.bin_op.is_none() =>
+                    if !op.is_bin()? =>
                 {
-                    false
+                    Ok(false)
                 }
-                _ => true,
+                _ => Ok(true),
             },
             error_msg: "a unary operator cannot be on the right of a closing paren",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op))
-                    if op.unary_op.is_none() =>
-                {
-                    false
+                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.is_unary()? => {
+                    Ok(false)
                 }
-                _ => true,
+                _ => Ok(true),
             },
             error_msg: "a binary operator cannot be on the right of an opening paren",
         },
@@ -232,8 +237,8 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
                 (
                     ParsedToken::Paren(_p_l @ Paren::Open),
                     ParsedToken::Paren(_p_r @ Paren::Close),
-                ) => false,
-                _ => true,
+                ) => Ok(false),
+                _ => Ok(true),
             },
             error_msg: "wlog an opening paren cannot be next to a closing paren",
         },
@@ -250,9 +255,12 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_parsed_token_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> ExResult<u8>
+pub fn check_parsed_token_preconditions<'a, T, O>(
+    parsed_tokens: &[ParsedToken<'a, T, O>],
+) -> ExResult<u8>
 where
-    T: Copy + FromStr + std::fmt::Debug,
+    T: Copy + FromStr + Debug,
+    O: Operate<'a, T>,
 {
     if parsed_tokens.len() == 0 {
         return Err(ExError {
@@ -260,17 +268,22 @@ where
         });
     };
 
-    let pair_pre_conditions = make_pair_pre_conditions::<T>();
+    let pair_pre_conditions = make_pair_pre_conditions::<T, O>();
     (0..parsed_tokens.len() - 1)
         .map(|i| -> ExResult<()> {
             let failed = pair_pre_conditions
                 .iter()
-                .map(|ppc| (ppc, (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1])))
-                .find(|(_, ppc_passed)| !ppc_passed);
+                .map(|ppc| -> ExResult<_> {
+                    Ok((ppc, (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1])?))
+                })
+                .find(|ppc| match ppc {
+                    Ok((_, ppc_passed)) => !*ppc_passed,
+                    Err(_) => true,
+                });
             match failed {
-                Some((failed_ppc, _)) => Err(ExError {
-                    msg: failed_ppc.error_msg.to_string(),
-                }),
+                Some(failed_ppc) => Err(failed_ppc.map(|(failed, _)| ExError {
+                    msg: failed.error_msg.to_string(),
+                })?),
                 None => Ok(()),
             }
         })

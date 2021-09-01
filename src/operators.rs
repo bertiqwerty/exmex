@@ -1,5 +1,20 @@
+use crate::{ExError, ExResult};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
+use std::fmt::Debug;
+
+pub trait Operate<'a, T> {
+    fn repr(&self) -> &'a str;
+    fn bin(&self) -> ExResult<BinOp<T>>;
+    fn unary(&self) -> ExResult<fn(T) -> T>;
+    fn is_bin(&self) -> ExResult<bool>;
+    fn is_unary(&self) -> ExResult<bool>;
+}
+fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
+    ExError {
+        msg: format!("operator {} not available", repr),
+    }
+}
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
 ///
@@ -25,7 +40,7 @@ use smallvec::{smallvec, SmallVec};
 /// ```
 ///
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct Operator<'a, T> {
+pub struct Operator<'a, T: Copy> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     pub repr: &'a str,
     /// Binary operator that contains a priority besides a function pointer, if available.
@@ -33,6 +48,47 @@ pub struct Operator<'a, T> {
     /// Unary operator that does not have an explicit priority. Unary operators have
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
     pub unary_op: Option<fn(T) -> T>,
+}
+
+impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
+    fn bin(&self) -> ExResult<BinOp<T>> {
+        Ok(*self
+            .bin_op
+            .as_ref()
+            .ok_or(make_op_not_available_error(self.repr))?)
+    }
+
+    fn unary(&self) -> ExResult<fn(T) -> T> {
+        Ok(*self
+            .unary_op
+            .as_ref()
+            .ok_or(make_op_not_available_error(self.repr))?)
+    }
+    fn repr(&self) -> &'a str {
+        self.repr
+    }
+    fn is_bin(&self) -> ExResult<bool> {
+        match self.bin_op {
+            Some(_) => Ok(true),
+            None => match self.unary_op {
+                None => Err(ExError {
+                    msg: format!("{} is neither unary nor binary", self.repr),
+                }),
+                Some(_) => Ok(false),
+            },
+        }
+    }
+    fn is_unary(&self) -> ExResult<bool> {
+        match self.unary_op {
+            Some(_) => Ok(true),
+            None => match self.bin_op {
+                None => Err(ExError {
+                    msg: format!("{} is neither unary nor binary", self.repr),
+                }),
+                Some(_) => Ok(false),
+            },
+        }
+    }
 }
 
 pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; 8]>;
