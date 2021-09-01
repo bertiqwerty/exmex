@@ -13,11 +13,10 @@ pub trait Operate<'a, T> {
     fn bin(&self) -> ExResult<BinOp<T>>;
     /// Returns the unary operator or an error in case there is no unary operator.
     fn unary(&self) -> ExResult<fn(T) -> T>;
-    /// If a binary operator is contained, this returns true. If neither
-    /// a binary nor a unary operator is contained this returns an error. Otherwise false.
-    fn has_bin(&self) -> ExResult<bool>;
+    /// If a binary operator is contained, this returns true. Otherwise false.
+    fn has_bin(&self) -> bool;
     /// Analogous to `has_bin`
-    fn has_unary(&self) -> ExResult<bool>;
+    fn has_unary(&self) -> bool;
 }
 fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
     ExError {
@@ -59,22 +58,6 @@ pub struct Operator<'a, T: Copy> {
     pub unary_op: Option<fn(T) -> T>,
 }
 
-fn is_kind<O1, O2>(
-    operator_to_be: &Option<O1>,
-    other_operator: &Option<O2>,
-    repr: &str,
-) -> ExResult<bool> {
-    match operator_to_be {
-        Some(_) => Ok(true),
-        None => match other_operator {
-            None => Err(ExError {
-                msg: format!("{} is neither unary nor binary", repr),
-            }),
-            Some(_) => Ok(false),
-        },
-    }
-}
-
 fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
     wrapped_op
     .as_ref()
@@ -91,11 +74,11 @@ impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
     fn repr(&self) -> &'a str {
         self.repr
     }
-    fn has_bin(&self) -> ExResult<bool> {
-        is_kind(&self.bin_op, &self.unary_op, self.repr)
+    fn has_bin(&self) -> bool {
+        self.bin_op.is_some()
     }
-    fn has_unary(&self) -> ExResult<bool> {
-        is_kind(&self.unary_op, &self.bin_op, self.repr)
+    fn has_unary(&self) -> bool {
+        self.unary_op.is_some()
     }
 }
 

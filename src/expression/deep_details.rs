@@ -1,7 +1,13 @@
-use crate::{ExError, ExResult, definitions::{
+use crate::{
+    definitions::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
-    }, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, Operate, Operator, UnaryOp, VecOfUnaryFuncs}, parser::{Paren, ParsedToken}};
+    },
+    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    operators::{BinOp, Operate, Operator, UnaryOp, VecOfUnaryFuncs},
+    parser::{Paren, ParsedToken},
+    ExError, ExResult,
+};
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
@@ -84,16 +90,16 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>
 fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
     op: &O,
     parsed_token_on_the_left: &ParsedToken<'a, T, O>,
-) -> ExResult<bool> {
-
-    if op.has_bin()? && !op.has_unary()? {
-        Ok(true)
-    } else if op.has_bin()? && op.has_unary()? {
-        Ok(match parsed_token_on_the_left {
+) -> bool {
+    if op.has_bin() && !op.has_unary() {
+        true
+    } else if op.has_bin() && op.has_unary() {
+        match parsed_token_on_the_left {
             ParsedToken::Num(_) | ParsedToken::Var(_) | ParsedToken::Paren(_) => true,
-            ParsedToken::Op(_) => false,})
+            ParsedToken::Op(_) => false,
+        }
     } else {
-        Ok(false)
+        false
     }
 }
 
@@ -122,22 +128,27 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     // gather subsequent unary operators from the beginning
     let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
         (token_idx + 1..parsed_tokens.len())
-            .map(|j| -> ExResult<_> { match &parsed_tokens[j] {
-                ParsedToken::Op(op) => if op.has_unary()? { Ok(Some(op)) } else { Ok(None) },
-                _ => Ok(None),
-            }})
-            .take_while(| uo| match uo {
-                Ok(op) => op.is_some(),
-                _ => true,
+            .map(|j| {
+                match &parsed_tokens[j] {
+                    ParsedToken::Op(op) => {
+                        if op.has_unary() {
+                            Some(op)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
             })
-            .map(|op| -> ExResult<_> {
-                let op = op?.unwrap();
+            .take_while(|op| op.is_some())
+            .map(|op| {
+                let op = op.unwrap();
                 Ok((op.repr(), op.unary()?))
             }),
     );
     let vec_of_uops = iter_of_uops
         .clone()
-        .map(| op| Ok(op?.1))
+        .map(|op| Ok(op?.1))
         .collect::<ExResult<VecOfUnaryFuncs<_>>>()?;
     let vec_of_uop_reprs = iter_of_uops
         .clone()
@@ -197,7 +208,7 @@ pub fn make_expression<'a, T, O>(
 ) -> ExResult<(DeepEx<'a, T>, usize)>
 where
     T: Copy + FromStr + Debug,
-    O: Operate<'a, T>
+    O: Operate<'a, T>,
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: Vec<&str> = Vec::new();
@@ -210,7 +221,7 @@ where
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(op) => {
-                if idx_tkn > 0 && is_operator_binary(op, &parsed_tokens[idx_tkn - 1])? {
+                if idx_tkn > 0 && is_operator_binary(op, &parsed_tokens[idx_tkn - 1]) {
                     bin_ops.push(op.bin()?);
                     reprs_bin_ops.push(op.repr());
                     idx_tkn += 1;
