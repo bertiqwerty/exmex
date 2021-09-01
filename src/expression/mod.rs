@@ -140,8 +140,8 @@ pub trait Express<'a, T: Copy> {
     ///
     fn unparse(&self) -> ExResult<String>;
 
-    /// This function frees some memory. After calling this, the methods [`partial`](Expression::partial) and
-    /// [`unparse`](Expression::unparse) as well as the implementation of the
+    /// This function frees some memory. After calling this, the methods [`partial`](Express::partial) and
+    /// [`unparse`](Express::unparse) as well as the implementation of the
     /// [`Display`](std::fmt::Display) trait might stop working.
     fn reduce_memory(&mut self);
 }
