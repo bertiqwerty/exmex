@@ -812,7 +812,7 @@ mod tests {
         assert!(eval_str::<f64>("2*(5+5))").is_err());
     }
 
-    #[cfg(feature = "serde_support")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_serde_public_interface() {
         let s = "{x}^(3.0-{y})";
