@@ -49,7 +49,7 @@ fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
         msg: format!("did not find operator {}", repr),
     })?;
     Ok(BinOpsWithReprs {
-        reprs: vec![op.repr],
+        reprs: smallvec![op.repr],
         ops: smallvec![op.bin_op.ok_or(ExError {
             msg: format!("operater {} is not binary", op.repr)
         })?],
@@ -64,7 +64,7 @@ fn find_as_unary_op_with_reprs<'a, T: Copy + Debug>(
         msg: format!("did not find operator {}", repr),
     })?;
     Ok(UnaryOpWithReprs {
-        reprs: vec![op.repr],
+        reprs: smallvec![op.repr],
         op: UnaryOp::from_vec(smallvec![op.unary_op.ok_or(ExError {
             msg: format!("operater {} is not unary", op.repr)
         })?]),

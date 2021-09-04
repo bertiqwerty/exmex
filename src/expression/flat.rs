@@ -2,7 +2,7 @@ use crate::expression::flat_details::{self, FlatNodeVec, FlatOpVec};
 use crate::{
     expression::{
         deep::{DeepBuf, DeepEx, ExprIdxVec},
-        partial_derivatives,
+        partial_derivatives, Express,
     },
     operators,
 };
@@ -144,7 +144,7 @@ impl<'a, T: Copy + Debug> Display for FlatEx<'a, T> {
 }
 
 /// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
-/// Both implement [`Express`](Express). The difference is that 
+/// Both implement [`Express`](Express). The difference is that
 /// [`OwnedFlatEx`](OwnedFlatEx) can be used without
 /// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a
 /// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
@@ -279,8 +279,8 @@ use crate::{
     operators::{UnaryOp, VecOfUnaryFuncs},
     util::assert_float_eq_f64,
 };
-
-use super::Express;
+#[cfg(test)]
+use smallvec::smallvec;
 
 #[test]
 fn test_operate_unary() {
@@ -289,7 +289,7 @@ fn test_operate_unary() {
     let mut funcs = VecOfUnaryFuncs::new();
     funcs.push(|x: f64| x * 1.23456);
     let deepex = deepex.operate_unary(UnaryOpWithReprs {
-        reprs: vec!["eagle"],
+        reprs: smallvec!["eagle"],
         op: UnaryOp::from_vec(funcs),
     });
     let flatex = flatten(deepex);

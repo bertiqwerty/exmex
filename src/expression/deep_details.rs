@@ -1,6 +1,6 @@
 use crate::{
     definitions::{
-        N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
+        N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
     expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
@@ -12,9 +12,9 @@ use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
 
-pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
+pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     parsed_tokens: &[ParsedToken<'a, T, O>],
-) -> ExResult<DeepEx<'a, T>> {
+) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     let mut parsed_vars = parsed_tokens
         .iter()
@@ -29,17 +29,10 @@ pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>
             }
             _ => None,
         })
-        .collect::<SmallVec<[_; N_NODES_ON_STACK]>>();
+        .collect::<SmallVec<[_; N_VARS_ON_STACK]>>();
     parsed_vars.sort_unstable();
-    let (expr, _) = make_expression(
-        &parsed_tokens[0..],
-        &parsed_vars,
-        UnaryOpWithReprs {
-            reprs: vec![],
-            op: UnaryOp::new(),
-        },
-    )?;
-    Ok(expr)
+    parsed_vars
+    
 }
 
 fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
@@ -108,7 +101,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     let vec_of_uop_reprs = iter_of_uops
         .clone()
         .map(|op| Ok(op?.0))
-        .collect::<ExResult<Vec<_>>>()?;
+        .collect::<ExResult<SmallVec<_>>>()?;
     let n_uops = vec_of_uops.len();
     let uop = UnaryOp::from_vec(vec_of_uops);
     match &parsed_tokens[token_idx + n_uops] {
@@ -126,10 +119,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
         ParsedToken::Var(name) => {
             let expr = DeepEx::new(
                 vec![DeepNode::Var((find_var_index(name, &parsed_vars), name))],
-                BinOpsWithReprs {
-                    reprs: Vec::new(),
-                    ops: BinOpVec::new(),
-                },
+                BinOpsWithReprs::new(),
                 UnaryOpWithReprs {
                     reprs: vec_of_uop_reprs,
                     op: uop,
@@ -166,9 +156,9 @@ where
     O: Operate<'a, T>,
 {
     let mut bin_ops = BinOpVec::new();
-    let mut reprs_bin_ops: Vec<&str> = Vec::new();
+    let mut reprs_bin_ops: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
     let mut nodes = Vec::<DeepNode<T>>::new();
-
+    nodes.reserve(parsed_tokens.len() / 2);
     // The main loop checks one token after the next whereby sub-expressions are
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
     // according to the length of the sub-expression.
@@ -206,10 +196,7 @@ where
                     let (expr, i_forward) = make_expression::<T, O>(
                         &parsed_tokens[idx_tkn..],
                         parsed_vars,
-                        UnaryOpWithReprs {
-                            reprs: Vec::new(),
-                            op: UnaryOp::new(),
-                        },
+                        UnaryOpWithReprs::new()
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;

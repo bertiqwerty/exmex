@@ -1,3 +1,4 @@
+use crate::definitions::N_NODES_ON_STACK;
 use crate::operators::Operate;
 use crate::{ExError, ExResult};
 use lazy_static::lazy_static;
@@ -68,7 +69,7 @@ pub fn tokenize_and_analyze<
     text: &'a str,
     ops_in: &[O],
     is_numeric: F,
-) -> ExResult<Vec<ParsedToken<'a, T, O>>>
+) -> ExResult<SmallVec<[ParsedToken<'a, T, O>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -98,7 +99,7 @@ where
             }
         })
     };
-    let mut res = Vec::new();
+    let mut res: SmallVec<[_; N_NODES_ON_STACK]> = SmallVec::new();
     let mut cur_offset = 0usize;
     for (i, c) in text.chars().enumerate() {
         if c == ' ' {
@@ -138,7 +139,6 @@ where
             res.push(next_parsed_token);
         }
     }
-    check_parsed_token_preconditions(&res)?;
     Ok(res)
 }
 
@@ -318,19 +318,7 @@ where
 }
 
 #[cfg(test)]
-use crate::operators;
-#[test]
-fn test_tokenize_and_analze() {
-    let ops = operators::make_default_operators::<f32>();
-
-    let text = r"5\6";
-    let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-    assert!(elts.is_err());
-
-    let text = "ӭ";
-    let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-    assert!(elts.is_err());
-}
+use crate::operators::{self, Operator};
 
 #[test]
 fn test_is_numeric() {
@@ -346,7 +334,7 @@ fn test_is_numeric() {
 #[test]
 fn test_preconditions() {
     fn test(text: &str, msg_part: &str) {
-        fn check_err_msg<V>(err: ExResult<V>, msg_part: &str) {
+        fn check_err_msg<X>(err: ExResult<X>, msg_part: &str) {
             match err {
                 Ok(_) => {
                     println!("expected an error that should contain '{}'", msg_part);
@@ -362,12 +350,12 @@ fn test_preconditions() {
         let ops = operators::make_default_operators::<f32>();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
-            Ok(elts_unwr) => {
-                let err = check_parsed_token_preconditions(&elts_unwr[..]);
-                check_err_msg(err, msg_part);
+            Err(e) => check_err_msg::<Vec<ParsedToken<f32, Operator<f32>>>>(Err(e), msg_part),
+            Ok(elts) => {
+                let error = check_parsed_token_preconditions(&elts);
+                check_err_msg(error, msg_part);
             }
-            Err(_) => check_err_msg(elts, msg_part),
-        }
+        };
     }
     // test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
     // test("fi.g", "parse the beginning of .g");
