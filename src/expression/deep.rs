@@ -2,8 +2,7 @@ use crate::{
     definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK},
     expression::{
         deep_details::{
-            self, prioritized_indices, BinOpsWithReprsBuf, OverloadedOps, UnaryOpWithReprsBuf,
-            ADD_REPR, DIV_REPR, MUL_REPR, SUB_REPR,
+            self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf,
         },
         Express,
     },
@@ -17,7 +16,6 @@ use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
     iter,
-    ops::{Add, Div, Mul, Sub},
     str::FromStr,
 };
 
@@ -48,6 +46,9 @@ where
     pub fn one() -> Self {
         DeepNode::Num(T::from(1.0).unwrap())
     }
+    pub fn num(n: T) -> Self {
+        DeepNode::Num(n)
+    }
 }
 impl<'a, T: Copy + Debug> Debug for DeepNode<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -64,7 +65,7 @@ pub struct BinOpsWithReprs<'a, T: Copy> {
     pub ops: BinOpVec<T>,
 }
 impl<'a, T: Copy> BinOpsWithReprs<'a, T> {
-    pub fn new() -> BinOpsWithReprs<'a, T> {
+    pub fn new() -> Self {
         BinOpsWithReprs {
             reprs: vec![],
             ops: BinOpVec::new(),
@@ -107,7 +108,6 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators.
     unary_op: UnaryOpWithReprs<'a, T>,
-    overloaded_ops: Option<OverloadedOps<'a, T>>,
     var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
 
@@ -235,7 +235,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                 nodes,
                 bin_ops,
                 unary_op,
-                overloaded_ops: None,
                 var_names: found_vars,
             };
             expr.compile();
@@ -243,46 +242,38 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn from_node(node: DeepNode<'a, T>, overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T> {
-        let mut deepex =
-            DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap();
-        deepex.set_overloaded_ops(Some(overloaded_ops));
-        deepex
+    pub fn from_node(node: DeepNode<'a, T>) -> DeepEx<'a, T> {
+        DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
     }
 
-    pub fn one(overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T>
+    pub fn one() -> DeepEx<'a, T>
     where
         T: Float,
     {
-        DeepEx::from_node(DeepNode::one(), overloaded_ops)
+        DeepEx::from_node(DeepNode::one())
     }
 
-    pub fn one_like(other: &DeepEx<'a, T>) -> ExResult<DeepEx<'a, T>>
+    pub fn zero() -> DeepEx<'a, T>
     where
         T: Float,
     {
-        Ok(DeepEx::one(other.unpack_and_clone_overloaded_ops()?))
+        DeepEx::from_node(DeepNode::zero())
     }
 
-    pub fn zero(overloaded_ops: OverloadedOps<'a, T>) -> DeepEx<'a, T>
+    pub fn num(x: T) -> DeepEx<'a, T>
     where
         T: Float,
     {
-        DeepEx::from_node(DeepNode::zero(), overloaded_ops)
+        DeepEx::from_node(DeepNode::num(x))
     }
 
     pub fn with_new_unary_op(self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         Self {
             nodes: self.nodes,
-            overloaded_ops: self.overloaded_ops,
             bin_ops: self.bin_ops,
             var_names: self.var_names,
             unary_op,
         }
-    }
-
-    pub fn set_overloaded_ops(&mut self, ops: Option<OverloadedOps<'a, T>>) {
-        self.overloaded_ops = ops;
     }
 
     pub fn bin_ops(&self) -> &BinOpsWithReprs<T> {
@@ -295,12 +286,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
     pub fn nodes(&self) -> &Vec<DeepNode<'a, T>> {
         &self.nodes
-    }
-
-    pub fn unpack_and_clone_overloaded_ops(&self) -> ExResult<OverloadedOps<'a, T>> {
-        self.overloaded_ops.clone().ok_or(ExError {
-            msg: "cannot unpack overloaded ops when there are none".to_string(),
-        })
     }
 
     fn is_num(&self, num: T) -> bool
@@ -370,7 +355,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
 
     /// Applies a binary operator to self and other
     pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
-        let overloaded_ops = self.overloaded_ops.clone();
 
         let (self_vars_updated, other_vars_updated) = self.var_names_union(other);
         let mut resex = DeepEx::new(
@@ -382,7 +366,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             UnaryOpWithReprs::new(),
         )
         .unwrap();
-        resex.overloaded_ops = overloaded_ops;
         resex.compile();
         resex
     }
@@ -392,28 +375,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         self.unary_op.append_front(&mut unary_op);
         self.compile();
         self
-    }
-
-    /// Applies one of the binary overloaded operators to self and other.
-    ///
-    /// # Panics
-    ///
-    /// if an overloaded operator has not been defined
-    ///
-    pub fn operate_overloaded(self, other: Self, repr: &'a str) -> Self {
-        let op = self
-            .overloaded_ops
-            .clone()
-            .expect("overloaded operators not available")
-            .by_repr(repr);
-
-        let ops = smallvec![op.bin_op.unwrap()];
-
-        let bin_op = BinOpsWithReprs {
-            reprs: vec![repr],
-            ops,
-        };
-        self.operate_bin(other, bin_op)
     }
 
     pub fn unparse_raw(&self) -> String {
@@ -521,9 +482,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
         T: Copy + FromStr + Debug,
     {
         let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
-        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
-        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
-        Ok(deepex)
+        deep_details::parsed_tokens_to_deepex(&parsed_tokens)
     }
 
     fn from_pattern(
@@ -546,9 +505,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
         };
         let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
         let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-        let mut deepex = deep_details::parsed_tokens_to_deepex(&parsed_tokens)?;
-        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
-        Ok(deepex)
+        deep_details::parsed_tokens_to_deepex(&parsed_tokens)
     }
 
     fn unparse(&self) -> ExResult<String> {
@@ -565,35 +522,6 @@ impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
     }
 
     fn reduce_memory(&mut self) {
-        self.overloaded_ops = None;
-    }
-}
-
-impl<'a, T: Copy + Debug> Add for DeepEx<'a, T> {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        self.operate_overloaded(other, ADD_REPR)
-    }
-}
-
-impl<'a, T: Copy + Debug> Sub for DeepEx<'a, T> {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        self.operate_overloaded(other, SUB_REPR)
-    }
-}
-
-impl<'a, T: Copy + Debug> Mul for DeepEx<'a, T> {
-    type Output = Self;
-    fn mul(self, other: Self) -> Self {
-        self.operate_overloaded(other, MUL_REPR)
-    }
-}
-
-impl<'a, T: Copy + Debug> Div for DeepEx<'a, T> {
-    type Output = Self;
-    fn div(self, other: Self) -> Self {
-        self.operate_overloaded(other, DIV_REPR)
     }
 }
 
@@ -655,7 +583,6 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
             self.bin_ops.to_deepex(),
             self.unary_op.to_deepex(),
         )?;
-        deepex.set_overloaded_ops(deep_details::find_overloaded_ops(ops));
         deepex.var_names = self.var_names.iter().map(|vn| vn.as_str()).collect();
         Ok(deepex)
     }
@@ -731,61 +658,6 @@ fn test_var_name_union() {
 }
 
 #[test]
-fn test_operator_overloading() {
-    fn from_str(text: &str) -> DeepEx<f64> {
-        DeepEx::from_str(text).unwrap()
-    }
-    fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
-        assert_float_eq_f64(flatten(deepex.clone()).eval(vars).unwrap(), val);
-    }
-
-    fn check_shape<'a>(deepex: &DeepEx<'a, f64>, n_nodes: usize) {
-        assert_eq!(deepex.nodes.len(), n_nodes);
-        assert_eq!(deepex.bin_ops.ops.len(), n_nodes - 1);
-        assert_eq!(deepex.bin_ops.reprs.len(), n_nodes - 1);
-    }
-
-    let one = from_str("1");
-    let two = one.clone() + one.clone();
-    check_shape(&two, 1);
-    eval(&two, &[], 2.0);
-
-    let minus_one = from_str("-1");
-    let one = minus_one.clone() * minus_one.clone();
-    check_shape(&one, 1);
-    eval(&one, &[], 1.0);
-
-    let x_squared = from_str("x*x");
-    check_shape(&x_squared, 2);
-    let two_x_squared = two.clone() * x_squared.clone();
-    check_shape(&two_x_squared, 2);
-    eval(&two_x_squared, &[0.0], 0.0);
-    eval(&two_x_squared, &[1.0], 2.0);
-    eval(&two_x_squared, &[2.0], 8.0);
-    eval(&two_x_squared, &[3.0], 18.0);
-    let some_expr = from_str("x") + from_str("x") * from_str("2") / from_str("x^(.5)");
-    check_shape(&some_expr, 2);
-    eval(&some_expr, &[4.0], 8.0);
-
-    let x_plus_y_plus_z = from_str("x+y+z");
-    check_shape(&x_plus_y_plus_z, 3);
-    let y_minus_z = from_str("y-z");
-    check_shape(&y_minus_z, 2);
-    let prod_of_above = x_plus_y_plus_z.clone() * y_minus_z.clone();
-    check_shape(&prod_of_above, 2);
-    eval(&prod_of_above, &[1.0, 4.0, 8.0], -52.0);
-    let div_of_above = x_plus_y_plus_z.clone() / y_minus_z.clone();
-    eval(&div_of_above, &[1.0, 4.0, 8.0], -3.25);
-    let sub_of_above = x_plus_y_plus_z.clone() - y_minus_z.clone();
-    eval(&sub_of_above, &[1.0, 4.0, 8.0], 17.0);
-    let add_of_above = x_plus_y_plus_z + y_minus_z.clone();
-    eval(&add_of_above, &[1.0, 4.0, 8.0], 9.0);
-    let x_plus_cossin_y_plus_z = from_str("x+cos(sin(y+z))");
-    let prod_of_above = x_plus_cossin_y_plus_z * y_minus_z;
-    eval(&prod_of_above, &[1.0, 4.0, 8.0], -7.4378625090980925);
-}
-
-#[test]
 fn test_partial_finite() {
     let ops = make_default_operators::<f64>();
     fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
@@ -821,9 +693,11 @@ fn test_partial_finite() {
             assert_float_eq::<f64>(flat_deri, finite_diff, 1e-5, 1e-3, msg.as_str());
         }
     }
-
-    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.01..1.0);
-    test("sin(sin(x+z))", &ops, -10.0..10.0);
+    test("sqrt(x)", &ops, 0.0..10000.0);
+    test("asin(x)", &ops, -1.0..1.0);
+    test("acos(x)", &ops, -1.0..1.0);
+    test("atan(x)", &ops, -1.0..1.0);
+    test("1/x", &ops, -10.0..10.0);
     test("x^x", &ops, 0.01..2.0);
     test("x^y", &ops, 4.036286084344371..4.036286084344372);
     test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
@@ -832,21 +706,15 @@ fn test_partial_finite() {
     test("sin(x-z)", &ops, -10.0..10.0);
     test("y-sin(x-z)", &ops, -10.0..10.0);
     test("(sin(x)^2)/x/4", &ops, -10.0..10.0);
-    test("1/x", &ops, -10.0..10.0);
     test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
+    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.01..1.0);
     test("log(x^2)", &ops, 0.1..10.0);
     test("tan(x)", &ops, -1.0..1.0);
     test("tan(exp(x))", &ops, -1000.0..0.0);
     test("exp(y-x)", &ops, -1.0..1.0);
     test("sqrt(exp(y-x))", &ops, -1000.0..0.0);
-    test("sqrt(x)", &ops, 0.0..10000.0);
-    test("asin(x)", &ops, -1.0..1.0);
-    test("acos(x)", &ops, -1.0..1.0);
-    test("atan(x)", &ops, -1.0..1.0);
+    test("sin(sin(x+z))", &ops, -10.0..10.0);
     test("asin(sqrt(x+y))", &ops, 0.0..0.5);
-    test("sinh(x)", &ops, -1.0..1.0);
-    test("cosh(x)", &ops, -1.0..1.0);
-    test("tanh(x)", &ops, -1.0..1.0);
 }
 
 #[test]

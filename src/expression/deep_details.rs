@@ -4,58 +4,13 @@ use crate::{
         N_VARS_ON_STACK,
     },
     expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
-    operators::{BinOp, Operate, Operator, UnaryOp, VecOfUnaryFuncs},
+    operators::{BinOp, Operate, UnaryOp, VecOfUnaryFuncs},
     parser::{Paren, ParsedToken},
     ExError, ExResult,
 };
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
-
-pub const ADD_REPR: &str = "+";
-pub const SUB_REPR: &str = "-";
-pub const MUL_REPR: &str = "*";
-pub const DIV_REPR: &str = "/";
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OverloadedOps<'a, T: Copy> {
-    pub add: Operator<'a, T>,
-    pub sub: Operator<'a, T>,
-    pub mul: Operator<'a, T>,
-    pub div: Operator<'a, T>,
-}
-impl<'a, T: Copy> OverloadedOps<'a, T> {
-    pub fn by_repr(&self, repr: &str) -> Operator<'a, T> {
-        match repr {
-            ADD_REPR => self.add,
-            SUB_REPR => self.sub,
-            MUL_REPR => self.mul,
-            DIV_REPR => self.div,
-            _ => panic!("{} is not a repr of an overloaded operator", repr),
-        }
-    }
-}
-
-pub fn find_overloaded_ops<'a, T: Copy>(all_ops: &[Operator<T>]) -> Option<OverloadedOps<'a, T>> {
-    let find_op = |repr| {
-        let found = all_ops.iter().cloned().find(|op| op.repr == repr);
-        match found {
-            Some(op) => Some(Operator {
-                bin_op: op.bin_op,
-                unary_op: op.unary_op,
-                repr: repr,
-            }),
-            None => None,
-        }
-    };
-
-    Some(OverloadedOps {
-        add: find_op(ADD_REPR)?,
-        sub: find_op(SUB_REPR)?,
-        mul: find_op(MUL_REPR)?,
-        div: find_op(DIV_REPR)?,
-    })
-}
 
 pub fn parsed_tokens_to_deepex<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     parsed_tokens: &[ParsedToken<'a, T, O>],
