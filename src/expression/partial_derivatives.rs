@@ -317,7 +317,9 @@ fn sub_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWith
 fn pow_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_as_bin_op_with_reprs("^", &ops)
 }
-fn minus_find_unary<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<UnaryOpWithReprs<'a, T>> {
+fn minus_find_unary<'a, T: Copy + Debug>(
+    ops: &[Operator<'a, T>],
+) -> ExResult<UnaryOpWithReprs<'a, T>> {
     find_as_unary_op_with_reprs("-", &ops)
 }
 
@@ -537,7 +539,8 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let inner_squared = f
                         .with_new_unary_op(UnaryOpWithReprs::new())
                         .operate_bin(two, power_op);
-                    let insq_min1_sqrt = sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
+                    let insq_min1_sqrt =
+                        sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
                     div(one.clone(), insq_min1_sqrt, div_op)
                 },
             ),
@@ -558,7 +561,8 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let inner_squared = f
                         .with_new_unary_op(UnaryOpWithReprs::new())
                         .operate_bin(two, power_op);
-                    let denominator = sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
+                    let denominator =
+                        sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
                     Ok(div(one, denominator, div_op)?.operate_unary(minus_op))
                 },
             ),
@@ -609,11 +613,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let tanh_op = find_as_unary_op_with_reprs("tanh", ops)?;
                     let sub_op = sub_find(ops)?;
                     let two = DeepEx::num(T::from(2.0).unwrap());
-                    sub(
-                        one,
-                        pow(f.with_new_unary_op(tanh_op), two, pow_op)?,
-                        sub_op,
-                    )
+                    sub(one, pow(f.with_new_unary_op(tanh_op), two, pow_op)?, sub_op)
                 },
             ),
         },
