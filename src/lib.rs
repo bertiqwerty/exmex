@@ -260,7 +260,7 @@ pub use {
         flat::{FlatEx, OwnedFlatEx},
         Express,
     },
-    operators::{make_default_operators, BinOp, Operate, Operator},
+    operators::{make_default_operators, BinOp, Operator},
     result::{ExError, ExResult},
 };
 
