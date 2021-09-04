@@ -260,7 +260,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         DeepEx::from_node(DeepNode::zero())
     }
 
-    pub fn num(x: T) -> DeepEx<'a, T>
+    pub fn from_num(x: T) -> DeepEx<'a, T>
     where
         T: Float,
     {

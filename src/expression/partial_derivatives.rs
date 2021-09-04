@@ -94,11 +94,10 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
             let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
             unary_deri_op(deepex.clone(), ops)
         });
-    let mul_op = find_as_bin_op_with_reprs("*", ops)?;
-    let resex = factorexes.fold(Ok(DeepEx::one()), |dp1, dp2| -> ExResult<DeepEx<T>> {
+    let mul_op = mul_find(ops)?;
+    factorexes.fold(Ok(DeepEx::one()), |dp1, dp2| -> ExResult<DeepEx<T>> {
         mul(dp1?, dp2?, mul_op.clone())
-    });
-    resex
+    })
 }
 
 fn partial_derivative_inner<'a, T: Float + Debug>(
@@ -208,7 +207,7 @@ pub fn partial_deepex<'a, T: Float + Debug>(
     let partial_derivative_ops = make_partial_derivative_ops::<T>();
     let inner = partial_derivative_inner(var_idx, deepex.clone(), &partial_derivative_ops, ops)?;
     let outer = partial_derivative_outer(deepex, &partial_derivative_ops, ops)?;
-    mul(inner, outer, find_as_bin_op_with_reprs("*", ops)?)
+    mul(inner, outer, mul_find(ops)?)
 }
 
 fn add<'a, T: Float + Debug>(
@@ -330,18 +329,18 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                  g: ValueDerivative<T>,
                  ops: &[Operator<'a, T>]|
                  -> ExResult<ValueDerivative<T>> {
-                    let power_op = find_as_bin_op_with_reprs("^", ops)?;
+                    let pow_op = pow_find(ops)?;
                     let log_op = find_as_unary_op_with_reprs("log", ops)?;
                     let mul_op = mul_find(ops)?;
                     let add_op = add_find(ops)?;
                     let sub_op = sub_find(ops)?;
 
                     let one = DeepEx::one();
-                    let val = pow(f.val.clone(), g.val.clone(), power_op.clone())?;
+                    let val = pow(f.val.clone(), g.val.clone(), pow_op.clone())?;
                     let g_minus_1 = g.val.clone().operate_bin(one, sub_op);
                     let der_1 = mul(
                         mul(
-                            pow(f.val.clone(), g_minus_1, power_op.clone())?,
+                            pow(f.val.clone(), g_minus_1, pow_op.clone())?,
                             g.val.clone(),
                             mul_op.clone(),
                         )?,
@@ -457,7 +456,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let mul_op = mul_find(ops)?;
                     let div_op = div_find(ops)?;
                     let one = DeepEx::one();
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     div(one, mul(two, f, mul_op)?, div_op)
                 },
             ),
@@ -513,7 +512,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let cos_op = find_as_unary_op_with_reprs("cos", ops)?;
                     let power_op = pow_find(ops)?;
                     let div_op = div_find(ops)?;
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let cos_squared_ex = f
                         .clone()
                         .with_new_unary_op(cos_op)
@@ -533,7 +532,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let sub_op = sub_find(ops)?;
                     let div_op = div_find(ops)?;
 
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let inner_squared = f
                         .with_new_unary_op(UnaryOpWithReprs::new())
                         .operate_bin(two, power_op);
@@ -555,7 +554,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let div_op = div_find(ops)?;
 
                     let one = DeepEx::one();
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let inner_squared = f
                         .with_new_unary_op(UnaryOpWithReprs::new())
                         .operate_bin(two, power_op);
@@ -570,13 +569,13 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<T>> {
-                    let power_op = pow_find(ops)?;
+                    let pow_op = pow_find(ops)?;
                     let add_op = add_find(ops)?;
                     let div_op = div_find(ops)?;
                     let one = DeepEx::one();
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let inner_squared =
-                        pow(f.with_new_unary_op(UnaryOpWithReprs::new()), two, power_op)?;
+                        pow(f.with_new_unary_op(UnaryOpWithReprs::new()), two, pow_op)?;
                     div(one.clone(), add(one, inner_squared, add_op)?, div_op)
                 },
             ),
@@ -610,7 +609,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let pow_op = pow_find(ops)?;
                     let tanh_op = find_as_unary_op_with_reprs("tanh", ops)?;
                     let sub_op = sub_find(ops)?;
-                    let two = DeepEx::num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     sub(one, pow(f.with_new_unary_op(tanh_op), two, pow_op)?, sub_op)
                 },
             ),
