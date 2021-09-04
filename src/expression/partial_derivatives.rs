@@ -208,9 +208,7 @@ pub fn partial_deepex<'a, T: Float + Debug>(
     let partial_derivative_ops = make_partial_derivative_ops::<T>();
     let inner = partial_derivative_inner(var_idx, deepex.clone(), &partial_derivative_ops, ops)?;
     let outer = partial_derivative_outer(deepex, &partial_derivative_ops, ops)?;
-    let mut res = mul(inner, outer, find_as_bin_op_with_reprs("*", ops)?)?;
-    res.compile();
-    Ok(res)
+    Ok(mul(inner, outer, find_as_bin_op_with_reprs("*", ops)?)?)
 }
 
 fn add<'a, T: Float + Debug>(
