@@ -1,4 +1,4 @@
-use crate::{ExError, ExResult};
+use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, ExError, ExResult};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
@@ -59,9 +59,7 @@ pub struct Operator<'a, T: Copy> {
 }
 
 fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
-    wrapped_op
-    .as_ref()
-    .ok_or(make_op_not_available_error(repr))
+    wrapped_op.as_ref().ok_or(make_op_not_available_error(repr))
 }
 
 impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
@@ -82,7 +80,7 @@ impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
     }
 }
 
-pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; 8]>;
+pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
 /// Container of unary operators of one expression
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
