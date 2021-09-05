@@ -606,7 +606,6 @@ use {
     crate::{
         expression::partial_derivatives::partial_deepex,
         operators::make_default_operators,
-        parser::{is_numeric_text, ParsedToken},
         util::{assert_float_eq, assert_float_eq_f64},
     },
     rand::{thread_rng, Rng},
@@ -798,73 +797,4 @@ fn test_deep_compile_2() {
         format!("{}", ddeepex),
         "(({x}^2.0)*({x}*2.0))+(({x}*2.0)*({x}^2.0))"
     );
-}
-
-#[test]
-fn profile_parsing() {
-    type Op<'a> = Operator<'a, f64>;
-    fn test<'a>(text: &'a str) -> ExResult<DeepEx<'a, f64>> {
-        fn taa<'a>(
-            text: &'a str,
-            ops: &[Op<'a>],
-        ) -> ExResult<SmallVec<[ParsedToken<'a, f64, Op<'a>>; N_NODES_ON_STACK]>> {
-            optick::event!();
-            parser::tokenize_and_analyze(text, &ops, is_numeric_text)
-        };
-        let ops = operators::make_default_operators::<f64>();
-        let parsed_tokens = taa(text, &ops)?;
-        fn cptp<'a>(parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>]) -> ExResult<()> {
-            optick::event!();
-            parser::check_parsed_token_preconditions(&parsed_tokens)
-        };
-        cptp(&parsed_tokens)?;
-        fn fpv<'a>(
-            parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>],
-        ) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
-            optick::event!();
-            deep_details::find_parsed_vars(&parsed_tokens)
-        };
-        let parsed_vars = fpv(&parsed_tokens);
-        fn me<'a>(
-            parsed_vars: &[&'a str],
-            parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>],
-        ) -> ExResult<DeepEx<'a, f64>> {
-            optick::event!();
-            let (expr, _) = deep_details::make_expression(
-                &parsed_tokens[0..],
-                &parsed_vars,
-                UnaryOpWithReprs {
-                    reprs: smallvec![],
-                    op: UnaryOp::new(),
-                },
-            )?;
-            Ok(expr)
-        };
-        me(&parsed_vars, &parsed_tokens)
-    }
-
-    const BENCH_EXPRESSIONS_STRS: [&str; 4] = [
-        "sin(x)+sin(y)+sin(z)",
-        "x^2+y*y+z^z",
-        "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
-        "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
-    ];
-    // warm up
-    for bex in BENCH_EXPRESSIONS_STRS.iter() {
-        let deepex = test(bex).unwrap();
-        assert_eq!(deepex.var_names[0], "x");
-        assert_eq!(deepex.var_names[1], "y");
-        assert_eq!(deepex.var_names[2], "z");
-    }
-    // profile
-    optick::start_capture();
-    for _ in 0..50 {
-        for bex in BENCH_EXPRESSIONS_STRS.iter() {
-            let deepex = test(bex).unwrap();
-            assert_eq!(deepex.var_names[0], "x");
-            assert_eq!(deepex.var_names[1], "y");
-            assert_eq!(deepex.var_names[2], "z");
-        }
-    }
-    optick::stop_capture("deepex_parse");
 }
