@@ -1,8 +1,5 @@
 use crate::{
-    definitions::{
-        N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
-        N_VARS_ON_STACK,
-    },
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
     expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
     operators::{BinOp, Operate, UnaryOp, VecOfUnaryFuncs},
     parser::{Paren, ParsedToken},
@@ -32,7 +29,6 @@ pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
         .collect::<SmallVec<[_; N_VARS_ON_STACK]>>();
     parsed_vars.sort_unstable();
     parsed_vars
-    
 }
 
 fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
@@ -76,17 +72,15 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     // gather subsequent unary operators from the beginning
     let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
         (token_idx + 1..parsed_tokens.len())
-            .map(|j| {
-                match &parsed_tokens[j] {
-                    ParsedToken::Op(op) => {
-                        if op.has_unary() {
-                            Some(op)
-                        } else {
-                            None
-                        }
+            .map(|j| match &parsed_tokens[j] {
+                ParsedToken::Op(op) => {
+                    if op.has_unary() {
+                        Some(op)
+                    } else {
+                        None
                     }
-                    _ => None,
                 }
+                _ => None,
             })
             .take_while(|op| op.is_some())
             .map(|op| {
@@ -196,7 +190,7 @@ where
                     let (expr, i_forward) = make_expression::<T, O>(
                         &parsed_tokens[idx_tkn..],
                         parsed_vars,
-                        UnaryOpWithReprs::new()
+                        UnaryOpWithReprs::new(),
                     )?;
                     nodes.push(DeepNode::Expr(expr));
                     idx_tkn += i_forward;
@@ -264,6 +258,7 @@ impl<T: Copy> BinOpsWithReprsBuf<T> {
         }
     }
 }
+
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprsBuf<T: Copy> {
     pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,

@@ -1,7 +1,15 @@
-use crate::{ExError, ExResult, Operator, definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::{
+use crate::{
+    definitions::{
+        N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
+        N_VARS_ON_STACK,
+    },
+    expression::{
         deep_details::{self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf},
         Express,
-    }, operators::{self, BinOp, UnaryOp}, parser};
+    },
+    operators::{self, BinOp, Operate, UnaryOp},
+    parser, ExError, ExResult, Operator,
+};
 use num::Float;
 use regex::Regex;
 use smallvec::{smallvec, SmallVec};
@@ -18,6 +26,21 @@ pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
+
+pub fn parse<'a, T, F, O>(text: &'a str, ops: &[O], is_numeric: F) -> ExResult<DeepEx<'a, T>>
+where
+    T: Copy + Debug + FromStr,
+    <T as FromStr>::Err: Debug,
+    F: Fn(&'a str) -> Option<&'a str>,
+    O: Copy + Operate<'a, T>,
+{
+    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
+    parser::check_parsed_token_preconditions(&parsed_tokens)?;
+    let parsed_vars = deep_details::find_parsed_vars(&parsed_tokens);
+    let (expr, _) =
+        deep_details::make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
+    Ok(expr)
+}
 
 /// A deep node can be an expression, a number, or
 /// a variable.
@@ -473,15 +496,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,
     {
-        let parsed_tokens = parser::tokenize_and_analyze(text, ops, parser::is_numeric_text)?;
-        parser::check_parsed_token_preconditions(&parsed_tokens)?;
-        let parsed_vars = deep_details::find_parsed_vars(&parsed_tokens);
-        let (expr, _) = deep_details::make_expression(
-            &parsed_tokens[0..],
-            &parsed_vars,
-            UnaryOpWithReprs::new(),
-        )?;
-        Ok(expr)
+        parse(text, ops, parser::is_numeric_text)
     }
 
     fn from_pattern(
@@ -503,17 +518,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for DeepEx<'a, T> {
             }
         };
         let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
-
-        // TODO: remove duplicate code
-        let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-        parser::check_parsed_token_preconditions(&parsed_tokens)?;
-        let parsed_vars = deep_details::find_parsed_vars(&parsed_tokens);
-        let (expr, _) = deep_details::make_expression(
-            &parsed_tokens[0..],
-            &parsed_vars,
-            UnaryOpWithReprs::new()
-        )?;
-        Ok(expr)
+        parse(text, ops, is_numeric)
     }
 
     fn unparse(&self) -> ExResult<String> {
@@ -799,7 +804,10 @@ fn test_deep_compile_2() {
 fn profile_parsing() {
     type Op<'a> = Operator<'a, f64>;
     fn test<'a>(text: &'a str) -> ExResult<DeepEx<'a, f64>> {
-        fn taa<'a>(text: &'a str, ops: &[Op<'a>]) -> ExResult<SmallVec<[ParsedToken<'a, f64, Op<'a>>; N_NODES_ON_STACK]>> {
+        fn taa<'a>(
+            text: &'a str,
+            ops: &[Op<'a>],
+        ) -> ExResult<SmallVec<[ParsedToken<'a, f64, Op<'a>>; N_NODES_ON_STACK]>> {
             optick::event!();
             parser::tokenize_and_analyze(text, &ops, is_numeric_text)
         };
@@ -810,12 +818,17 @@ fn profile_parsing() {
             parser::check_parsed_token_preconditions(&parsed_tokens)
         };
         cptp(&parsed_tokens)?;
-        fn fpv<'a>(parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>])-> SmallVec<[&'a str; N_VARS_ON_STACK]> {
+        fn fpv<'a>(
+            parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>],
+        ) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
             optick::event!();
             deep_details::find_parsed_vars(&parsed_tokens)
         };
         let parsed_vars = fpv(&parsed_tokens);
-        fn me<'a>(parsed_vars: &[&'a str], parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>]) -> ExResult<DeepEx<'a, f64>> {
+        fn me<'a>(
+            parsed_vars: &[&'a str],
+            parsed_tokens: &[ParsedToken<'a, f64, Op<'a>>],
+        ) -> ExResult<DeepEx<'a, f64>> {
             optick::event!();
             let (expr, _) = deep_details::make_expression(
                 &parsed_tokens[0..],
