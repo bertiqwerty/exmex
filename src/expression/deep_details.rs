@@ -13,22 +13,16 @@ pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     parsed_tokens: &[ParsedToken<'a, T, O>],
 ) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
-    let mut parsed_vars = parsed_tokens
-        .iter()
-        .filter_map(|pt| match pt {
-            ParsedToken::Var(name) => {
-                if !found_vars.contains(name) {
-                    found_vars.push(*name);
-                    Some(*name)
-                } else {
-                    None
-                }
+    for pt in parsed_tokens {
+        match pt {
+            ParsedToken::Var(name) if !found_vars.contains(name) => {
+                found_vars.push(*name);
             }
-            _ => None,
-        })
-        .collect::<SmallVec<[_; N_VARS_ON_STACK]>>();
-    parsed_vars.sort_unstable();
-    parsed_vars
+            _ => (),
+        }
+    }
+    found_vars.sort_unstable();
+    found_vars
 }
 
 fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
