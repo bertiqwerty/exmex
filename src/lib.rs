@@ -260,7 +260,7 @@ pub use {
         flat::{FlatEx, OwnedFlatEx},
         Express,
     },
-    operators::{make_default_operators, BinOp, Operator},
+    operators::{BinOp, DefaultOperatorsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
 };
 
@@ -310,7 +310,7 @@ mod tests {
     use crate::prelude::*;
     use crate::{
         eval_str,
-        operators::{make_default_operators, BinOp, Operator},
+        operators::{BinOp, DefaultOperatorsFactory, MakeOperators, Operator},
         parse,
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExResult, OwnedFlatEx,
@@ -562,7 +562,7 @@ mod tests {
             }),
             unary_op: Some(|_| 0.0),
         };
-        let extended_operators = make_default_operators::<f32>()
+        let extended_operators = DefaultOperatorsFactory::<f32>::make()
             .iter()
             .cloned()
             .chain(once(zero_mapper))

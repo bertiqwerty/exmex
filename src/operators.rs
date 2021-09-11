@@ -1,7 +1,7 @@
 use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, ExError, ExResult};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
-use std::fmt::Debug;
+use std::{fmt::Debug, marker::PhantomData};
 
 /// Trait that needs to be implemented by operators. An operator can contain a binary
 /// or a unary operator or both, e.g., `-` in the list of default operators defined in
@@ -145,138 +145,148 @@ pub struct BinOp<T> {
     pub prio: i32,
 }
 
-/// Returns the default operators.
-pub fn make_default_operators<'a, T: Float>() -> [Operator<'a, T>; 23] {
-    [
-        Operator {
-            repr: "^",
-            bin_op: Some(BinOp {
-                apply: |a: T, b| a.powf(b),
-                prio: 2,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "*",
-            bin_op: Some(BinOp {
-                apply: |a, b| a * b,
-                prio: 1,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "/",
-            bin_op: Some(BinOp {
-                apply: |a, b| a / b,
-                prio: 1,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "+",
-            bin_op: Some(BinOp {
-                apply: |a, b| a + b,
-                prio: 0,
-            }),
-            unary_op: Some(|a: T| a),
-        },
-        Operator {
-            repr: "-",
-            bin_op: Some(BinOp {
-                apply: |a, b| a - b,
-                prio: 0,
-            }),
-            unary_op: Some(|a: T| (-a)),
-        },
-        Operator {
-            repr: "signum",
-            bin_op: None,
-            unary_op: Some(|a: T| a.signum()),
-        },
-        Operator {
-            repr: "sin",
-            bin_op: None,
-            unary_op: Some(|a: T| a.sin()),
-        },
-        Operator {
-            repr: "cos",
-            bin_op: None,
-            unary_op: Some(|a: T| a.cos()),
-        },
-        Operator {
-            repr: "tan",
-            bin_op: None,
-            unary_op: Some(|a: T| a.tan()),
-        },
-        Operator {
-            repr: "asin",
-            bin_op: None,
-            unary_op: Some(|a: T| a.asin()),
-        },
-        Operator {
-            repr: "acos",
-            bin_op: None,
-            unary_op: Some(|a: T| a.acos()),
-        },
-        Operator {
-            repr: "atan",
-            bin_op: None,
-            unary_op: Some(|a: T| a.atan()),
-        },
-        Operator {
-            repr: "sinh",
-            bin_op: None,
-            unary_op: Some(|a: T| a.sinh()),
-        },
-        Operator {
-            repr: "cosh",
-            bin_op: None,
-            unary_op: Some(|a: T| a.cosh()),
-        },
-        Operator {
-            repr: "tanh",
-            bin_op: None,
-            unary_op: Some(|a: T| a.tanh()),
-        },
-        Operator {
-            repr: "floor",
-            bin_op: None,
-            unary_op: Some(|a: T| a.floor()),
-        },
-        Operator {
-            repr: "ceil",
-            bin_op: None,
-            unary_op: Some(|a: T| a.ceil()),
-        },
-        Operator {
-            repr: "trunc",
-            bin_op: None,
-            unary_op: Some(|a: T| a.trunc()),
-        },
-        Operator {
-            repr: "fract",
-            bin_op: None,
-            unary_op: Some(|a: T| a.fract()),
-        },
-        Operator {
-            repr: "exp",
-            bin_op: None,
-            unary_op: Some(|a: T| a.exp()),
-        },
-        Operator {
-            repr: "sqrt",
-            bin_op: None,
-            unary_op: Some(|a: T| a.sqrt()),
-        },
-        Operator {
-            repr: "log",
-            bin_op: None,
-            unary_op: Some(|a: T| a.ln()),
-        },
-        Operator {
-            repr: "log2",
-            bin_op: None,
-            unary_op: Some(|a: T| a.log2()),
-        },
-    ]
+pub trait MakeOperators<'a, T: Copy> {
+    fn make() -> Vec<Operator<'a, T>>;
+}
+
+pub struct DefaultOperatorsFactory<T: Float>{
+    dummy: PhantomData<T>
+}
+
+impl<'a, T: Float> MakeOperators<'a, T> for DefaultOperatorsFactory<T> {
+    /// Returns the default operators.
+    fn make() -> Vec<Operator<'a, T>> {
+        vec![
+            Operator {
+                repr: "^",
+                bin_op: Some(BinOp {
+                    apply: |a: T, b| a.powf(b),
+                    prio: 2,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "*",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a * b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "/",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a / b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "+",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a + b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a: T| a),
+            },
+            Operator {
+                repr: "-",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a - b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a: T| (-a)),
+            },
+            Operator {
+                repr: "signum",
+                bin_op: None,
+                unary_op: Some(|a: T| a.signum()),
+            },
+            Operator {
+                repr: "sin",
+                bin_op: None,
+                unary_op: Some(|a: T| a.sin()),
+            },
+            Operator {
+                repr: "cos",
+                bin_op: None,
+                unary_op: Some(|a: T| a.cos()),
+            },
+            Operator {
+                repr: "tan",
+                bin_op: None,
+                unary_op: Some(|a: T| a.tan()),
+            },
+            Operator {
+                repr: "asin",
+                bin_op: None,
+                unary_op: Some(|a: T| a.asin()),
+            },
+            Operator {
+                repr: "acos",
+                bin_op: None,
+                unary_op: Some(|a: T| a.acos()),
+            },
+            Operator {
+                repr: "atan",
+                bin_op: None,
+                unary_op: Some(|a: T| a.atan()),
+            },
+            Operator {
+                repr: "sinh",
+                bin_op: None,
+                unary_op: Some(|a: T| a.sinh()),
+            },
+            Operator {
+                repr: "cosh",
+                bin_op: None,
+                unary_op: Some(|a: T| a.cosh()),
+            },
+            Operator {
+                repr: "tanh",
+                bin_op: None,
+                unary_op: Some(|a: T| a.tanh()),
+            },
+            Operator {
+                repr: "floor",
+                bin_op: None,
+                unary_op: Some(|a: T| a.floor()),
+            },
+            Operator {
+                repr: "ceil",
+                bin_op: None,
+                unary_op: Some(|a: T| a.ceil()),
+            },
+            Operator {
+                repr: "trunc",
+                bin_op: None,
+                unary_op: Some(|a: T| a.trunc()),
+            },
+            Operator {
+                repr: "fract",
+                bin_op: None,
+                unary_op: Some(|a: T| a.fract()),
+            },
+            Operator {
+                repr: "exp",
+                bin_op: None,
+                unary_op: Some(|a: T| a.exp()),
+            },
+            Operator {
+                repr: "sqrt",
+                bin_op: None,
+                unary_op: Some(|a: T| a.sqrt()),
+            },
+            Operator {
+                repr: "log",
+                bin_op: None,
+                unary_op: Some(|a: T| a.ln()),
+            },
+            Operator {
+                repr: "log2",
+                bin_op: None,
+                unary_op: Some(|a: T| a.log2()),
+            },
+        ]
+    }
 }

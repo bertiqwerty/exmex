@@ -4,9 +4,8 @@ use crate::{
         deep::{DeepBuf, DeepEx, ExprIdxVec},
         partial_derivatives, Express,
     },
-    operators,
 };
-use crate::{ExError, ExResult, Operator};
+use crate::{DefaultOperatorsFactory, ExError, ExResult, MakeOperators, Operator};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::str::FromStr;
@@ -107,7 +106,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for FlatEx<'a, T> {
     where
         T: Float,
     {
-        let ops = operators::make_default_operators();
+        let ops = DefaultOperatorsFactory::make();
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
@@ -236,7 +235,7 @@ impl<'a, T: Copy + Debug> Express<'a, T> for OwnedFlatEx<T> {
     where
         T: Float,
     {
-        let ops = operators::make_default_operators();
+        let ops = DefaultOperatorsFactory::make();
         let deep_buf = match self.deepex_buf {
             Some(d) => Ok(d),
             None => Err(ExError {
