@@ -186,4 +186,7 @@ fn test_ser_de_non_float() {
         assert_eq!(deserialized.eval(&[1]).unwrap(), ref_val);
     }
     test("19 % 5 / 2 / a", 2);
+    test("4 % 2 / a", 0);
+    test("4 / 2 / a", 2);
+    test("4 / 2 / 2 / a", 1);
 }
