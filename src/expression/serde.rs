@@ -3,15 +3,16 @@ use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::Float;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{OwnedFlatEx};
-use crate::{MakeOperators, prelude::*};
+use crate::OwnedFlatEx;
+use crate::{prelude::*, MakeOperators};
 
-fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
+fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(
+    serializer: S,
+    expr: &Ex,
+) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
         expr.unparse()
-            .map_err(|e| {
-                serde::ser::Error::custom(format!("serialization failed - {}", e.msg))
-            })?
+            .map_err(|e| serde::ser::Error::custom(format!("serialization failed - {}", e.msg)))?
             .as_str(),
     )
 }
@@ -25,7 +26,7 @@ impl<'de: 'a, 'a, T: Copy + Debug, OF: MakeOperators<T>> Serialize for FlatEx<'a
     }
 }
 
-impl<'de: 'a, 'a, T: Float + Debug + FromStr + 'a> Deserialize<'de> for FlatEx<'a, T>
+impl<'de: 'a, 'a, T: Copy + Debug + FromStr + 'a, OF: MakeOperators<T>> Deserialize<'de> for FlatEx<'a, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -35,20 +36,23 @@ where
     {
         deserializer.deserialize_str(FlatExVisitor {
             lifetime_dummy: PhantomData,
+            of_dummy: PhantomData,
         })
     }
 }
 
 #[derive(Debug)]
-struct FlatExVisitor<'a, T> {
+struct FlatExVisitor<'a, T, OF> {
     lifetime_dummy: PhantomData<&'a T>,
+    of_dummy: PhantomData<OF>,
 }
 
-impl<'de: 'a, 'a, T: Float + Debug + FromStr> Visitor<'de> for FlatExVisitor<'a, T>
+impl<'de: 'a, 'a, T: Copy + Debug + FromStr, OF: MakeOperators<T>> Visitor<'de>
+    for FlatExVisitor<'a, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = FlatEx<'a, T>;
+    type Value = FlatEx<'a, T, OF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a borrowed &str that can be parsed by `exmex` crate")
@@ -59,7 +63,7 @@ where
         E: de::Error,
     {
         let flatex = Self::Value::from_str(unparsed);
-        flatex.map_err(|epe|E::custom(format!("Parse error - {}", epe.msg)))
+        flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg)))
     }
 }
 
@@ -82,7 +86,7 @@ where
     {
         deserializer.deserialize_str(OwnedFlatExVisitor {
             generic_dummy: PhantomData,
-            another_dummy: PhantomData
+            another_dummy: PhantomData,
         })
     }
 }
@@ -90,10 +94,11 @@ where
 #[derive(Debug)]
 struct OwnedFlatExVisitor<T, OF> {
     generic_dummy: PhantomData<T>,
-    another_dummy: PhantomData<OF>
+    another_dummy: PhantomData<OF>,
 }
 
-impl<'de, T: Float + Debug + FromStr, OF: MakeOperators<T>> Visitor<'de> for OwnedFlatExVisitor<T, OF>
+impl<'de, T: Float + Debug + FromStr, OF: MakeOperators<T>> Visitor<'de>
+    for OwnedFlatExVisitor<T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -108,12 +113,15 @@ where
         E: de::Error,
     {
         let owned_flatex = Self::Value::from_str(unparsed);
-        owned_flatex.map_err(|epe|E::custom(format!("Parse error - {}", epe.msg)))
+        owned_flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg)))
     }
 }
 
 #[cfg(test)]
-use serde_test::Token;
+use {
+    crate::operators::{BinOp, Operator},
+    serde_test::Token,
+};
 
 #[test]
 fn test_ser_de() {
@@ -142,4 +150,40 @@ fn test_ser_de() {
     test("{x}+sin(2.0*{y})", "2.0*cos(2.0*{y})");
     test("1.0/{x}+cos({y})*2.0", "2.0*-(sin({y}))");
     test("{y}*{x}*2.0", "2.0*{x}");
+}
+
+#[test]
+fn test_ser_de_non_float() {
+    fn test(to_be_parsed: &str, ref_val: i32) {
+        #[derive(Clone)]
+        struct IntegerOps;
+        impl MakeOperators<i32> for IntegerOps {
+            fn make<'a>() -> Vec<Operator<'a, i32>> {
+                vec![
+                    Operator {
+                        repr: "%",
+                        bin_op: Some(BinOp {
+                            apply: |a: i32, b: i32| a % b,
+                            prio: 1,
+                        }),
+                        unary_op: None,
+                    },
+                    Operator {
+                        repr: "/",
+                        bin_op: Some(BinOp {
+                            apply: |a: i32, b: i32| a / b,
+                            prio: 1,
+                        }),
+                        unary_op: None,
+                    },
+                ]
+            }
+        }
+        let expr = FlatEx::<i32, IntegerOps>::from_str(to_be_parsed).unwrap();
+        let serialized = serde_json::to_string(&expr).unwrap();
+        let deserialized = serde_json::from_str::<FlatEx<i32, IntegerOps>>(serialized.as_str()).unwrap();
+
+        assert_eq!(deserialized.eval(&[1]).unwrap(), ref_val);
+    }
+    test("19 % 5 / 2 / a", 2);
 }
