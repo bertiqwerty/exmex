@@ -175,14 +175,14 @@
 //! #
 //! use exmex::prelude::*;
 //! use exmex::ExResult;
-//! fn make<'a>() -> ExResult<FlatEx::<'a, f64>> {
+//! fn create_expr<'a>() -> ExResult<FlatEx::<'a, f64>> {
 //! //       |                          |
 //! //       lifetime parameter necessary
 //!
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     exmex::parse::<f64>(to_be_parsed)
 //! }
-//! let expr = make()?;
+//! let expr = create_expr()?;
 //! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -197,11 +197,11 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{ExResult, Express, OwnedFlatEx};
-//! fn make() -> ExResult<OwnedFlatEx::<f64>> {
+//! fn create_expr() -> ExResult<OwnedFlatEx::<f64>> {
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
 //! }
-//! let expr_owned = make()?;
+//! let expr_owned = create_expr()?;
 //! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
