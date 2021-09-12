@@ -358,8 +358,8 @@ mod tests {
         }
         fn readme_int() -> ExResult<()> {
             #[derive(Clone)]
-            struct BitwiseOperators;
-            impl MakeOperators<u32> for BitwiseOperators {
+            struct BitwiseOpsFactory;
+            impl MakeOperators<u32> for BitwiseOpsFactory {
                 fn make<'a>() -> Vec<Operator<'a, u32>> {
                     vec![
                         Operator {
@@ -378,7 +378,7 @@ mod tests {
                     ]
                 }
             }
-            let expr = FlatEx::<u32, BitwiseOperators>::from_str("!(a|b)")?;
+            let expr = FlatEx::<u32, BitwiseOpsFactory>::from_str("!(a|b)")?;
             let result = expr.eval(&[0, 1])?;
             assert_eq!(result, u32::MAX - 1);
             Ok(())

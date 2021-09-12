@@ -110,7 +110,7 @@ pub struct BinOp<T> {
 
 /// To use custom operators one needs to create a factory that implements this trait. 
 /// In this way, we make sure that we can deserialize expressions with 
-/// [`serde`](docs.rs/serde) based on the type.
+/// [`serde`](docs.rs/serde) with the correct operators based on the type.
 ///
 /// # Example
 ///

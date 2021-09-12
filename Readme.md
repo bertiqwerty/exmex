@@ -39,23 +39,29 @@ assert_float_eq_f64(value, 289.75399999999996);
 The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can pass custom operators to the method `from_ops` to create an expression.
 ```rust
 use exmex::prelude::*;
-use exmex::Operator;
-let ops = vec![
-    Operator {
-        repr: "|",
-        bin_op: Some(BinOp {
-            apply: |a: u32, b: u32| a | b,
-            prio: 0,
-        }),
-        unary_op: None,
-    },
-    Operator {
-        repr: "!",
-        bin_op: None,
-        unary_op: Some(|a: u32| !a),
-    },
-];
-let expr = FlatEx::<u32>::from_ops("!(a|b)", &ops)?;
+use exmex::{BinOp, MakeOperators, Operator};
+#[derive(Clone)]
+struct BitwiseOpsFactory;
+impl MakeOperators<u32> for BitwiseOpsFactory {
+    fn make<'a>() -> Vec<Operator<'a, u32>> {
+        vec![
+            Operator {
+                repr: "|",
+                bin_op: Some(BinOp {
+                    apply: |a: u32, b: u32| a | b,
+                    prio: 0,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "!",
+                bin_op: None,
+                unary_op: Some(|a: u32| !a),
+            },
+        ]
+    }
+}
+let expr = FlatEx::<u32, BitwiseOpsFactory>::from_str("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
