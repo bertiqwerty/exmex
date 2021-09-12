@@ -15,9 +15,7 @@ mod serde;
 /// Expressions implementing this trait can be evaluated for specific variable values,
 /// derived partially, and unparsed, e.g., transformed into a string representation.  
 pub trait Express<'a, T: Copy> {
-    /// Parses a string with default operators defined in
-    /// [`make_default_operators`](crate::operators::make_default_operators) into an
-    /// expression that can be evaluated.
+    /// Parses a string into an expression that can be evaluated.
     ///
     /// # Errors
     ///

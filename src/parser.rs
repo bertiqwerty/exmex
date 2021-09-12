@@ -315,7 +315,7 @@ where
 }
 
 #[cfg(test)]
-use crate::operators::{DefaultOperatorsFactory, MakeOperators};
+use crate::operators::{DefaultOpsFactory, MakeOperators};
 
 #[test]
 fn test_is_numeric() {
@@ -344,7 +344,7 @@ fn test_preconditions() {
                 }
             }
         }
-        let ops = DefaultOperatorsFactory::<f32>::make();
+        let ops = DefaultOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
             Err(e) => check_err_msg::<Vec<ParsedToken<f32>>>(Err(e), msg_part),

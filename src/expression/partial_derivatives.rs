@@ -614,13 +614,13 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 
 #[cfg(test)]
 use crate::{
-    operators::{DefaultOperatorsFactory, MakeOperators},
+    operators::{DefaultOpsFactory, MakeOperators},
     util::assert_float_eq_f64
 };
 
 #[test]
 fn test_partial() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let dut = DeepEx::<f64>::from_str_float("z*sin(x)+cos(y)^(sin(z))").unwrap();
     let d_z = partial_deepex(2, dut.clone(), &ops).unwrap();
     assert_float_eq_f64(
@@ -646,7 +646,7 @@ fn test_partial_3_vars() {
         deepex.eval(vars).unwrap()
     }
     fn assert(s: &str, vars: &[f64], ref_vals: &[f64]) {
-        let ops = DefaultOperatorsFactory::<f64>::make();
+        let ops = DefaultOpsFactory::<f64>::make();
         let dut = DeepEx::<f64>::from_str_float(s).unwrap();
         let d_x = partial_deepex(0, dut.clone(), &ops).unwrap();
         assert_float_eq_f64(eval(&d_x, vars), ref_vals[0]);
@@ -665,7 +665,7 @@ fn test_partial_3_vars() {
 
 #[test]
 fn test_partial_x2x() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let deepex = DeepEx::<f64>::from_str_float("x * 2 * x").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
@@ -676,7 +676,7 @@ fn test_partial_x2x() {
 
 #[test]
 fn test_partial_cos_squared() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let deepex = DeepEx::<f64>::from_str_float("cos(y) ^ 2").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
@@ -687,7 +687,7 @@ fn test_partial_cos_squared() {
 
 #[test]
 fn test_num_ops() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let mul_op = find_as_bin_op_with_reprs("*", &ops).unwrap();
     fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
         assert_float_eq_f64(deepex.eval(vars).unwrap(), val);
@@ -706,7 +706,7 @@ fn test_num_ops() {
 
 #[test]
 fn test_partial_combined() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let deepex = DeepEx::<f64>::from_str_float("sin(x) + cos(y) ^ 2").unwrap();
     let d_y = partial_deepex(1, deepex.clone(), &ops).unwrap();
     let result = d_y.eval(&[231.431, 0.0]).unwrap();
@@ -722,7 +722,7 @@ fn test_partial_combined() {
 
 #[test]
 fn test_partial_derivative_second_var() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     let deepex = DeepEx::<f64>::from_str_float("sin(x) + cos(y)").unwrap();
     let derivative = partial_deepex(1, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[231.431, 0.0]).unwrap();
@@ -733,7 +733,7 @@ fn test_partial_derivative_second_var() {
 
 #[test]
 fn test_partial_derivative_first_var() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
 
     let deepex = DeepEx::<f64>::from_str_float("sin(x) + cos(y)").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
@@ -747,7 +747,7 @@ fn test_partial_derivative_first_var() {
 fn test_partial_inner() {
     fn test(text: &str, vals: &[f64], ref_vals: &[f64], var_idx: usize) {
         let partial_derivative_ops = make_partial_derivative_ops::<f64>();
-        let ops = DefaultOperatorsFactory::<f64>::make();
+        let ops = DefaultOpsFactory::<f64>::make();
         let deepex_1 = DeepEx::<f64>::from_str_float(text).unwrap();
         let deri =
             partial_derivative_inner(var_idx, deepex_1, &partial_derivative_ops, &ops).unwrap();
@@ -763,7 +763,7 @@ fn test_partial_inner() {
 fn test_partial_outer() {
     fn test(text: &str, vals: &[f64], ref_vals: &[f64]) {
         let partial_derivative_ops = make_partial_derivative_ops::<f64>();
-        let ops = DefaultOperatorsFactory::<f64>::make();
+        let ops = DefaultOpsFactory::<f64>::make();
         let deepex_1 = DeepEx::<f64>::from_str_float(text).unwrap();
         let deepex = deepex_1.nodes()[0].clone();
 
@@ -788,7 +788,7 @@ fn test_partial_outer() {
 
 #[test]
 fn test_partial_derivative_simple() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
 
     let deepex = DeepEx::<f64>::from_str_float("1").unwrap();
     let derivative = partial_deepex(0, deepex, &ops).unwrap();

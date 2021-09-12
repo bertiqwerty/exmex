@@ -13,7 +13,7 @@
 //! ```
 //! For floats, we have a list of predifined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. The full list is
-//! defined in [`make_default_operators`](make_default_operators).
+//! defined in [`DefaultOpsFactory`](DefaultOpsFactory).
 //!
 //! ## Variables
 //! For variables we can use strings that are not in the list of operators as shown in the following expression.
@@ -54,7 +54,7 @@
 //! The value returned by [`parse`](parse) implements the [`Express`](Express) trait
 //! and is an instance of the struct [`FlatEx`](FlatEx).
 //! ## Extendability
-//! Library users can define their own set of operators as shown in the following.
+//! Library users can define their own operator factory as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -62,8 +62,8 @@
 //! use exmex::prelude::*;
 //! use exmex::{BinOp, MakeOperators, Operator};
 //! #[derive(Clone)]
-//! struct IntegerOps;
-//! impl MakeOperators<i32> for IntegerOps {
+//! struct IntegerOpsFactory;
+//! impl MakeOperators<i32> for IntegerOpsFactory {
 //!     fn make<'a>() -> Vec<Operator<'a, i32>> {
 //!         vec![
 //!             Operator {
@@ -80,7 +80,7 @@
 //!     }
 //! }
 //! let to_be_parsed = "19 % 5 / 2 / a";
-//! let expr = FlatEx::<i32, IntegerOps>::from_str(to_be_parsed)?;
+//! let expr = FlatEx::<i32, IntegerOpsFactory>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -108,7 +108,7 @@
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
 //! suitable regex and use the function
 //! [`from_pattern`](Express::from_pattern) instead of
-//! [`from_ops`](Express::from_ops). Here is an example for `bool`.
+//! [`from_str`](Express::from_str). Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -116,8 +116,8 @@
 //! use exmex::prelude::*;
 //! use exmex::{BinOp, MakeOperators, Operator};
 //! #[derive(Clone)]
-//! struct BooleanOps;
-//! impl MakeOperators<bool> for BooleanOps {
+//! struct BooleanOpsFactory;
+//! impl MakeOperators<bool> for BooleanOpsFactory {
 //!     fn make<'a>() -> Vec<Operator<'a, bool>> {
 //!         vec![
 //!             Operator {
@@ -139,7 +139,7 @@
 //!     }
 //! }
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<bool, BooleanOps>::from_pattern(to_be_parsed, "true|false")?;
+//! let expr = FlatEx::<bool, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -272,7 +272,7 @@ pub use {
         flat::{FlatEx, OwnedFlatEx},
         Express,
     },
-    operators::{BinOp, DefaultOperatorsFactory, MakeOperators, Operator},
+    operators::{BinOp, DefaultOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
 };
 
@@ -322,7 +322,7 @@ mod tests {
     use crate::prelude::*;
     use crate::{
         eval_str,
-        operators::{BinOp, DefaultOperatorsFactory, MakeOperators, Operator},
+        operators::{BinOp, DefaultOpsFactory, MakeOperators, Operator},
         parse,
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExResult, OwnedFlatEx,
@@ -596,7 +596,7 @@ mod tests {
                     }),
                     unary_op: Some(|_| 0.0),
                 };
-                DefaultOperatorsFactory::<f32>::make()
+                DefaultOpsFactory::<f32>::make()
                     .iter()
                     .cloned()
                     .chain(once(zero_mapper))

@@ -6,7 +6,7 @@ use crate::{
     expression::{
         deep_details::{self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf}
     },
-    operators::{BinOp, DefaultOperatorsFactory, MakeOperators, UnaryOp},
+    operators::{BinOp, DefaultOpsFactory, MakeOperators, UnaryOp},
     parser, ExError, ExResult, Operator,
 };
 use num::Float;
@@ -440,7 +440,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: Float + FromStr,
     {
-        let ops = DefaultOperatorsFactory::<T>::make();
+        let ops = DefaultOpsFactory::<T>::make();
         DeepEx::from_ops(text, &ops)
     }
 
@@ -637,7 +637,7 @@ fn test_var_name_union() {
 
 #[test]
 fn test_partial_finite() {
-    let ops = DefaultOperatorsFactory::<f64>::make();
+    let ops = DefaultOpsFactory::<f64>::make();
     fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
         let dut = DeepEx::<f64>::from_str_float(sut).unwrap();
         let n_vars = dut.n_vars();
@@ -704,7 +704,7 @@ fn test_var_names() {
 
 #[test]
 fn test_deep_compile() {
-    let ops = DefaultOperatorsFactory::make();
+    let ops = DefaultOpsFactory::make();
     let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
     let bin_ops = BinOpsWithReprs {
         reprs: smallvec![ops[1].repr, ops[3].repr],
@@ -756,7 +756,7 @@ fn test_deep_compile_2() {
     let deepex = DeepEx::<f64>::from_str_float("1+(((a+x^2*x^2)))").unwrap();
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "1.0+({a}+{x}^2.0*{x}^2.0)");
-    let mut ddeepex = partial_deepex(1, deepex, &DefaultOperatorsFactory::make()).unwrap();
+    let mut ddeepex = partial_deepex(1, deepex, &DefaultOpsFactory::make()).unwrap();
     ddeepex.compile();
     println!("{}", ddeepex);
     assert_eq!(

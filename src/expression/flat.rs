@@ -3,7 +3,7 @@ use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::{DefaultOperatorsFactory, ExError, ExResult, MakeOperators};
+use crate::{DefaultOpsFactory, ExError, ExResult, MakeOperators};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -38,7 +38,7 @@ use std::str::FromStr;
 /// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T: Copy + Debug, OF: MakeOperators<T> = DefaultOperatorsFactory<T>> {
+pub struct FlatEx<'a, T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory<T>> {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
@@ -100,7 +100,7 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for FlatEx<'a, T,
     where
         T: Float,
     {
-        let ops = DefaultOperatorsFactory::make();
+        let ops = DefaultOpsFactory::make();
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
@@ -157,7 +157,7 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Display for FlatEx<'a, T, OF> {
 /// # }
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OwnedFlatEx<T: Copy + Debug, OF: MakeOperators<T> = DefaultOperatorsFactory<T>> {
+pub struct OwnedFlatEx<T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory<T>> {
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
@@ -218,7 +218,7 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for OwnedFlatEx<T
     where
         T: Float,
     {
-        let ops = DefaultOperatorsFactory::make();
+        let ops = DefaultOpsFactory::make();
         let deep_buf = match self.deepex_buf {
             Some(d) => Ok(d),
             None => Err(ExError {
