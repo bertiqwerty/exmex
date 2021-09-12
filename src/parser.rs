@@ -1,6 +1,5 @@
 use crate::definitions::N_NODES_ON_STACK;
-use crate::operators::Operate;
-use crate::{ExError, ExResult};
+use crate::{ExError, ExResult, {operators::Operator}};
 use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -14,10 +13,10 @@ pub enum Paren {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ParsedToken<'a, T: Copy + FromStr, O: Operate<'a, T>> {
+pub enum ParsedToken<'a, T: Copy + FromStr> {
     Num(T),
     Paren(Paren),
-    Op(O),
+    Op(Operator<'a, T>),
     Var(&'a str),
 }
 
@@ -63,13 +62,12 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 pub fn tokenize_and_analyze<
     'a,
     T: Copy + FromStr + Debug,
-    O: Copy + Operate<'a, T>,
     F: Fn(&'a str) -> Option<&'a str>,
 >(
     text: &'a str,
-    ops_in: &[O],
+    ops_in: &[Operator<'a, T>],
     is_numeric: F,
-) -> ExResult<SmallVec<[ParsedToken<'a, T, O>; N_NODES_ON_STACK]>>
+) -> ExResult<SmallVec<[ParsedToken<'a, T>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -108,30 +106,30 @@ where
             let text_rest = &text[cur_offset..];
             let next_parsed_token = if c == '(' {
                 cur_offset += 1;
-                ParsedToken::<T, O>::Paren(Paren::Open)
+                ParsedToken::<T>::Paren(Paren::Open)
             } else if c == ')' {
                 cur_offset += 1;
-                ParsedToken::<T, O>::Paren(Paren::Close)
+                ParsedToken::<T>::Paren(Paren::Close)
             } else if c == '{' {
                 let n_count = text_rest.chars().take_while(|c| *c != '}').count();
                 let var_name = &text_rest[1..n_count];
                 let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
                 // we need to subtract spaces from the offset, since they are added in the first if again.
                 cur_offset += n_count + 1 - n_spaces;
-                ParsedToken::<T, O>::Var(var_name)
+                ParsedToken::<T>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_chars = num_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T, O>::Num(num_str.parse::<T>().unwrap())
+                ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
             } else if let Some(op) = find_ops(cur_offset) {
                 let n_chars = op.repr().chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T, O>::Op(**op)
+                ParsedToken::<T>::Op(**op)
             } else if let Some(var_str) = RE_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T, O>::Var(var_str)
+                ParsedToken::<T>::Var(var_str)
             } else {
                 let msg = format!("how to parse the beginning of {}", text_rest);
                 return Err(ExError { msg });
@@ -142,13 +140,13 @@ where
     Ok(res)
 }
 
-struct PairPreCondition<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>> {
-    apply: fn(&ParsedToken<'a, T, O>, &ParsedToken<'a, T, O>) -> bool,
+struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
+    apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> bool,
     error_msg: &'b str,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
-) -> [PairPreCondition<'a, 'b, T, O>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>(
+) -> [PairPreCondition<'a, 'b, T>; 9] {
     [
         PairPreCondition {
             apply: |left, right| match (left, right) {
@@ -253,12 +251,11 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr, O: Operate<'a, T>>(
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_parsed_token_preconditions<'a, T, O>(
-    parsed_tokens: &[ParsedToken<'a, T, O>],
+pub fn check_parsed_token_preconditions<'a, T>(
+    parsed_tokens: &[ParsedToken<'a, T>],
 ) -> ExResult<()>
 where
-    T: Copy + FromStr + Debug,
-    O: Operate<'a, T>,
+    T: Copy + FromStr + Debug
 {
     if parsed_tokens.len() == 0 {
         return Err(ExError {
@@ -266,7 +263,7 @@ where
         });
     };
 
-    let pair_pre_conditions = make_pair_pre_conditions::<T, O>();
+    let pair_pre_conditions = make_pair_pre_conditions::<T>();
     (0..parsed_tokens.len() - 1)
         .map(|i| {
             let failed = pair_pre_conditions
@@ -318,7 +315,7 @@ where
 }
 
 #[cfg(test)]
-use crate::operators::{DefaultOperatorsFactory, MakeOperators, Operator};
+use crate::operators::{DefaultOperatorsFactory, MakeOperators};
 
 #[test]
 fn test_is_numeric() {
@@ -350,7 +347,7 @@ fn test_preconditions() {
         let ops = DefaultOperatorsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
-            Err(e) => check_err_msg::<Vec<ParsedToken<f32, Operator<f32>>>>(Err(e), msg_part),
+            Err(e) => check_err_msg::<Vec<ParsedToken<f32>>>(Err(e), msg_part),
             Ok(elts) => {
                 let error = check_parsed_token_preconditions(&elts);
                 check_err_msg(error, msg_part);

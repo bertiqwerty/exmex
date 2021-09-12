@@ -3,8 +3,8 @@ use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::Float;
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{OwnedFlatEx, expression::deep::DeepEx, expression::flat};
-use crate::prelude::*;
+use crate::{OwnedFlatEx};
+use crate::{MakeOperators, prelude::*};
 
 fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(serializer: S, expr: &Ex) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
@@ -16,7 +16,7 @@ fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(serializer: S, expr
     )
 }
 
-impl<'de: 'a, 'a, T: Copy + Debug> Serialize for FlatEx<'a, T> {
+impl<'de: 'a, 'a, T: Copy + Debug, OF: MakeOperators<T>> Serialize for FlatEx<'a, T, OF> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -58,15 +58,12 @@ where
     where
         E: de::Error,
     {
-        let deepex = DeepEx::from_str(unparsed);
-        match deepex {
-            Ok(d) => Ok(flat::flatten(d)),
-            Err(epe) => Err(E::custom(format!("Parse error - {}", epe.msg))),
-        }
+        let flatex = Self::Value::from_str(unparsed);
+        flatex.map_err(|epe|E::custom(format!("Parse error - {}", epe.msg)))
     }
 }
 
-impl<'de, T: Copy + Debug> Serialize for OwnedFlatEx<T> {
+impl<'de, T: Copy + Debug, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, OF> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -75,7 +72,7 @@ impl<'de, T: Copy + Debug> Serialize for OwnedFlatEx<T> {
     }
 }
 
-impl<'de, T: Float + Debug + FromStr> Deserialize<'de> for OwnedFlatEx<T>
+impl<'de, T: Float + Debug + FromStr, OF: MakeOperators<T>> Deserialize<'de> for OwnedFlatEx<T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -85,20 +82,22 @@ where
     {
         deserializer.deserialize_str(OwnedFlatExVisitor {
             generic_dummy: PhantomData,
+            another_dummy: PhantomData
         })
     }
 }
 
 #[derive(Debug)]
-struct OwnedFlatExVisitor<T> {
+struct OwnedFlatExVisitor<T, OF> {
     generic_dummy: PhantomData<T>,
+    another_dummy: PhantomData<OF>
 }
 
-impl<'de, T: Float + Debug + FromStr> Visitor<'de> for OwnedFlatExVisitor<T>
+impl<'de, T: Float + Debug + FromStr, OF: MakeOperators<T>> Visitor<'de> for OwnedFlatExVisitor<T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = OwnedFlatEx<T>;
+    type Value = OwnedFlatEx<T, OF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a &str that can be parsed by `exmex` crate")
@@ -108,11 +107,8 @@ where
     where
         E: de::Error,
     {
-        let deepex = DeepEx::from_str(unparsed);
-        match deepex {
-            Ok(d) => Ok(OwnedFlatEx::from_flatex(flat::flatten(d))),
-            Err(epe) => Err(E::custom(format!("Parse error - {}", epe.msg))),
-        }
+        let owned_flatex = Self::Value::from_str(unparsed);
+        owned_flatex.map_err(|epe|E::custom(format!("Parse error - {}", epe.msg)))
     }
 }
 
@@ -135,8 +131,7 @@ fn test_ser_de() {
     };
 
     let test = |s, s_1| {
-        let deepex = DeepEx::<f64>::from_str(s).unwrap();
-        let flatex = flat::flatten(deepex);
+        let flatex = FlatEx::<f64>::from_str(s).unwrap();
         test_inner(flatex.clone(), s);
 
         let dflatex_dy = flatex.clone().partial(1).unwrap();

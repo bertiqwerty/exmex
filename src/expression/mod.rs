@@ -2,7 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use num::Float;
 
-use crate::{ExResult, Operator};
+use crate::ExResult;
 
 pub mod deep;
 mod deep_details;
@@ -26,19 +26,7 @@ pub trait Express<'a, T: Copy> {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Float + FromStr,
-        Self: Sized;
-
-    /// Parses a string and a vector of operators into an expression that can be evaluated.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if `text` cannot be parsed.
-    ///
-    fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: Copy + FromStr,
         Self: Sized;
 
     /// Parses a string and a vector of operators and a regex pattern that defines the looks
@@ -51,11 +39,7 @@ pub trait Express<'a, T: Copy> {
     /// * the argument `number_regex_pattern` cannot be compiled or
     /// * the text cannot be parsed.
     ///
-    fn from_pattern(
-        text: &'a str,
-        ops: &[Operator<'a, T>],
-        number_regex_pattern: &str,
-    ) -> ExResult<Self>
+    fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: Copy + FromStr + Debug,

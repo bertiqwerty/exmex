@@ -60,21 +60,27 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, Operator};
-//! let ops = [
-//!     Operator {
-//!         repr: "%",
-//!         bin_op: Some(BinOp{ apply: |a: i32, b: i32| a % b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//!     Operator {
-//!         repr: "/",
-//!         bin_op: Some(BinOp{ apply: |a: i32, b: i32| a / b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//! ];
+//! use exmex::{BinOp, MakeOperators, Operator};
+//! #[derive(Clone)]
+//! struct IntegerOps;
+//! impl MakeOperators<i32> for IntegerOps {
+//!     fn make<'a>() -> Vec<Operator<'a, i32>> {
+//!         vec![
+//!             Operator {
+//!                 repr: "%",
+//!                 bin_op: Some(BinOp{ apply: |a: i32, b: i32| a % b, prio: 1 }),
+//!                 unary_op: None,
+//!             },
+//!             Operator {
+//!                 repr: "/",
+//!                 bin_op: Some(BinOp{ apply: |a: i32, b: i32| a / b, prio: 1 }),
+//!                 unary_op: None,
+//!             },
+//!         ]
+//!     }
+//! }
 //! let to_be_parsed = "19 % 5 / 2 / a";
-//! let expr = FlatEx::<i32>::from_ops(to_be_parsed, &ops)?;
+//! let expr = FlatEx::<i32, IntegerOps>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -108,26 +114,32 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, Operator};
-//! let ops = [
-//!     Operator {
-//!         repr: "&&",
-//!         bin_op: Some(BinOp{ apply: |a: bool, b: bool| a && b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//!     Operator {
-//!         repr: "||",
-//!         bin_op: Some(BinOp{ apply: |a: bool, b: bool| a || b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//!     Operator {
-//!         repr: "!",
-//!         bin_op: None,
-//!         unary_op: Some(|a: bool| !a),
-//!     },
-//! ];
+//! use exmex::{BinOp, MakeOperators, Operator};
+//! #[derive(Clone)]
+//! struct BooleanOps;
+//! impl MakeOperators<bool> for BooleanOps {
+//!     fn make<'a>() -> Vec<Operator<'a, bool>> {
+//!         vec![
+//!             Operator {
+//!                 repr: "&&",
+//!                 bin_op: Some(BinOp{ apply: |a: bool, b: bool| a && b, prio: 1 }),
+//!                 unary_op: None,
+//!             },
+//!             Operator {
+//!                 repr: "||",
+//!                 bin_op: Some(BinOp{ apply: |a: bool, b: bool| a || b, prio: 1 }),
+//!                 unary_op: None,
+//!             },
+//!             Operator {
+//!                 repr: "!",
+//!                 bin_op: None,
+//!                 unary_op: Some(|a: bool| !a),
+//!             },
+//!         ]
+//!     }
+//! }
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<bool>::from_pattern(to_be_parsed, &ops, "true|false")?;
+//! let expr = FlatEx::<bool, BooleanOps>::from_pattern(to_be_parsed, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -281,7 +293,7 @@ pub fn eval_str<T: Float + FromStr + Debug>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
-    let deepex = DeepEx::<T>::from_str(text)?;
+    let deepex = DeepEx::<T>::from_str_float(text)?;
     deepex.eval(&[])
 }
 
@@ -346,22 +358,28 @@ mod tests {
             Ok(())
         }
         fn readme_int() -> ExResult<()> {
-            let ops = vec![
-                Operator {
-                    repr: "|",
-                    bin_op: Some(BinOp {
-                        apply: |a: u32, b: u32| a | b,
-                        prio: 0,
-                    }),
-                    unary_op: None,
-                },
-                Operator {
-                    repr: "!",
-                    bin_op: None,
-                    unary_op: Some(|a: u32| !a),
-                },
-            ];
-            let expr = FlatEx::<u32>::from_ops("!(a|b)", &ops)?;
+            #[derive(Clone)]
+            struct BitwiseOperators;
+            impl MakeOperators<u32> for BitwiseOperators {
+                fn make<'a>() -> Vec<Operator<'a, u32>> {
+                    vec![
+                        Operator {
+                            repr: "|",
+                            bin_op: Some(BinOp {
+                                apply: |a: u32, b: u32| a | b,
+                                prio: 0,
+                            }),
+                            unary_op: None,
+                        },
+                        Operator {
+                            repr: "!",
+                            bin_op: None,
+                            unary_op: Some(|a: u32| !a),
+                        },
+                    ]
+                }
+            }
+            let expr = FlatEx::<u32, BitwiseOperators>::from_str("!(a|b)")?;
             let result = expr.eval(&[0, 1])?;
             assert_eq!(result, u32::MAX - 1);
             Ok(())
@@ -501,73 +519,92 @@ mod tests {
 
     #[test]
     fn test_custom_ops_invert() {
-        let ops = vec![
-            Operator {
-                repr: "invert",
-                bin_op: None,
-                unary_op: Some(|a: f32| 1.0 / a),
-            },
-            Operator {
-                repr: "sqrt",
-                bin_op: None,
-                unary_op: Some(|a: f32| a.sqrt()),
-            },
-        ];
-        let expr = OwnedFlatEx::<f32>::from_ops("sqrt(invert(a))", &ops).unwrap();
+        #[derive(Clone)]
+        struct SomeF32Operators;
+        impl MakeOperators<f32> for SomeF32Operators {
+            fn make<'a>() -> Vec<Operator<'a, f32>> {
+                vec![
+                    Operator {
+                        repr: "invert",
+                        bin_op: None,
+                        unary_op: Some(|a: f32| 1.0 / a),
+                    },
+                    Operator {
+                        repr: "sqrt",
+                        bin_op: None,
+                        unary_op: Some(|a: f32| a.sqrt()),
+                    },
+                ]
+            }
+        }
+        let expr = OwnedFlatEx::<f32, SomeF32Operators>::from_str("sqrt(invert(a))").unwrap();
         assert_float_eq_f32(expr.eval(&[0.25]).unwrap(), 2.0);
     }
 
     #[test]
     fn test_custom_ops() {
-        let custom_ops = vec![
-            Operator {
-                repr: "**",
-                bin_op: Some(BinOp {
-                    apply: |a: f32, b| a.powf(b),
-                    prio: 2,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "*",
-                bin_op: Some(BinOp {
-                    apply: |a, b| a * b,
-                    prio: 1,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "invert",
-                bin_op: None,
-                unary_op: Some(|a: f32| 1.0 / a),
-            },
-            Operator {
-                repr: "None",
-                bin_op: None,
-                unary_op: None,
-            },
-        ];
-        let expr = OwnedFlatEx::<f32>::from_ops("2**2*invert(3)", &custom_ops).unwrap();
+        #[derive(Clone)]
+        struct SomeF32Operators;
+        impl MakeOperators<f32> for SomeF32Operators {
+            fn make<'a>() -> Vec<Operator<'a, f32>> {
+                vec![
+                    Operator {
+                        repr: "**",
+                        bin_op: Some(BinOp {
+                            apply: |a: f32, b| a.powf(b),
+                            prio: 2,
+                        }),
+                        unary_op: None,
+                    },
+                    Operator {
+                        repr: "*",
+                        bin_op: Some(BinOp {
+                            apply: |a, b| a * b,
+                            prio: 1,
+                        }),
+                        unary_op: None,
+                    },
+                    Operator {
+                        repr: "invert",
+                        bin_op: None,
+                        unary_op: Some(|a: f32| 1.0 / a),
+                    },
+                    Operator {
+                        repr: "None",
+                        bin_op: None,
+                        unary_op: None,
+                    },
+                ]
+            }
+        }
+        let expr = OwnedFlatEx::<f32, SomeF32Operators>::from_str("2**2*invert(3)").unwrap();
         let val = expr.eval(&[]).unwrap();
         assert_float_eq_f32(val, 4.0 / 3.0);
 
-        let expr = FlatEx::<f32>::from_ops("None(5)", &custom_ops);
+        let expr = FlatEx::<f32, SomeF32Operators>::from_str("None(5)");
         assert!(expr.is_err());
 
-        let zero_mapper = Operator {
-            repr: "zer0",
-            bin_op: Some(BinOp {
-                apply: |_: f32, _| 0.0,
-                prio: 2,
-            }),
-            unary_op: Some(|_| 0.0),
-        };
-        let extended_operators = DefaultOperatorsFactory::<f32>::make()
-            .iter()
-            .cloned()
-            .chain(once(zero_mapper))
-            .collect::<Vec<_>>();
-        let expr = FlatEx::<f32>::from_ops("2^2*1/(berti) + zer0(4)", &extended_operators).unwrap();
+        #[derive(Clone)]
+        struct ExtendedF32Operators;
+        impl MakeOperators<f32> for ExtendedF32Operators {
+            fn make<'a>() -> Vec<Operator<'a, f32>> {
+                let zero_mapper = Operator {
+                    repr: "zer0",
+                    bin_op: Some(BinOp {
+                        apply: |_: f32, _| 0.0,
+                        prio: 2,
+                    }),
+                    unary_op: Some(|_| 0.0),
+                };
+                DefaultOperatorsFactory::<f32>::make()
+                    .iter()
+                    .cloned()
+                    .chain(once(zero_mapper))
+                    .collect::<Vec<_>>()
+            }
+        }
+        let expr =
+            FlatEx::<f32, ExtendedF32Operators>::from_str("2^2*1/(berti) + zer0(4)").unwrap();
         let val = expr.eval(&[4.0]).unwrap();
         assert_float_eq_f32(val, 1.0);
     }

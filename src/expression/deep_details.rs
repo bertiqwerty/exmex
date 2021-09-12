@@ -1,16 +1,10 @@
-use crate::{
-    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
-    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
-    operators::{BinOp, Operate, UnaryOp, VecOfUnaryFuncs},
-    parser::{Paren, ParsedToken},
-    ExError, ExResult,
-};
+use crate::{ExError, ExResult, Operator, definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, UnaryOp, VecOfUnaryFuncs}, parser::{Paren, ParsedToken}};
 use std::{fmt::Debug, iter, str::FromStr};
 
-use smallvec::SmallVec;
+use smallvec::{SmallVec};
 
-pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
-    parsed_tokens: &[ParsedToken<'a, T, O>],
+pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug>(
+    parsed_tokens: &[ParsedToken<'a, T>],
 ) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
     for pt in parsed_tokens {
@@ -25,9 +19,9 @@ pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     found_vars
 }
 
-fn is_operator_binary<'a, T: Copy + FromStr, O: Operate<'a, T>>(
-    op: &O,
-    parsed_token_on_the_left: &ParsedToken<'a, T, O>,
+fn is_operator_binary<'a, T: Copy + FromStr>(
+    op: &Operator<'a, T>,
+    parsed_token_on_the_left: &ParsedToken<'a, T>,
 ) -> bool {
     if op.has_bin() && !op.has_unary() {
         true
@@ -56,11 +50,11 @@ fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
 /// number where the unary operator has been applied to. the second element is the number
 /// of tokens that are covered by the unary operator and its argument. Note that a unary
 /// operator can be a composition of multiple functions.
-fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
+fn process_unary<'a, T: Copy + FromStr + Debug>(
     token_idx: usize,
     unary_op: fn(T) -> T,
     repr: &'a str,
-    parsed_tokens: &[ParsedToken<'a, T, O>],
+    parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
 ) -> ExResult<(DeepNode<'a, T>, usize)> {
     // gather subsequent unary operators from the beginning
@@ -94,7 +88,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
     let uop = UnaryOp::from_vec(vec_of_uops);
     match &parsed_tokens[token_idx + n_uops] {
         ParsedToken::Paren(_) => {
-            let (expr, i_forward) = make_expression::<T, O>(
+            let (expr, i_forward) = make_expression::<T>(
                 &parsed_tokens[token_idx + n_uops + 1..],
                 parsed_vars,
                 UnaryOpWithReprs {
@@ -134,14 +128,13 @@ fn process_unary<'a, T: Copy + FromStr + Debug, O: Operate<'a, T>>(
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn make_expression<'a, T, O>(
-    parsed_tokens: &[ParsedToken<'a, T, O>],
+pub fn make_expression<'a, T>(
+    parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
     unary_ops: UnaryOpWithReprs<'a, T>,
 ) -> ExResult<(DeepEx<'a, T>, usize)>
 where
-    T: Copy + FromStr + Debug,
-    O: Operate<'a, T>,
+    T: Copy + FromStr + Debug
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
@@ -181,7 +174,7 @@ where
             ParsedToken::Paren(p) => match p {
                 Paren::Open => {
                     idx_tkn += 1;
-                    let (expr, i_forward) = make_expression::<T, O>(
+                    let (expr, i_forward) = make_expression::<T>(
                         &parsed_tokens[idx_tkn..],
                         parsed_vars,
                         UnaryOpWithReprs::new(),

@@ -3,21 +3,6 @@ use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 
-/// Trait that needs to be implemented by operators. An operator can contain a binary
-/// or a unary operator or both, e.g., `-` in the list of default operators defined in
-/// [`make_default_operators`](make_default_operators).
-pub trait Operate<'a, T> {
-    /// Returns representation of the operator in the string to be parsed.
-    fn repr(&self) -> &'a str;
-    /// Returns the binary operator or an error in case there is no binary operator.
-    fn bin(&self) -> ExResult<BinOp<T>>;
-    /// Returns the unary operator or an error in case there is no unary operator.
-    fn unary(&self) -> ExResult<fn(T) -> T>;
-    /// If a binary operator is contained, this returns true. Otherwise false.
-    fn has_bin(&self) -> bool;
-    /// Analogous to `has_bin`
-    fn has_unary(&self) -> bool;
-}
 fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
     ExError {
         msg: format!("operator {} not available", repr),
@@ -62,20 +47,20 @@ fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a
     wrapped_op.as_ref().ok_or(make_op_not_available_error(repr))
 }
 
-impl<'a, T: Copy> Operate<'a, T> for Operator<'a, T> {
-    fn bin(&self) -> ExResult<BinOp<T>> {
+impl<'a, T: Copy> Operator<'a, T> {
+    pub fn bin(&self) -> ExResult<BinOp<T>> {
         Ok(*unwrap_operator(&self.bin_op, self.repr)?)
     }
-    fn unary(&self) -> ExResult<fn(T) -> T> {
+    pub fn unary(&self) -> ExResult<fn(T) -> T> {
         Ok(*unwrap_operator(&self.unary_op, self.repr)?)
     }
-    fn repr(&self) -> &'a str {
+    pub fn repr(&self) -> &'a str {
         self.repr
     }
-    fn has_bin(&self) -> bool {
+    pub fn has_bin(&self) -> bool {
         self.bin_op.is_some()
     }
-    fn has_unary(&self) -> bool {
+    pub fn has_unary(&self) -> bool {
         self.unary_op.is_some()
     }
 }
@@ -145,17 +130,18 @@ pub struct BinOp<T> {
     pub prio: i32,
 }
 
-pub trait MakeOperators<'a, T: Copy> {
-    fn make() -> Vec<Operator<'a, T>>;
+pub trait MakeOperators<T: Copy> : Clone {
+    fn make<'a>() -> Vec<Operator<'a, T>>;
 }
 
+#[derive(Clone, Debug)]
 pub struct DefaultOperatorsFactory<T: Float>{
     dummy: PhantomData<T>
 }
 
-impl<'a, T: Float> MakeOperators<'a, T> for DefaultOperatorsFactory<T> {
+impl<T: Float> MakeOperators<T> for DefaultOperatorsFactory<T> {
     /// Returns the default operators.
-    fn make() -> Vec<Operator<'a, T>> {
+    fn make<'a>() -> Vec<Operator<'a, T>> {
         vec![
             Operator {
                 repr: "^",

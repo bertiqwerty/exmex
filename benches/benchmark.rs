@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
-use exmex::prelude::*;
+use exmex::{prelude::*, MakeOperators};
 use exmex::{BinOp, Operator, OwnedFlatEx};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
@@ -125,57 +125,63 @@ fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
 }
 
-fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
-    let ops = vec![
-        Operator {
-            repr: "^",
-            bin_op: Some(BinOp {
-                apply: |a: f64, b| a.powf(b),
-                prio: 2,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "*",
-            bin_op: Some(BinOp {
-                apply: |a, b| a * b,
-                prio: 1,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "/",
-            bin_op: Some(BinOp {
-                apply: |a, b| a / b,
-                prio: 1,
-            }),
-            unary_op: None,
-        },
-        Operator {
-            repr: "+",
-            bin_op: Some(BinOp {
-                apply: |a, b| a + b,
-                prio: 0,
-            }),
-            unary_op: Some(|a| a),
-        },
-        Operator {
-            repr: "-",
-            bin_op: Some(BinOp {
-                apply: |a, b| a - b,
-                prio: 0,
-            }),
-            unary_op: Some(|a| (-a)),
-        },
-        Operator {
-            repr: "sin",
-            bin_op: None,
-            unary_op: Some(|a| a.sin()),
-        },
-    ];
+#[derive(Clone)]
+struct OnlyNeededOperators;
+impl MakeOperators<f64> for OnlyNeededOperators {
+    fn make<'a>() -> Vec<Operator<'a, f64>> {
+        vec![
+            Operator {
+                repr: "^",
+                bin_op: Some(BinOp {
+                    apply: |a: f64, b| a.powf(b),
+                    prio: 2,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "*",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a * b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "/",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a / b,
+                    prio: 1,
+                }),
+                unary_op: None,
+            },
+            Operator {
+                repr: "+",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a + b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a| a),
+            },
+            Operator {
+                repr: "-",
+                bin_op: Some(BinOp {
+                    apply: |a, b| a - b,
+                    prio: 0,
+                }),
+                unary_op: Some(|a| (-a)),
+            },
+            Operator {
+                repr: "sin",
+                bin_op: None,
+                unary_op: Some(|a| a.sin()),
+            },
+        ]
+    }
+}
+fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64, OnlyNeededOperators>> {
     strings
         .iter()
-        .map(|expr_str| FlatEx::from_ops(expr_str, &ops).unwrap())
+        .map(|expr_str| FlatEx::<f64, OnlyNeededOperators>::from_str(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
