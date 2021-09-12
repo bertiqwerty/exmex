@@ -36,7 +36,7 @@ The wildcard-import from `prelude` makes only the expression-trait `Express` and
 let value = expr.eval(&[5.3, 0.5])?;
 assert_float_eq_f64(value, 289.75399999999996);
 ```
-The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can create implement custom operators and pass use their factory type as generic argument.
+The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. Besides predefined operators for floats, you can implement custom operators and use their factory type as generic argument as shown in the following example.
 ```rust
 use exmex::prelude::*;
 use exmex::{BinOp, MakeOperators, Operator};
