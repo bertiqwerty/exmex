@@ -137,8 +137,7 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Display for FlatEx<'a, T, OF> {
 }
 
 /// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
-/// Both implement [`Express`](Express). The difference is that
-/// [`OwnedFlatEx`](OwnedFlatEx) can be used without
+/// The difference is that [`OwnedFlatEx`](OwnedFlatEx) can be used without
 /// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a
 /// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
 /// additional allocations are necessary. Evaluation time should be about the same for
