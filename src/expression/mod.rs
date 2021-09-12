@@ -94,8 +94,8 @@ pub trait Express<'a, T: Copy> {
     ///
     /// # Errors
     ///
-    /// * If `self` has been `clear_deepex`ed, we cannot compute the partial derivative and return an [`ExError`](super::result::ExError).
-    /// * If you use none-default operators this might not work as expected. It could return an [`ExError`](super::result::ExError) if
+    /// * If `self` has been [`reduce_memory`](Express::reduce_memory)ed, we cannot compute the partial derivative and return an [`ExError`](super::result::ExError).
+    /// * If you use custom operators this might not work as expected. It could return an [`ExError`](super::result::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
     fn partial(self, var_idx: usize) -> ExResult<Self>
