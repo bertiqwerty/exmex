@@ -64,9 +64,6 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> FlatEx<'a, T, OF> {
 }
 
 impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for FlatEx<'a, T, OF> {
-    /// Flattens a deep expression
-    /// The result does not contain any recursive structures and is faster to evaluate.
-
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
