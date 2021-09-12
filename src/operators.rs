@@ -10,28 +10,6 @@ fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
 }
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
-///
-/// # Examples
-///
-/// ```
-/// use exmex::{BinOp, Operator};
-/// let ops = vec![
-///     Operator {
-///         repr: "-",
-///         bin_op: Some(BinOp {
-///             apply: |a, b| a - b,
-///             prio: 0,
-///         }),
-///         unary_op: Some(|a: f32| (-a)),
-///     },
-///     Operator {
-///         repr: "sin",
-///         bin_op: None,
-///         unary_op: Some(|a: f32| a.sin()),
-///     }
-/// ];
-/// ```
-///
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Copy> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
@@ -130,7 +108,38 @@ pub struct BinOp<T> {
     pub prio: i32,
 }
 
+/// To use custom operators one needs to create a factory that implements this trait. 
+/// In this way, we make sure that we can deserialize expressions with 
+/// [`serde`](docs.rs/serde) based on the type.
+///
+/// # Example
+///
+/// ```rust
+/// use exmex::{BinOp, MakeOperators, Operator};
+/// #[derive(Clone)]
+/// struct SomeOpsFactory;
+/// impl MakeOperators<f32> for SomeOpsFactory { 
+///     fn make<'a>() -> Vec<Operator<'a, f32>> {    
+///         vec![
+///             Operator {
+///                 repr: "-",
+///                 bin_op: Some(BinOp {
+///                     apply: |a, b| a - b,
+///                     prio: 0,
+///                 }),
+///                 unary_op: Some(|a: f32| (-a)),
+///             },
+///             Operator {
+///                 repr: "sin",
+///                 bin_op: None,
+///                 unary_op: Some(|a: f32| a.sin()),
+///             }
+///         ]
+///     }
+/// }
+/// ```
 pub trait MakeOperators<T: Copy> : Clone {
+    /// Function that creates a vector of operators.
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }
 
