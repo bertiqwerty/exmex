@@ -244,7 +244,7 @@
 //!
 //! ## Serialization and Deserialization
 //!
-//! To use [`serde`](https://serde.rs/) you can activate the feature `serde_support`.
+//! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
 //! Currently, this only works for default operators. The implementation
 //! un-parses and re-parses the whole expression.
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
