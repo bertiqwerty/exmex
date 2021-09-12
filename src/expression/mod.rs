@@ -62,8 +62,10 @@ pub trait Express<'a, T: Copy> {
     ///
     fn eval(&self, vars: &[T]) -> ExResult<T>;
 
-    /// This method computes an `Expression` instance that is a partial derivative of
-    /// `self` with default operators as shown in the following example for a [`FlatEx`](super::expression::flat::FlatEx).
+    /// This method computes a new instance that is a partial derivative of
+    /// `self` with default operators.
+    ///
+    /// # Example
     ///
     /// ```rust
     /// # use std::error::Error;
