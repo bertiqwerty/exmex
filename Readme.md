@@ -94,6 +94,12 @@ assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
 To use [`serde`](https://serde.rs/) for you can activate the feature `serde`.
  
 
+## Documentation
+More documentation and examples including integer data types and boolean literals can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
+```
+cargo doc
+```
+
 ## Benchmarks `v0.9.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
@@ -135,12 +141,6 @@ The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https:
 
 Note that Criterion does [not provide the option to simply report the minimum runtime](https://bheisler.github.io/criterion.rs/book/analysis.html). A [talk by
 Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think taking the minimum is a good idea in many cases. See also https://github.com/bheisler/criterion.rs/issues/485.
-
-## Documentation
-More documentation and examples also with integer and boolean data types can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
-```
-cargo doc
-```
 
 ## License
 You as library user can select between MIT and Apache 2.0.
