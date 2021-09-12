@@ -143,7 +143,7 @@ pub trait MakeOperators<T: Copy> : Clone {
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct DefaultOpsFactory<T: Float>{
     dummy: PhantomData<T>
 }
