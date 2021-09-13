@@ -13,7 +13,8 @@
 //! ```
 //! For floats, we have a list of predifined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. The full list is
-//! defined in [`DefaultOpsFactory`](DefaultOpsFactory).
+//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Library users can also create their
+//! own operators as shown below in the section about extendability.
 //!
 //! ## Variables
 //! For variables we can use strings that are not in the list of operators as shown in the following expression.
@@ -80,7 +81,7 @@
 //!     }
 //! }
 //! let to_be_parsed = "19 % 5 / 2 / a";
-//! let expr = FlatEx::<i32, IntegerOpsFactory>::from_str(to_be_parsed)?;
+//! let expr = FlatEx::<_, IntegerOpsFactory>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -139,7 +140,7 @@
 //!     }
 //! }
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<bool, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
+//! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -378,7 +379,7 @@ mod tests {
                     ]
                 }
             }
-            let expr = FlatEx::<u32, BitwiseOpsFactory>::from_str("!(a|b)")?;
+            let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
             let result = expr.eval(&[0, 1])?;
             assert_eq!(result, u32::MAX - 1);
             Ok(())
