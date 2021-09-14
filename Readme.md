@@ -93,7 +93,7 @@ To use [`serde`](https://serde.rs/) activate the feature `serde`.
  
 
 ## Documentation
-More documentation and examples including integer data types and boolean literals can be found under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
+More documentation and examples including integer data types and boolean literals can be found for the latest release under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
 cargo doc
 ```
