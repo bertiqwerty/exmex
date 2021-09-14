@@ -61,25 +61,21 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, MakeOperators, Operator};
-//! #[derive(Clone)]
-//! struct IntegerOpsFactory;
-//! impl MakeOperators<i32> for IntegerOpsFactory {
-//!     fn make<'a>() -> Vec<Operator<'a, i32>> {
-//!         vec![
-//!             Operator {
-//!                 repr: "%",
-//!                 bin_op: Some(BinOp{ apply: |a: i32, b: i32| a % b, prio: 1 }),
-//!                 unary_op: None,
-//!             },
-//!             Operator {
-//!                 repr: "/",
-//!                 bin_op: Some(BinOp{ apply: |a: i32, b: i32| a / b, prio: 1 }),
-//!                 unary_op: None,
-//!             },
-//!         ]
+//! use exmex::{BinOp, MakeOperators, Operator, ops_factory};
+//! ops_factory!(
+//!     IntegerOpsFactory,  // name of the factory type
+//!     i32,                // data type of the operands
+//!     Operator {
+//!         repr: "%",
+//!         bin_op: Some(BinOp{ apply: |a, b| a % b, prio: 1 }),
+//!         unary_op: None,
+//!         },
+//!     Operator {
+//!         repr: "/",
+//!         bin_op: Some(BinOp{ apply: |a, b| a / b, prio: 1 }),
+//!         unary_op: None,
 //!     }
-//! }
+//! );
 //! let to_be_parsed = "19 % 5 / 2 / a";
 //! let expr = FlatEx::<_, IntegerOpsFactory>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
@@ -88,6 +84,37 @@
 //! # }
 //! ```
 //!
+//! One does not have to use the `ops_factory` macro, e.g., if one wants to 
+//! extend an existing list of operators. In this case one has to create a factory 
+//! `struct` and implement the `MakeOperators` trait.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::prelude::*;
+//! use exmex::{BinOp, DefaultOpsFactory, MakeOperators, Operator};
+//! #[derive(Clone)]
+//! struct ExtendedOpsFactory;
+//! impl MakeOperators<f32> for ExtendedOpsFactory {
+//!     fn make<'a>() -> Vec<Operator<'a, f32>> {
+//!         let mut ops = DefaultOpsFactory::<f32>::make();
+//!         ops.push(
+//!             Operator {
+//!                 repr: "invert",
+//!                 bin_op: None,
+//!                 unary_op: Some(|a: f32| 1.0 / a),
+//!             },
+//!         );
+//!         ops
+//!     }
+//! }
+//! let to_be_parsed = "1 / a + invert(a)";
+//! let expr = FlatEx::<_, ExtendedOpsFactory>::from_str(to_be_parsed)?;
+//! assert!((expr.eval(&[3.0])? - 2.0/3.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
 //! ### Operators
 //!
 //! Operators are instances of the struct
@@ -115,30 +142,26 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, MakeOperators, Operator};
-//! #[derive(Clone)]
-//! struct BooleanOpsFactory;
-//! impl MakeOperators<bool> for BooleanOpsFactory {
-//!     fn make<'a>() -> Vec<Operator<'a, bool>> {
-//!         vec![
-//!             Operator {
-//!                 repr: "&&",
-//!                 bin_op: Some(BinOp{ apply: |a: bool, b: bool| a && b, prio: 1 }),
-//!                 unary_op: None,
-//!             },
-//!             Operator {
-//!                 repr: "||",
-//!                 bin_op: Some(BinOp{ apply: |a: bool, b: bool| a || b, prio: 1 }),
-//!                 unary_op: None,
-//!             },
-//!             Operator {
-//!                 repr: "!",
-//!                 bin_op: None,
-//!                 unary_op: Some(|a: bool| !a),
-//!             },
-//!         ]
+//! use exmex::{BinOp, MakeOperators, Operator, ops_factory};
+//! ops_factory!(
+//!     BooleanOpsFactory, 
+//!     bool,
+//!     Operator {
+//!         repr: "&&",
+//!         bin_op: Some(BinOp{ apply: |a, b| a && b, prio: 1 }),
+//!         unary_op: None,
+//!     },
+//!     Operator {
+//!         repr: "||",
+//!         bin_op: Some(BinOp{ apply: |a, b| a || b, prio: 1 }),
+//!         unary_op: None,
+//!     },
+//!     Operator {
+//!         repr: "!",
+//!         bin_op: None,
+//!         unary_op: Some(|a| !a),
 //!     }
-//! }
+//! );
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
 //! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
@@ -263,6 +286,7 @@ use num::Float;
 
 mod definitions;
 mod expression;
+#[macro_use]
 mod operators;
 mod parser;
 mod result;
@@ -358,27 +382,23 @@ mod tests {
             Ok(())
         }
         fn readme_int() -> ExResult<()> {
-            #[derive(Clone)]
-            struct BitwiseOpsFactory;
-            impl MakeOperators<u32> for BitwiseOpsFactory {
-                fn make<'a>() -> Vec<Operator<'a, u32>> {
-                    vec![
-                        Operator {
-                            repr: "|",
-                            bin_op: Some(BinOp {
-                                apply: |a: u32, b: u32| a | b,
-                                prio: 0,
-                            }),
-                            unary_op: None,
-                        },
-                        Operator {
-                            repr: "!",
-                            bin_op: None,
-                            unary_op: Some(|a: u32| !a),
-                        },
-                    ]
+            ops_factory!(
+                BitwiseOpsFactory,
+                u32,
+                Operator {
+                    repr: "|",
+                    bin_op: Some(BinOp {
+                        apply: |a, b| a | b,
+                        prio: 0,
+                    }),
+                    unary_op: None,
+                },
+                Operator {
+                    repr: "!",
+                    bin_op: None,
+                    unary_op: Some(|a| !a),
                 }
-            }
+            );
             let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
             let result = expr.eval(&[0, 1])?;
             assert_eq!(result, u32::MAX - 1);

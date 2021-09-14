@@ -286,3 +286,17 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
         ]
     }
 }
+
+#[macro_export]
+macro_rules! ops_factory {
+    ($name:ident, $T:ty, $( $x:expr ),*) => {
+        #[derive(Clone)]
+        struct $name;
+        impl MakeOperators<$T> for $name {
+            fn make<'a>() -> Vec<Operator<'a, $T>> {
+                vec![$($x,)*]
+            }
+        };
+    }
+}
+

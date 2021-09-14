@@ -42,27 +42,23 @@ Besides predefined operators for floats, you can implement custom operators and 
 ```rust
 use exmex::prelude::*;
 use exmex::{BinOp, MakeOperators, Operator};
-#[derive(Clone)]
-struct BitwiseOpsFactory;
-impl MakeOperators<u32> for BitwiseOpsFactory {
-    fn make<'a>() -> Vec<Operator<'a, u32>> {
-        vec![
-            Operator {
-                repr: "|",
-                bin_op: Some(BinOp {
-                    apply: |a: u32, b: u32| a | b,
-                    prio: 0,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "!",
-                bin_op: None,
-                unary_op: Some(|a: u32| !a),
-            },
-        ]
+ops_factory!(
+    BitwiseOpsFactory,  // name of the struct
+    u32,                // data type of the operands
+    Operator {
+        repr: "|",
+        bin_op: Some(BinOp {
+            apply: |a, b| a | b,
+            prio: 0,
+        }),
+        unary_op: None,
+    },
+    Operator {
+        repr: "!",
+        bin_op: None,
+        unary_op: Some(|a| !a),
     }
-}
+);
 let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
