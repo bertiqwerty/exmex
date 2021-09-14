@@ -89,7 +89,7 @@ assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
 
 ## Serialization and Deserialization
 
-To use [`serde`](https://serde.rs/) for you can activate the feature `serde`.
+To use [`serde`](https://serde.rs/) activate the feature `serde`.
  
 
 ## Documentation
