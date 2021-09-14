@@ -54,7 +54,26 @@
 //! ```
 //! The value returned by [`parse`](parse) implements the [`Express`](Express) trait
 //! and is an instance of the struct [`FlatEx`](FlatEx).
+//!
 //! ## Extendability
+//!
+//! How to use custom operators as well as custom data types of the operands even with 
+//! non-numeric literals is described in the following sub-sections.
+//!
+//! ### Custom Operators
+//!
+//! Operators are instances of the struct
+//! [`Operator`](Operator) that has its representation in the field
+//! [`repr`](Operator::repr), a binary and a unary operator of
+//! type [`Option<BinOp<T>>`](Operator::bin_op) and
+//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as
+//! members. [`BinOp`](BinOp)
+//! contains in addition to the function pointer [`apply`](BinOp::apply) of type `fn(T, T) -> T` an
+//! integer [`prio`](BinOp::prio). Operators
+//! can be both, binary and unary. See, e.g.,  `-` defined in the list of default
+//! operators. Note that we expect a unary operator to be always on the left of a
+//! number.
+//!
 //! Library users can define their own operator factory as shown in the following.
 //! ```rust
 //! # use std::error::Error;
@@ -84,9 +103,9 @@
 //! # }
 //! ```
 //!
-//! One does not have to use the `ops_factory` macro, e.g., if one wants to 
-//! extend an existing list of operators. In this case one has to create a factory 
-//! `struct` and implement the [`MakeOperators`](MakeOperators) trait.
+//! To extend an existing list of operators, the macro [`ops_factory`](ops_factory) is not 
+//! sufficient. In this case one has to create a factory struct and implement the 
+//! [`MakeOperators`](MakeOperators) trait with a little boilerplate code.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -115,21 +134,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! ### Operators
-//!
-//! Operators are instances of the struct
-//! [`Operator`](Operator) that has its representation in the field
-//! [`repr`](Operator::repr), a binary and a unary operator of
-//! type [`Option<BinOp<T>>`](Operator::bin_op) and
-//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as
-//! members. [`BinOp`](BinOp)
-//! contains in addition to the function pointer [`apply`](BinOp::apply) of type `fn(T, T) -> T` an
-//! integer [`prio`](BinOp::prio). Operators
-//! can be both, binary and unary. See, e.g.,  `-` defined in the list of default
-//! operators. Note that we expect a unary operator to be always on the left of a
-//! number.
-//!
-//! ### Data Types of Numbers
+//! ### Custom Data Types of Numbers
 //!
 //! You can use any type that implements [`Copy`](core::marker::Copy) and
 //! [`FromStr`](std::str::FromStr). In case the representation of your data type in the

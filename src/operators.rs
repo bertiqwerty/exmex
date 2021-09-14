@@ -156,7 +156,7 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
             Operator {
                 repr: "^",
                 bin_op: Some(BinOp {
-                    apply: |a: T, b| a.powf(b),
+                    apply: |a, b| a.powf(b),
                     prio: 2,
                 }),
                 unary_op: None,
@@ -183,7 +183,7 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
                     apply: |a, b| a + b,
                     prio: 0,
                 }),
-                unary_op: Some(|a: T| a),
+                unary_op: Some(|a| a),
             },
             Operator {
                 repr: "-",
@@ -191,110 +191,135 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
                     apply: |a, b| a - b,
                     prio: 0,
                 }),
-                unary_op: Some(|a: T| (-a)),
+                unary_op: Some(|a| (-a)),
             },
             Operator {
                 repr: "signum",
                 bin_op: None,
-                unary_op: Some(|a: T| a.signum()),
+                unary_op: Some(|a| a.signum()),
             },
             Operator {
                 repr: "sin",
                 bin_op: None,
-                unary_op: Some(|a: T| a.sin()),
+                unary_op: Some(|a| a.sin()),
             },
             Operator {
                 repr: "cos",
                 bin_op: None,
-                unary_op: Some(|a: T| a.cos()),
+                unary_op: Some(|a| a.cos()),
             },
             Operator {
                 repr: "tan",
                 bin_op: None,
-                unary_op: Some(|a: T| a.tan()),
+                unary_op: Some(|a| a.tan()),
             },
             Operator {
                 repr: "asin",
                 bin_op: None,
-                unary_op: Some(|a: T| a.asin()),
+                unary_op: Some(|a| a.asin()),
             },
             Operator {
                 repr: "acos",
                 bin_op: None,
-                unary_op: Some(|a: T| a.acos()),
+                unary_op: Some(|a| a.acos()),
             },
             Operator {
                 repr: "atan",
                 bin_op: None,
-                unary_op: Some(|a: T| a.atan()),
+                unary_op: Some(|a| a.atan()),
             },
             Operator {
                 repr: "sinh",
                 bin_op: None,
-                unary_op: Some(|a: T| a.sinh()),
+                unary_op: Some(|a| a.sinh()),
             },
             Operator {
                 repr: "cosh",
                 bin_op: None,
-                unary_op: Some(|a: T| a.cosh()),
+                unary_op: Some(|a| a.cosh()),
             },
             Operator {
                 repr: "tanh",
                 bin_op: None,
-                unary_op: Some(|a: T| a.tanh()),
+                unary_op: Some(|a| a.tanh()),
             },
             Operator {
                 repr: "floor",
                 bin_op: None,
-                unary_op: Some(|a: T| a.floor()),
+                unary_op: Some(|a| a.floor()),
             },
             Operator {
                 repr: "ceil",
                 bin_op: None,
-                unary_op: Some(|a: T| a.ceil()),
+                unary_op: Some(|a| a.ceil()),
             },
             Operator {
                 repr: "trunc",
                 bin_op: None,
-                unary_op: Some(|a: T| a.trunc()),
+                unary_op: Some(|a| a.trunc()),
             },
             Operator {
                 repr: "fract",
                 bin_op: None,
-                unary_op: Some(|a: T| a.fract()),
+                unary_op: Some(|a| a.fract()),
             },
             Operator {
                 repr: "exp",
                 bin_op: None,
-                unary_op: Some(|a: T| a.exp()),
+                unary_op: Some(|a| a.exp()),
             },
             Operator {
                 repr: "sqrt",
                 bin_op: None,
-                unary_op: Some(|a: T| a.sqrt()),
+                unary_op: Some(|a| a.sqrt()),
             },
             Operator {
                 repr: "log",
                 bin_op: None,
-                unary_op: Some(|a: T| a.ln()),
+                unary_op: Some(|a| a.ln()),
             },
             Operator {
                 repr: "log2",
                 bin_op: None,
-                unary_op: Some(|a: T| a.log2()),
+                unary_op: Some(|a| a.log2()),
             },
         ]
     }
 }
 
+/// This macro creates an operator factory struct that implements the trait 
+/// [`MakeOperators`](MakeOperators). You have to pass the name of the struct
+/// as first, the type of the operands as seconds, and the [`Operator`](Operator)s as
+/// third to n-th argument.
+///
+/// # Example
+///
+/// ```
+/// use exmex::{MakeOperators, Operator, ops_factory};
+/// ops_factory!(
+///     MyOpsFactory,  // name of struct
+///     f32,           // data type of operands
+///     Operator {
+///         repr: "log",
+///         bin_op: None,
+///         unary_op: Some(|a| a.ln()),
+///     },
+///     Operator {
+///         repr: "log2",
+///         bin_op: None,
+///         unary_op: Some(|a| a.log2()),
+///     }
+/// );
+/// ```
+/// creates a struct that can be used as in [`FlatEx<_, MyOpsFactory>`](crate::FlatEx).
 #[macro_export]
 macro_rules! ops_factory {
-    ($name:ident, $T:ty, $( $x:expr ),*) => {
+    ($name:ident, $T:ty, $( $ops:expr ),*) => {
         #[derive(Clone)]
         struct $name;
         impl MakeOperators<$T> for $name {
             fn make<'a>() -> Vec<Operator<'a, $T>> {
-                vec![$($x,)*]
+                vec![$($ops,)*]
             }
         };
     }
