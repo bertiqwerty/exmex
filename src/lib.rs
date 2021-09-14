@@ -86,7 +86,7 @@
 //!
 //! One does not have to use the `ops_factory` macro, e.g., if one wants to 
 //! extend an existing list of operators. In this case one has to create a factory 
-//! `struct` and implement the `MakeOperators` trait.
+//! `struct` and implement the [`MakeOperators`](MakeOperators) trait.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
