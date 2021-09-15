@@ -2,7 +2,11 @@ use std::fmt::Debug;
 
 use smallvec::{smallvec, SmallVec};
 
-use crate::{ExError, ExResult, definitions::N_NODES_ON_STACK, operators::{BinOp, UnaryOp}};
+use crate::{
+    definitions::N_NODES_ON_STACK,
+    operators::{BinOp, UnaryOp},
+    ExError, ExResult,
+};
 
 use super::deep::{DeepEx, DeepNode, ExprIdxVec};
 
