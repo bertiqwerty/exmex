@@ -321,7 +321,7 @@ macro_rules! ops_factory {
             fn make<'a>() -> Vec<Operator<'a, $T>> {
                 vec![$($ops,)*]
             }
-        };
+        }
     }
 }
 
