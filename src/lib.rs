@@ -1,6 +1,8 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.10.0")]
 //! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator
 //! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
+//!
+//! The following snippet shows how to evaluate a string.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -17,7 +19,7 @@
 //! own operators as shown below in the section about extendability.
 //!
 //! ## Variables
-//! For variables we can use strings that are not in the list of operators as shown in the following expression.
+//! To define variables we can use strings that are not in the list of operators as shown in the following expression.
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
 //! regular expression
 //! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
@@ -63,18 +65,13 @@
 //! ### Custom Operators
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator) that has its representation in the field
-//! [`repr`](Operator::repr), a binary and a unary operator of
-//! type [`Option<BinOp<T>>`](Operator::bin_op) and
-//! [`Option<fn(T) -> T>`](Operator::unary_op), respectively, as
-//! members. [`BinOp`](BinOp)
-//! contains in addition to the function pointer [`apply`](BinOp::apply) of type `fn(T, T) -> T` an
-//! integer [`prio`](BinOp::prio). Operators
-//! can be both, binary and unary. See, e.g.,  `-` defined in the list of default
-//! operators. Note that we expect a unary operator to be always on the left of a
-//! number.
+//! [`Operator`](Operator). An operator's representation in the string-to-be-parsed is defined in the field
+//! [`repr`](Operator::repr). Further, operator instances define a binary and a unary operator, since an operator 
+//! representation can correspond to both such as `-` or `+`. Note that we expect a unary operator to be always 
+//! on the left of a number.
 //!
-//! Library users can define their own operator factory as shown in the following.
+//! To make serialization via [`serde`](https://serde.rs/) possible, operators need to be created by factories as 
+//! shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -178,7 +175,7 @@
 //! ## Partial Derivatives
 //!
 //! For default operators, expressions can be transformed into their partial derivatives
-//! again represented by expressions.
+//! again represented by expressions. To this end, there exists the method [`partial`](Express::partial).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -205,8 +202,8 @@
 //! use exmex::prelude::*;
 //! use exmex::ExResult;
 //! fn create_expr<'a>() -> ExResult<FlatEx::<'a, f64>> {
-//! //       |                          |
-//! //       lifetime parameter necessary
+//! //              |                          |
+//! //              lifetime parameter necessary
 //!
 //!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
 //!     exmex::parse::<f64>(to_be_parsed)
