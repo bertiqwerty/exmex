@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, iter::repeat};
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 use exmex::OwnedFlatEx;
-use exmex::{ops_factory, prelude::*, BinOp, Operator};
+use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
