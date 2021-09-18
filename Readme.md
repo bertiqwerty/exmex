@@ -43,21 +43,16 @@ Besides predefined operators for floats, you can implement custom operators and 
 use exmex::prelude::*;
 use exmex::{BinOp, MakeOperators, Operator};
 ops_factory!(
-    BitwiseOpsFactory,  // name of the struct
-    u32,                // data type of the operands
-    Operator {
-        repr: "|",
-        bin_op: Some(BinOp {
+    BitwiseOpsFactory,
+    u32,
+    Operator::make_bin(
+        "|",
+        BinOp {
             apply: |a, b| a | b,
             prio: 0,
-        }),
-        unary_op: None,
-    },
-    Operator {
-        repr: "!",
-        bin_op: None,
-        unary_op: Some(|a| !a),
-    }
+        }
+    ),
+    Operator::make_unary("!", |a| !a)
 );
 let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
