@@ -207,9 +207,10 @@ pub fn prioritized_indices<T: Copy + Debug>(
     nodes: &[DeepNode<T>],
 ) -> ExprIdxVec {
     let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
-        (DeepNode::Num(_), DeepNode::Num(_)) => {
+        (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
             let prio_inc = 5;
             &bin_ops[bin_op_idx].prio * 10 + prio_inc
+            
         }
         _ => &bin_ops[bin_op_idx].prio * 10,
     };

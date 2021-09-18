@@ -69,6 +69,7 @@ pub fn flatten_vecs<T: Copy + Debug>(
             let prio_adapted_bin_op = BinOp {
                 apply: deep_expr.bin_ops().ops[node_idx].apply,
                 prio: deep_expr.bin_ops().ops[node_idx].prio + prio_offset,
+                is_commutative: deep_expr.bin_ops().ops[node_idx].is_commutative
             };
             flat_ops.push(FlatOp {
                 bin_op: prio_adapted_bin_op,

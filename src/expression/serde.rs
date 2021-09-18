@@ -166,6 +166,7 @@ fn test_ser_de_non_float() {
                         BinOp {
                             apply: |a: i32, b: i32| a % b,
                             prio: 1,
+                            is_commutative: false
                         },
                     ),
                     Operator::make_bin(
@@ -173,6 +174,7 @@ fn test_ser_de_non_float() {
                         BinOp {
                             apply: |a: i32, b: i32| a / b,
                             prio: 1,
+                            is_commutative: false
                         },
                     ),
                 ]

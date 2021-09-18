@@ -162,6 +162,9 @@ pub struct BinOp<T> {
     /// has a higher priority than `+`. However, in Exmex land you could also define
     /// this differently.
     pub prio: i32,
+    /// True if this is a commutative operator such as `*` or `+`, false if not such as `-`, `/`, `^`.
+    /// Commutativity is used to compile of sub-expressions of numbers correctly.
+    pub is_commutative: bool,
 }
 
 /// To use custom operators one needs to create a factory that implements this trait.
@@ -182,6 +185,7 @@ pub struct BinOp<T> {
 ///                 BinOp {
 ///                     apply: |a, b| a - b,
 ///                     prio: 0,
+///                     is_commutative: false,
 ///                 },
 ///                 |a| (-a),
 ///             ),
@@ -209,21 +213,24 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
                 "^",
                 BinOp {
                     apply: |a, b| a.powf(b),
-                    prio: 2,
+                    prio: 4,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
                 "*",
                 BinOp {
                     apply: |a, b| a * b,
-                    prio: 1,
+                    prio: 2,
+                    is_commutative: true,
                 },
             ),
             Operator::make_bin(
                 "/",
                 BinOp {
                     apply: |a, b| a / b,
-                    prio: 1,
+                    prio: 3,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin_unary(
@@ -231,6 +238,7 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
                 BinOp {
                     apply: |a, b| a + b,
                     prio: 0,
+                    is_commutative: true,
                 },
                 |a| a,
             ),
@@ -238,7 +246,8 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
                 "-",
                 BinOp {
                     apply: |a, b| a - b,
-                    prio: 0,
+                    prio: 1,
+                    is_commutative: false,
                 },
                 |a| -a,
             ),

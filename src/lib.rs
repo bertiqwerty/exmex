@@ -83,11 +83,11 @@
 //!     i32,                // data type of the operands
 //!     Operator::make_bin(
 //!         "%",
-//!         BinOp{ apply: |a, b| a % b, prio: 1 }
+//!         BinOp{ apply: |a, b| a % b, prio: 1, is_commutative: false }
 //!     ),
 //!     Operator::make_bin(
 //!         "/",
-//!         BinOp{ apply: |a, b| a / b, prio: 1 }
+//!         BinOp{ apply: |a, b| a / b, prio: 1, is_commutative: false }
 //!     )
 //! );
 //! let to_be_parsed = "19 % 5 / 2 / a";
@@ -106,7 +106,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, DefaultOpsFactory, MakeOperators, Operator};
+//! use exmex::{DefaultOpsFactory, MakeOperators, Operator};
 //! #[derive(Clone)]
 //! struct ExtendedOpsFactory;
 //! impl MakeOperators<f32> for ExtendedOpsFactory {
@@ -144,11 +144,11 @@
 //!     bool,
 //!     Operator::make_bin(
 //!         "&&",
-//!         BinOp{ apply: |a, b| a && b, prio: 1 }
+//!         BinOp{ apply: |a, b| a && b, prio: 1, is_commutative: true }
 //!     ),
 //!     Operator::make_bin(
 //!         "||",
-//!         BinOp{ apply: |a, b| a || b, prio: 1 }
+//!         BinOp{ apply: |a, b| a || b, prio: 1, is_commutative: true }
 //!     ),
 //!     Operator::make_unary("!", |a| !a)
 //! );
@@ -333,6 +333,7 @@ mod tests {
     use rand::Rng;
     use smallvec::{smallvec, SmallVec};
 
+    use crate::expression::deep::DeepEx;
     use crate::prelude::*;
     use crate::{
         eval_str,
@@ -380,6 +381,7 @@ mod tests {
                     BinOp {
                         apply: |a, b| a | b,
                         prio: 0,
+                        is_commutative: true
                     }
                 ),
                 Operator::make_unary("!", |a| !a)
@@ -550,6 +552,7 @@ mod tests {
                         BinOp {
                             apply: |a: f32, b| a.powf(b),
                             prio: 2,
+                            is_commutative: false
                         },
                     ),
                     Operator::make_bin(
@@ -557,6 +560,7 @@ mod tests {
                         BinOp {
                             apply: |a, b| a * b,
                             prio: 1,
+                            is_commutative: true
                         },
                     ),
                     Operator::make_unary("invert", |a: f32| 1.0 / a),
@@ -576,6 +580,7 @@ mod tests {
                     BinOp {
                         apply: |_: f32, _| 0.0,
                         prio: 2,
+                        is_commutative: true
                     },
                     |_| 0.0,
                 );
@@ -845,7 +850,7 @@ mod tests {
     fn test_constants() {
         assert_eq!(eval_str::<f64>("PI").unwrap(), std::f64::consts::PI);
         assert_eq!(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
-        let expr = parse::<f64>("180 * x / PI").unwrap();
+        let expr = parse::<f64>("x / PI * 180").unwrap();
         assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 90.0);
         
         let expr = parse::<f32>("E ^ x").unwrap();
@@ -854,6 +859,22 @@ mod tests {
         let expr = parse::<f32>("E ^ Erwin");
         // The E of the variable Erwin will be parsed as constant E
         assert!(expr.is_err());
+    }
+
+    #[test]
+    fn test_compile() {
+        let expr = DeepEx::<f64>::from_str_float("1.0 * 3 * 2 * x / 2 / 3").unwrap();
+        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
+        let expr = DeepEx::<f64>::from_str_float("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))").unwrap();
+        assert_eq!("{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))", expr.unparse_raw());
+        let expr = DeepEx::<f64>::from_str_float("x + 1 - 2").unwrap();
+        assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
+        let expr = DeepEx::<f64>::from_str_float("x - 1 + 2").unwrap();
+        assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
+        let expr = DeepEx::<f64>::from_str_float("x * 2 / 3").unwrap();
+        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0/3.0);
+        let expr = DeepEx::<f64>::from_str_float("x / 2 / 3").unwrap();
+        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0/3.0);
 
     }
 }

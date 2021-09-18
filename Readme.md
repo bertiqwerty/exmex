@@ -50,6 +50,7 @@ ops_factory!(
         BinOp {
             apply: |a, b| a | b,
             prio: 0,
+            is_commutative: true,
         }
     ),
     Operator::make_unary("!", |a| !a)

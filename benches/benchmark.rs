@@ -131,21 +131,24 @@ ops_factory!(
         "^",
         BinOp {
             apply: |a: f64, b| a.powf(b),
-            prio: 2,
+            prio: 4,
+            is_commutative: false
         }
     ),
     Operator::make_bin(
         "*",
         BinOp {
             apply: |a, b| a * b,
-            prio: 1,
+            prio: 2,
+            is_commutative: true
         }
     ),
     Operator::make_bin(
         "/",
         BinOp {
             apply: |a, b| a / b,
-            prio: 1,
+            prio: 3,
+            is_commutative: false
         }
     ),
     Operator::make_bin(
@@ -153,13 +156,15 @@ ops_factory!(
         BinOp {
             apply: |a, b| a + b,
             prio: 0,
+            is_commutative: true
         }
     ),
     Operator::make_bin(
         "-",
         BinOp {
             apply: |a, b| a - b,
-            prio: 0,
+            prio: 1,
+            is_commutative: false
         }
     ),
     Operator::make_unary("sin", |a| a.sin())

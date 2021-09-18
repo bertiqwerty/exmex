@@ -3,8 +3,8 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::{
-        deep_details::{self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf}
+    expression::deep_details::{
+        self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf,
     },
     operators::{BinOp, DefaultOpsFactory, MakeOperators, UnaryOp},
     parser, ExError, ExResult, Operator,
@@ -24,7 +24,11 @@ pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
-pub fn parse<'a, T, F>(text: &'a str, ops: &[Operator<'a, T>], is_numeric: F) -> ExResult<DeepEx<'a, T>>
+pub fn parse<'a, T, F>(
+    text: &'a str,
+    ops: &[Operator<'a, T>],
+    is_numeric: F,
+) -> ExResult<DeepEx<'a, T>>
 where
     T: Copy + Debug + FromStr,
     <T as FromStr>::Err: Debug,
@@ -161,14 +165,20 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         let prio_indices = deep_details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
         let mut num_inds = prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
+
+        let mut already_declined: SmallVec<[bool; N_NODES_ON_STACK]> =
+            smallvec![false; self.nodes.len()];
+
         for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
             let num_idx = num_inds[i];
             let node_1 = &self.nodes[num_idx];
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
+                if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
                 let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(*num_1, *num_2);
                 self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                 self.nodes.remove(num_idx + 1);
+                already_declined.remove(num_idx + 1);
                 // reduce indices after removed position
                 for num_idx_after in num_inds.iter_mut() {
                     if *num_idx_after > num_idx {
@@ -176,8 +186,10 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
                     }
                 }
                 used_prio_indices.push(bin_op_idx);
+            }
             } else {
-                break;
+                already_declined[num_idx] = true;
+                already_declined[num_idx + 1] = true;
             }
         }
 
@@ -444,7 +456,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         DeepEx::from_ops(text, &ops)
     }
 
-
     pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -506,7 +517,6 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
         }
         Ok(self.unary_op.op.apply(numbers[0]))
     }
-
 }
 
 impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
@@ -575,7 +585,7 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
 #[cfg(test)]
 use {
     crate::{
-        expression::{partial_derivatives::partial_deepex},
+        expression::partial_derivatives::partial_deepex,
         util::{assert_float_eq, assert_float_eq_f64},
     },
     rand::{thread_rng, Rng},
@@ -655,7 +665,6 @@ fn test_partial_finite() {
                 .enumerate()
                 .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
                 .collect();
-
 
             let f0 = dut.eval(&x0s).unwrap();
             let f1 = dut.eval(&x1s).unwrap();
@@ -742,7 +751,8 @@ fn test_deep_compile() {
 #[test]
 fn test_deep_compile_2() {
     let deepex =
-        DeepEx::<f64>::from_str_float("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
+        DeepEx::<f64>::from_str_float("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))")
+            .unwrap();
     println!("{}", deepex);
     assert_eq!(
         format!("{}", deepex),
