@@ -767,32 +767,32 @@ mod tests {
         assert_float_eq_f64(eval_str("sin(3.14159265358979)").unwrap(), 0.0);
         assert_float_eq_f64(eval_str("0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
         assert_float_eq_f64(eval_str("-sin(3.14159265358979 / 2)").unwrap(), -1.0);
-        assert_float_eq_f64(eval_str("3-(-1+sin(1.5707963267948966)*2)").unwrap(), 2.0);
+        assert_float_eq_f64(eval_str("3-(-1+sin(PI/2)*2)").unwrap(), 2.0);
         assert_float_eq_f64(
             eval_str("3-(-1+sin(cos(-3.14159265358979))*2)").unwrap(),
             5.6829419696157935,
         );
         assert_float_eq_f64(
-            eval_str("-(-1+((-3.14159265358979)/5)*2)").unwrap(),
+            eval_str("-(-1+((-PI)/5)*2)").unwrap(),
             2.256637061435916,
         );
         assert_float_eq_f64(eval_str("((2-4)/5)*2").unwrap(), -0.8);
-        assert_float_eq_f64(eval_str("-(-1+(sin(-3.14159265358979)/5)*2)").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str("-(-1+(sin(-PI)/5)*2)").unwrap(), 1.0);
         assert_float_eq_f64(
-            eval_str("-(-1+sin(cos(-3.14159265358979)/5)*2)").unwrap(),
+            eval_str("-(-1+sin(cos(-PI)/5)*2)").unwrap(),
             1.3973386615901224,
         );
-        assert_float_eq_f64(eval_str("-cos(3.14159265358979)").unwrap(), 1.0);
+        assert_float_eq_f64(eval_str("-cos(PI)").unwrap(), 1.0);
         assert_float_eq_f64(
-            eval_str("1+sin(-cos(-3.14159265358979))").unwrap(),
+            eval_str("1+sin(-cos(-PI))").unwrap(),
             1.8414709848078965,
         );
         assert_float_eq_f64(
-            eval_str("-1+sin(-cos(-3.14159265358979))").unwrap(),
+            eval_str("-1+sin(-cos(-PI))").unwrap(),
             -0.1585290151921035,
         );
         assert_float_eq_f64(
-            eval_str("-(-1+sin(-cos(-3.14159265358979)/5)*2)").unwrap(),
+            eval_str("-(-1+sin(-cos(-PI)/5)*2)").unwrap(),
             0.6026613384098776,
         );
         assert_float_eq_f64(eval_str("sin(-(2))*2").unwrap(), -1.8185948536513634);
@@ -840,5 +840,20 @@ mod tests {
         let serialized = serde_json::to_string(&flatex).unwrap();
         let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
         assert_eq!(s, format!("{}", deserialized));
+    }
+    #[test]
+    fn test_constants() {
+        assert_eq!(eval_str::<f64>("PI").unwrap(), std::f64::consts::PI);
+        assert_eq!(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
+        let expr = parse::<f64>("180 * x / PI").unwrap();
+        assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 90.0);
+        
+        let expr = parse::<f32>("E ^ x").unwrap();
+        assert_float_eq_f32(expr.eval(&[5.0]).unwrap(), 1f32.exp().powf(5.0));
+
+        let expr = parse::<f32>("E ^ Erwin");
+        // The E of the variable Erwin will be parsed as constant E
+        assert!(expr.is_err());
+
     }
 }

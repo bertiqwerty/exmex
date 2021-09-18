@@ -19,6 +19,8 @@ pub struct Operator<'a, T: Copy> {
     /// Unary operator that does not have an explicit priority. Unary operators have
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
     unary_op: Option<fn(T) -> T>,
+    /// An operator can also be constant.
+    constant: Option<T>,
 }
 
 fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
@@ -26,21 +28,41 @@ fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a
 }
 
 impl<'a, T: Copy> Operator<'a, T> {
-    /// Creates a binary operator.
-    pub fn make_bin(repr: &'a str, bin_op: BinOp<T>) -> Operator<'a, T> {
+    fn new(
+        repr: &'a str,
+        bin_op: Option<BinOp<T>>,
+        unary_op: Option<fn(T) -> T>,
+        constant: Option<T>,
+    ) -> Operator<'a, T> {
+        if constant.is_some() {
+            if bin_op.is_some() {
+                panic!(
+                    "Bug! Operators cannot be constant and binary. Check '{}'",
+                    repr
+                );
+            }
+            if unary_op.is_some() {
+                panic!(
+                    "Bug! Operators cannot be constant and unary. Check '{}'.",
+                    repr
+                );
+            }
+        }
         Operator {
             repr,
-            bin_op: Some(bin_op),
-            unary_op: None,
+            bin_op,
+            unary_op,
+            constant,
         }
+    }
+
+    /// Creates a binary operator.
+    pub fn make_bin(repr: &'a str, bin_op: BinOp<T>) -> Operator<'a, T> {
+        Operator::new(repr, Some(bin_op), None, None)
     }
     /// Creates a unary operator.
     pub fn make_unary(repr: &'a str, unary_op: fn(T) -> T) -> Operator<'a, T> {
-        Operator {
-            repr,
-            bin_op: None,
-            unary_op: Some(unary_op),
-        }
+        Operator::new(repr, None, Some(unary_op), None)
     }
     /// Creates an operator that is either unary or binary based on its positioning in the string to be parsed.
     /// For instance, `-` as defined in [`DefaultOpsFactory`](DefaultOpsFactory) is unary in `-x` and binary
@@ -50,11 +72,11 @@ impl<'a, T: Copy> Operator<'a, T> {
         bin_op: BinOp<T>,
         unary_op: fn(T) -> T,
     ) -> Operator<'a, T> {
-        Operator {
-            repr,
-            bin_op: Some(bin_op),
-            unary_op: Some(unary_op),
-        }
+        Operator::new(repr, Some(bin_op), Some(unary_op), None)
+    }
+    /// Creates a constant operator. If an operator is constant it cannot be additionally binary or unary.
+    pub fn make_constant(repr: &'a str, constant: T) -> Operator<'a, T> {
+        Operator::new(repr, None, None, Some(constant))
     }
 
     pub fn bin(&self) -> ExResult<BinOp<T>> {
@@ -71,6 +93,9 @@ impl<'a, T: Copy> Operator<'a, T> {
     }
     pub fn has_unary(&self) -> bool {
         self.unary_op.is_some()
+    }
+    pub fn constant(&self) -> Option<T> {
+        self.constant
     }
 }
 
@@ -180,136 +205,63 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
     /// Returns the default operators.
     fn make<'a>() -> Vec<Operator<'a, T>> {
         vec![
-            Operator {
-                repr: "^",
-                bin_op: Some(BinOp {
+            Operator::make_bin(
+                "^",
+                BinOp {
                     apply: |a, b| a.powf(b),
                     prio: 2,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "*",
-                bin_op: Some(BinOp {
+                },
+            ),
+            Operator::make_bin(
+                "*",
+                BinOp {
                     apply: |a, b| a * b,
                     prio: 1,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "/",
-                bin_op: Some(BinOp {
+                },
+            ),
+            Operator::make_bin(
+                "/",
+                BinOp {
                     apply: |a, b| a / b,
                     prio: 1,
-                }),
-                unary_op: None,
-            },
-            Operator {
-                repr: "+",
-                bin_op: Some(BinOp {
+                },
+            ),
+            Operator::make_bin_unary(
+                "+",
+                BinOp {
                     apply: |a, b| a + b,
                     prio: 0,
-                }),
-                unary_op: Some(|a| a),
-            },
-            Operator {
-                repr: "-",
-                bin_op: Some(BinOp {
+                },
+                |a| a,
+            ),
+            Operator::make_bin_unary(
+                "-",
+                BinOp {
                     apply: |a, b| a - b,
                     prio: 0,
-                }),
-                unary_op: Some(|a| (-a)),
-            },
-            Operator {
-                repr: "signum",
-                bin_op: None,
-                unary_op: Some(|a| a.signum()),
-            },
-            Operator {
-                repr: "sin",
-                bin_op: None,
-                unary_op: Some(|a| a.sin()),
-            },
-            Operator {
-                repr: "cos",
-                bin_op: None,
-                unary_op: Some(|a| a.cos()),
-            },
-            Operator {
-                repr: "tan",
-                bin_op: None,
-                unary_op: Some(|a| a.tan()),
-            },
-            Operator {
-                repr: "asin",
-                bin_op: None,
-                unary_op: Some(|a| a.asin()),
-            },
-            Operator {
-                repr: "acos",
-                bin_op: None,
-                unary_op: Some(|a| a.acos()),
-            },
-            Operator {
-                repr: "atan",
-                bin_op: None,
-                unary_op: Some(|a| a.atan()),
-            },
-            Operator {
-                repr: "sinh",
-                bin_op: None,
-                unary_op: Some(|a| a.sinh()),
-            },
-            Operator {
-                repr: "cosh",
-                bin_op: None,
-                unary_op: Some(|a| a.cosh()),
-            },
-            Operator {
-                repr: "tanh",
-                bin_op: None,
-                unary_op: Some(|a| a.tanh()),
-            },
-            Operator {
-                repr: "floor",
-                bin_op: None,
-                unary_op: Some(|a| a.floor()),
-            },
-            Operator {
-                repr: "ceil",
-                bin_op: None,
-                unary_op: Some(|a| a.ceil()),
-            },
-            Operator {
-                repr: "trunc",
-                bin_op: None,
-                unary_op: Some(|a| a.trunc()),
-            },
-            Operator {
-                repr: "fract",
-                bin_op: None,
-                unary_op: Some(|a| a.fract()),
-            },
-            Operator {
-                repr: "exp",
-                bin_op: None,
-                unary_op: Some(|a| a.exp()),
-            },
-            Operator {
-                repr: "sqrt",
-                bin_op: None,
-                unary_op: Some(|a| a.sqrt()),
-            },
-            Operator {
-                repr: "log",
-                bin_op: None,
-                unary_op: Some(|a| a.ln()),
-            },
-            Operator {
-                repr: "log2",
-                bin_op: None,
-                unary_op: Some(|a| a.log2()),
-            },
+                },
+                |a| -a,
+            ),
+            Operator::make_unary("signum", |a| a.signum()),
+            Operator::make_unary("sin", |a| a.sin()),
+            Operator::make_unary("cos", |a| a.cos()),
+            Operator::make_unary("tan", |a| a.tan()),
+            Operator::make_unary("asin", |a| a.asin()),
+            Operator::make_unary("acos", |a| a.acos()),
+            Operator::make_unary("atan", |a| a.atan()),
+            Operator::make_unary("sinh", |a| a.sinh()),
+            Operator::make_unary("cosh", |a| a.cosh()),
+            Operator::make_unary("tanh", |a| a.tanh()),
+            Operator::make_unary("floor", |a| a.floor()),
+            Operator::make_unary("ceil", |a| a.ceil()),
+            Operator::make_unary("trunc", |a| a.trunc()),
+            Operator::make_unary("fract", |a| a.fract()),
+            Operator::make_unary("exp", |a| a.exp()),
+            Operator::make_unary("sqrt", |a| a.sqrt()),
+            Operator::make_unary("log", |a| a.ln()),
+            Operator::make_unary("log2", |a| a.log2()),
+            Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
+            Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
         ]
     }
 }

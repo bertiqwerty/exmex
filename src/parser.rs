@@ -1,5 +1,5 @@
 use crate::definitions::N_NODES_ON_STACK;
-use crate::{ExError, ExResult, {operators::Operator}};
+use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -59,17 +59,15 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn tokenize_and_analyze<
-    'a,
-    T: Copy + FromStr + Debug,
-    F: Fn(&'a str) -> Option<&'a str>,
->(
+pub fn tokenize_and_analyze<'a, T, F>(
     text: &'a str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
 ) -> ExResult<SmallVec<[ParsedToken<'a, T>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
+    T: Copy + FromStr + Debug,
+    F: Fn(&'a str) -> Option<&'a str>,
 {
     // Make sure that the text does not contain unicode characters
     if text.chars().any(|c| !c.is_ascii()) {
@@ -124,7 +122,10 @@ where
             } else if let Some(op) = find_ops(cur_offset) {
                 let n_chars = op.repr().chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Op(**op)
+                match op.constant() {
+                    Some(constant) => ParsedToken::<T>::Num(constant),
+                    None => ParsedToken::<T>::Op(**op)  
+                } 
             } else if let Some(var_str) = RE_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
@@ -145,8 +146,7 @@ struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
     error_msg: &'b str,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>(
-) -> [PairPreCondition<'a, 'b, T>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a, 'b, T>; 9] {
     [
         PairPreCondition {
             apply: |left, right| match (left, right) {
@@ -251,11 +251,9 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>(
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_parsed_token_preconditions<'a, T>(
-    parsed_tokens: &[ParsedToken<'a, T>],
-) -> ExResult<()>
+pub fn check_parsed_token_preconditions<'a, T>(parsed_tokens: &[ParsedToken<'a, T>]) -> ExResult<()>
 where
-    T: Copy + FromStr + Debug
+    T: Copy + FromStr + Debug,
 {
     if parsed_tokens.len() == 0 {
         return Err(ExError {
