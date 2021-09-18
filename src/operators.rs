@@ -13,12 +13,12 @@ fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Copy> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
-    pub repr: &'a str,
+    repr: &'a str,
     /// Binary operator that contains a priority besides a function pointer.
-    pub bin_op: Option<BinOp<T>>,
+    bin_op: Option<BinOp<T>>,
     /// Unary operator that does not have an explicit priority. Unary operators have
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
-    pub unary_op: Option<fn(T) -> T>,
+    unary_op: Option<fn(T) -> T>,
 }
 
 fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
@@ -26,6 +26,37 @@ fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a
 }
 
 impl<'a, T: Copy> Operator<'a, T> {
+    /// Creates a binary operator.
+    pub fn make_bin(repr: &'a str, bin_op: BinOp<T>) -> Operator<'a, T> {
+        Operator {
+            repr,
+            bin_op: Some(bin_op),
+            unary_op: None,
+        }
+    }
+    /// Creates a unary operator.
+    pub fn make_unary(repr: &'a str, unary_op: fn(T) -> T) -> Operator<'a, T> {
+        Operator {
+            repr,
+            bin_op: None,
+            unary_op: Some(unary_op),
+        }
+    }
+    /// Creates an operator that is either unary or binary based on its positioning in the string to be parsed.
+    /// For instance, `-` as defined in [`DefaultOpsFactory`](DefaultOpsFactory) is unary in `-x` and binary
+    /// in `2-x`.
+    pub fn make_bin_unary(
+        repr: &'a str,
+        bin_op: BinOp<T>,
+        unary_op: fn(T) -> T,
+    ) -> Operator<'a, T> {
+        Operator {
+            repr,
+            bin_op: Some(bin_op),
+            unary_op: Some(unary_op),
+        }
+    }
+
     pub fn bin(&self) -> ExResult<BinOp<T>> {
         Ok(*unwrap_operator(&self.bin_op, self.repr)?)
     }
@@ -108,8 +139,8 @@ pub struct BinOp<T> {
     pub prio: i32,
 }
 
-/// To use custom operators one needs to create a factory that implements this trait. 
-/// In this way, we make sure that we can deserialize expressions with 
+/// To use custom operators one needs to create a factory that implements this trait.
+/// In this way, we make sure that we can deserialize expressions with
 /// [`serde`](docs.rs/serde) with the correct operators based on the type.
 ///
 /// # Example
@@ -118,35 +149,31 @@ pub struct BinOp<T> {
 /// use exmex::{BinOp, MakeOperators, Operator};
 /// #[derive(Clone)]
 /// struct SomeOpsFactory;
-/// impl MakeOperators<f32> for SomeOpsFactory { 
+/// impl MakeOperators<f32> for SomeOpsFactory {
 ///     fn make<'a>() -> Vec<Operator<'a, f32>> {    
 ///         vec![
-///             Operator {
-///                 repr: "-",
-///                 bin_op: Some(BinOp {
+///             Operator::make_bin_unary(
+///                 "-",
+///                 BinOp {
 ///                     apply: |a, b| a - b,
 ///                     prio: 0,
-///                 }),
-///                 unary_op: Some(|a: f32| (-a)),
-///             },
-///             Operator {
-///                 repr: "sin",
-///                 bin_op: None,
-///                 unary_op: Some(|a: f32| a.sin()),
-///             }
+///                 },
+///                 |a| (-a),
+///             ),
+///             Operator::make_unary("sin", |a| a.sin())
 ///         ]
 ///     }
 /// }
 /// ```
-pub trait MakeOperators<T: Copy> : Clone {
+pub trait MakeOperators<T: Copy>: Clone {
     /// Function that creates a vector of operators.
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }
 
-/// Factory of default operators for floating point values. 
+/// Factory of default operators for floating point values.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DefaultOpsFactory<T: Float>{
-    dummy: PhantomData<T>
+pub struct DefaultOpsFactory<T: Float> {
+    dummy: PhantomData<T>,
 }
 
 impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
@@ -287,7 +314,7 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
     }
 }
 
-/// This macro creates an operator factory struct that implements the trait 
+/// This macro creates an operator factory struct that implements the trait
 /// [`MakeOperators`](MakeOperators). You have to pass the name of the struct
 /// as first, the type of the operands as seconds, and the [`Operator`](Operator)s as
 /// third to n-th argument.
@@ -299,16 +326,8 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
 /// ops_factory!(
 ///     MyOpsFactory,  // name of struct
 ///     f32,           // data type of operands
-///     Operator {
-///         repr: "log",
-///         bin_op: None,
-///         unary_op: Some(|a| a.ln()),
-///     },
-///     Operator {
-///         repr: "log2",
-///         bin_op: None,
-///         unary_op: Some(|a| a.log2()),
-///     }
+///     Operator::make_unary("log", |a| a.ln()),
+///     Operator::make_unary("log2", |a| a.log2())
 /// );
 /// ```
 /// creates a struct that can be used as in [`FlatEx<_, MyOpsFactory>`](crate::FlatEx).
@@ -324,4 +343,3 @@ macro_rules! ops_factory {
         }
     }
 }
-

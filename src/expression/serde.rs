@@ -26,7 +26,8 @@ impl<'de: 'a, 'a, T: Copy + Debug, OF: MakeOperators<T>> Serialize for FlatEx<'a
     }
 }
 
-impl<'de: 'a, 'a, T: Copy + Debug + FromStr + 'a, OF: MakeOperators<T>> Deserialize<'de> for FlatEx<'a, T, OF>
+impl<'de: 'a, 'a, T: Copy + Debug + FromStr + 'a, OF: MakeOperators<T>> Deserialize<'de>
+    for FlatEx<'a, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -160,28 +161,27 @@ fn test_ser_de_non_float() {
         impl MakeOperators<i32> for IntegerOps {
             fn make<'a>() -> Vec<Operator<'a, i32>> {
                 vec![
-                    Operator {
-                        repr: "%",
-                        bin_op: Some(BinOp {
+                    Operator::make_bin(
+                        "%",
+                        BinOp {
                             apply: |a: i32, b: i32| a % b,
                             prio: 1,
-                        }),
-                        unary_op: None,
-                    },
-                    Operator {
-                        repr: "/",
-                        bin_op: Some(BinOp {
+                        },
+                    ),
+                    Operator::make_bin(
+                        "/",
+                        BinOp {
                             apply: |a: i32, b: i32| a / b,
                             prio: 1,
-                        }),
-                        unary_op: None,
-                    },
+                        },
+                    ),
                 ]
             }
         }
         let expr = FlatEx::<i32, IntegerOps>::from_str(to_be_parsed).unwrap();
         let serialized = serde_json::to_string(&expr).unwrap();
-        let deserialized = serde_json::from_str::<FlatEx<i32, IntegerOps>>(serialized.as_str()).unwrap();
+        let deserialized =
+            serde_json::from_str::<FlatEx<i32, IntegerOps>>(serialized.as_str()).unwrap();
 
         assert_eq!(deserialized.eval(&[1]).unwrap(), ref_val);
     }

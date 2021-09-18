@@ -707,22 +707,22 @@ fn test_deep_compile() {
     let ops = DefaultOpsFactory::make();
     let nodes = vec![DeepNode::Num(4.5), DeepNode::Num(0.5), DeepNode::Num(1.4)];
     let bin_ops = BinOpsWithReprs {
-        reprs: smallvec![ops[1].repr, ops[3].repr],
-        ops: smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()],
+        reprs: smallvec![ops[1].repr(), ops[3].repr()],
+        ops: smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
     };
     let unary_op = UnaryOpWithReprs {
-        reprs: smallvec![ops[6].repr],
-        op: UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]),
+        reprs: smallvec![ops[6].repr()],
+        op: UnaryOp::from_vec(smallvec![ops[6].unary().unwrap()]),
     };
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
 
     let bin_ops = BinOpsWithReprs {
-        reprs: smallvec![ops[1].repr, ops[3].repr],
-        ops: smallvec![ops[1].bin_op.unwrap(), ops[3].bin_op.unwrap()],
+        reprs: smallvec![ops[1].repr(), ops[3].repr()],
+        ops: smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
     };
     let unary_op = UnaryOpWithReprs {
-        reprs: smallvec![ops[6].repr],
-        op: UnaryOp::from_vec(smallvec![ops[6].unary_op.unwrap()]),
+        reprs: smallvec![ops[6].repr()],
+        op: UnaryOp::from_vec(smallvec![ops[6].unary().unwrap()]),
     };
     let nodes = vec![
         DeepNode::Num(4.5),

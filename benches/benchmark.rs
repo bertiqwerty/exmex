@@ -127,51 +127,42 @@ fn exmex_bench_parse(c: &mut Criterion) {
 ops_factory!(
     OnlyNeededOperators,
     f64,
-    Operator {
-        repr: "^",
-        bin_op: Some(BinOp {
+    Operator::make_bin(
+        "^",
+        BinOp {
             apply: |a: f64, b| a.powf(b),
             prio: 2,
-        }),
-        unary_op: None,
-    },
-    Operator {
-        repr: "*",
-        bin_op: Some(BinOp {
+        }
+    ),
+    Operator::make_bin(
+        "*",
+        BinOp {
             apply: |a, b| a * b,
             prio: 1,
-        }),
-        unary_op: None,
-    },
-    Operator {
-        repr: "/",
-        bin_op: Some(BinOp {
+        }
+    ),
+    Operator::make_bin(
+        "/",
+        BinOp {
             apply: |a, b| a / b,
             prio: 1,
-        }),
-        unary_op: None,
-    },
-    Operator {
-        repr: "+",
-        bin_op: Some(BinOp {
+        }
+    ),
+    Operator::make_bin(
+        "+",
+        BinOp {
             apply: |a, b| a + b,
             prio: 0,
-        }),
-        unary_op: Some(|a| a),
-    },
-    Operator {
-        repr: "-",
-        bin_op: Some(BinOp {
+        }
+    ),
+    Operator::make_bin(
+        "-",
+        BinOp {
             apply: |a, b| a - b,
             prio: 0,
-        }),
-        unary_op: Some(|a| (-a)),
-    },
-    Operator {
-        repr: "sin",
-        bin_op: None,
-        unary_op: Some(|a| a.sin()),
-    }
+        }
+    ),
+    Operator::make_unary("sin", |a| a.sin())
 );
 
 fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64, OnlyNeededOperators>> {

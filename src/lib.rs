@@ -59,18 +59,18 @@
 //!
 //! ## Extendability
 //!
-//! How to use custom operators as well as custom data types of the operands even with 
+//! How to use custom operators as well as custom data types of the operands even with
 //! non-numeric literals is described in the following sub-sections.
 //!
 //! ### Custom Operators
 //!
 //! Operators are instances of the struct
 //! [`Operator`](Operator). An operator's representation in the string-to-be-parsed is defined in the field
-//! [`repr`](Operator::repr). Further, operator instances define a binary and a unary operator, since an operator 
-//! representation can correspond to both such as `-` or `+`. Note that we expect a unary operator to be always 
+//! [`repr`](Operator::repr). Further, operator instances define a binary and a unary operator, since an operator
+//! representation can correspond to both such as `-` or `+`. Note that we expect a unary operator to be always
 //! on the left of a number.
 //!
-//! To make serialization via [`serde`](https://serde.rs/) possible, operators need to be created by factories as 
+//! To make serialization via [`serde`](https://serde.rs/) possible, operators need to be created by factories as
 //! shown in the following.
 //! ```rust
 //! # use std::error::Error;
@@ -81,16 +81,14 @@
 //! ops_factory!(
 //!     IntegerOpsFactory,  // name of the factory type
 //!     i32,                // data type of the operands
-//!     Operator {
-//!         repr: "%",
-//!         bin_op: Some(BinOp{ apply: |a, b| a % b, prio: 1 }),
-//!         unary_op: None,
-//!         },
-//!     Operator {
-//!         repr: "/",
-//!         bin_op: Some(BinOp{ apply: |a, b| a / b, prio: 1 }),
-//!         unary_op: None,
-//!     }
+//!     Operator::make_bin(
+//!         "%",
+//!         BinOp{ apply: |a, b| a % b, prio: 1 }
+//!     ),
+//!     Operator::make_bin(
+//!         "/",
+//!         BinOp{ apply: |a, b| a / b, prio: 1 }
+//!     )
 //! );
 //! let to_be_parsed = "19 % 5 / 2 / a";
 //! let expr = FlatEx::<_, IntegerOpsFactory>::from_str(to_be_parsed)?;
@@ -100,8 +98,8 @@
 //! # }
 //! ```
 //!
-//! To extend an existing list of operators, the macro [`ops_factory`](ops_factory) is not 
-//! sufficient. In this case one has to create a factory struct and implement the 
+//! To extend an existing list of operators, the macro [`ops_factory`](ops_factory) is not
+//! sufficient. In this case one has to create a factory struct and implement the
 //! [`MakeOperators`](MakeOperators) trait with a little boilerplate code.
 //! ```rust
 //! # use std::error::Error;
@@ -115,11 +113,7 @@
 //!     fn make<'a>() -> Vec<Operator<'a, f32>> {
 //!         let mut ops = DefaultOpsFactory::<f32>::make();
 //!         ops.push(
-//!             Operator {
-//!                 repr: "invert",
-//!                 bin_op: None,
-//!                 unary_op: Some(|a: f32| 1.0 / a),
-//!             },
+//!             Operator::make_unary("invert", |a| 1.0 / a)
 //!         );
 //!         ops
 //!     }
@@ -146,23 +140,17 @@
 //! use exmex::prelude::*;
 //! use exmex::{BinOp, MakeOperators, Operator, ops_factory};
 //! ops_factory!(
-//!     BooleanOpsFactory, 
+//!     BooleanOpsFactory,
 //!     bool,
-//!     Operator {
-//!         repr: "&&",
-//!         bin_op: Some(BinOp{ apply: |a, b| a && b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//!     Operator {
-//!         repr: "||",
-//!         bin_op: Some(BinOp{ apply: |a, b| a || b, prio: 1 }),
-//!         unary_op: None,
-//!     },
-//!     Operator {
-//!         repr: "!",
-//!         bin_op: None,
-//!         unary_op: Some(|a| !a),
-//!     }
+//!     Operator::make_bin(
+//!         "&&",
+//!         BinOp{ apply: |a, b| a && b, prio: 1 }
+//!     ),
+//!     Operator::make_bin(
+//!         "||",
+//!         BinOp{ apply: |a, b| a || b, prio: 1 }
+//!     ),
+//!     Operator::make_unary("!", |a| !a)
 //! );
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
 //! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
@@ -387,19 +375,14 @@ mod tests {
             ops_factory!(
                 BitwiseOpsFactory,
                 u32,
-                Operator {
-                    repr: "|",
-                    bin_op: Some(BinOp {
+                Operator::make_bin(
+                    "|",
+                    BinOp {
                         apply: |a, b| a | b,
                         prio: 0,
-                    }),
-                    unary_op: None,
-                },
-                Operator {
-                    repr: "!",
-                    bin_op: None,
-                    unary_op: Some(|a| !a),
-                }
+                    }
+                ),
+                Operator::make_unary("!", |a| !a)
             );
             let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
             let result = expr.eval(&[0, 1])?;
@@ -546,16 +529,8 @@ mod tests {
         impl MakeOperators<f32> for SomeF32Operators {
             fn make<'a>() -> Vec<Operator<'a, f32>> {
                 vec![
-                    Operator {
-                        repr: "invert",
-                        bin_op: None,
-                        unary_op: Some(|a: f32| 1.0 / a),
-                    },
-                    Operator {
-                        repr: "sqrt",
-                        bin_op: None,
-                        unary_op: Some(|a: f32| a.sqrt()),
-                    },
+                    Operator::make_unary("invert", |a| 1.0 / a),
+                    Operator::make_unary("sqrt", |a| a.sqrt()),
                 ]
             }
         }
@@ -570,32 +545,21 @@ mod tests {
         impl MakeOperators<f32> for SomeF32Operators {
             fn make<'a>() -> Vec<Operator<'a, f32>> {
                 vec![
-                    Operator {
-                        repr: "**",
-                        bin_op: Some(BinOp {
+                    Operator::make_bin(
+                        "**",
+                        BinOp {
                             apply: |a: f32, b| a.powf(b),
                             prio: 2,
-                        }),
-                        unary_op: None,
-                    },
-                    Operator {
-                        repr: "*",
-                        bin_op: Some(BinOp {
+                        },
+                    ),
+                    Operator::make_bin(
+                        "*",
+                        BinOp {
                             apply: |a, b| a * b,
                             prio: 1,
-                        }),
-                        unary_op: None,
-                    },
-                    Operator {
-                        repr: "invert",
-                        bin_op: None,
-                        unary_op: Some(|a: f32| 1.0 / a),
-                    },
-                    Operator {
-                        repr: "None",
-                        bin_op: None,
-                        unary_op: None,
-                    },
+                        },
+                    ),
+                    Operator::make_unary("invert", |a: f32| 1.0 / a),
                 ]
             }
         }
@@ -603,21 +567,18 @@ mod tests {
         let val = expr.eval(&[]).unwrap();
         assert_float_eq_f32(val, 4.0 / 3.0);
 
-        let expr = FlatEx::<f32, SomeF32Operators>::from_str("None(5)");
-        assert!(expr.is_err());
-
         #[derive(Clone)]
         struct ExtendedF32Operators;
         impl MakeOperators<f32> for ExtendedF32Operators {
             fn make<'a>() -> Vec<Operator<'a, f32>> {
-                let zero_mapper = Operator {
-                    repr: "zer0",
-                    bin_op: Some(BinOp {
+                let zero_mapper = Operator::make_bin_unary(
+                    "zer0",
+                    BinOp {
                         apply: |_: f32, _| 0.0,
                         prio: 2,
-                    }),
-                    unary_op: Some(|_| 0.0),
-                };
+                    },
+                    |_| 0.0,
+                );
                 DefaultOpsFactory::<f32>::make()
                     .iter()
                     .cloned()

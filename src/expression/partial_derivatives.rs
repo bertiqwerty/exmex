@@ -16,12 +16,8 @@ pub fn find_op<'a, T: Copy + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> Option<Operator<'a, T>> {
-    let found = ops.iter().cloned().find(|op| op.repr == repr);
-    found.map(|op| Operator {
-        bin_op: op.bin_op,
-        unary_op: op.unary_op,
-        repr,
-    })
+    let found = ops.iter().cloned().find(|op| op.repr() == repr);
+    found.map(|op| op)
 }
 
 pub struct PartialDerivative<'a, T: Copy + Debug> {
@@ -44,10 +40,8 @@ fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
         msg: format!("did not find operator {}", repr),
     })?;
     Ok(BinOpsWithReprs {
-        reprs: smallvec![op.repr],
-        ops: smallvec![op.bin_op.ok_or(ExError {
-            msg: format!("operater {} is not binary", op.repr)
-        })?],
+        reprs: smallvec![op.repr()],
+        ops: smallvec![op.bin()?],
     })
 }
 
@@ -59,10 +53,8 @@ fn find_as_unary_op_with_reprs<'a, T: Copy + Debug>(
         msg: format!("did not find operator {}", repr),
     })?;
     Ok(UnaryOpWithReprs {
-        reprs: smallvec![op.repr],
-        op: UnaryOp::from_vec(smallvec![op.unary_op.ok_or(ExError {
-            msg: format!("operater {} is not unary", op.repr)
-        })?]),
+        reprs: smallvec![op.repr()],
+        op: UnaryOp::from_vec(smallvec![op.unary()?]),
     })
 }
 
