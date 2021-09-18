@@ -17,6 +17,10 @@ mod serde;
 pub trait Express<'a, T: Copy> {
     /// Parses a string into an expression that can be evaluated.
     ///
+    /// # Arguments
+    ///
+    /// * `text` - string to be parsed into an expression
+    ///
     /// # Errors
     ///
     /// An error is returned if `text` cannot be parsed.
@@ -27,8 +31,12 @@ pub trait Express<'a, T: Copy> {
         T: Copy + FromStr,
         Self: Sized;
 
-    /// Parses a string and a vector of operators and a regex pattern that defines the looks
-    /// of a number into an expression that can be evaluated.
+    /// Use custom number literals defined as regex patterns to create an expression that can be evaluated.
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - string to be parsed into an expression
+    /// * `number_regex_pattern` - regex pattern whose matches are number literals
     ///
     /// # Errors
     ///

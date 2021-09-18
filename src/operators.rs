@@ -14,7 +14,7 @@ fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
 pub struct Operator<'a, T: Copy> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     pub repr: &'a str,
-    /// Binary operator that contains a priority besides a function pointer, if available.
+    /// Binary operator that contains a priority besides a function pointer.
     pub bin_op: Option<BinOp<T>>,
     /// Unary operator that does not have an explicit priority. Unary operators have
     /// higher priority than binary opertors, e.g., `-1^2 == 1`.
