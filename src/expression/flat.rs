@@ -15,8 +15,8 @@ use std::str::FromStr;
 /// of nodes and a [`SmallVec`](https://docs.rs/smallvec/) of operators that are applied
 /// to the nodes in an order following operator priorities.
 ///
-/// You create an expression with the `parse` function or one of its
-/// variants, namely `parse_with_default_ops` and `parse_with_number_pattern`.
+/// Creation of expressions is possible with the function [`parse`](crate::parse) which is equivalent to
+/// [`FlatEx::from_str`](FlatEx::from_str) or with [`FlatEx::from_pattern`](FlatEx::from_pattern).
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -31,14 +31,18 @@ use std::str::FromStr;
 /// #     Ok(())
 /// # }
 /// ```
-/// The second argument `&[1.5, 2.0]` in the call of [`eval`](FlatEx::eval) specifies the
+/// The argument `&[1.5, 2.0]` in the call of [`eval`](FlatEx::eval) specifies the
 /// variable values in the alphabetical order of the variable names.
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 /// Variables in the string to-be-parsed are all substrings that are no numbers, no
 /// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory<T>> {
+pub struct FlatEx<'a, T, OF = DefaultOpsFactory<T>>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
@@ -47,7 +51,11 @@ pub struct FlatEx<'a, T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory<
     dummy: PhantomData<OF>,
 }
 
-impl<'a, T: Copy + Debug, OF: MakeOperators<T>> FlatEx<'a, T, OF> {
+impl<'a, T, OF> FlatEx<'a, T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     fn flatten(deepex: DeepEx<'a, T>) -> Self {
         let (nodes, ops) = flat_details::flatten_vecs(&deepex, 0);
         let indices = flat_details::prioritized_indices_flat(&ops, &nodes);
@@ -63,7 +71,11 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> FlatEx<'a, T, OF> {
     }
 }
 
-impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for FlatEx<'a, T, OF> {
+impl<'a, T, OF> Express<'a, T> for FlatEx<'a, T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -123,7 +135,11 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for FlatEx<'a, T,
 }
 
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
-impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Display for FlatEx<'a, T, OF> {
+impl<'a, T, OF> Display for FlatEx<'a, T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
         match unparsed {
@@ -153,7 +169,11 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Display for FlatEx<'a, T, OF> {
 /// # }
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OwnedFlatEx<T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory<T>> {
+pub struct OwnedFlatEx<T, OF = DefaultOpsFactory<T>>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
@@ -161,7 +181,11 @@ pub struct OwnedFlatEx<T: Copy + Debug, OF: MakeOperators<T> = DefaultOpsFactory
     n_unique_vars: usize,
     dummy: PhantomData<OF>,
 }
-impl<T: Copy + Debug, OF: MakeOperators<T>> OwnedFlatEx<T, OF> {
+impl<T, OF> OwnedFlatEx<T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
     pub fn from_flatex<'a>(flatex: FlatEx<'a, T, OF>) -> Self {
         Self {
@@ -174,7 +198,11 @@ impl<T: Copy + Debug, OF: MakeOperators<T>> OwnedFlatEx<T, OF> {
         }
     }
 }
-impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for OwnedFlatEx<T, OF> {
+impl<'a, T, OF> Express<'a, T> for OwnedFlatEx<T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     /// Parses a string into an expression that can be evaluated using default operators.
     ///
     /// # Errors
@@ -241,7 +269,11 @@ impl<'a, T: Copy + Debug, OF: MakeOperators<T>> Express<'a, T> for OwnedFlatEx<T
     }
 }
 /// The expression is displayed as a string created by [`unparse`](OwnedFlatEx::unparse).
-impl<T: Copy + Debug, OF: MakeOperators<T>> Display for OwnedFlatEx<T, OF> {
+impl<T, OF> Display for OwnedFlatEx<T, OF>
+where
+    T: Copy + Debug,
+    OF: MakeOperators<T>,
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
         match unparsed {
