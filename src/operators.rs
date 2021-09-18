@@ -152,7 +152,7 @@ impl<T> UnaryOp<T> {
     }
 }
 
-/// A binary operator that consists of a function pointer and a priority.
+/// A binary operator that consists of a function pointer, a priority, and a commutativity-flag.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOp<T> {
     /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
@@ -162,8 +162,8 @@ pub struct BinOp<T> {
     /// has a higher priority than `+`. However, in Exmex land you could also define
     /// this differently.
     pub prio: i32,
-    /// True if this is a commutative operator such as `*` or `+`, false if not such as `-`, `/`, `^`.
-    /// Commutativity is used to compile of sub-expressions of numbers correctly.
+    /// True if this is a commutative operator such as `*` or `+`, false if not such as `-`, `/`, or `^`.
+    /// Commutativity is used to compile sub-expressions of numbers correctly.
     pub is_commutative: bool,
 }
 
