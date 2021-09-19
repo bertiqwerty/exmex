@@ -124,8 +124,8 @@ where
                 cur_offset += n_chars;
                 match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
-                    None => ParsedToken::<T>::Op(**op)  
-                } 
+                    None => ParsedToken::<T>::Op(**op),
+                }
             } else if let Some(var_str) = RE_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
@@ -141,32 +141,42 @@ where
     Ok(res)
 }
 
-struct PairPreCondition<'a, 'b, T: Copy + FromStr> {
-    apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> bool,
-    error_msg: &'b str,
+struct PairPreCondition<'a, T: Copy + FromStr> {
+    apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> ExResult<()>,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a, 'b, T>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr + Debug>() -> [PairPreCondition<'a, T>; 9] {
     [
         PairPreCondition {
-            apply: |left, right| match (left, right) {
-                (ParsedToken::Num(_), ParsedToken::Var(_))
-                | (ParsedToken::Var(_), ParsedToken::Num(_))
-                | (ParsedToken::Num(_), ParsedToken::Num(_))
-                | (ParsedToken::Var(_), ParsedToken::Var(_)) => false,
-                _ => true,
+            apply: |left, right| {
+                let num_var_str =
+                    "a number/variable cannot be next to a number/variable, violated by ";
+                match (left, right) {
+                    (ParsedToken::Num(num), ParsedToken::Var(var))
+                    | (ParsedToken::Var(var), ParsedToken::Num(num)) => Err(ExError {
+                        msg: format!("{}'{:?}' and '{}'", num_var_str, num, var),
+                    }),
+                    (ParsedToken::Num(num1), ParsedToken::Num(num2)) => Err(ExError {
+                        msg: format!("{}'{:?}' and '{:?}'", num_var_str, num1, num2),
+                    }),
+                    (ParsedToken::Var(var1), ParsedToken::Var(var2)) => Err(ExError {
+                        msg: format!("{}'{:?}' and '{:?}'", num_var_str, var1, var2),
+                    }),
+                    _ => Ok(()),
+                }
             },
-            error_msg: "a number/variable cannot be next to a number/variable",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
                 | (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Var(_))
                 | (ParsedToken::Num(_), ParsedToken::Paren(_p @ Paren::Open))
-                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => false,
-                _ => true,
+                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => Err(ExError {
+                    msg: "wlog a number/variable cannot be on the right of a closing parenthesis"
+                        .to_string(),
+                }),
+                _ => Ok(()),
             },
-            error_msg: "wlog a number/variable cannot be on the right of a closing parenthesis",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
@@ -175,68 +185,97 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr>() -> [PairPreCondition<'a
                     // we do not ask for is_unary since operators can be both
                     if !op.has_bin() =>
                 {
-                    false
+                    Err(ExError{
+                        msg: "a number/variable cannot be on the left of a unary operator".to_string()
+                    })
                 }
-                _ => true,
+                _ => Ok(()),
             },
-            error_msg: "a number/variable cannot be on the left of a unary operator",
         },
         PairPreCondition {
-            apply: |left, right| match (left, right) {
+            apply: |left, right| {
+                match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
                     if !op_l.has_unary() && !op_r.has_unary() =>
                 {
-                    false
+                    Err(ExError{
+                        msg:format!(
+                            "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'", 
+                            op_l.repr(), 
+                            op_r.repr()
+                        )
+                    })
                 }
-                _ => true,
+                _ => Ok(()),
+            }
             },
-            error_msg: "a binary operator cannot be next to a binary operator",
         },
         PairPreCondition {
-            apply: |left, right| match (left, right) {
+            apply: |left, right| {
+                match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
                     if !op_l.has_bin() && !op_r.has_unary() =>
                 {
-                    false
+                    Err(ExError{
+                        msg:format!(
+                            "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'", 
+                            op_l.repr(), 
+                            op_r.repr()
+                        )
+                    })
                 }
-                _ => true,
+                _ => Ok(()),
+            }
             },
-            error_msg: "a binary operator cannot be on the right of a unary",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Op(_), ParsedToken::Paren(_p @ Paren::Close)) => false,
-                _ => true,
+                (ParsedToken::Op(op), ParsedToken::Paren(_p @ Paren::Close)) => Err(ExError {
+                    msg: format!(
+                        "an operator cannot be on the left of a closing paren, violated by '{}'",
+                        op.repr()
+                    ),
+                }),
+                _ => Ok(()),
             },
-            error_msg: "an operator cannot be on the left of a closing paren",
         },
         PairPreCondition {
-            apply: |left, right| match (left, right) {
+            apply: |left, right| {
+                match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op)) if !op.has_bin() => {
-                    false
+                    Err(ExError{
+                        msg:format!(
+                            "a unary operator cannot be on the right of a closing paren, violated by '{}'", 
+                            op.repr()
+                        )
+                    })
                 }
-                _ => true,
+                _ => Ok(()),
+            }
             },
-            error_msg: "a unary operator cannot be on the right of a closing paren",
         },
         PairPreCondition {
-            apply: |left, right| match (left, right) {
+            apply: |left, right| {
+                match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.has_unary() => {
-                    false
+                    Err(ExError{
+                        msg:format!("a binary operator cannot be on the right of an opening paren, violated by '{}'", op.repr())
+                    })
                 }
-                _ => true,
+                _ => Ok(()),
+            }
             },
-            error_msg: "a binary operator cannot be on the right of an opening paren",
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (
                     ParsedToken::Paren(_p_l @ Paren::Open),
                     ParsedToken::Paren(_p_r @ Paren::Close),
-                ) => false,
-                _ => true,
+                ) => Err(ExError {
+                    msg: "wlog an opening paren cannot be next to a closing paren".to_string(),
+                }),
+                _ => Ok(()),
             },
-            error_msg: "wlog an opening paren cannot be next to a closing paren",
         },
     ]
 }
@@ -266,12 +305,10 @@ where
         .map(|i| {
             let failed = pair_pre_conditions
                 .iter()
-                .map(|ppc| (ppc, (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1])))
-                .find(|(_, ppc_passed)| !*ppc_passed);
+                .map(|ppc| (ppc.apply)(&parsed_tokens[i], &parsed_tokens[i + 1]))
+                .find(|ppc_res| ppc_res.is_err());
             match failed {
-                Some((failed_ppc, _)) => Err(ExError {
-                    msg: failed_ppc.error_msg.to_string(),
-                }),
+                Some(failed_ppc) => failed_ppc,
                 None => Ok(()),
             }
         })
@@ -352,8 +389,9 @@ fn test_preconditions() {
             }
         };
     }
-    // test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
-    // test("fi.g", "parse the beginning of .g");
+    test("PI2 + 2", "violated by '3.1415927' and '2.0'");
+    test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
+    test("fi.g", "parse the beginning of .g");
     test("(nc7)sqrtE", "unary operator cannot be on the right");
     test("", "empty string");
     test("++", "the last element cannot be an operator");
@@ -370,7 +408,7 @@ fn test_preconditions() {
     test(r"5\6", r"how to parse the beginning of \");
     test(
         r"3 * log2 * 5",
-        r"a binary operator cannot be on the right of a unary",
+        r"a unary operator cannot be on the left of a binary",
     );
     test(r"3.4.", r"how to parse the beginning of 3.4.");
     test(
