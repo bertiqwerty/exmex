@@ -857,8 +857,7 @@ mod tests {
         assert_float_eq_f32(expr.eval(&[5.0]).unwrap(), 1f32.exp().powf(5.0));
 
         let expr = parse::<f32>("E ^ Erwin");
-        // The E of the variable Erwin will be parsed as constant E
-        assert!(expr.is_err());
+        assert_eq!(expr.unwrap().unparse().unwrap(), "2.7182817^{Erwin}");
     }
 
     #[test]

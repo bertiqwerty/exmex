@@ -82,7 +82,10 @@ where
     let ops = ops_tmp; // from now on const
 
     lazy_static! {
-        static ref RE_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
+        static ref RE_VAR_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
+    }
+    lazy_static! {
+        static ref RE_VAR_NAME_EXACT: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*$").unwrap();
     }
 
     let find_ops = |offset: usize| {
@@ -90,8 +93,14 @@ where
             let range_end = offset + op.repr().chars().count();
             if range_end > text.len() {
                 false
+            } else if op.repr() == &text[offset..range_end] {
+                if  !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end + 1]) {
+                    false
+                } else {
+                    true
+                }
             } else {
-                op.repr() == &text[offset..range_end]
+                false
             }
         })
     };
@@ -126,7 +135,7 @@ where
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op(**op),
                 }
-            } else if let Some(var_str) = RE_NAME.find(text_rest) {
+            } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_chars = var_str.chars().count();
                 cur_offset += n_chars;
@@ -389,10 +398,13 @@ fn test_preconditions() {
             }
         };
     }
-    test("PI2 + 2", "violated by '3.1415927' and '2.0'");
+    test(
+        r"3 * log2 * 5",
+        r"a unary operator cannot be on the left of a binary",
+    );
     test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
     test("fi.g", "parse the beginning of .g");
-    test("(nc7)sqrtE", "unary operator cannot be on the right");
+    test("(nc7)sqrtE", "wlog a number/variable cannot be on the right");
     test("", "empty string");
     test("++", "the last element cannot be an operator");
     test(
@@ -406,10 +418,6 @@ fn test_preconditions() {
     test("12-(3-4)*2+ (1/2))", "closing parentheses until");
     test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
     test(r"5\6", r"how to parse the beginning of \");
-    test(
-        r"3 * log2 * 5",
-        r"a unary operator cannot be on the left of a binary",
-    );
     test(r"3.4.", r"how to parse the beginning of 3.4.");
     test(
         r"3. .4",
@@ -417,6 +425,6 @@ fn test_preconditions() {
     );
     test(
         r"2sin({x})",
-        r"number/variable cannot be on the left of a unary",
+        r"number/variable cannot be on the left of a unary operator",
     );
 }
