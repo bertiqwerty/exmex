@@ -8,15 +8,16 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//! assert!((exmex::eval_str::<f64>("1.5 * ((cos(0) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
+//! assert!((exmex::eval_str::<f64>("1.5 * ((cos(2*PI) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
 //! For floats, we have a list of predifined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. The full list is
-//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Library users can also create their
-//! own operators as shown below in the section about extendability.
+//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Further, the constants π and Euler's number can be
+//! used via `PI` and `E`, respectively. Library users can also create their
+//! own operators and constants as shown below in the section about extendability.
 //!
 //! ## Variables
 //! To define variables we can use strings that are not in the list of operators as shown in the following expression.
@@ -62,13 +63,18 @@
 //! How to use custom operators as well as custom data types of the operands even with
 //! non-numeric literals is described in the following sub-sections.
 //!
-//! ### Custom Operators
+//! ### Custom Operators and Constants
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator). An operator's representation in the string-to-be-parsed is defined in the field
-//! [`repr`](Operator::repr). Further, operator instances define a binary and a unary operator, since an operator
-//! representation can correspond to both such as `-` or `+`. Note that we expect a unary operator to be always
-//! on the left of a number.
+//! [`Operator`](Operator). Constants can be defined in terms of constant operators. Further, operator instances define 
+//! a binary and/or a unary operator, since an operator
+//! representation can correspond to both such as `-` or `+`. Constant operators can only be constant and not binary or unary in addition. 
+//! An operator's representation in the string-to-be-parsed is defined in the field
+//! [`repr`](Operator::repr). When an operator's representation is used in a string to be parsed, the following applies:
+//! * Binary operators are positioned between their operands, e.g., `4 ^ 5`.
+//! * Unary operators are positioned in front of their operands, e.g., `-1`, `sin(4)`. Note that `sin4` 
+//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`. 
+//! * Constant operators are handled as if they were numbers, e.g., `sin(PI)` or `4 + PI`. Note that `PI()` is invalid.
 //!
 //! To make serialization via [`serde`](https://serde.rs/) possible, operators need to be created by factories as
 //! shown in the following.
@@ -88,9 +94,10 @@
 //!     Operator::make_bin(
 //!         "/",
 //!         BinOp{ apply: |a, b| a / b, prio: 1, is_commutative: false }
-//!     )
+//!     ),
+//!     Operator::make_constant("TWO", 2)
 //! );
-//! let to_be_parsed = "19 % 5 / 2 / a";
+//! let to_be_parsed = "19 % 5 / TWO / a";
 //! let expr = FlatEx::<_, IntegerOpsFactory>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
@@ -242,15 +249,16 @@
 //!
 //! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this
 //! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original
-//! string, since, e.g., curly brackets are added and expressions are compiled.
+//! string, since, e.g., curly brackets are added, expressions are compiled, and constants are
+//! replaced by their numeric values.
 //!
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let expr = exmex::parse::<f64>("-sin(z)/cos(mother_of_names) + 2^7")?;
-//! assert_eq!(format!("{}", expr), "-(sin({z}))/cos({mother_of_names})+128.0");
+//! let expr = exmex::parse::<f64>("-sin(z)/cos(mother_of_names) + 2^7 + E")?;
+//! assert_eq!(format!("{}", expr), "-(sin({z}))/cos({mother_of_names})+130.71828182845906");
 //! #
 //! #     Ok(())
 //! # }
@@ -769,7 +777,7 @@ mod tests {
         assert_float_eq_f64(eval_str("-1*(1.3+0.7*(2-1/10))").unwrap(), -2.63);
         assert_float_eq_f64(eval_str("-1*(1.3+(-0.7)*(2-1/10))").unwrap(), 0.03);
         assert_float_eq_f64(eval_str("-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
-        assert_float_eq_f64(eval_str("sin(3.14159265358979)").unwrap(), 0.0);
+        assert_float_eq_f64(eval_str("sin 3.14159265358979").unwrap(), 0.0);
         assert_float_eq_f64(eval_str("0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
         assert_float_eq_f64(eval_str("-sin(3.14159265358979 / 2)").unwrap(), -1.0);
         assert_float_eq_f64(eval_str("3-(-1+sin(PI/2)*2)").unwrap(), 2.0);
