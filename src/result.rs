@@ -3,7 +3,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-/// This will be thrown at you if the parsing went wrong. Ok, obviously it is not an
+/// This will be thrown at you if the somehting within Exmex went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
 #[derive(Debug, Clone)]
 pub struct ExError {

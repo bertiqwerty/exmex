@@ -13,9 +13,9 @@ mod partial_derivatives;
 mod serde;
 
 /// Expressions implementing this trait can be evaluated for specific variable values,
-/// derived partially, and unparsed, i.e., transformed into a string representation.  
+/// differentiated partially, and unparsed, i.e., transformed into a string representation.  
 pub trait Express<'a, T: Copy> {
-    /// Parses a string into an expression that can be evaluated.
+    /// Parses a string into an expression that can be evaluated. 
     ///
     /// # Arguments
     ///

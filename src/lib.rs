@@ -20,6 +20,7 @@
 //! own operators and constants as shown below in the section about extendability.
 //!
 //! ## Variables
+//!
 //! To define variables we can use strings that are not in the list of operators as shown in the following expression.
 //! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
 //! regular expression
@@ -66,17 +67,26 @@
 //! ### Custom Operators and Constants
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator). Constants can be defined in terms of constant operators. Further, operator instances define 
-//! a binary and/or a unary operator, since an operator
-//! representation can correspond to both such as `-` or `+`. Constant operators can only be constant and not binary or unary in addition. 
-//! An operator's representation in the string-to-be-parsed is defined in the field
-//! [`repr`](Operator::repr). When an operator's representation is used in a string to be parsed, the following applies:
-//! * Binary operators are positioned between their operands, e.g., `4 ^ 5`.
-//! * Unary operators are positioned in front of their operands, e.g., `-1`, `sin(4)`. Note that `sin4` 
-//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`. 
-//! * Constant operators are handled as if they were numbers, e.g., `sin(PI)` or `4 + PI`. Note that `PI()` is invalid.
+//! [`Operator`](Operator). Constants are also defined in terms of constant operators. More precisely, 
+//! operators can be
+//! * binary such as `*`,
+//! * unary such as `sin`,
+//! * binary as well as unary such as `-`, or
+//! * constant such as `PI`. 
 //!
-//! To make serialization via [`serde`](https://serde.rs/) possible, operators need to be created by factories as
+//! An operator's representation is defined in the field
+//! [`repr`](Operator::repr). A token of the string-to-be-parsed is identified as operator if it matches the operator's 
+//! representation exactly. For instance, `PI` will be parsed as the constant π while `PI5` will be parsed as a variable with name `PI5`.
+//! When an operator's representation is used in a string-to-be-parsed, the following applies:
+//! * Binary operators are positioned between their operands, e.g., `4 ^ 5`.
+//! * Unary operators are positioned in front of their operands, e.g., `-1` or `sin(4)`. Note that `sin4` 
+//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`. 
+//! * Constant operators are handled as if they were numbers and are replaced by their numeric values during parsing. 
+//! They can be used as in `sin(PI)` or `4 + E`. Note that the calling notation of constant operators such as `PI()` is invalid.
+//!
+//! Binary, unary, and constant operators can be created with the functions [`make_bin`](Operator::make_bin), [`make_unary`](Operator::make_unary), 
+//! and [`make_constant`](Operator::make_constant), respectively.
+//! Operators need to be created by factories to make serialization via [`serde`](https://serde.rs/) possible as
 //! shown in the following.
 //! ```rust
 //! # use std::error::Error;
@@ -89,11 +99,19 @@
 //!     i32,                // data type of the operands
 //!     Operator::make_bin(
 //!         "%",
-//!         BinOp{ apply: |a, b| a % b, prio: 1, is_commutative: false }
+//!         BinOp{ 
+//!             apply: |a, b| a % b, 
+//!             prio: 1, 
+//!             is_commutative: false,
+//!         }
 //!     ),
 //!     Operator::make_bin(
 //!         "/",
-//!         BinOp{ apply: |a, b| a / b, prio: 1, is_commutative: false }
+//!         BinOp{ 
+//!             apply: |a, b| a / b, 
+//!             prio: 1, 
+//!             is_commutative: false, 
+//!         }
 //!     ),
 //!     Operator::make_constant("TWO", 2)
 //! );
@@ -138,7 +156,7 @@
 //! [`FromStr`](std::str::FromStr). In case the representation of your data type in the
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
 //! suitable regex and use the function
-//! [`from_pattern`](Express::from_pattern) instead of
+//! [`from_pattern`](Express::from_pattern) instead of [`parse`](crate::parse) or
 //! [`from_str`](Express::from_str). Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
@@ -151,11 +169,19 @@
 //!     bool,
 //!     Operator::make_bin(
 //!         "&&",
-//!         BinOp{ apply: |a, b| a && b, prio: 1, is_commutative: true }
+//!         BinOp{ 
+//!             apply: |a, b| a && b, 
+//!             prio: 1, 
+//!             is_commutative: true,
+//!         }
 //!     ),
 //!     Operator::make_bin(
 //!         "||",
-//!         BinOp{ apply: |a, b| a || b, prio: 1, is_commutative: true }
+//!         BinOp{ 
+//!             apply: |a, b| a || b, 
+//!             prio: 1, 
+//!             is_commutative: true, 
+//!         }
 //!     ),
 //!     Operator::make_unary("!", |a| !a)
 //! );
@@ -247,10 +273,10 @@
 //!
 //! ## Display
 //!
-//! An instance of [`FlatEx`](FlatEx) can be displayed as string. Note that this
-//! [`unparse`](FlatEx::unparse)d string does not necessarily coincide with the original
+//! Instances of [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx) can be displayed as string. Note that this
+//! [`unparse`](Express::unparse)d string does not necessarily coincide with the original
 //! string, since, e.g., curly brackets are added, expressions are compiled, and constants are
-//! replaced by their numeric values.
+//! replaced by their numeric values during parsing.
 //!
 //! ```rust
 //! # use std::error::Error;
@@ -304,7 +330,7 @@ pub mod prelude {
     pub use super::expression::{flat::FlatEx, Express};
 }
 
-/// Parses a string, evaluates a string, and returns the resulting number.
+/// Parses a string, evaluates the expression, and returns the resulting number.
 ///
 /// # Errrors
 ///

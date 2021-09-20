@@ -277,11 +277,12 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
 
 /// This macro creates an operator factory struct that implements the trait
 /// [`MakeOperators`](MakeOperators). You have to pass the name of the struct
-/// as first, the type of the operands as seconds, and the [`Operator`](Operator)s as
+/// as first, the type of the operands as second, and the [`Operator`](Operator)s as
 /// third to n-th argument.
 ///
 /// # Example
 ///
+/// The following snippet creates a struct that can be used as in [`FlatEx<_, MyOpsFactory>`](crate::FlatEx).
 /// ```
 /// use exmex::{MakeOperators, Operator, ops_factory};
 /// ops_factory!(
@@ -291,7 +292,6 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
 ///     Operator::make_unary("log2", |a| a.log2())
 /// );
 /// ```
-/// creates a struct that can be used as in [`FlatEx<_, MyOpsFactory>`](crate::FlatEx).
 #[macro_export]
 macro_rules! ops_factory {
     ($name:ident, $T:ty, $( $ops:expr ),*) => {

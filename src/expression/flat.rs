@@ -34,8 +34,6 @@ use std::str::FromStr;
 /// The argument `&[1.5, 2.0]` in the call of [`eval`](FlatEx::eval) specifies the
 /// variable values in the alphabetical order of the variable names.
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
-/// Variables in the string to-be-parsed are all substrings that are no numbers, no
-/// operators, and no parentheses.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatEx<'a, T, OF = DefaultOpsFactory<T>>
@@ -203,12 +201,6 @@ where
     T: Copy + Debug,
     OF: MakeOperators<T>,
 {
-    /// Parses a string into an expression that can be evaluated using default operators.
-    ///
-    /// # Errors
-    ///
-    /// An error is returned in case the text cannot be parsed.
-    ///
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
