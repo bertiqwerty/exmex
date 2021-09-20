@@ -114,7 +114,7 @@ to compute the results. Reported is the best result over multiple invocations. M
 |                                                      | sin     | power    | nested   | compile  | comment                                    |
 | ---------------------------------------------------- | ------- | -------- | -------- | -------- | ------------------------------------------ |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 5.88    | 4.51     | 19.36    | 21.11    | more than mathematical expressions         |
-| **[Exmex](https://docs.rs/exmex)**                   | **0.27**| **0.5**  | **0.57** | **0.6**  |                                            |
+| **[Exmex](https://docs.rs/exmex)**                   | **0.27**| **0.5**  | **0.57** | **0.53** |                                            |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.19    | 1.46     | 1.59     | 1.6      | only `f64`, supports a faster, unsafe mode |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.65    | 0.66     | 0.82     | 1.01     | only `f64`, no custom operators            |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 4.88    | 8.21     | 13.32    | 24.28    |                                            |
@@ -124,7 +124,7 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |                                                      | all expressions |
 | ---------------------------------------------------- | --------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 35.94           |
-| **[Exmex](https://docs.rs/exmex)**                   | 48.52            |
+| **[Exmex](https://docs.rs/exmex)**                   | 48.52           |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 18.42           |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | **17.99**       |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 20.50           |
