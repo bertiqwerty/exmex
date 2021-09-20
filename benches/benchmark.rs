@@ -151,21 +151,23 @@ ops_factory!(
             is_commutative: false
         }
     ),
-    Operator::make_bin(
+    Operator::make_bin_unary(
         "+",
         BinOp {
             apply: |a, b| a + b,
             prio: 0,
             is_commutative: true
-        }
+        },
+        |a| a
     ),
-    Operator::make_bin(
+    Operator::make_bin_unary(
         "-",
         BinOp {
             apply: |a, b| a - b,
             prio: 1,
             is_commutative: false
-        }
+        },
+        |a| -a
     ),
     Operator::make_unary("sin", |a| a.sin())
 );
