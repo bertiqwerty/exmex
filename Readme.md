@@ -13,7 +13,7 @@ Add
 # ...
 exmex = "0.11.0"
 ```
-to your `Cargo.toml` for the latest relase. The corresponding [Readme.md](https://crates.io/crates/exmex) can be found under https://crates.io/crates/exmex. If you want to use the newest version of Exmex, add
+to your `Cargo.toml` for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
 ```
 [dependencies]
 # ...
