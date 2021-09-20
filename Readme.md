@@ -94,7 +94,7 @@ More documentation and examples including integer data types and boolean literal
 cargo doc
 ```
 
-## Benchmarks `v0.10.0`
+## Benchmarks `v0.11.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
 
