@@ -4,7 +4,7 @@
 ![license](https://img.shields.io/crates/l/exmex.svg)
 # Exmex
 
-Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator. On the one hand, it comes with a list of default operators for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their own operators and work with different data types such as float, integer, bool, or other types that implement `Copy` and `FromStr`.
+Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator. Exmex can parse strings with mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their own operators and work with different data types such as float, integer, bool, or other types that implement `Copy` and `FromStr`.
 
 ## Installation
 Add
