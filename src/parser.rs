@@ -127,7 +127,11 @@ where
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_chars = num_str.chars().count();
                 cur_offset += n_chars;
-                ParsedToken::<T>::Num(num_str.parse::<T>().unwrap())
+                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(
+                    |e| ExError{
+                        msg: format!("could not parse '{}', {:?}", num_str, e)
+                    })?
+                )
             } else if let Some(op) = find_ops(cur_offset) {
                 let n_chars = op.repr().chars().count();
                 cur_offset += n_chars;

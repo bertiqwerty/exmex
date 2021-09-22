@@ -24,3 +24,9 @@ name = "eval_str"
 path = "fuzz_targets/eval_str.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "from_str"
+path = "fuzz_targets/from_str.rs"
+test = false
+doc = false

@@ -67,24 +67,24 @@
 //! ### Custom Operators and Constants
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator). Constants are also defined in terms of constant operators. More precisely, 
+//! [`Operator`](Operator). Constants are also defined in terms of constant operators. More precisely,
 //! operators can be
 //! * binary such as `*`,
 //! * unary such as `sin`,
 //! * binary as well as unary such as `-`, or
-//! * constant such as `PI`. 
+//! * constant such as `PI`.
 //!
 //! An operator's representation is defined in the field
-//! [`repr`](Operator::repr). A token of the string-to-be-parsed is identified as operator if it matches the operator's 
+//! [`repr`](Operator::repr). A token of the string-to-be-parsed is identified as operator if it matches the operator's
 //! representation exactly. For instance, `PI` will be parsed as the constant π while `PI5` will be parsed as a variable with name `PI5`.
 //! When an operator's representation is used in a string-to-be-parsed, the following applies:
 //! * Binary operators are positioned between their operands, e.g., `4 ^ 5`.
-//! * Unary operators are positioned in front of their operands, e.g., `-1` or `sin(4)`. Note that `sin4` 
-//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`. 
-//! * Constant operators are handled as if they were numbers and are replaced by their numeric values during parsing. 
+//! * Unary operators are positioned in front of their operands, e.g., `-1` or `sin(4)`. Note that `sin4`
+//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`.
+//! * Constant operators are handled as if they were numbers and are replaced by their numeric values during parsing.
 //! They can be used as in `sin(PI)` or `4 + E`. Note that the calling notation of constant operators such as `PI()` is invalid.
 //!
-//! Binary, unary, and constant operators can be created with the functions [`make_bin`](Operator::make_bin), [`make_unary`](Operator::make_unary), 
+//! Binary, unary, and constant operators can be created with the functions [`make_bin`](Operator::make_bin), [`make_unary`](Operator::make_unary),
 //! and [`make_constant`](Operator::make_constant), respectively.
 //! Operators need to be created by factories to make serialization via [`serde`](https://serde.rs/) possible as
 //! shown in the following.
@@ -99,18 +99,18 @@
 //!     i32,                // data type of the operands
 //!     Operator::make_bin(
 //!         "%",
-//!         BinOp{ 
-//!             apply: |a, b| a % b, 
-//!             prio: 1, 
+//!         BinOp{
+//!             apply: |a, b| a % b,
+//!             prio: 1,
 //!             is_commutative: false,
 //!         }
 //!     ),
 //!     Operator::make_bin(
 //!         "/",
-//!         BinOp{ 
-//!             apply: |a, b| a / b, 
-//!             prio: 1, 
-//!             is_commutative: false, 
+//!         BinOp{
+//!             apply: |a, b| a / b,
+//!             prio: 1,
+//!             is_commutative: false,
 //!         }
 //!     ),
 //!     Operator::make_constant("TWO", 2)
@@ -169,18 +169,18 @@
 //!     bool,
 //!     Operator::make_bin(
 //!         "&&",
-//!         BinOp{ 
-//!             apply: |a, b| a && b, 
-//!             prio: 1, 
+//!         BinOp{
+//!             apply: |a, b| a && b,
+//!             prio: 1,
 //!             is_commutative: true,
 //!         }
 //!     ),
 //!     Operator::make_bin(
 //!         "||",
-//!         BinOp{ 
-//!             apply: |a, b| a || b, 
-//!             prio: 1, 
-//!             is_commutative: true, 
+//!         BinOp{
+//!             apply: |a, b| a || b,
+//!             prio: 1,
+//!             is_commutative: true,
 //!         }
 //!     ),
 //!     Operator::make_unary("!", |a| !a)
@@ -342,6 +342,12 @@ where
     <T as FromStr>::Err: Debug,
 {
     let deepex = DeepEx::<T>::from_str_float(text)?;
+    if deepex.n_vars() > 0 {
+        return Err(ExError {
+            msg: format!("input string contains variables, '{}' ", text),
+        });
+    }
+
     deepex.eval(&[])
 }
 
@@ -586,7 +592,7 @@ mod tests {
                         BinOp {
                             apply: |a: f32, b| a.powf(b),
                             prio: 2,
-                            is_commutative: false
+                            is_commutative: false,
                         },
                     ),
                     Operator::make_bin(
@@ -594,7 +600,7 @@ mod tests {
                         BinOp {
                             apply: |a, b| a * b,
                             prio: 1,
-                            is_commutative: true
+                            is_commutative: true,
                         },
                     ),
                     Operator::make_unary("invert", |a: f32| 1.0 / a),
@@ -614,7 +620,7 @@ mod tests {
                     BinOp {
                         apply: |_: f32, _| 0.0,
                         prio: 2,
-                        is_commutative: true
+                        is_commutative: true,
                     },
                     |_| 0.0,
                 );
@@ -811,10 +817,7 @@ mod tests {
             eval_str("3-(-1+sin(cos(-3.14159265358979))*2)").unwrap(),
             5.6829419696157935,
         );
-        assert_float_eq_f64(
-            eval_str("-(-1+((-PI)/5)*2)").unwrap(),
-            2.256637061435916,
-        );
+        assert_float_eq_f64(eval_str("-(-1+((-PI)/5)*2)").unwrap(), 2.256637061435916);
         assert_float_eq_f64(eval_str("((2-4)/5)*2").unwrap(), -0.8);
         assert_float_eq_f64(eval_str("-(-1+(sin(-PI)/5)*2)").unwrap(), 1.0);
         assert_float_eq_f64(
@@ -822,14 +825,8 @@ mod tests {
             1.3973386615901224,
         );
         assert_float_eq_f64(eval_str("-cos(PI)").unwrap(), 1.0);
-        assert_float_eq_f64(
-            eval_str("1+sin(-cos(-PI))").unwrap(),
-            1.8414709848078965,
-        );
-        assert_float_eq_f64(
-            eval_str("-1+sin(-cos(-PI))").unwrap(),
-            -0.1585290151921035,
-        );
+        assert_float_eq_f64(eval_str("1+sin(-cos(-PI))").unwrap(), 1.8414709848078965);
+        assert_float_eq_f64(eval_str("-1+sin(-cos(-PI))").unwrap(), -0.1585290151921035);
         assert_float_eq_f64(
             eval_str("-(-1+sin(-cos(-PI)/5)*2)").unwrap(),
             0.6026613384098776,
@@ -886,7 +883,7 @@ mod tests {
         assert_eq!(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
         let expr = parse::<f64>("x / PI * 180").unwrap();
         assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 90.0);
-        
+
         let expr = parse::<f32>("E ^ x").unwrap();
         assert_float_eq_f32(expr.eval(&[5.0]).unwrap(), 1f32.exp().powf(5.0));
 
@@ -898,16 +895,28 @@ mod tests {
     fn test_compile() {
         let expr = DeepEx::<f64>::from_str_float("1.0 * 3 * 2 * x / 2 / 3").unwrap();
         assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
-        let expr = DeepEx::<f64>::from_str_float("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))").unwrap();
-        assert_eq!("{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))", expr.unparse_raw());
+        let expr = DeepEx::<f64>::from_str_float(
+            "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
+        )
+        .unwrap();
+        assert_eq!(
+            "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
+            expr.unparse_raw()
+        );
         let expr = DeepEx::<f64>::from_str_float("x + 1 - 2").unwrap();
         assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
         let expr = DeepEx::<f64>::from_str_float("x - 1 + 2").unwrap();
         assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
         let expr = DeepEx::<f64>::from_str_float("x * 2 / 3").unwrap();
-        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0/3.0);
+        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
         let expr = DeepEx::<f64>::from_str_float("x / 2 / 3").unwrap();
-        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0/3.0);
+        assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
+    }
 
+    #[test]
+    fn test_fuzz() {
+        assert!(eval_str::<f64>("an").is_err());
+        assert!(FlatEx::<f64>::from_str("\n").is_err());
+        assert!(FlatEx::<f64>::from_pattern("\n", "\n").is_err());
     }
 }
