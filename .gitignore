@@ -3,3 +3,5 @@ target
 *.opt
 /.idea
 .vscode
+*.etl
+**/*.pdb

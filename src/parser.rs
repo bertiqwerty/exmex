@@ -145,7 +145,7 @@ where
                 cur_offset += n_chars;
                 ParsedToken::<T>::Var(var_str)
             } else {
-                let msg = format!("how to parse the beginning of {}", text_rest);
+                let msg = format!("don't know how to parse {}", text_rest);
                 return Err(ExError { msg });
             };
             res.push(next_parsed_token);
@@ -392,6 +392,14 @@ fn test_preconditions() {
                 }
             }
         }
+        let mut x: i64 = 0;
+        for i in 0..100000 {
+            x += i;
+            let ops = DefaultOpsFactory::<f32>::make();
+            let _elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+        } 
+        println!("{}", x);
+        
         let ops = DefaultOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
@@ -407,7 +415,7 @@ fn test_preconditions() {
         r"a unary operator cannot be on the left of a binary",
     );
     test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
-    test("fi.g", "parse the beginning of .g");
+    test("fi.g", "don't know how to parse .g");
     test("(nc7)sqrtE", "wlog a number/variable cannot be on the right");
     test("", "empty string");
     test("++", "the last element cannot be an operator");
@@ -421,8 +429,8 @@ fn test_preconditions() {
     test("12-() ())", "wlog an opening paren");
     test("12-(3-4)*2+ (1/2))", "closing parentheses until");
     test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
-    test(r"5\6", r"how to parse the beginning of \");
-    test(r"3.4.", r"how to parse the beginning of 3.4.");
+    test(r"5\6", r"don't know how to parse \");
+    test(r"3.4.", r"don't know how to parse 3.4.");
     test(
         r"3. .4",
         r"a number/variable cannot be next to a number/variable",
