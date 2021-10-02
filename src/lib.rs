@@ -368,13 +368,14 @@ where
 #[cfg(test)]
 mod tests {
 
+    use std::ops::{BitAnd, BitOr};
+    use std::str::FromStr;
     use std::{iter::once, ops::Range};
 
     use rand::Rng;
     use smallvec::{smallvec, SmallVec};
 
     use crate::expression::deep::DeepEx;
-    use crate::prelude::*;
     use crate::{
         eval_str,
         operators::{BinOp, DefaultOpsFactory, MakeOperators, Operator},
@@ -382,6 +383,7 @@ mod tests {
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExResult, OwnedFlatEx,
     };
+    use crate::{prelude::*, ExError};
 
     #[test]
     fn test_readme() {
@@ -460,6 +462,103 @@ mod tests {
         let expr = FlatEx::<f64>::from_str(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
     }
+
+    #[test]
+    fn test_variables_non_ascii() {
+        let sut = "5*ς";
+        let expr = FlatEx::<f64>::from_str(sut).unwrap();
+        assert_float_eq_f64(expr.eval(&[1.2]).unwrap(), 6.0);
+
+        let sut = "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}";
+        let expr = FlatEx::<f64>::from_str(sut).unwrap();
+        println!("{}", expr);
+        assert_float_eq_f64(expr.eval(&[1.2, 1.0]).unwrap(), 8.040556934857268);
+
+        let sut = "sin({myvwmlf4i😎8eo;w/-sin(a)r_25})";
+        let expr = FlatEx::<f64>::from_str(sut).unwrap();
+        assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+
+        let sut = "((sin({myvar_25✔})))";
+        let expr = FlatEx::<f64>::from_str(sut).unwrap();
+        assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct Thumbs {
+            val: bool,
+        }
+        impl BitOr for Thumbs {
+            type Output = Self;
+            fn bitor(self, rhs: Self) -> Self::Output {
+                Self {
+                    val: self.val || rhs.val,
+                }
+            }
+        }
+        impl BitAnd for Thumbs {
+            type Output = Self;
+            fn bitand(self, rhs: Self) -> Self::Output {
+                Self {
+                    val: self.val && rhs.val,
+                }
+            }
+        }
+        impl FromStr for Thumbs {
+            type Err = ExError;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                if s == "👍" {
+                    Ok(Self { val: true })
+                } else if s == "👎" {
+                    Ok(Self { val: false })
+                } else {
+                    Err(Self::Err {
+                        msg: format!("cannot parse {} to `Thumbs`", s),
+                    })
+                }
+            }
+        }
+        ops_factory!(
+            UnicodeOpsFactory,
+            Thumbs,
+            Operator::make_bin(
+                "|",
+                BinOp {
+                    apply: |a, b| a | b,
+                    prio: 0,
+                    is_commutative: true,
+                }
+            ),
+            Operator::make_bin(
+                "&",
+                BinOp {
+                    apply: |a, b| a & b,
+                    prio: 0,
+                    is_commutative: true,
+                }
+            )
+        );
+
+        let literal_pattern = "👍|👎";
+
+        let sut = "👍|👎";
+        let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
+        assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
+
+        let sut = "(👍&👎)|👍";
+        let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
+        assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
+
+        let sut = "(👍&👎)|γ";
+        let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
+        assert_eq!(
+            expr.eval(&[Thumbs { val: true }]).unwrap(),
+            Thumbs { val: true }
+        );
+        assert_eq!(
+            expr.eval(&[Thumbs { val: false }]).unwrap(),
+            Thumbs { val: false }
+        );
+    }
+
     #[test]
     fn test_variables() {
         let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*log(cos({y})))*cos({z}))";

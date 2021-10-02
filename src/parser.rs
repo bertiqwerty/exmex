@@ -70,11 +70,11 @@ where
     F: Fn(&'a str) -> Option<&'a str>,
 {
     // Make sure that the text does not contain unicode characters
-    if text.chars().any(|c| !c.is_ascii()) {
-        return Err(ExError {
-            msg: "only ascii characters are supported".to_string(),
-        });
-    };
+    // if text.chars().any(|c| !c.is_ascii()) {
+    //     return Err(ExError {
+    //         msg: "only ascii characters are supported".to_string(),
+    //     });
+    // };
 
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
@@ -82,19 +82,19 @@ where
     let ops = ops_tmp; // from now on const
 
     lazy_static! {
-        static ref RE_VAR_NAME: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*").unwrap();
+        static ref RE_VAR_NAME: Regex = Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap();
     }
     lazy_static! {
-        static ref RE_VAR_NAME_EXACT: Regex = Regex::new(r"^[a-zA-Z_]+[a-zA-Z_0-9]*$").unwrap();
+        static ref RE_VAR_NAME_EXACT: Regex = Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
     }
 
     let find_ops = |offset: usize| {
         ops.iter().find(|op| {
-            let range_end = offset + op.repr().chars().count();
-            if range_end > text.len() {
-                false
-            } else if op.repr() == &text[offset..range_end] {
-                if  !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end + 1]) {
+            let range_end = offset + op.repr().len();
+            if let Some(maybe_op) = &text.get(offset..range_end) {
+                if op.repr() != *maybe_op {
+                    false
+                } else if !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end + 1]) {
                     false
                 } else {
                     true
@@ -106,7 +106,7 @@ where
     };
     let mut res: SmallVec<[_; N_NODES_ON_STACK]> = SmallVec::new();
     let mut cur_offset = 0usize;
-    for (i, c) in text.chars().enumerate() {
+    for (i, c) in text.char_indices() {
         if c == ' ' {
             cur_offset += 1;
         } else if i == cur_offset && cur_offset < text.len() {
@@ -118,31 +118,31 @@ where
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if c == '{' {
-                let n_count = text_rest.chars().take_while(|c| *c != '}').count();
+                let n_count = text_rest.chars().take_while(|c| *c != '}').map(|c| c.len_utf8()).sum();
                 let var_name = &text_rest[1..n_count];
                 let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
                 // we need to subtract spaces from the offset, since they are added in the first if again.
                 cur_offset += n_count + 1 - n_spaces;
                 ParsedToken::<T>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
-                let n_chars = num_str.chars().count();
-                cur_offset += n_chars;
+                let n_bytes = num_str.len();
+                cur_offset += n_bytes;
                 ParsedToken::<T>::Num(num_str.parse::<T>().map_err(
                     |e| ExError{
                         msg: format!("could not parse '{}', {:?}", num_str, e)
                     })?
                 )
             } else if let Some(op) = find_ops(cur_offset) {
-                let n_chars = op.repr().chars().count();
-                cur_offset += n_chars;
+                let n_bytes = op.repr().len();
+                cur_offset += n_bytes;
                 match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op(**op),
                 }
             } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
-                let n_chars = var_str.chars().count();
-                cur_offset += n_chars;
+                let n_bytes = var_str.len();
+                cur_offset += n_bytes;
                 ParsedToken::<T>::Var(var_str)
             } else {
                 let msg = format!("don't know how to parse {}", text_rest);
