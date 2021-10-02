@@ -1,7 +1,13 @@
-use crate::{ExError, ExResult, Operator, definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, UnaryOp, VecOfUnaryFuncs}, parser::{Paren, ParsedToken}};
+use crate::{
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
+    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
+    parser::{Paren, ParsedToken},
+    ExError, ExResult, Operator,
+};
 use std::{fmt::Debug, iter, str::FromStr};
 
-use smallvec::{SmallVec};
+use smallvec::SmallVec;
 
 pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug>(
     parsed_tokens: &[ParsedToken<'a, T>],
@@ -134,7 +140,7 @@ pub fn make_expression<'a, T>(
     unary_ops: UnaryOpWithReprs<'a, T>,
 ) -> ExResult<(DeepEx<'a, T>, usize)>
 where
-    T: Copy + FromStr + Debug
+    T: Copy + FromStr + Debug,
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
@@ -210,7 +216,6 @@ pub fn prioritized_indices<T: Copy + Debug>(
         (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
             let prio_inc = 5;
             &bin_ops[bin_op_idx].prio * 10 + prio_inc
-            
         }
         _ => &bin_ops[bin_op_idx].prio * 10,
     };

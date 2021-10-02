@@ -22,7 +22,7 @@
 //! ## Variables
 //!
 //! To define variables we can use strings that are not in the list of operators as shown in the following expression.
-//! Additionally, variables should consist only of letters, greek letters, numbers, and underscores. More precisely, they 
+//! Additionally, variables should consist only of letters, greek letters, numbers, and underscores. More precisely, they
 //! need to fit the regular expression `r"[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*"`, if they are not between curly brackets.
 //!
 //! Variables' values are passed as slices to [`eval`](Express::eval).
@@ -39,7 +39,7 @@
 //! # }
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby, the
-//! alphabetical order of the variables is relevant. More precisely, the order is defined by the way how Rust sorts strings. 
+//! alphabetical order of the variables is relevant. More precisely, the order is defined by the way how Rust sorts strings.
 //! In thε example above we have `y=3.7`, `z=2.5`, and `α=1`. Note that `α` is the Greek letter Alpha.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
 //! `{456/549*(}`, `{x}`, and confusingly also `{👍+👎}` are valid variable names as shown in the following.
@@ -532,7 +532,7 @@ mod tests {
                     is_commutative: true,
                 }
             ),
-            Operator::make_constant("γ", Thumbs{ val: false })
+            Operator::make_constant("γ", Thumbs { val: false })
         );
 
         let literal_pattern = "👍|👎";

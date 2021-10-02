@@ -175,18 +175,18 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
-                let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(*num_1, *num_2);
-                self.nodes[num_idx] = DeepNode::Num(bin_op_result);
-                self.nodes.remove(num_idx + 1);
-                already_declined.remove(num_idx + 1);
-                // reduce indices after removed position
-                for num_idx_after in num_inds.iter_mut() {
-                    if *num_idx_after > num_idx {
-                        *num_idx_after -= 1;
+                    let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(*num_1, *num_2);
+                    self.nodes[num_idx] = DeepNode::Num(bin_op_result);
+                    self.nodes.remove(num_idx + 1);
+                    already_declined.remove(num_idx + 1);
+                    // reduce indices after removed position
+                    for num_idx_after in num_inds.iter_mut() {
+                        if *num_idx_after > num_idx {
+                            *num_idx_after -= 1;
+                        }
                     }
+                    used_prio_indices.push(bin_op_idx);
                 }
-                used_prio_indices.push(bin_op_idx);
-            }
             } else {
                 already_declined[num_idx] = true;
                 already_declined[num_idx + 1] = true;

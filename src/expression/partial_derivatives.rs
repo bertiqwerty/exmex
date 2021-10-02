@@ -1,7 +1,12 @@
-use crate::{ExError, ExResult, definitions::N_BINOPS_OF_DEEPEX_ON_STACK, expression::{
+use crate::{
+    definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
+    expression::{
         deep::{BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
         deep_details,
-    }, operators::{Operator, UnaryOp}};
+    },
+    operators::{Operator, UnaryOp},
+    ExError, ExResult,
+};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;
@@ -607,7 +612,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 #[cfg(test)]
 use crate::{
     operators::{DefaultOpsFactory, MakeOperators},
-    util::assert_float_eq_f64
+    util::assert_float_eq_f64,
 };
 
 #[test]

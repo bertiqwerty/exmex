@@ -16,5 +16,5 @@ impl Display for ExError {
 }
 impl Error for ExError {}
 
-/// Exmex' result type with [`ExError`](ExError) as error type. 
+/// Exmex' result type with [`ExError`](ExError) as error type.
 pub type ExResult<U> = Result<U, ExError>;

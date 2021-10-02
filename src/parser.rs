@@ -83,10 +83,12 @@ where
     let ops = ops_tmp; // from now on const
 
     lazy_static! {
-        static ref RE_VAR_NAME: Regex = Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap();
+        static ref RE_VAR_NAME: Regex =
+            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap();
     }
     lazy_static! {
-        static ref RE_VAR_NAME_EXACT: Regex = Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
+        static ref RE_VAR_NAME_EXACT: Regex =
+            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
     }
 
     let find_ops = |offset: usize| {
@@ -95,8 +97,11 @@ where
             if let Some(maybe_op) = &text.get(offset..range_end) {
                 if op.repr() != *maybe_op {
                     false
-                } else if !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end 
-                    + next_char_boundary(&text, range_end)]) {
+                } else if !op.has_bin()
+                    && range_end < text.len()
+                    && RE_VAR_NAME_EXACT
+                        .is_match(&text[offset..range_end + next_char_boundary(&text, range_end)])
+                {
                     false
                 } else {
                     true
@@ -120,7 +125,11 @@ where
                 cur_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if c == '{' {
-                let n_count = text_rest.chars().take_while(|c| *c != '}').map(|c| c.len_utf8()).sum();
+                let n_count = text_rest
+                    .chars()
+                    .take_while(|c| *c != '}')
+                    .map(|c| c.len_utf8())
+                    .sum();
                 let var_name = &text_rest[1..n_count];
                 let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
                 // we need to subtract spaces from the offset, since they are added in the first if again.
@@ -129,11 +138,9 @@ where
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_offset += n_bytes;
-                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(
-                    |e| ExError{
-                        msg: format!("could not parse '{}', {:?}", num_str, e)
-                    })?
-                )
+                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| ExError {
+                    msg: format!("could not parse '{}', {:?}", num_str, e),
+                })?)
             } else if let Some(op) = find_ops(cur_offset) {
                 let n_bytes = op.repr().len();
                 cur_offset += n_bytes;
@@ -213,12 +220,12 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr + Debug>() -> [PairPreCond
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
                     if !op_l.has_unary() && !op_r.has_unary() =>
                 {
-                    Err(ExError{
-                        msg:format!(
-                            "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'", 
-                            op_l.repr(), 
+                    Err(ExError {
+                        msg: format!(
+                            "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
+                            op_l.repr(),
                             op_r.repr()
-                        )
+                        ),
                     })
                 }
                 _ => Ok(()),
@@ -231,12 +238,12 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr + Debug>() -> [PairPreCond
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
                     if !op_l.has_bin() && !op_r.has_unary() =>
                 {
-                    Err(ExError{
-                        msg:format!(
-                            "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'", 
-                            op_l.repr(), 
+                    Err(ExError {
+                        msg: format!(
+                            "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
+                            op_l.repr(),
                             op_r.repr()
-                        )
+                        ),
                     })
                 }
                 _ => Ok(()),
@@ -399,9 +406,9 @@ fn test_preconditions() {
             x += i;
             let ops = DefaultOpsFactory::<f32>::make();
             let _elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-        } 
+        }
         println!("{}", x);
-        
+
         let ops = DefaultOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
@@ -418,7 +425,10 @@ fn test_preconditions() {
     );
     test("xo-17-(((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((expWW-tr-3746-4+sinnex-nn--nnexpWW-tr-7492-4+4-nsqrnexq+---------282)-384", "parentheses mismatch");
     test("fi.g", "don't know how to parse .g");
-    test("(nc7)sqrtE", "wlog a number/variable cannot be on the right");
+    test(
+        "(nc7)sqrtE",
+        "wlog a number/variable cannot be on the right",
+    );
     test("", "empty string");
     test("++", "the last element cannot be an operator");
     test(

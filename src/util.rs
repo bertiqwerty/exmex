@@ -7,7 +7,7 @@ pub fn assert_float_eq<T: num::Float + std::fmt::Display>(
     msg: &str,
 ) {
     println!("tol {}", atol + rtol * f2.abs());
-    println!("d   {}", (f1-f2).abs());
+    println!("d   {}", (f1 - f2).abs());
     if (f1 - f2).abs() >= atol + rtol * f2.abs() {
         println!("Floats not almost equal. {}\nf1: {}\nf2: {}\n", msg, f1, f2);
         assert!(false);
