@@ -22,26 +22,27 @@
 //! ## Variables
 //!
 //! To define variables we can use strings that are not in the list of operators as shown in the following expression.
-//! Additionally, variables should consist only of letters, numbers, and underscores. More precisely, they need to fit the
-//! regular expression
-//! ```r"^[a-zA-Z_]+[a-zA-Z_0-9]*"```.
+//! Additionally, variables should consist only of letters, greek letters, numbers, and underscores. More precisely, they 
+//! need to fit the regular expression `r"[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*"`, if they are not between curly brackets.
+//!
 //! Variables' values are passed as slices to [`eval`](Express::eval).
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
+//! let to_be_parsed = "α * log(z) + 2* (-z^2 + sin(4*y))";
 //! let expr = exmex::parse::<f64>(to_be_parsed)?;
-//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! assert!((expr.eval(&[3.7, 2.5, 1.0])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby, the
-//! alphatical order of the variables is relevant. In this example, we have `y=3.7` and `z=2.5`.
+//! alphabetical order of the variables is relevant. More precisely, the order is defined by the way how Rust sorts strings. 
+//! In thε example above we have `y=3.7`, `z=2.5`, and `α=1`. Note that `α` is the Greek letter Alpha.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
-//! `{456/549*(}`, `{x}`, and confusingly even `{x+y}` are valid variable names as shown in the following.
+//! `{456/549*(}`, `{x}`, and confusingly also `{👍+👎}` are valid variable names as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -49,7 +50,7 @@
 //! use exmex::prelude::*;
 //! let x = 2.1f64;
 //! let y = 0.1f64;
-//! let to_be_parsed = "log({x+y})";  // {x+y} is the name of one(!) variable 😕.
+//! let to_be_parsed = "log({👍+👎})";  // {👍+👎} is the name of one(!) variable 😕.
 //! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
@@ -297,10 +298,6 @@
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
 //! both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
-//!
-//! ## Unicode
-//! Unicode input strings are currently not supported 😕 but might be added in the
-//! future 😀.
 //!
 
 use std::{fmt::Debug, str::FromStr};
