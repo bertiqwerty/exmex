@@ -406,7 +406,7 @@ mod tests {
         fn readme() -> ExResult<()> {
             let result = eval_str("sin(73)")?;
             assert_float_eq_f64(result, 73f64.sin());
-            let expr = parse::<f64>("2*x^3-4/z")?;
+            let expr = parse::<f64>("2*β^3-4/τ")?;
             let value = expr.eval(&[5.3, 0.5])?;
             assert_float_eq_f64(value, 289.75399999999996);
             Ok(())

@@ -29,7 +29,7 @@ let result = exmex::eval_str("sin(73)")?;
 To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"^[a-zA-Z_]+[a-zA-Z_0-9]*"` as in
 ```rust
 use exmex::prelude::*;
-let expr = exmex::parse::<f64>("2*x^3-4/z")?;
+let expr = exmex::parse::<f64>("2*β^3-4/τ")?;
 ```
 The wildcard-import from `prelude` makes only the expression-trait `Express` and its implementation `FlatEx`, a flattened expression, accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `z=0.5` you can use
 ```rust
