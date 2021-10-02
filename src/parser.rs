@@ -47,6 +47,14 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     }
 }
 
+fn next_char_boundary(text: &str, start: usize) -> usize {
+    let mut pos = 1usize;
+    while !text.is_char_boundary(start + pos) {
+        pos += 1;
+    }
+    pos
+}
+
 /// Parses tokens of a text with regexes and returns them as a vector
 ///
 /// # Arguments
@@ -69,13 +77,6 @@ where
     T: Copy + FromStr + Debug,
     F: Fn(&'a str) -> Option<&'a str>,
 {
-    // Make sure that the text does not contain unicode characters
-    // if text.chars().any(|c| !c.is_ascii()) {
-    //     return Err(ExError {
-    //         msg: "only ascii characters are supported".to_string(),
-    //     });
-    // };
-
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_unstable_by(|o1, o2| o2.repr().partial_cmp(o1.repr()).unwrap());
@@ -94,7 +95,8 @@ where
             if let Some(maybe_op) = &text.get(offset..range_end) {
                 if op.repr() != *maybe_op {
                     false
-                } else if !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end + 1]) {
+                } else if !op.has_bin() && range_end < text.len() && RE_VAR_NAME_EXACT.is_match(&text[offset..range_end 
+                    + next_char_boundary(&text, range_end)]) {
                     false
                 } else {
                     true

@@ -517,7 +517,7 @@ mod tests {
             UnicodeOpsFactory,
             Thumbs,
             Operator::make_bin(
-                "|",
+                "ορ",
                 BinOp {
                     apply: |a, b| a | b,
                     prio: 0,
@@ -525,26 +525,27 @@ mod tests {
                 }
             ),
             Operator::make_bin(
-                "&",
+                "ανδ",
                 BinOp {
                     apply: |a, b| a & b,
                     prio: 0,
                     is_commutative: true,
                 }
-            )
+            ),
+            Operator::make_constant("γ", Thumbs{ val: false })
         );
 
         let literal_pattern = "👍|👎";
 
-        let sut = "👍|👎";
+        let sut = "γ ορ 👍ορ👎";
         let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
         assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
 
-        let sut = "(👍&👎)|👍";
+        let sut = "(👍 ανδ👎)ορ 👍";
         let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
         assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
 
-        let sut = "(👍&👎)|γ";
+        let sut = "(👍ανδ 👎)οργαβ23";
         let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
         assert_eq!(
             expr.eval(&[Thumbs { val: true }]).unwrap(),
