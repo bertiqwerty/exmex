@@ -47,9 +47,9 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     }
 }
 
-fn next_char_boundary(text: &str, start: usize) -> usize {
+fn next_char_boundary(text: &str, start_idx: usize) -> usize {
     (1..text.len())
-        .find(|idx| text.is_char_boundary(start + idx))
+        .find(|idx| text.is_char_boundary(start_idx + idx))
         .expect("there has to be char boundary 😕.")
 }
 
