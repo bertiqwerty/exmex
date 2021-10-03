@@ -48,11 +48,9 @@ pub fn is_numeric_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 }
 
 fn next_char_boundary(text: &str, start: usize) -> usize {
-    let mut pos = 1usize;
-    while !text.is_char_boundary(start + pos) {
-        pos += 1;
-    }
-    pos
+    (1..text.len())
+        .find(|idx| text.is_char_boundary(start + idx))
+        .expect("there has to be char boundary 😕.")
 }
 
 /// Parses tokens of a text with regexes and returns them as a vector
@@ -91,16 +89,17 @@ where
             Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
     }
 
-    let find_ops = |offset: usize| {
+    let find_ops = |byte_offset: usize| {
         ops.iter().find(|op| {
-            let range_end = offset + op.repr().len();
-            if let Some(maybe_op) = &text.get(offset..range_end) {
+            let range_end = byte_offset + op.repr().len();
+            if let Some(maybe_op) = &text.get(byte_offset..range_end) {
                 if op.repr() != *maybe_op {
                     false
                 } else if !op.has_bin()
                     && range_end < text.len()
-                    && RE_VAR_NAME_EXACT
-                        .is_match(&text[offset..range_end + next_char_boundary(&text, range_end)])
+                    && RE_VAR_NAME_EXACT.is_match(
+                        &text[byte_offset..range_end + next_char_boundary(&text, range_end)],
+                    )
                 {
                     false
                 } else {
@@ -112,17 +111,17 @@ where
         })
     };
     let mut res: SmallVec<[_; N_NODES_ON_STACK]> = SmallVec::new();
-    let mut cur_offset = 0usize;
+    let mut cur_byte_offset = 0usize;
     for (i, c) in text.char_indices() {
         if c == ' ' {
-            cur_offset += 1;
-        } else if i == cur_offset && cur_offset < text.len() {
-            let text_rest = &text[cur_offset..];
+            cur_byte_offset += 1;
+        } else if i == cur_byte_offset && cur_byte_offset < text.len() {
+            let text_rest = &text[cur_byte_offset..];
             let next_parsed_token = if c == '(' {
-                cur_offset += 1;
+                cur_byte_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Open)
             } else if c == ')' {
-                cur_offset += 1;
+                cur_byte_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Close)
             } else if c == '{' {
                 let n_count = text_rest
@@ -133,17 +132,17 @@ where
                 let var_name = &text_rest[1..n_count];
                 let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
                 // we need to subtract spaces from the offset, since they are added in the first if again.
-                cur_offset += n_count + 1 - n_spaces;
+                cur_byte_offset += n_count + 1 - n_spaces;
                 ParsedToken::<T>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
-                cur_offset += n_bytes;
+                cur_byte_offset += n_bytes;
                 ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| ExError {
                     msg: format!("could not parse '{}', {:?}", num_str, e),
                 })?)
-            } else if let Some(op) = find_ops(cur_offset) {
+            } else if let Some(op) = find_ops(cur_byte_offset) {
                 let n_bytes = op.repr().len();
-                cur_offset += n_bytes;
+                cur_byte_offset += n_bytes;
                 match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op(**op),
@@ -151,7 +150,7 @@ where
             } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_bytes = var_str.len();
-                cur_offset += n_bytes;
+                cur_byte_offset += n_bytes;
                 ParsedToken::<T>::Var(var_str)
             } else {
                 let msg = format!("don't know how to parse {}", text_rest);
