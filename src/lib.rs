@@ -8,15 +8,16 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex;
-//! assert!((exmex::eval_str::<f64>("1.5 * ((cos(2*PI) + 23.0) / 2.0)")? - 18.0).abs() < 1e-12);
+//! let eval_result = exmex::eval_str::<f64>("1.5 * ((cos(2*π) + 23.0) / 2.0)")?;
+//! assert!((eval_result - 18.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
 //! For floats, we have a list of predifined operators containing
-//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. The full list is
-//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Further, the constants π and Euler's number can be
-//! used via `PI` and `E`, respectively. Library users can also create their
+//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π 
+//! and Euler's number can be used via `π`/`PI` and `E`, respectively. The full list is
+//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
 //!
 //! ## Variables
@@ -40,7 +41,7 @@
 //! ```
 //! The `n`-th number in the slice corresponds to the `n`-th variable. Thereby, the
 //! alphabetical order of the variables is relevant. More precisely, the order is defined by the way how Rust sorts strings.
-//! In thε example above we have `y=3.7`, `z=2.5`, and `α=1`. Note that `α` is the Greek letter Alpha.
+//! In the example above we have `y=3.7`, `z=2.5`, and `α=1`. Note that `α` is the Greek letter Alpha.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
 //! `{456/549*(}`, `{x}`, and confusingly also `{👍+👎}` are valid variable names as shown in the following.
 //! ```rust
@@ -57,8 +58,9 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! The value returned by [`parse`](parse) implements the [`Express`](Express) trait
-//! and is an instance of the struct [`FlatEx`](FlatEx).
+//! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx) 
+//! that implements the [`Express`](Express) trait. Moreover, `FlatEx` and `Express` are the
+//! only items made accessible by the wildcard import from [`prelude`](prelude).
 //!
 //! ## Extendability
 //!
@@ -890,6 +892,8 @@ mod tests {
     #[test]
     fn test_eval() {
         assert_float_eq_f64(eval_str("2*3^2").unwrap(), 18.0);
+        assert_float_eq_f64(eval_str("cos(PI/2)").unwrap(), 0.0);
+        assert_float_eq_f64(eval_str("cos(π/2)").unwrap(), 0.0);
         assert_float_eq_f64(eval_str("-3^2").unwrap(), 9.0);
         assert_float_eq_f64(eval_str("11.3").unwrap(), 11.3);
         assert_float_eq_f64(eval_str("+11.3").unwrap(), 11.3);

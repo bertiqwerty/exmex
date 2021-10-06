@@ -270,6 +270,7 @@ impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
             Operator::make_unary("log", |a| a.ln()),
             Operator::make_unary("log2", |a| a.log2()),
             Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
+            Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
         ]
     }
