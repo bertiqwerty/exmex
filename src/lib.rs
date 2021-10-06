@@ -43,7 +43,7 @@
 //! alphabetical order of the variables is relevant. More precisely, the order is defined by the way how Rust sorts strings.
 //! In the example above we have `y=3.7`, `z=2.5`, and `α=1`. Note that `α` is the Greek letter Alpha.
 //! If variables are between curly brackets, they can have arbitrary names, e.g.,
-//! `{456/549*(}`, `{x}`, and confusingly also `{👍+👎}` are valid variable names as shown in the following.
+//! `{456/549*(}`, `{x}`, and also `{👍+👎}` are valid variable names as shown in the following.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -51,7 +51,7 @@
 //! use exmex::prelude::*;
 //! let x = 2.1f64;
 //! let y = 0.1f64;
-//! let to_be_parsed = "log({👍+👎})";  // {👍+👎} is the name of one(!) variable 😕.
+//! let to_be_parsed = "log({👍+👎})";  // {👍+👎} is the name of one variable 😕.
 //! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
