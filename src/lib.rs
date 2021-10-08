@@ -396,21 +396,23 @@ mod tests {
             // d_xy
             let ddexpr_dxy = dexpr_dx.partial(1)?;
             assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
-            assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
+            let result = ddexpr_dxy.eval(&[2.0, f64::MAX])?;
+            assert!((result - 4.0).abs() < 1e-12);
 
             // d_xyx
             let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
             assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
-            assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
+            let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
+            assert!((result - 2.0).abs() < 1e-12);
 
             Ok(())
         }
         fn readme() -> ExResult<()> {
-            let result = eval_str("sin(73)")?;
-            assert_float_eq_f64(result, 73f64.sin());
+            let result = eval_str::<f64>("sin(73)")?;
+            assert!((result - 73f64.sin()).abs() < 1e-12);
             let expr = parse::<f64>("2*β^3-4/τ")?;
-            let value = expr.eval(&[5.3, 0.5])?;
-            assert_float_eq_f64(value, 289.75399999999996);
+            let result = expr.eval(&[5.3, 0.5])?;
+            assert!((result - 289.75399999999996).abs() < 1e-12);
             Ok(())
         }
         fn readme_int() -> ExResult<()> {

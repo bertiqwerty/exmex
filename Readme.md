@@ -33,8 +33,8 @@ let expr = exmex::parse::<f64>("2*β^3-4/τ")?;
 ```
 The wildcard-import from `prelude` makes only the expression-trait `Express` and its implementation `FlatEx`, a flattened expression, accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `β=5.3` and `τ=0.5` you can use
 ```rust
-let value = expr.eval(&[5.3, 0.5])?;
-assert_float_eq_f64(value, 289.75399999999996);
+let result = expr.eval(&[5.3, 0.5])?;
+assert!((result - 289.75399999999996).abs() < 1e-12);
 ```
 The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. 
 
@@ -75,12 +75,14 @@ assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
 // d_xy
 let ddexpr_dxy = dexpr_dx.partial(1)?;
 assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
-assert_float_eq_f64(ddexpr_dxy.eval(&[2.0, f64::MAX])?, 4.0);
+let result = ddexpr_dxy.eval(&[2.0, f64::MAX])?;
+assert!((result - 4.0).abs() < 1e-12);
 
 // d_xyx
 let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
 assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
-assert_float_eq_f64(dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?, 2.0);
+let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
+assert!((result - 2.0).abs() < 1e-12);
 ```
 
 ## Serialization and Deserialization
