@@ -59,9 +59,72 @@
 //! # }
 //! ```
 //! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx) 
-//! that implements the [`Express`](Express) trait. Moreover, `FlatEx` and `Express` are the
-//! only items made accessible by the wildcard import from [`prelude`](prelude).
+//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx) and 
+//! [`Express`](Express) are the only items made accessible by the wildcard import from
+//! [`prelude`](prelude).
 //!
+//! ## Partial Derivatives
+//!
+//! For default operators, expressions can be transformed into their partial derivatives
+//! again represented by expressions. To this end, there exists the method [`partial`](Express::partial).
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::prelude::*;
+//! let expr = exmex::parse::<f64>("x^2 + y^2")?;
+//! let dexpr_dx = expr.clone().partial(0)?;
+//! let dexpr_dy = expr.partial(1)?;
+//! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
+//! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//!
+//! ## Owned Expression
+//! You cannot return all expression types from a function without a lifetime parameter.
+//! For instance, expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
+//! `String`s of variable or operator names to make faster parsing possible.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::prelude::*;
+//! use exmex::ExResult;
+//! fn create_expr<'a>() -> ExResult<FlatEx::<'a, f64>> {
+//! //              |                          |
+//! //              lifetime parameter necessary
+//!
+//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
+//!     exmex::parse::<f64>(to_be_parsed)
+//! }
+//! let expr = create_expr()?;
+//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//! If you are willing to pay the price of roughly doubled parsing times, you can
+//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns
+//! its strings. Evaluation times should be comparable. However, a lifetime parameter is
+//! not needed anymore as shown in the following.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{ExResult, Express, OwnedFlatEx};
+//! fn create_expr() -> ExResult<OwnedFlatEx::<f64>> {
+//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
+//!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
+//! }
+//! let expr_owned = create_expr()?;
+//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//! 
 //! ## Extendability
 //!
 //! How to use custom operators as well as custom data types of the operands even with
@@ -70,7 +133,7 @@
 //! ### Custom Operators and Constants
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator). Constants are also defined in terms of constant operators. More precisely,
+//! [`Operator`](Operator). Constants are defined in terms of constant operators. More precisely,
 //! operators can be
 //! * binary such as `*`,
 //! * unary such as `sin`,
@@ -191,68 +254,6 @@
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
 //! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
 //! assert_eq!(expr.eval(&[])?, true);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//!
-//! ## Partial Derivatives
-//!
-//! For default operators, expressions can be transformed into their partial derivatives
-//! again represented by expressions. To this end, there exists the method [`partial`](Express::partial).
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::prelude::*;
-//! let expr = exmex::parse::<f64>("x^2 + y^2")?;
-//! let dexpr_dx = expr.clone().partial(0)?;
-//! let dexpr_dy = expr.partial(1)?;
-//! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
-//! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//!
-//! ## Owned Expression
-//! You cannot return all expression types from a function without a lifetime parameter.
-//! For instance, expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
-//! `String`s of variable or operator names to make faster parsing possible.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::prelude::*;
-//! use exmex::ExResult;
-//! fn create_expr<'a>() -> ExResult<FlatEx::<'a, f64>> {
-//! //              |                          |
-//! //              lifetime parameter necessary
-//!
-//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//!     exmex::parse::<f64>(to_be_parsed)
-//! }
-//! let expr = create_expr()?;
-//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//! If you are willing to pay the price of roughly doubled parsing times, you can
-//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns
-//! its strings. Evaluation times should be comparable. However, a lifetime parameter is
-//! not needed anymore as shown in the following.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::{ExResult, Express, OwnedFlatEx};
-//! fn create_expr() -> ExResult<OwnedFlatEx::<f64>> {
-//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
-//! }
-//! let expr_owned = create_expr()?;
-//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
