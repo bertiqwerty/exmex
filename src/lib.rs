@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.11.1")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.11.2")]
 //! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator
 //! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
 //!
