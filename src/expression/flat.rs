@@ -130,6 +130,10 @@ where
     fn reduce_memory(&mut self) {
         self.deepex = None;
     }
+
+    fn n_vars(&self) -> usize {
+        self.n_unique_vars
+    }
 }
 
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
@@ -258,6 +262,10 @@ where
 
     fn reduce_memory(&mut self) {
         self.deepex_buf = None;
+    }
+
+    fn n_vars(&self) -> usize {
+        self.n_unique_vars
     }
 }
 /// The expression is displayed as a string created by [`unparse`](OwnedFlatEx::unparse).

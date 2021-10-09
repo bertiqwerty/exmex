@@ -566,6 +566,7 @@ mod tests {
     fn test_variables() {
         let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*log(cos({y})))*cos({z}))";
         let expr = FlatEx::<f64>::from_str(sut).unwrap();
+        assert_eq!(expr.n_vars(), 3usize);
         let reference =
             |x: f64, y: f64, z: f64| x.sin() + y.cos().powf(z.sin()) * y.cos().ln() * z.cos();
 
@@ -591,10 +592,12 @@ mod tests {
 
         let sut = "y + 1 + 0.5 * x";
         let expr = OwnedFlatEx::<f64>::from_str(sut).unwrap();
+        assert_eq!(expr.n_vars(), 2usize);
         assert_float_eq_f64(expr.eval(&[3.0, 1.0]).unwrap(), 3.5);
 
         let sut = " -(-(1+x))";
         let expr = OwnedFlatEx::<f64>::from_str(sut).unwrap();
+        assert_eq!(expr.n_vars(), 1usize);
         assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 2.0);
 
         let sut = " sin(cos(-3.14159265358979*x))";
