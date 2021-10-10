@@ -107,6 +107,7 @@ where
     where
         T: Float,
     {
+        check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
         let ops = DefaultOpsFactory::make();
 
         let d_i = partial_derivatives::partial_deepex(
@@ -238,6 +239,8 @@ where
     where
         T: Float,
     {
+        check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
+
         let ops = DefaultOpsFactory::make();
         let deep_buf = match self.deepex_buf {
             Some(d) => Ok(d),
@@ -291,6 +294,8 @@ use crate::{
 };
 #[cfg(test)]
 use smallvec::smallvec;
+
+use super::flat_details::check_partial_index;
 
 #[test]
 fn test_operate_unary() {

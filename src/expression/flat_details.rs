@@ -42,6 +42,22 @@ impl<T: Copy> FlatNode<T> {
     }
 }
 
+pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
+    if var_idx >= n_vars {
+        Err(ExError {
+            msg: format!(
+                "index {} is invalid since we have only {} vars in {}",
+                var_idx,
+                n_vars,
+                unparsed
+            ),
+        })
+    }
+    else {
+        Ok(())
+    }
+}
+
 pub fn flatten_vecs<T: Copy + Debug>(
     deep_expr: &DeepEx<T>,
     prio_offset: i32,

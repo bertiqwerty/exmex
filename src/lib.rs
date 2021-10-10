@@ -751,6 +751,7 @@ mod tests {
             flatex: FlatEx<f64>,
             reference: fn(f64) -> f64,
         ) {
+            assert!(flatex.clone().partial(flatex.n_vars()).is_err());
             let deri = flatex.clone().partial(var_idx).unwrap();
             println!("flatex {}", flatex);
             println!("partial {}", deri);
