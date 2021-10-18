@@ -72,13 +72,13 @@ pub fn tokenize_and_analyze<'a, T, F>(
 ) -> ExResult<SmallVec<[ParsedToken<'a, T>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
-    T: Copy + FromStr + Debug,
+    T: Copy + FromStr + Debug + std::marker::Sync,
     F: Fn(&'a str) -> Option<&'a str>,
 {
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_unstable_by(|o1, o2| o2.repr().partial_cmp(o1.repr()).unwrap());
-    let ops = ops_tmp; // from now on const
+    let ops = ops_tmp.to_vec(); // from now on const
 
     lazy_static! {
         static ref RE_VAR_NAME: Regex =
@@ -117,6 +117,7 @@ where
             cur_byte_offset += 1;
         } else if i == cur_byte_offset && cur_byte_offset < text.len() {
             let text_rest = &text[cur_byte_offset..];
+            let cur_byte_offset_tmp = cur_byte_offset;
             let next_parsed_token = if c == '(' {
                 cur_byte_offset += 1;
                 ParsedToken::<T>::Paren(Paren::Open)
@@ -140,14 +141,14 @@ where
                 ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| ExError {
                     msg: format!("could not parse '{}', {:?}", num_str, e),
                 })?)
-            } else if let Some(op) = find_ops(cur_byte_offset) {
+            } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
                 match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op(**op),
                 }
-            } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
+            } else if let Some(var_str) = RE_VAR_NAME.find(&text_rest) {
                 let var_str = var_str.as_str();
                 let n_bytes = var_str.len();
                 cur_byte_offset += n_bytes;
@@ -371,7 +372,9 @@ where
 }
 
 #[cfg(test)]
-use crate::operators::{DefaultOpsFactory, MakeOperators};
+use {
+    crate::operators::{DefaultOpsFactory, MakeOperators}
+};
 
 #[test]
 fn test_is_numeric() {
@@ -400,13 +403,6 @@ fn test_preconditions() {
                 }
             }
         }
-        let mut x: i64 = 0;
-        for i in 0..100000 {
-            x += i;
-            let ops = DefaultOpsFactory::<f32>::make();
-            let _elts = tokenize_and_analyze(text, &ops, is_numeric_text);
-        }
-        println!("{}", x);
 
         let ops = DefaultOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);

@@ -3,6 +3,7 @@ use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
+use crate::util::DataTypeBounds;
 use crate::{DefaultOpsFactory, ExError, ExResult, MakeOperators};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -71,13 +72,13 @@ where
 
 impl<'a, T, OF> Express<'a, T> for FlatEx<'a, T, OF>
 where
-    T: Copy + Debug,
+    T: DataTypeBounds,
     OF: MakeOperators<T>,
 {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr,
+        T: DataTypeBounds,
     {
         let ops = OF::make();
         let deepex = DeepEx::from_ops(text, &ops)?;
@@ -140,7 +141,7 @@ where
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
 impl<'a, T, OF> Display for FlatEx<'a, T, OF>
 where
-    T: Copy + Debug,
+    T: DataTypeBounds,
     OF: MakeOperators<T>,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -203,7 +204,7 @@ where
 }
 impl<'a, T, OF> Express<'a, T> for OwnedFlatEx<T, OF>
 where
-    T: Copy + Debug,
+    T: DataTypeBounds,
     OF: MakeOperators<T>,
 {
     fn from_str(text: &'a str) -> ExResult<Self>
@@ -274,7 +275,7 @@ where
 /// The expression is displayed as a string created by [`unparse`](OwnedFlatEx::unparse).
 impl<T, OF> Display for OwnedFlatEx<T, OF>
 where
-    T: Copy + Debug,
+    T: DataTypeBounds,
     OF: MakeOperators<T>,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

@@ -7,7 +7,9 @@ use crate::{
         self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf,
     },
     operators::{BinOp, DefaultOpsFactory, MakeOperators, UnaryOp},
-    parser, ExError, ExResult, Operator,
+    parser,
+    util::DataTypeBounds,
+    ExError, ExResult, Operator,
 };
 use num::Float;
 use regex::Regex;
@@ -30,7 +32,7 @@ pub fn parse<'a, T, F>(
     is_numeric: F,
 ) -> ExResult<DeepEx<'a, T>>
 where
-    T: Copy + Debug + FromStr,
+    T: DataTypeBounds,
     <T as FromStr>::Err: Debug,
     F: Fn(&'a str) -> Option<&'a str>,
 {
@@ -450,7 +452,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     pub fn from_str_float(text: &'a str) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Float + FromStr,
+        T: Float + DataTypeBounds,
     {
         let ops = DefaultOpsFactory::<T>::make();
         DeepEx::from_ops(text, &ops)
@@ -459,7 +461,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: DataTypeBounds,
     {
         parse(text, ops, parser::is_numeric_text)
     }
@@ -471,7 +473,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     ) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: DataTypeBounds,
     {
         let beginning_num_re_pattern = format!("^({})", number_regex_pattern);
         let re_number = match Regex::new(beginning_num_re_pattern.as_str()) {
