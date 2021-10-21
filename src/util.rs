@@ -24,6 +24,6 @@ pub fn assert_float_eq_f64(f1: f64, f2: f64) {
     assert_float_eq(f1, f2, 1e-12, 0.0, "");
 }
 
-pub trait DataTypeBounds : Copy + FromStr + Debug + Sync{}
-impl<T: Copy + FromStr + Debug + Sync> DataTypeBounds for T {}
+pub trait DataTypeBounds : Clone + FromStr + Debug{}
+impl<T: Clone + FromStr + Debug> DataTypeBounds for T {}
 

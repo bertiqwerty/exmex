@@ -1,15 +1,9 @@
-use crate::{
-    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
-    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
-    operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
-    parser::{Paren, ParsedToken},
-    ExError, ExResult, Operator,
-};
+use crate::{ExError, ExResult, Operator, definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, UnaryOp, VecOfUnaryFuncs}, parser::{Paren, ParsedToken}, util::DataTypeBounds};
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
 
-pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug>(
+pub fn find_parsed_vars<'a, T: DataTypeBounds>(
     parsed_tokens: &[ParsedToken<'a, T>],
 ) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
     let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
@@ -25,7 +19,7 @@ pub fn find_parsed_vars<'a, T: Copy + FromStr + Debug>(
     found_vars
 }
 
-fn is_operator_binary<'a, T: Copy + FromStr>(
+fn is_operator_binary<'a, T: DataTypeBounds>(
     op: &Operator<'a, T>,
     parsed_token_on_the_left: &ParsedToken<'a, T>,
 ) -> bool {
@@ -56,7 +50,7 @@ fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
 /// number where the unary operator has been applied to. the second element is the number
 /// of tokens that are covered by the unary operator and its argument. Note that a unary
 /// operator can be a composition of multiple functions.
-fn process_unary<'a, T: Copy + FromStr + Debug>(
+fn process_unary<'a, T: Clone + FromStr + Debug>(
     token_idx: usize,
     unary_op: fn(T) -> T,
     repr: &'a str,
@@ -115,7 +109,7 @@ fn process_unary<'a, T: Copy + FromStr + Debug>(
             )?;
             Ok((DeepNode::Expr(expr), n_uops + 1))
         }
-        ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(*n)), n_uops + 1)),
+        ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(n.clone())), n_uops + 1)),
         _ => Err(ExError {
             msg: "Invalid parsed token configuration".to_string(),
         }),
@@ -140,7 +134,7 @@ pub fn make_expression<'a, T>(
     unary_ops: UnaryOpWithReprs<'a, T>,
 ) -> ExResult<(DeepEx<'a, T>, usize)>
 where
-    T: Copy + FromStr + Debug,
+    T: Clone + FromStr + Debug,
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
@@ -170,7 +164,7 @@ where
                 }
             }
             ParsedToken::Num(n) => {
-                nodes.push(DeepNode::Num(*n));
+                nodes.push(DeepNode::Num(n.clone()));
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
@@ -208,7 +202,7 @@ where
     ))
 }
 
-pub fn prioritized_indices<T: Copy + Debug>(
+pub fn prioritized_indices<T: Clone + Debug>(
     bin_ops: &[BinOp<T>],
     nodes: &[DeepNode<T>],
 ) -> ExprIdxVec {
@@ -229,11 +223,11 @@ pub fn prioritized_indices<T: Copy + Debug>(
     indices
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct BinOpsWithReprsBuf<T: Copy> {
+pub struct BinOpsWithReprsBuf<T: Clone> {
     pub reprs: SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
 }
-impl<T: Copy> BinOpsWithReprsBuf<T> {
+impl<T: Clone> BinOpsWithReprsBuf<T> {
     pub fn from_deepex<'a>(bin_ops_in: &BinOpsWithReprs<'a, T>) -> Self {
         BinOpsWithReprsBuf {
             reprs: bin_ops_in
@@ -253,11 +247,11 @@ impl<T: Copy> BinOpsWithReprsBuf<T> {
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct UnaryOpWithReprsBuf<T: Copy> {
+pub struct UnaryOpWithReprsBuf<T> {
     pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-impl<T: Copy> UnaryOpWithReprsBuf<T> {
+impl<T: Clone> UnaryOpWithReprsBuf<T> {
     pub fn from_deepex<'a>(unary_op_in: &UnaryOpWithReprs<'a, T>) -> Self {
         UnaryOpWithReprsBuf {
             reprs: unary_op_in

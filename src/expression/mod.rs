@@ -14,7 +14,7 @@ mod serde;
 
 /// Expressions implementing this trait can be evaluated for specific variable values,
 /// differentiated partially, and unparsed, i.e., transformed into a string representation.  
-pub trait Express<'a, T: Copy> {
+pub trait Express<'a, T> {
     /// Parses a string into an expression that can be evaluated.
     ///
     /// # Arguments
@@ -28,7 +28,7 @@ pub trait Express<'a, T: Copy> {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr,
+        T: FromStr,
         Self: Sized;
 
     /// Use custom number literals defined as regex patterns to create an expression that can be evaluated.

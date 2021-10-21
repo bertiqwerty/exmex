@@ -16,24 +16,24 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 /// A `FlatOp` contains besides a binary operation an optional unary operation that
 /// will be executed after the binary operation in case of its existence.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatOp<T: Copy> {
+pub struct FlatOp<T: Clone> {
     unary_op: UnaryOp<T>,
     bin_op: BinOp<T>,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum FlatNodeKind<T: Copy> {
+pub enum FlatNodeKind<T> {
     Num(T),
     Var(usize),
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatNode<T: Copy> {
+pub struct FlatNode<T> {
     pub kind: FlatNodeKind<T>,
     pub unary_op: UnaryOp<T>,
 }
 
-impl<T: Copy> FlatNode<T> {
+impl<T> FlatNode<T> {
     pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
         FlatNode {
             kind,
@@ -58,7 +58,7 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
     }
 }
 
-pub fn flatten_vecs<T: Copy + Debug>(
+pub fn flatten_vecs<T: Clone + Debug>(
     deep_expr: &DeepEx<T>,
     prio_offset: i32,
 ) -> (FlatNodeVec<T>, FlatOpVec<T>) {
@@ -68,7 +68,7 @@ pub fn flatten_vecs<T: Copy + Debug>(
     for (node_idx, node) in deep_expr.nodes().iter().enumerate() {
         match node {
             DeepNode::Num(num) => {
-                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(*num));
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(num.clone()));
                 flat_nodes.push(flat_node);
             }
             DeepNode::Var((idx, _)) => {
@@ -114,7 +114,7 @@ pub fn flatten_vecs<T: Copy + Debug>(
     (flat_nodes, flat_ops)
 }
 
-pub fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
+pub fn prioritized_indices_flat<T: Clone>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
             (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {
@@ -132,7 +132,7 @@ pub fn prioritized_indices_flat<T: Copy>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<
     indices
 }
 
-pub fn eval_flatex<T: Copy + Debug>(
+pub fn eval_flatex<T: Clone + Debug>(
     vars: &[T],
     nodes: &FlatNodeVec<T>,
     ops: &FlatOpVec<T>,
@@ -151,9 +151,9 @@ pub fn eval_flatex<T: Copy + Debug>(
     let mut numbers = nodes
         .iter()
         .map(|node| {
-            node.unary_op.apply(match node.kind {
-                FlatNodeKind::Num(n) => n,
-                FlatNodeKind::Var(idx) => vars[idx],
+            node.unary_op.apply(match &node.kind {
+                FlatNodeKind::Num(n) => n.clone(),
+                FlatNodeKind::Var(idx) => vars[*idx].clone(),
             })
         })
         .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
@@ -168,13 +168,13 @@ pub fn eval_flatex<T: Copy + Debug>(
         while ignore[num_idx + shift_right] {
             shift_right += 1usize;
         }
-        let num_1 = numbers[num_idx - shift_left];
-        let num_2 = numbers[num_idx + shift_right];
+        let num_1 = numbers[num_idx - shift_left].clone();
+        let num_2 = numbers[num_idx + shift_right].clone();
         numbers[num_idx - shift_left] = {
             let bop_res = (ops[bin_op_idx].bin_op.apply)(num_1, num_2);
             ops[bin_op_idx].unary_op.apply(bop_res)
         };
         ignore[num_idx + shift_right] = true;
     }
-    Ok(numbers[0])
+    Ok(numbers[0].clone())
 }

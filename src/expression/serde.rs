@@ -6,7 +6,7 @@ use crate::util::DataTypeBounds;
 use crate::OwnedFlatEx;
 use crate::{prelude::*, MakeOperators};
 
-fn serialize<'a, T: Copy, S: Serializer, Ex: Express<'a, T>>(
+fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     serializer: S,
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {

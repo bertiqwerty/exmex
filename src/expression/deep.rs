@@ -47,14 +47,14 @@ where
 /// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum DeepNode<'a, T: Copy + Debug> {
+pub enum DeepNode<'a, T: Clone + Debug> {
     Expr(DeepEx<'a, T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval`](Expression::eval).
     Var((usize, &'a str)),
 }
-impl<'a, T: Copy + Debug> DeepNode<'a, T>
+impl<'a, T: Debug> DeepNode<'a, T>
 where
     T: Float,
 {
@@ -68,7 +68,7 @@ where
         DeepNode::Num(n)
     }
 }
-impl<'a, T: Copy + Debug> Debug for DeepNode<'a, T> {
+impl<'a, T: Clone + Debug> Debug for DeepNode<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             DeepNode::Expr(e) => write!(f, "{}", e),
@@ -78,11 +78,11 @@ impl<'a, T: Copy + Debug> Debug for DeepNode<'a, T> {
     }
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct BinOpsWithReprs<'a, T: Copy> {
+pub struct BinOpsWithReprs<'a, T: Clone> {
     pub reprs: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
 }
-impl<'a, T: Copy> BinOpsWithReprs<'a, T> {
+impl<'a, T: Clone> BinOpsWithReprs<'a, T> {
     pub fn new() -> Self {
         BinOpsWithReprs {
             reprs: smallvec![],
@@ -92,11 +92,11 @@ impl<'a, T: Copy> BinOpsWithReprs<'a, T> {
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct UnaryOpWithReprs<'a, T: Copy> {
+pub struct UnaryOpWithReprs<'a, T> {
     pub reprs: SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
+impl<'a, T> UnaryOpWithReprs<'a, T> {
     pub fn new() -> UnaryOpWithReprs<'a, T> {
         UnaryOpWithReprs {
             reprs: smallvec![],
@@ -118,7 +118,7 @@ impl<'a, T: Copy> UnaryOpWithReprs<'a, T> {
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DeepEx<'a, T: Copy + Debug> {
+pub struct DeepEx<'a, T: Clone + Debug> {
     /// Nodes can be numbers, variables, or other expressions.
     nodes: Vec<DeepNode<'a, T>>,
     /// Binary operators applied to the nodes according to their priority.
@@ -129,7 +129,7 @@ pub struct DeepEx<'a, T: Copy + Debug> {
     var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
 
-fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
+fn lift_nodes<'a, T: Clone + Debug>(deepex: &mut DeepEx<'a, T>) {
     if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
         match &deepex.nodes[0] {
             DeepNode::Expr(e) => {
@@ -142,7 +142,7 @@ fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
             if let DeepNode::Expr(e) = node {
                 if e.nodes.len() == 1 && e.unary_op.op.len() == 0 {
                     match &mut e.nodes[0] {
-                        DeepNode::Num(n) => *node = DeepNode::Num(*n),
+                        DeepNode::Num(n) => *node = DeepNode::Num(n.clone()),
                         DeepNode::Var(v) => {
                             *node = DeepNode::Var(*v);
                         }
@@ -159,7 +159,7 @@ fn lift_nodes<'a, T: Copy + Debug>(deepex: &mut DeepEx<'a, T>) {
     }
 }
 
-impl<'a, T: Copy + Debug> DeepEx<'a, T> {
+impl<'a, T: Clone + Debug> DeepEx<'a, T> {
     /// Evaluates all operators with numbers as operands.
     pub fn compile(&mut self) {
         lift_nodes(self);
@@ -177,7 +177,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
-                    let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(*num_1, *num_2);
+                    let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(num_1.clone(), num_2.clone());
                     self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);
@@ -204,13 +204,13 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             .filter(|(i, _)| !used_prio_indices.contains(i))
             .map(|(i, bin_op)| {
                 resulting_reprs.push(self.bin_ops.reprs[i]);
-                *bin_op
+                bin_op.clone()
             })
             .collect();
         self.bin_ops.reprs = resulting_reprs;
 
         if self.nodes.len() == 1 {
-            if let DeepNode::Num(n) = self.nodes[0] {
+            if let DeepNode::Num(n) = self.nodes[0].clone() {
                 self.nodes[0] = DeepNode::Num(self.unary_op.op.apply(n));
                 self.unary_op.op.clear();
                 self.unary_op.reprs.clear();
@@ -341,7 +341,7 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
     }
 
     pub fn var_names_union(self, other: Self) -> (Self, Self) {
-        fn reset_vars<'a, T: Copy + Debug>(
+        fn reset_vars<'a, T: Clone + Debug>(
             deepex: &mut DeepEx<'a, T>,
             new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
         ) {
@@ -494,8 +494,8 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             .iter()
             .map(|node| -> ExResult<T> {
                 match node {
-                    DeepNode::Num(n) => Ok(*n),
-                    DeepNode::Var((idx, _)) => Ok(vars[*idx]),
+                    DeepNode::Num(n) => Ok(n.clone()),
+                    DeepNode::Var((idx, _)) => Ok(vars[*idx].clone()),
                     DeepNode::Expr(e) => e.eval(vars),
                 }
             })
@@ -512,22 +512,22 @@ impl<'a, T: Copy + Debug> DeepEx<'a, T> {
             while ignore[num_idx + shift_right] {
                 shift_right += 1usize;
             }
-            let num_1 = numbers[num_idx - shift_left];
-            let num_2 = numbers[num_idx + shift_right];
+            let num_1 = numbers[num_idx - shift_left].clone();
+            let num_2 = numbers[num_idx + shift_right].clone();
             numbers[num_idx - shift_left] = (self.bin_ops.ops[bin_op_idx].apply)(num_1, num_2);
             ignore[num_idx + shift_right] = true;
         }
-        Ok(self.unary_op.op.apply(numbers[0]))
+        Ok(self.unary_op.op.apply(numbers[0].clone()))
     }
 }
 
-impl<'a, T: Copy + Debug> Display for DeepEx<'a, T> {
+impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse_raw())
     }
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub enum DeepBufNode<T: Copy + Debug> {
+pub enum DeepBufNode<T: Clone + Debug> {
     Expr(DeepBuf<T>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
@@ -535,7 +535,7 @@ pub enum DeepBufNode<T: Copy + Debug> {
     Var((usize, String)),
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DeepBuf<T: Copy + Debug> {
+pub struct DeepBuf<T: Clone + Debug> {
     pub nodes: Vec<DeepBufNode<T>>,
     /// Binary operators applied to the nodes according to their priority.
     pub bin_ops: BinOpsWithReprsBuf<T>,
@@ -546,7 +546,7 @@ pub struct DeepBuf<T: Copy + Debug> {
     pub var_names: SmallVec<[String; N_VARS_ON_STACK]>,
 }
 
-impl<'a, T: Copy + Debug> DeepBuf<T> {
+impl<'a, T: Clone + Debug> DeepBuf<T> {
     pub fn from_deepex(deepex: &DeepEx<'a, T>) -> Self {
         Self {
             nodes: deepex
@@ -554,7 +554,7 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
                 .iter()
                 .map(|node| match node {
                     DeepNode::Expr(e) => DeepBufNode::Expr(Self::from_deepex(e)),
-                    DeepNode::Num(n) => DeepBufNode::Num(*n),
+                    DeepNode::Num(n) => DeepBufNode::Num(n.clone()),
                     DeepNode::Var(v) => DeepBufNode::Var((v.0, v.1.to_string())),
                 })
                 .collect(),
@@ -571,7 +571,7 @@ impl<'a, T: Copy + Debug> DeepBuf<T> {
                 .map(|node| -> ExResult<_> {
                     match node {
                         DeepBufNode::Expr(e) => Ok(DeepNode::Expr(e.to_deepex(ops)?)),
-                        DeepBufNode::Num(n) => Ok(DeepNode::Num(*n)),
+                        DeepBufNode::Num(n) => Ok(DeepNode::Num(n.clone())),
                         DeepBufNode::Var(v) => Ok(DeepNode::Var((v.0, v.1.as_str()))),
                     }
                 })

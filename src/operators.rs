@@ -10,8 +10,8 @@ fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
 }
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct Operator<'a, T: Copy> {
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct Operator<'a, T: Clone> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     repr: &'a str,
     /// Binary operator that contains a priority besides a function pointer.
@@ -27,7 +27,7 @@ fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a
     wrapped_op.as_ref().ok_or(make_op_not_available_error(repr))
 }
 
-impl<'a, T: Copy> Operator<'a, T> {
+impl<'a, T: Clone> Operator<'a, T> {
     fn new(
         repr: &'a str,
         bin_op: Option<BinOp<T>>,
@@ -80,7 +80,8 @@ impl<'a, T: Copy> Operator<'a, T> {
     }
 
     pub fn bin(&self) -> ExResult<BinOp<T>> {
-        Ok(*unwrap_operator(&self.bin_op, self.repr)?)
+        let op = unwrap_operator(&self.bin_op, self.repr)?;
+        Ok(op.clone())
     }
     pub fn unary(&self) -> ExResult<fn(T) -> T> {
         Ok(*unwrap_operator(&self.unary_op, self.repr)?)
@@ -95,7 +96,7 @@ impl<'a, T: Copy> Operator<'a, T> {
         self.unary_op.is_some()
     }
     pub fn constant(&self) -> Option<T> {
-        self.constant
+        self.constant.clone()
     }
 }
 
@@ -153,8 +154,8 @@ impl<T> UnaryOp<T> {
 }
 
 /// A binary operator that consists of a function pointer, a priority, and a commutativity-flag.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct BinOp<T> {
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct BinOp<T: Clone> {
     /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
     pub apply: fn(T, T) -> T,
     /// Priority of the binary operation. A binary operation with a
@@ -194,7 +195,7 @@ pub struct BinOp<T> {
 ///     }
 /// }
 /// ```
-pub trait MakeOperators<T: Copy>: Clone {
+pub trait MakeOperators<T: Clone>: Clone {
     /// Function that creates a vector of operators.
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }

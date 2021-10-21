@@ -39,7 +39,7 @@ use std::str::FromStr;
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatEx<'a, T, OF = DefaultOpsFactory<T>>
 where
-    T: Copy + Debug,
+    T: Clone + Debug,
     OF: MakeOperators<T>,
 {
     nodes: FlatNodeVec<T>,
@@ -52,7 +52,7 @@ where
 
 impl<'a, T, OF> FlatEx<'a, T, OF>
 where
-    T: Copy + Debug,
+    T: Clone + Debug,
     OF: MakeOperators<T>,
 {
     fn flatten(deepex: DeepEx<'a, T>) -> Self {
@@ -175,7 +175,7 @@ where
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct OwnedFlatEx<T, OF = DefaultOpsFactory<T>>
 where
-    T: Copy + Debug,
+    T: Clone + Debug,
     OF: MakeOperators<T>,
 {
     deepex_buf: Option<DeepBuf<T>>,
@@ -187,7 +187,7 @@ where
 }
 impl<T, OF> OwnedFlatEx<T, OF>
 where
-    T: Copy + Debug,
+    T: Clone + Debug,
     OF: MakeOperators<T>,
 {
     /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
@@ -210,7 +210,7 @@ where
     fn from_str(text: &'a str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr,
+        T: Clone + FromStr,
     {
         Ok(Self::from_flatex(FlatEx::from_str(text)?))
     }

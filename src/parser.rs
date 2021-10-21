@@ -1,10 +1,10 @@
 use crate::definitions::N_NODES_ON_STACK;
+use crate::util::DataTypeBounds;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
 use std::fmt::Debug;
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Paren {
@@ -13,7 +13,7 @@ pub enum Paren {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ParsedToken<'a, T: Copy + FromStr> {
+pub enum ParsedToken<'a, T: DataTypeBounds> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
@@ -72,7 +72,7 @@ pub fn tokenize_and_analyze<'a, T, F>(
 ) -> ExResult<SmallVec<[ParsedToken<'a, T>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
-    T: Copy + FromStr + Debug + std::marker::Sync,
+    T: DataTypeBounds,
     F: Fn(&'a str) -> Option<&'a str>,
 {
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
@@ -146,7 +146,7 @@ where
                 cur_byte_offset += n_bytes;
                 match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
-                    None => ParsedToken::<T>::Op(**op),
+                    None => ParsedToken::<T>::Op((*op).clone()),
                 }
             } else if let Some(var_str) = RE_VAR_NAME.find(&text_rest) {
                 let var_str = var_str.as_str();
@@ -163,11 +163,11 @@ where
     Ok(res)
 }
 
-struct PairPreCondition<'a, T: Copy + FromStr> {
+struct PairPreCondition<'a, T: DataTypeBounds> {
     apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> ExResult<()>,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr + Debug>() -> [PairPreCondition<'a, T>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: DataTypeBounds>() -> [PairPreCondition<'a, T>; 9] {
     [
         PairPreCondition {
             apply: |left, right| {
@@ -314,7 +314,7 @@ fn make_pair_pre_conditions<'a, 'b, T: Copy + FromStr + Debug>() -> [PairPreCond
 ///
 pub fn check_parsed_token_preconditions<'a, T>(parsed_tokens: &[ParsedToken<'a, T>]) -> ExResult<()>
 where
-    T: Copy + FromStr + Debug,
+    T: DataTypeBounds,
 {
     if parsed_tokens.len() == 0 {
         return Err(ExError {
