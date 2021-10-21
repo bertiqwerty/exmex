@@ -2,7 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use num::Float;
 
-use crate::ExResult;
+use crate::{ExResult, util::DataTypeBounds};
 
 pub mod deep;
 mod deep_details;
@@ -48,7 +48,7 @@ pub trait Express<'a, T> {
     fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: DataTypeBounds,
         Self: Sized;
 
     /// Evaluates an expression with the given variable values and returns the computed

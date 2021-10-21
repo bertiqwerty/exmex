@@ -88,7 +88,7 @@ where
     fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: DataTypeBounds,
     {
         let ops = OF::make();
         let deepex = DeepEx::from_pattern(text, &ops, number_regex_pattern)?;
@@ -218,7 +218,7 @@ where
     fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
-        T: Copy + FromStr + Debug,
+        T: DataTypeBounds,
     {
         Ok(Self::from_flatex(FlatEx::from_pattern(
             text,
