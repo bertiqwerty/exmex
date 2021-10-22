@@ -484,7 +484,7 @@ mod tests {
         let expr = FlatEx::<f64>::from_str(sut).unwrap();
         assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
 
-        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        #[derive(Clone, Debug, PartialEq, Eq)]
         struct Thumbs {
             val: bool,
         }
