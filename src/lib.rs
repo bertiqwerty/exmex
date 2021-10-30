@@ -307,7 +307,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use expression::deep::DeepEx;
 use num::Float;
-use util::DataTypeBounds;
+use util::DataType;
 mod definitions;
 mod expression;
 #[macro_use]
@@ -337,7 +337,7 @@ pub mod prelude {
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`](ExError) is returned.
 ///
-pub fn eval_str<T: Float + DataTypeBounds>(text: &str) -> ExResult<T>
+pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
@@ -358,7 +358,7 @@ where
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`](ExError) is returned.
 ///
-pub fn parse<T: Float + DataTypeBounds>(text: &str) -> ExResult<FlatEx<T>>
+pub fn parse<T: Float + DataType>(text: &str) -> ExResult<FlatEx<T>>
 where
     <T as FromStr>::Err: Debug,
 {

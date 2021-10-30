@@ -1,5 +1,5 @@
 use crate::definitions::N_NODES_ON_STACK;
-use crate::util::DataTypeBounds;
+use crate::util::DataType;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -13,7 +13,7 @@ pub enum Paren {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ParsedToken<'a, T: DataTypeBounds> {
+pub enum ParsedToken<'a, T: DataType> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
@@ -72,7 +72,7 @@ pub fn tokenize_and_analyze<'a, T, F>(
 ) -> ExResult<SmallVec<[ParsedToken<'a, T>; N_NODES_ON_STACK]>>
 where
     <T as std::str::FromStr>::Err: Debug,
-    T: DataTypeBounds,
+    T: DataType,
     F: Fn(&'a str) -> Option<&'a str>,
 {
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
@@ -163,11 +163,11 @@ where
     Ok(res)
 }
 
-struct PairPreCondition<'a, T: DataTypeBounds> {
+struct PairPreCondition<'a, T: DataType> {
     apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> ExResult<()>,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: DataTypeBounds>() -> [PairPreCondition<'a, T>; 9] {
+fn make_pair_pre_conditions<'a, 'b, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
     [
         PairPreCondition {
             apply: |left, right| {
@@ -314,7 +314,7 @@ fn make_pair_pre_conditions<'a, 'b, T: DataTypeBounds>() -> [PairPreCondition<'a
 ///
 pub fn check_parsed_token_preconditions<'a, T>(parsed_tokens: &[ParsedToken<'a, T>]) -> ExResult<()>
 where
-    T: DataTypeBounds,
+    T: DataType,
 {
     if parsed_tokens.len() == 0 {
         return Err(ExError {

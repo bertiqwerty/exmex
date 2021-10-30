@@ -2,7 +2,7 @@ use std::{fmt, fmt::Debug, marker::PhantomData};
 
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::util::DataTypeBounds;
+use crate::util::DataType;
 use crate::OwnedFlatEx;
 use crate::{prelude::*, MakeOperators};
 
@@ -17,7 +17,7 @@ fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     )
 }
 
-impl<'de: 'a, 'a, T: DataTypeBounds, OF: MakeOperators<T>> Serialize for FlatEx<'a, T, OF> {
+impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Serialize for FlatEx<'a, T, OF> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -26,7 +26,7 @@ impl<'de: 'a, 'a, T: DataTypeBounds, OF: MakeOperators<T>> Serialize for FlatEx<
     }
 }
 
-impl<'de: 'a, 'a, T: DataTypeBounds + 'a, OF: MakeOperators<T>> Deserialize<'de>
+impl<'de: 'a, 'a, T: DataType + 'a, OF: MakeOperators<T>> Deserialize<'de>
     for FlatEx<'a, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
@@ -48,7 +48,7 @@ struct FlatExVisitor<'a, T, OF> {
     of_dummy: PhantomData<OF>,
 }
 
-impl<'de: 'a, 'a, T: DataTypeBounds, OF: MakeOperators<T>> Visitor<'de> for FlatExVisitor<'a, T, OF>
+impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Visitor<'de> for FlatExVisitor<'a, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -67,7 +67,7 @@ where
     }
 }
 
-impl<'de, T: DataTypeBounds, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, OF> {
+impl<'de, T: DataType, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, OF> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -76,7 +76,7 @@ impl<'de, T: DataTypeBounds, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, 
     }
 }
 
-impl<'de, T: DataTypeBounds, OF: MakeOperators<T>> Deserialize<'de> for OwnedFlatEx<T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>> Deserialize<'de> for OwnedFlatEx<T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -97,7 +97,7 @@ struct OwnedFlatExVisitor<T, OF> {
     another_dummy: PhantomData<OF>,
 }
 
-impl<'de, T: DataTypeBounds, OF: MakeOperators<T>> Visitor<'de> for OwnedFlatExVisitor<T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>> Visitor<'de> for OwnedFlatExVisitor<T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
