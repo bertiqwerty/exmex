@@ -2,7 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use num::Float;
 
-use crate::{ExResult, util::DataType};
+use crate::{ExResult, data_type::DataType};
 
 pub mod deep;
 mod deep_details;

@@ -307,7 +307,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use expression::deep::DeepEx;
 use num::Float;
-use util::DataType;
+use data_type::DataType;
 mod definitions;
 mod expression;
 #[macro_use]
@@ -315,6 +315,7 @@ mod operators;
 mod parser;
 mod result;
 mod util;
+mod data_type;
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},

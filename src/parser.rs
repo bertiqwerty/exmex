@@ -1,5 +1,5 @@
 use crate::definitions::N_NODES_ON_STACK;
-use crate::util::DataType;
+use crate::data_type::DataType;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;

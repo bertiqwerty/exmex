@@ -8,7 +8,7 @@ use crate::{
     },
     operators::{BinOp, DefaultOpsFactory, MakeOperators, UnaryOp},
     parser,
-    util::DataType,
+    data_type::DataType,
     ExError, ExResult, Operator,
 };
 use num::Float;

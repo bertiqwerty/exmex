@@ -3,7 +3,7 @@ use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::util::DataType;
+use crate::data_type::DataType;
 use crate::{DefaultOpsFactory, ExError, ExResult, MakeOperators};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};

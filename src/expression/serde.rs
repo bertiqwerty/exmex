@@ -2,7 +2,7 @@ use std::{fmt, fmt::Debug, marker::PhantomData};
 
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::util::DataType;
+use crate::data_type::DataType;
 use crate::OwnedFlatEx;
 use crate::{prelude::*, MakeOperators};
 
