@@ -1,4 +1,5 @@
 use crate::{
+    data_type::DataType,
     definitions::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
@@ -7,9 +8,7 @@ use crate::{
         self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, UnaryOp},
-    parser,
-    data_type::DataType,
-    ExError, ExResult, Operator,
+    parser, ExError, ExResult, Operator,
 };
 use num::Float;
 use regex::Regex;
@@ -129,13 +128,10 @@ pub struct DeepEx<'a, T: Clone + Debug> {
     var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
 }
 
-fn lift_nodes<'a, T: Clone + Debug>(deepex: &mut DeepEx<'a, T>) {
+fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
     if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
-        match &deepex.nodes[0] {
-            DeepNode::Expr(e) => {
-                *deepex = e.clone();
-            }
-            _ => (),
+        if let DeepNode::Expr(e) = &deepex.nodes[0] {
+            *deepex = e.clone();
         }
     } else {
         for node in &mut deepex.nodes {
@@ -177,7 +173,8 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
             let node_2 = &self.nodes[num_idx + 1];
             if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
-                    let bin_op_result = (self.bin_ops.ops[bin_op_idx].apply)(num_1.clone(), num_2.clone());
+                    let bin_op_result =
+                        (self.bin_ops.ops[bin_op_idx].apply)(num_1.clone(), num_2.clone());
                     self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);

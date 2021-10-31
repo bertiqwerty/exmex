@@ -191,7 +191,7 @@ where
     OF: MakeOperators<T>,
 {
     /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
-    pub fn from_flatex<'a>(flatex: FlatEx<'a, T, OF>) -> Self {
+    pub fn from_flatex(flatex: FlatEx<T, OF>) -> Self {
         Self {
             deepex_buf: flatex.deepex.map(|d| DeepBuf::from_deepex(&d)),
             nodes: flatex.nodes,

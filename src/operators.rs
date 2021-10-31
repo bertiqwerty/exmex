@@ -3,7 +3,7 @@ use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 
-fn make_op_not_available_error<'a>(repr: &'a str) -> ExError {
+fn make_op_not_available_error(repr: &str) -> ExError {
     ExError {
         msg: format!("operator {} not available", repr),
     }
@@ -24,7 +24,7 @@ pub struct Operator<'a, T: Clone> {
 }
 
 fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
-    wrapped_op.as_ref().ok_or(make_op_not_available_error(repr))
+    wrapped_op.as_ref().ok_or_else(||make_op_not_available_error(repr))
 }
 
 impl<'a, T: Clone> Operator<'a, T> {
@@ -128,7 +128,7 @@ impl<T> UnaryOp<T> {
             .funcs_to_be_composed
             .iter()
             .chain(self.funcs_to_be_composed.iter())
-            .map(|f| *f)
+            .copied()
             .collect::<SmallVec<_>>();
     }
 

@@ -100,7 +100,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
         }
         ParsedToken::Var(name) => {
             let expr = DeepEx::new(
-                vec![DeepNode::Var((find_var_index(name, &parsed_vars), name))],
+                vec![DeepNode::Var((find_var_index(name, parsed_vars), name))],
                 BinOpsWithReprs::new(),
                 UnaryOpWithReprs {
                     reprs: vec_of_uop_reprs,
@@ -156,8 +156,8 @@ where
                         idx_tkn,
                         op.unary()?,
                         op.repr(),
-                        &parsed_tokens,
-                        &parsed_vars,
+                        parsed_tokens,
+                        parsed_vars,
                     )?;
                     nodes.push(node);
                     idx_tkn += idx_forward;
@@ -168,7 +168,7 @@ where
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var((find_var_index(name, &parsed_vars), name)));
+                nodes.push(DeepNode::Var((find_var_index(name, parsed_vars), name)));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {
@@ -228,7 +228,7 @@ pub struct BinOpsWithReprsBuf<T: Clone> {
     pub ops: BinOpVec<T>,
 }
 impl<T: Clone> BinOpsWithReprsBuf<T> {
-    pub fn from_deepex<'a>(bin_ops_in: &BinOpsWithReprs<'a, T>) -> Self {
+    pub fn from_deepex(bin_ops_in: &BinOpsWithReprs<T>) -> Self {
         BinOpsWithReprsBuf {
             reprs: bin_ops_in
                 .reprs
@@ -238,7 +238,7 @@ impl<T: Clone> BinOpsWithReprsBuf<T> {
             ops: bin_ops_in.ops.clone(),
         }
     }
-    pub fn to_deepex<'a>(&'a self) -> BinOpsWithReprs<'a, T> {
+    pub fn to_deepex(&self) -> BinOpsWithReprs<T> {
         BinOpsWithReprs {
             reprs: self.reprs.iter().map(|repr| repr.as_str()).collect(),
             ops: self.ops.clone(),
@@ -252,7 +252,7 @@ pub struct UnaryOpWithReprsBuf<T> {
     pub op: UnaryOp<T>,
 }
 impl<T: Clone> UnaryOpWithReprsBuf<T> {
-    pub fn from_deepex<'a>(unary_op_in: &UnaryOpWithReprs<'a, T>) -> Self {
+    pub fn from_deepex(unary_op_in: &UnaryOpWithReprs<T>) -> Self {
         UnaryOpWithReprsBuf {
             reprs: unary_op_in
                 .reprs
@@ -262,7 +262,7 @@ impl<T: Clone> UnaryOpWithReprsBuf<T> {
             op: unary_op_in.op.clone(),
         }
     }
-    pub fn to_deepex<'a>(&'a self) -> UnaryOpWithReprs<'a, T> {
+    pub fn to_deepex(&self) -> UnaryOpWithReprs<T> {
         UnaryOpWithReprs {
             reprs: self.reprs.iter().map(|repr| repr.as_str()).collect(),
             op: self.op.clone(),

@@ -1,5 +1,5 @@
-use crate::definitions::N_NODES_ON_STACK;
 use crate::data_type::DataType;
+use crate::definitions::N_NODES_ON_STACK;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -20,7 +20,7 @@ pub enum ParsedToken<'a, T: DataType> {
     Var(&'a str),
 }
 
-pub fn is_numeric_text<'a>(text: &'a str) -> Option<&'a str> {
+pub fn is_numeric_text(text: &str) -> Option<&str> {
     let mut n_dots = 0;
     let n_num_chars = text
         .chars()
@@ -92,19 +92,13 @@ where
     let find_ops = |byte_offset: usize| {
         ops.iter().find(|op| {
             let range_end = byte_offset + op.repr().len();
-            if let Some(maybe_op) = &text.get(byte_offset..range_end) {
-                if op.repr() != *maybe_op {
-                    false
-                } else if !op.has_bin()
-                    && range_end < text.len()
-                    && RE_VAR_NAME_EXACT.is_match(
-                        &text[byte_offset..range_end + next_char_boundary(&text, range_end)],
-                    )
-                {
-                    false
-                } else {
-                    true
-                }
+            if let Some(maybe_op) = text.get(byte_offset..range_end) {
+                op.repr() == maybe_op
+                    && (op.has_bin()
+                        || range_end >= text.len()
+                        || !RE_VAR_NAME_EXACT.is_match(
+                            &text[byte_offset..range_end + next_char_boundary(text, range_end)],
+                        ))
             } else {
                 false
             }
@@ -148,7 +142,7 @@ where
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op((*op).clone()),
                 }
-            } else if let Some(var_str) = RE_VAR_NAME.find(&text_rest) {
+            } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_bytes = var_str.len();
                 cur_byte_offset += n_bytes;
@@ -167,7 +161,7 @@ struct PairPreCondition<'a, T: DataType> {
     apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> ExResult<()>,
 }
 
-fn make_pair_pre_conditions<'a, 'b, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
+fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
     [
         PairPreCondition {
             apply: |left, right| {
@@ -312,11 +306,11 @@ fn make_pair_pre_conditions<'a, 'b, T: DataType>() -> [PairPreCondition<'a, T>; 
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn check_parsed_token_preconditions<'a, T>(parsed_tokens: &[ParsedToken<'a, T>]) -> ExResult<()>
+pub fn check_parsed_token_preconditions<T>(parsed_tokens: &[ParsedToken<T>]) -> ExResult<()>
 where
     T: DataType,
 {
-    if parsed_tokens.len() == 0 {
+    if parsed_tokens.is_empty() {
         return Err(ExError {
             msg: "cannot parse empty string".to_string(),
         });
@@ -372,9 +366,7 @@ where
 }
 
 #[cfg(test)]
-use {
-    crate::operators::{FloatOpsFactory, MakeOperators}
-};
+use crate::operators::{FloatOpsFactory, MakeOperators};
 
 #[test]
 fn test_is_numeric() {

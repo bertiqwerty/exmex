@@ -21,20 +21,21 @@ pub fn find_op<'a, T: Copy + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> Option<Operator<'a, T>> {
-    let found = ops.iter().cloned().find(|op| op.repr() == repr);
-    found.map(|op| op)
+    ops.iter().cloned().find(|op| op.repr() == repr)
 }
+
+type BinOpPartial<'a, T> = fn(
+    ValueDerivative<'a, T>,
+    ValueDerivative<'a, T>,
+    &[Operator<'a, T>],
+) -> ExResult<ValueDerivative<'a, T>>;
+
+type UnaryOpOuter<'a, T> = fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>;
 
 pub struct PartialDerivative<'a, T: Copy + Debug> {
     repr: &'a str,
-    bin_op: Option<
-        fn(
-            ValueDerivative<'a, T>,
-            ValueDerivative<'a, T>,
-            &[Operator<'a, T>],
-        ) -> ExResult<ValueDerivative<'a, T>>,
-    >,
-    unary_outer_op: Option<fn(DeepEx<'a, T>, &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>>,
+    bin_op: Option<BinOpPartial<'a, T>>,
+    unary_outer_op: Option<UnaryOpOuter<'a, T>>,
 }
 
 fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
@@ -292,24 +293,24 @@ fn pow<'a, T: Float + Debug>(
 }
 
 fn mul_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
-    find_as_bin_op_with_reprs("*", &ops)
+    find_as_bin_op_with_reprs("*", ops)
 }
 fn div_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
-    find_as_bin_op_with_reprs("/", &ops)
+    find_as_bin_op_with_reprs("/", ops)
 }
 fn add_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
-    find_as_bin_op_with_reprs("+", &ops)
+    find_as_bin_op_with_reprs("+", ops)
 }
 fn sub_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
-    find_as_bin_op_with_reprs("-", &ops)
+    find_as_bin_op_with_reprs("-", ops)
 }
 fn pow_find<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
-    find_as_bin_op_with_reprs("^", &ops)
+    find_as_bin_op_with_reprs("^", ops)
 }
 fn minus_find_unary<'a, T: Copy + Debug>(
     ops: &[Operator<'a, T>],
 ) -> ExResult<UnaryOpWithReprs<'a, T>> {
-    find_as_unary_op_with_reprs("-", &ops)
+    find_as_unary_op_with_reprs("-", ops)
 }
 
 pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivative<'a, T>> {
