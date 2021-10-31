@@ -5,7 +5,7 @@ use std::{
 
 /// This will be thrown at you if the somehting within Exmex went wrong. Ok, obviously it is not an
 /// exception, so thrown needs to be understood figuratively.
-#[derive(Debug, Clone)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ExError {
     pub msg: String,
 }
