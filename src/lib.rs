@@ -197,12 +197,12 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{DefaultOpsFactory, MakeOperators, Operator};
+//! use exmex::{FloatOpsFactory, MakeOperators, Operator};
 //! #[derive(Clone)]
 //! struct ExtendedOpsFactory;
 //! impl MakeOperators<f32> for ExtendedOpsFactory {
 //!     fn make<'a>() -> Vec<Operator<'a, f32>> {
-//!         let mut ops = DefaultOpsFactory::<f32>::make();
+//!         let mut ops = FloatOpsFactory::<f32>::make();
 //!         ops.push(
 //!             Operator::make_unary("invert", |a| 1.0 / a)
 //!         );
@@ -321,7 +321,7 @@ pub use {
         flat::{FlatEx, OwnedFlatEx},
         Express,
     },
-    operators::{BinOp, DefaultOpsFactory, MakeOperators, Operator},
+    operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
 };
 
@@ -379,7 +379,7 @@ mod tests {
     use crate::expression::deep::DeepEx;
     use crate::{
         eval_str,
-        operators::{BinOp, DefaultOpsFactory, MakeOperators, Operator},
+        operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
         parse,
         util::{assert_float_eq_f32, assert_float_eq_f64},
         ExResult, OwnedFlatEx,
@@ -730,7 +730,7 @@ mod tests {
                     },
                     |_| 0.0,
                 );
-                DefaultOpsFactory::<f32>::make()
+                FloatOpsFactory::<f32>::make()
                     .iter()
                     .cloned()
                     .chain(once(zero_mapper))

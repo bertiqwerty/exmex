@@ -4,7 +4,7 @@ use crate::expression::{
     partial_derivatives, Express,
 };
 use crate::data_type::DataType;
-use crate::{DefaultOpsFactory, ExError, ExResult, MakeOperators};
+use crate::{FloatOpsFactory, ExError, ExResult, MakeOperators};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -37,7 +37,7 @@ use std::str::FromStr;
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T, OF = DefaultOpsFactory<T>>
+pub struct FlatEx<'a, T, OF = FloatOpsFactory<T>>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
@@ -109,7 +109,7 @@ where
         T: Float,
     {
         check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
-        let ops = DefaultOpsFactory::make();
+        let ops = FloatOpsFactory::make();
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
@@ -173,7 +173,7 @@ where
 /// # }
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OwnedFlatEx<T, OF = DefaultOpsFactory<T>>
+pub struct OwnedFlatEx<T, OF = FloatOpsFactory<T>>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
@@ -242,7 +242,7 @@ where
     {
         check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
 
-        let ops = DefaultOpsFactory::make();
+        let ops = FloatOpsFactory::make();
         let deep_buf = match self.deepex_buf {
             Some(d) => Ok(d),
             None => Err(ExError {

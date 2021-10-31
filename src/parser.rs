@@ -373,7 +373,7 @@ where
 
 #[cfg(test)]
 use {
-    crate::operators::{DefaultOpsFactory, MakeOperators}
+    crate::operators::{FloatOpsFactory, MakeOperators}
 };
 
 #[test]
@@ -404,7 +404,7 @@ fn test_preconditions() {
             }
         }
 
-        let ops = DefaultOpsFactory::<f32>::make();
+        let ops = FloatOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
         match elts {
             Err(e) => check_err_msg::<Vec<ParsedToken<f32>>>(Err(e), msg_part),

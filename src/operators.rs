@@ -202,11 +202,11 @@ pub trait MakeOperators<T: Clone>: Clone {
 
 /// Factory of default operators for floating point values.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DefaultOpsFactory<T: Float> {
+pub struct FloatOpsFactory<T: Float> {
     dummy: PhantomData<T>,
 }
 
-impl<T: Float> MakeOperators<T> for DefaultOpsFactory<T> {
+impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
     /// Returns the default operators.
     fn make<'a>() -> Vec<Operator<'a, T>> {
         vec![
