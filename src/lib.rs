@@ -17,7 +17,7 @@
 //! For floats, we have a list of predifined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π 
 //! and Euler's number can be used via `π`/`PI` and `E`, respectively. The full list is
-//! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Library users can also create their
+//! defined in [`FloatOpsFactory`](FloatOpsFactory). Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
 //!
 //! ## Variables
@@ -218,7 +218,7 @@
 //! ```
 //! ### Custom Data Types of Numbers
 //!
-//! You can use any type that implements [`Clone`](core::marker::Clone),
+//! You can use any type that implements [`Clone`](Clone),
 //! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type in the
 //! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
 //! suitable regex and use the function

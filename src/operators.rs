@@ -65,7 +65,7 @@ impl<'a, T: Clone> Operator<'a, T> {
         Operator::new(repr, None, Some(unary_op), None)
     }
     /// Creates an operator that is either unary or binary based on its positioning in the string to be parsed.
-    /// For instance, `-` as defined in [`DefaultOpsFactory`](DefaultOpsFactory) is unary in `-x` and binary
+    /// For instance, `-` as defined in [`FloatOpsFactory`](FloatOpsFactory) is unary in `-x` and binary
     /// in `2-x`.
     pub fn make_bin_unary(
         repr: &'a str,
