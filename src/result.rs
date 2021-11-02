@@ -9,6 +9,13 @@ use std::{
 pub struct ExError {
     pub msg: String,
 }
+impl ExError {
+    pub fn from_str(msg: &str) -> ExError {
+        ExError {
+            msg: msg.to_string(),
+        }
+    }
+}
 impl Display for ExError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.msg)

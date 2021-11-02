@@ -316,6 +316,7 @@ mod parser;
 mod result;
 mod util;
 mod data_type;
+mod value;
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
