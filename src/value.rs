@@ -87,7 +87,8 @@ where
 pub enum Val<I: DataType + PrimInt, F: DataType + Float> {
     Scalar(Scalar<I, F>),
     Array(Array<I, F>),
-    Error(ExError),
+    // since the trait `Try` is experimental, we keep track of an error in an additional arm
+    Error(ExError),  
 }
 
 impl<I, F> Val<I, F>
@@ -255,62 +256,7 @@ where
                     prio: 4,
                     is_commutative: false,
                 },
-            ),
-            // Operator::make_bin(
-            //     "*",
-            //     BinOp {
-            //         apply: |a, b| Ok(Val::<I, F>::from_float(a?.to_float()? * b?.to_float()?)),
-            //         prio: 2,
-            //         is_commutative: true,
-            //     },
-            // ),
-            // Operator::make_bin(
-            //     "/",
-            //     BinOp {
-            //         apply: |a, b| a / b,
-            //         prio: 3,
-            //         is_commutative: false,
-            //     },
-            // ),
-            // Operator::make_bin_unary(
-            //     "+",
-            //     BinOp {
-            //         apply: |a, b| a + b,
-            //         prio: 0,
-            //         is_commutative: true,
-            //     },
-            //     |a| a,
-            // ),
-            // Operator::make_bin_unary(
-            //     "-",
-            //     BinOp {
-            //         apply: |a, b| a - b,
-            //         prio: 1,
-            //         is_commutative: false,
-            //     },
-            //     |a| -a,
-            // ),
-            // Operator::make_unary("signum", |a| a.signum()),
-            // Operator::make_unary("sin", |a| a.sin()),
-            // Operator::make_unary("cos", |a| a.cos()),
-            // Operator::make_unary("tan", |a| a.tan()),
-            // Operator::make_unary("asin", |a| a.asin()),
-            // Operator::make_unary("acos", |a| a.acos()),
-            // Operator::make_unary("atan", |a| a.atan()),
-            // Operator::make_unary("sinh", |a| a.sinh()),
-            // Operator::make_unary("cosh", |a| a.cosh()),
-            // Operator::make_unary("tanh", |a| a.tanh()),
-            // Operator::make_unary("floor", |a| a.floor()),
-            // Operator::make_unary("ceil", |a| a.ceil()),
-            // Operator::make_unary("trunc", |a| a.trunc()),
-            // Operator::make_unary("fract", |a| a.fract()),
-            // Operator::make_unary("exp", |a| a.exp()),
-            // Operator::make_unary("sqrt", |a| a.sqrt()),
-            // Operator::make_unary("log", |a| a.ln()),
-            // Operator::make_unary("log2", |a| a.log2()),
-            // Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
-            // Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
-            // Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
+            )
         ]
     }
 }
