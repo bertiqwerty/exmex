@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData, slice::SliceIndex, str::FromStr};
+use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
 use num::{Float, PrimInt};
 use smallvec::SmallVec;
@@ -165,17 +165,6 @@ where
             Ok(Val::Scalar(parse_scalar(s)?))
         }
     }
-}
-
-/// Factory of default operators for floating point values.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct ValOpsFactory<I = i32, F = f64>
-where
-    I: DataType + PrimInt,
-    F: DataType + Float,
-{
-    dummy_i: PhantomData<I>,
-    dummy_f: PhantomData<F>,
 }
 
 fn pow_scalar<I, F>(a: Scalar<I, F>, b: Scalar<I, F>) -> Val<I, F>
@@ -449,6 +438,17 @@ unary!(exp, Float, from_float);
 unary!(sqrt, Float, from_float);
 unary!(ln, Float, from_float);
 unary!(log2, Float, from_float);
+
+/// Factory of default operators for floating point values.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+pub struct ValOpsFactory<I = i32, F = f64>
+where
+    I: DataType + PrimInt,
+    F: DataType + Float,
+{
+    dummy_i: PhantomData<I>,
+    dummy_f: PhantomData<F>,
+}
 
 impl<I, F> MakeOperators<Val<I, F>> for ValOpsFactory<I, F>
 where
