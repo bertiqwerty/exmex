@@ -25,3 +25,11 @@ impl Error for ExError {}
 
 /// Exmex' result type with [`ExError`](ExError) as error type.
 pub type ExResult<U> = Result<U, ExError>;
+
+
+#[macro_export]
+macro_rules! format_exerr {
+    ($s:literal, $( $exps:expr ),*) => {
+        ExError{msg: format!($s, $($exps,)*)}
+    }
+}
