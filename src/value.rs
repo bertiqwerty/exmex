@@ -574,7 +574,7 @@ mod tests {
     }
 
     #[test]
-    fn test() -> ExResult<()> {
+    fn test_no_vars() -> ExResult<()> {
         let pattern = r"[0-9]+(\.[0-9]+)?|true|false|\[(\-?.?[0-9]+(\.[0-9]+)?|true|false)(,-?\.?[0-9]+(\.[0-9]+)?|true|false)*\]";
         fn test_int(s: &str, reference: i32, pattern: &str) -> ExResult<()> {
             let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern).unwrap();
