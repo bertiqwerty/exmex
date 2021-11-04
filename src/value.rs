@@ -575,7 +575,7 @@ mod tests {
 
     #[test]
     fn test_no_vars() -> ExResult<()> {
-        let pattern = r"[0-9]+(\.[0-9]+)?|true|false|\[(\-?.?[0-9]+(\.[0-9]+)?|true|false)(,-?\.?[0-9]+(\.[0-9]+)?|true|false)*\]";
+        let pattern = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
         fn test_int(s: &str, reference: i32, pattern: &str) -> ExResult<()> {
             let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern).unwrap();
             assert_eq!(reference, expr.eval(&[])?.to_int()?);
@@ -596,7 +596,7 @@ mod tests {
         test_float("2.5*4.0^2", 2.5 * 4.0 * 4.0, pattern)?;
         test_float("2.5-4.0^2", -13.5, pattern)?;
         test_float("9.0/4.0", 9.0 / 4.0, pattern)?;
-        test_float("sum([9.0,4.0])", 13.0, pattern)?;
+        test_float("sum([9.0, 4.0])", 13.0, pattern)?;
         test_int("sum([9,1])", 10, pattern)?;
         test_float("sum([9.0])", 9.0, pattern)?;
         test_float("sum([9.0,3.2]+[1.0,2.0])", 15.2, pattern)?;
@@ -610,12 +610,12 @@ mod tests {
         test_float("tan(913.0)", 913.0f64.tan(), pattern)?;
         test_float("sin(π)", 0.0, pattern)?;
         test_float("cos(π)", -1.0, pattern)?;
-        test_float("[9.0,3.2,1.0,2.0].0", 9.0, pattern)?;
-        test_float("[9.0,3.2,1.0,2.0].1", 3.2, pattern)?;
-        test_float("[9.0,3.2,1.0,2.0].2", 1.0, pattern)?;
-        test_float("[9.0,3.2,1.0,2.0].3", 2.0, pattern)?;
-        test_float("sin ifelse([false,1,2.0])", 2.0f64.sin(), pattern)?;
-        test_int("ifelse([true,1,2.0])", 1, pattern)?;
+        test_float("[9.0 , 3.2  , 1.0   , 2.0].0", 9.0, pattern)?;
+        test_float("[9.0, 3.2,1.0,2.0].1", 3.2, pattern)?;
+        test_float("[9.0 ,3.2,1.0,2.0].2", 1.0, pattern)?;
+        test_float("[9.0, 3.2, 1.0, 2.0].3", 2.0, pattern)?;
+        test_float("sin ifelse([   false,1,2.0   ])", 2.0f64.sin(), pattern)?;
+        test_int("ifelse([true , 1,2.0])", 1, pattern)?;
 
         Ok(())
     }

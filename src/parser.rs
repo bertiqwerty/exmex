@@ -107,7 +107,7 @@ where
     let mut res: SmallVec<[_; N_NODES_ON_STACK]> = SmallVec::new();
     let mut cur_byte_offset = 0usize;
     for (i, c) in text.char_indices() {
-        if c == ' ' {
+        if c == ' ' && i == cur_byte_offset {
             cur_byte_offset += 1;
         } else if i == cur_byte_offset && cur_byte_offset < text.len() {
             let text_rest = &text[cur_byte_offset..];
@@ -125,9 +125,7 @@ where
                     .map(|c| c.len_utf8())
                     .sum();
                 let var_name = &text_rest[1..n_count];
-                let n_spaces = var_name.chars().filter(|c| *c == ' ').count();
-                // we need to subtract spaces from the offset, since they are added in the first if again.
-                cur_byte_offset += n_count + 1 - n_spaces;
+                cur_byte_offset += n_count + 1;
                 ParsedToken::<T>::Var(var_name)
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
