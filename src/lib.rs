@@ -900,6 +900,7 @@ mod tests {
 
     #[test]
     fn test_eval() {
+        assert_float_eq_f64(eval_str("abs(-22/2)").unwrap(), 11.0);
         assert_float_eq_f64(eval_str("2*3^2").unwrap(), 18.0);
         assert_float_eq_f64(eval_str("cos(PI/2)").unwrap(), 0.0);
         assert_float_eq_f64(eval_str("cos(π/2)").unwrap(), 0.0);

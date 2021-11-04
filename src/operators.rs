@@ -252,6 +252,7 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
                 },
                 |a| -a,
             ),
+            Operator::make_unary("abs", |a| a.abs()),
             Operator::make_unary("signum", |a| a.signum()),
             Operator::make_unary("sin", |a| a.sin()),
             Operator::make_unary("cos", |a| a.cos()),
