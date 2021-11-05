@@ -1,5 +1,6 @@
 use crate::data_type::DataType;
 use crate::definitions::N_NODES_ON_STACK;
+use crate::format_exerr;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -159,6 +160,15 @@ struct PairPreCondition<'a, T: DataType> {
     apply: fn(&ParsedToken<'a, T>, &ParsedToken<'a, T>) -> ExResult<()>,
 }
 
+fn make_err<T: DataType>(msg: &str, left: &ParsedToken<T>, right: &ParsedToken<T>) -> ExResult<()> {
+    Err(format_exerr!(
+        "{}, left: {:?}; right: {:?}",
+        msg,
+        left,
+        right
+    ))
+}
+
 fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
     [
         PairPreCondition {
@@ -166,16 +176,12 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 let num_var_str =
                     "a number/variable cannot be next to a number/variable, violated by ";
                 match (left, right) {
-                    (ParsedToken::Num(num), ParsedToken::Var(var))
-                    | (ParsedToken::Var(var), ParsedToken::Num(num)) => Err(ExError {
-                        msg: format!("{}'{:?}' and '{}'", num_var_str, num, var),
-                    }),
-                    (ParsedToken::Num(num1), ParsedToken::Num(num2)) => Err(ExError {
-                        msg: format!("{}'{:?}' and '{:?}'", num_var_str, num1, num2),
-                    }),
-                    (ParsedToken::Var(var1), ParsedToken::Var(var2)) => Err(ExError {
-                        msg: format!("{}'{:?}' and '{:?}'", num_var_str, var1, var2),
-                    }),
+                    (ParsedToken::Num(_), ParsedToken::Var(_))
+                    | (ParsedToken::Var(_), ParsedToken::Num(_))
+                    | (ParsedToken::Num(_), ParsedToken::Num(_))
+                    | (ParsedToken::Var(_), ParsedToken::Var(_)) => {
+                        make_err(num_var_str, left, right)
+                    }
                     _ => Ok(()),
                 }
             },
@@ -185,10 +191,11 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
                 | (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Var(_))
                 | (ParsedToken::Num(_), ParsedToken::Paren(_p @ Paren::Open))
-                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => Err(ExError {
-                    msg: "wlog a number/variable cannot be on the right of a closing parenthesis"
-                        .to_string(),
-                }),
+                | (ParsedToken::Var(_), ParsedToken::Paren(_p @ Paren::Open)) => make_err(
+                    "wlog a number/variable cannot be on the right of a closing parenthesis",
+                    left,
+                    right,
+                ),
                 _ => Ok(()),
             },
         },
@@ -197,12 +204,11 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 (ParsedToken::Num(_), ParsedToken::Op(op))
                 | (ParsedToken::Var(_), ParsedToken::Op(op))
                     // we do not ask for is_unary since operators can be both
-                    if !op.has_bin() =>
-                {
-                    Err(ExError{
-                        msg: "a number/variable cannot be on the left of a unary operator".to_string()
-                    })
-                }
+                    if !op.has_bin() => make_err(
+                        "a number/variable cannot be on the left of a unary operator",
+                        left,
+                        right,
+                    ),                
                 _ => Ok(()),
             },
         },
@@ -210,16 +216,10 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
             apply: |left, right| {
                 match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.has_unary() && !op_r.has_unary() =>
-                {
-                    Err(ExError {
-                        msg: format!(
-                            "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
-                            op_l.repr(),
-                            op_r.repr()
-                        ),
-                    })
-                }
+                    if !op_l.has_unary() && !op_r.has_unary() => Err(format_exerr!(
+                        "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
+                        op_l.repr(),
+                        op_r.repr())),                
                 _ => Ok(()),
             }
             },
@@ -228,56 +228,42 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
             apply: |left, right| {
                 match (left, right) {
                 (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.has_bin() && !op_r.has_unary() =>
-                {
-                    Err(ExError {
-                        msg: format!(
-                            "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
-                            op_l.repr(),
-                            op_r.repr()
-                        ),
-                    })
-                }
+                    if !op_l.has_bin() && !op_r.has_unary() => Err(format_exerr!(
+                        "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
+                        op_l.repr(),
+                        op_r.repr())),                
                 _ => Ok(()),
             }
             },
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Op(op), ParsedToken::Paren(_p @ Paren::Close)) => Err(ExError {
-                    msg: format!(
-                        "an operator cannot be on the left of a closing paren, violated by '{}'",
-                        op.repr()
-                    ),
-                }),
+                (ParsedToken::Op(op), ParsedToken::Paren(_p @ Paren::Close)) => Err(format_exerr!(
+                    "an operator cannot be on the left of a closing paren, violated by '{}'", op.repr())),                
                 _ => Ok(()),
             },
         },
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op)) if !op.has_bin() => {
-                    Err(ExError{
-                        msg:format!(
-                            "a unary operator cannot be on the right of a closing paren, violated by '{}'", 
-                            op.repr()
-                        )
-                    })
+                    (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op)) if !op.has_bin() => {
+                        Err(format_exerr!("a unary operator cannot be on the right of a closing paren, violated by '{}'", 
+                            op.repr()))
+                    }
+                    _ => Ok(()),
                 }
-                _ => Ok(()),
-            }
             },
         },
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.has_unary() => {
-                    Err(ExError{
-                        msg:format!("a binary operator cannot be on the right of an opening paren, violated by '{}'", op.repr())
-                    })
+                    (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.has_unary() => {
+                        Err(format_exerr!(
+                            "a binary operator cannot be on the right of an opening paren, violated by '{}'", 
+                            op.repr()))
+                    }
+                    _ => Ok(()),
                 }
-                _ => Ok(()),
-            }
             },
         },
         PairPreCondition {
@@ -285,9 +271,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 (
                     ParsedToken::Paren(_p_l @ Paren::Open),
                     ParsedToken::Paren(_p_r @ Paren::Close),
-                ) => Err(ExError {
-                    msg: "wlog an opening paren cannot be next to a closing paren".to_string(),
-                }),
+                ) => make_err("wlog an opening paren cannot be next to a closing paren", left, right),                
                 _ => Ok(()),
             },
         },
