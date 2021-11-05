@@ -19,6 +19,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Build with serde
-      run: cargo build --verbose --features serde
+      run: cargo build --verbose --all-features
     - name: Run tests
-      run: cargo test --verbose --features serde
+      run: cargo test --verbose --all-features

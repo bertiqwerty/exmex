@@ -1,6 +1,9 @@
+#[cfg(feature = "value")]
 use exmex::{make_tuple, ExResult, Express, Val};
+#[cfg(feature = "value")]
 mod utils;
 #[test]
+#[cfg(feature = "value")]
 fn test_vars() -> ExResult<()> {
     let tuple = make_tuple!(i32, f64, (true, Bool), (3.4, Float), (3, Int));
     let expr = exmex::parse_val::<i32, f64>("x.1+5.3")?;
