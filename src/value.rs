@@ -1,6 +1,6 @@
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
-use num::{Float, PrimInt};
+use num::{Float, PrimInt, Signed};
 use smallvec::SmallVec;
 
 use crate::{data_type::DataType, format_exerr, BinOp, ExError, ExResult, MakeOperators, Operator};
@@ -8,7 +8,6 @@ use crate::{data_type::DataType, format_exerr, BinOp, ExError, ExResult, MakeOpe
 const ARRAY_LEN: usize = 8usize;
 pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
 
-#[macro_export]
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {
         pub fn $name(self) -> ExResult<$T> {
@@ -24,7 +23,6 @@ macro_rules! to_type {
     };
 }
 
-#[macro_export]
 macro_rules! to_scalar_type {
     ($name:ident, $T:ty) => {
         pub fn $name(self) -> ExResult<$T> {
@@ -37,7 +35,6 @@ macro_rules! to_scalar_type {
     };
 }
 
-#[macro_export]
 macro_rules! to_tuple_type {
     ($name:ident, $scalar_name:ident, $T:ty) => {
         pub fn $name(self) -> ExResult<SmallVec<[$T; ARRAY_LEN]>> {
@@ -55,7 +52,6 @@ macro_rules! to_tuple_type {
     };
 }
 
-#[macro_export]
 macro_rules! from_type {
     ($name:ident, $scalar_variant:ident, $T:ty) => {
         fn $name(x: $T) -> Val<I, F> {
@@ -65,14 +61,14 @@ macro_rules! from_type {
 }
 
 #[derive(Clone, Debug)]
-pub enum Scalar<I: DataType + PrimInt, F: DataType + Float> {
+pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
     Int(I),
     Float(F),
     Bool(bool),
 }
 impl<I, F> Scalar<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     to_type!(to_float, F, Float);
@@ -82,7 +78,7 @@ where
 #[derive(Clone, Debug)]
 pub enum Val<I = i32, F = f64>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     Scalar(Scalar<I, F>),
@@ -93,7 +89,7 @@ where
 
 impl<I, F> Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     to_scalar_type!(to_int, I);
@@ -123,7 +119,7 @@ fn map_parse_err<E: Debug>(e: E) -> ExError {
 
 fn parse_scalar<I, F>(s: &str) -> ExResult<Scalar<I, F>>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
@@ -145,7 +141,7 @@ where
 
 impl<I, F> FromStr for Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
@@ -169,7 +165,7 @@ where
 
 fn pow_scalar<I, F>(a: Scalar<I, F>, b: Scalar<I, F>) -> Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     match a {
@@ -183,11 +179,13 @@ where
         },
         Scalar::Int(na) => match b {
             Scalar::Float(_) => Val::Error(ExError::from_str("cannot use float as exponent")),
-            Scalar::Int(nb) => {
-                let powered = na.pow(nb.to_u32().unwrap());
-
-                Val::<I, F>::from_int(powered)
-            }
+            Scalar::Int(nb) => match nb.to_u32() {
+                Some(exponent_) => Val::<I, F>::from_int(na.pow(exponent_)),
+                None => Val::Error(format_exerr!(
+                    "cannot convert {:?} to exponent of an int",
+                    nb
+                )),
+            },
             Scalar::Bool(_) => Val::Error(ExError::from_str("cannot use bool as exponent")),
         },
         Scalar::Bool(_) => Val::Error(ExError::from_str("cannot use bool as base")),
@@ -196,7 +194,7 @@ where
 
 fn pow<I, F>(base: Val<I, F>, exponent: Val<I, F>) -> Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     match base {
@@ -227,17 +225,75 @@ where
     }
 }
 
-#[macro_export]
+macro_rules! tuple_scalar_ops {
+    ($op_scalar:ident) => {
+        fn op_scalar_to_tuple<I, F>(a: Scalar<I, F>, b: Tuple<I, F>) -> Val<I, F>
+        where
+            I: DataType + PrimInt + Signed,
+            F: DataType + Float,
+        {
+            let tuple = b
+                .iter()
+                .map(|bi| match $op_scalar(a.clone(), bi.clone()) {
+                    Val::Scalar(s) => Ok(s),
+                    Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
+                    Val::Error(e) => Err(e),
+                })
+                .collect::<ExResult<Tuple<I, F>>>();
+            match tuple {
+                Ok(t) => Val::Tuple(t),
+                Err(e) => Val::Error(e),
+            }
+        }
+        fn op_tuple<I, F>(a: Tuple<I, F>, b: Tuple<I, F>) -> Val<I, F>
+        where
+            I: DataType + PrimInt + Signed,
+            F: DataType + Float,
+        {
+            let tuple = (0..a.len())
+                .map(|i| match $op_scalar(a[i].clone(), b[i].clone()) {
+                    Val::Scalar(s) => Ok(s),
+                    Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
+                    Val::Error(e) => Err(e),
+                })
+                .collect::<ExResult<Tuple<I, F>>>();
+            match tuple {
+                Ok(t) => Val::Tuple(t),
+                Err(e) => Val::Error(e),
+            }
+        }
+    };
+}
+
+macro_rules! tuple_scalar_ops_final_match {
+    ($a:ident, $b:ident) => {
+        match $a {
+            Val::Scalar(x) => match $b {
+                Val::Scalar(y) => op_scalar(x, y),
+                Val::Tuple(b) => op_scalar_to_tuple(x, b),
+                Val::Error(e) => Val::Error(e),
+            },
+            Val::Tuple(t) => match $b {
+                Val::Scalar(y) => op_scalar_to_tuple(y, t),
+
+                Val::Tuple(t2) => op_tuple(t, t2),
+                Val::Error(e) => Val::Error(e),
+            },
+            Val::Error(e) => Val::Error(e),
+        }
+    };
+}
+
 macro_rules! base_arith {
     ($name:ident) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
         where
-            I: DataType + PrimInt,
+            I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
             fn op_scalar<I, F>(a: Scalar<I, F>, b: Scalar<I, F>) -> Val<I, F>
             where
-                I: DataType + PrimInt,
+                I: DataType + PrimInt + Signed,
                 F: DataType + Float,
             {
                 match a {
@@ -258,59 +314,8 @@ macro_rules! base_arith {
                     )),
                 }
             }
-            fn op_scalar_to_tuple<I, F>(a: Scalar<I, F>, b: Tuple<I, F>) -> Val<I, F>
-            where
-                I: DataType + PrimInt,
-                F: DataType + Float,
-            {
-                let tuple = b
-                    .iter()
-                    .map(|bi| match op_scalar(a.clone(), bi.clone()) {
-                        Val::Scalar(s) => Ok(s),
-                        Val::Tuple(_) => {
-                            Err(ExError::from_str("tuples of tuples are not supported"))
-                        }
-                        Val::Error(e) => Err(e),
-                    })
-                    .collect::<ExResult<Tuple<I, F>>>();
-                match tuple {
-                    Ok(t) => Val::Tuple(t),
-                    Err(e) => Val::Error(e),
-                }
-            }
-            fn op_tuple<I, F>(a: Tuple<I, F>, b: Tuple<I, F>) -> Val<I, F>
-            where
-                I: DataType + PrimInt,
-                F: DataType + Float,
-            {
-                let tuple = (0..a.len())
-                    .map(|i| match op_scalar(a[i].clone(), b[i].clone()) {
-                        Val::Scalar(s) => Ok(s),
-                        Val::Tuple(_) => {
-                            Err(ExError::from_str("tuples of tuples are not supported"))
-                        }
-                        Val::Error(e) => Err(e),
-                    })
-                    .collect::<ExResult<Tuple<I, F>>>();
-                match tuple {
-                    Ok(t) => Val::Tuple(t),
-                    Err(e) => Val::Error(e),
-                }
-            }
-            match a {
-                Val::Scalar(x) => match b {
-                    Val::Scalar(y) => op_scalar(x, y),
-                    Val::Tuple(b) => op_scalar_to_tuple(x, b),
-                    Val::Error(e) => Val::Error(e),
-                },
-                Val::Tuple(t) => match b {
-                    Val::Scalar(y) => op_scalar_to_tuple(y, t),
-
-                    Val::Tuple(t2) => op_tuple(t, t2),
-                    Val::Error(e) => Val::Error(e),
-                },
-                Val::Error(e) => Val::Error(e),
-            }
+            tuple_scalar_ops!(op_scalar);
+            tuple_scalar_ops_final_match!(a, b)
         }
     };
 }
@@ -320,9 +325,56 @@ base_arith!(sub);
 base_arith!(mul);
 base_arith!(div);
 
+macro_rules! single_type_arith {
+    ($name:ident, $variant:ident, $op:expr) => {
+        fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+        where
+            I: DataType + PrimInt + Signed,
+            F: DataType + Float,
+        {
+            fn op_scalar<I, F>(a: Scalar<I, F>, b: Scalar<I, F>) -> Val<I, F>
+            where
+                I: DataType + PrimInt + Signed,
+                F: DataType + Float,
+            {
+                match (a, b) {
+                    (Scalar::$variant(na), Scalar::$variant(nb)) => $op(na, nb),
+                    _ => Val::Error(format_exerr!(
+                        "can only {} int to {}",
+                        stringify!($name),
+                        stringify!($name)
+                    )),
+                }
+            }
+            tuple_scalar_ops!(op_scalar);
+            tuple_scalar_ops_final_match!(a, b)
+        }
+    };
+}
+
+single_type_arith!(rem, Int, |a, b| Val::from_int(a % b));
+single_type_arith!(bitwise_or, Int, |a, b| Val::from_int(a | b));
+single_type_arith!(bitwise_and, Int, |a, b| Val::from_int(a & b));
+single_type_arith!(bitwise_xor, Int, |a, b| Val::from_int(a ^ b));
+single_type_arith!(right_shift, Int, |a: I, b: I| -> Val<I, F> {
+    match b.to_usize() {
+        Some(bu) => Val::from_int(a >> bu),
+        None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
+    }
+});
+single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
+    match b.to_usize() {
+        Some(bu) => Val::from_int(a << bu),
+        None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
+    }
+});
+
+single_type_arith!(or, Bool, |a, b| Val::from_bool(a || b));
+single_type_arith!(and, Bool, |a, b| Val::from_bool(a && b));
+
 fn get<I, F>(tuple: Val<I, F>, idx: Val<I, F>) -> Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     match tuple {
@@ -340,7 +392,7 @@ where
 /// if condition {a} else {b}
 fn ifelse<I, F>(condition_a_b: Val<I, F>) -> Val<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     match condition_a_b {
@@ -358,12 +410,11 @@ where
     }
 }
 
-#[macro_export]
 macro_rules! fold_tuple {
     ($name:ident, $init_float:literal, $init_int:literal, $folder:expr) => {
         fn $name<I, F>(tuple: Val<I, F>) -> Val<I, F>
         where
-            I: DataType + PrimInt,
+            I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
             match tuple.clone().to_float_array() {
@@ -380,27 +431,39 @@ macro_rules! fold_tuple {
 fold_tuple!(sum, 0.0, 0, |x, y| x + *y);
 fold_tuple!(prod, 1.0, 1, |x, y| x * *y);
 
-#[macro_export]
-macro_rules! unary {
-    ($name:ident, $variant:ident, $from_type:ident) => {
+macro_rules! unary_match_scalar_name {
+
+    ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident, $from_types:ident)),+) => {
+        match $scalar {
+            $(Scalar::$variants(x) => Val::<I, F>::$from_types(x.$name()),)+
+            _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
+        }
+    };
+}
+
+macro_rules! unary_match_scalar_op {
+
+    ($name:ident, $scalar:ident, $(($ops:expr, $variants:ident, $unused_from_types:ident)),+) => {
+        match $scalar {
+            $(Scalar::$variants(x) =>  $ops(x),)+
+            _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
+        }
+    };
+}
+
+macro_rules! unary_m {
+    ($name:ident, $match:ident, $(($ops:expr, $variants:ident, $from_types:ident)),+) => {
         fn $name<I, F>(val: Val<I, F>) -> Val<I, F>
         where
-            I: DataType + PrimInt,
+            I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
             fn inner_unary_scalar<I, F>(scalar: Scalar<I, F>) -> Val<I, F>
             where
-                I: DataType + PrimInt,
+                I: DataType + PrimInt + Signed,
                 F: DataType + Float,
             {
-                match scalar {
-                    Scalar::$variant(x) => Val::<I, F>::$from_type(x.$name()),
-                    _ => Val::<I, F>::Error(format_exerr!(
-                        "expected variant {}, not {:?}",
-                        stringify!($variant),
-                        scalar
-                    )),
-                }
+                $match!($name, scalar, $(($ops, $variants, $from_types)),+)
             }
             match val {
                 Val::Scalar(s) => inner_unary_scalar(s),
@@ -420,30 +483,71 @@ macro_rules! unary {
     };
 }
 
-unary!(signum, Float, from_float);
-unary!(sin, Float, from_float);
-unary!(cos, Float, from_float);
-unary!(tan, Float, from_float);
-unary!(asin, Float, from_float);
-unary!(acos, Float, from_float);
-unary!(atan, Float, from_float);
-unary!(sinh, Float, from_float);
-unary!(cosh, Float, from_float);
-unary!(tanh, Float, from_float);
-unary!(floor, Float, from_float);
-unary!(ceil, Float, from_float);
-unary!(trunc, Float, from_float);
-unary!(fract, Float, from_float);
-unary!(exp, Float, from_float);
-unary!(sqrt, Float, from_float);
-unary!(ln, Float, from_float);
-unary!(log2, Float, from_float);
+macro_rules! unary_name {
+    ($name:ident, $(($variants:ident, $from_types:ident)),+) => {
+        unary_m!($name, unary_match_scalar_name, $((0, $variants, $from_types)),+);
+    }
+}
+
+unary_name!(abs, (Float, from_float), (Int, from_int));
+unary_name!(signum, (Float, from_float), (Int, from_int));
+unary_name!(sin, (Float, from_float));
+unary_name!(cos, (Float, from_float));
+unary_name!(tan, (Float, from_float));
+unary_name!(asin, (Float, from_float));
+unary_name!(acos, (Float, from_float));
+unary_name!(atan, (Float, from_float));
+unary_name!(sinh, (Float, from_float));
+unary_name!(cosh, (Float, from_float));
+unary_name!(tanh, (Float, from_float));
+unary_name!(floor, (Float, from_float));
+unary_name!(ceil, (Float, from_float));
+unary_name!(trunc, (Float, from_float));
+unary_name!(fract, (Float, from_float));
+unary_name!(exp, (Float, from_float));
+unary_name!(sqrt, (Float, from_float));
+unary_name!(ln, (Float, from_float));
+unary_name!(log2, (Float, from_float));
+unary_name!(swap_bytes, (Int, from_int));
+unary_name!(to_le, (Int, from_int));
+unary_name!(to_be, (Int, from_int));
+
+macro_rules! unary_op {
+    ($name:ident, $(($ops:expr, $variants:ident)),+) => {
+        unary_m!($name, unary_match_scalar_op, $(($ops, $variants, i32)),+);
+    }
+}
+
+unary_op!(
+    fact,
+    (
+        |a: I| if a == I::zero() {
+            Val::from_int(I::one())
+        } else {
+            match I::from(
+                (1usize..(a.to_usize().unwrap() + 1usize))
+                    .map(|a| I::from(a).unwrap())
+                    .fold(I::one(), |a, b| a * b),
+            ) {
+                Some(i) => Val::from_int(i),
+                None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
+            }
+        },
+        Int
+    )
+);
+
+unary_op!(
+    minus,
+    (|a: I| Val::from_int(-a), Int),
+    (|a: F| Val::from_float(-a), Float)
+);
 
 /// Factory of default operators for floating point values.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
     dummy_i: PhantomData<I>,
@@ -452,7 +556,7 @@ where
 
 impl<I, F> MakeOperators<Val<I, F>> for ValOpsFactory<I, F>
 where
-    I: DataType + PrimInt,
+    I: DataType + PrimInt + Signed,
     F: DataType + Float,
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
@@ -476,13 +580,14 @@ where
                     is_commutative: true,
                 },
             ),
-            Operator::make_bin(
+            Operator::make_bin_unary(
                 "-",
                 BinOp {
                     apply: |a, b| sub(a, b),
                     prio: 1,
                     is_commutative: false,
                 },
+                |a| minus(a),
             ),
             Operator::make_bin(
                 "*",
@@ -501,6 +606,70 @@ where
                 },
             ),
             Operator::make_bin(
+                "%",
+                BinOp {
+                    apply: |a, b| rem(a, b),
+                    prio: 3,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "|",
+                BinOp {
+                    apply: |a, b| bitwise_or(a, b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "&",
+                BinOp {
+                    apply: |a, b| bitwise_and(a, b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "XOR",
+                BinOp {
+                    apply: |a, b| bitwise_xor(a, b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                ">>",
+                BinOp {
+                    apply: |a, b| right_shift(a, b),
+                    prio: 1,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "<<",
+                BinOp {
+                    apply: |a, b| left_shift(a, b),
+                    prio: 1,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "&&",
+                BinOp {
+                    apply: |a, b| and(a, b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "||",
+                BinOp {
+                    apply: |a, b| or(a, b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
                 ".",
                 BinOp {
                     apply: |tuple, idx| get(tuple, idx),
@@ -512,6 +681,7 @@ where
             Operator::make_unary("sum", |a| sum(a)),
             Operator::make_unary("prod", |a| prod(a)),
             Operator::make_unary("signum", |a| signum(a)),
+            Operator::make_unary("abs", |a| abs(a)),
             Operator::make_unary("sin", |a| sin(a)),
             Operator::make_unary("cos", |a| cos(a)),
             Operator::make_unary("tan", |a| tan(a)),
@@ -529,6 +699,10 @@ where
             Operator::make_unary("sqrt", |a| sqrt(a)),
             Operator::make_unary("log", |a| ln(a)),
             Operator::make_unary("log2", |a| log2(a)),
+            Operator::make_unary("swap_bytes", |a| swap_bytes(a)),
+            Operator::make_unary("to_le", |a| to_le(a)),
+            Operator::make_unary("to_be", |a| to_be(a)),
+            Operator::make_unary("fact", |a| fact(a)),
             Operator::make_constant(
                 "PI",
                 Val::from_float(F::from(std::f64::consts::PI).unwrap()),
@@ -543,6 +717,7 @@ where
 mod tests {
 
     use crate::{
+        format_exerr,
         util::assert_float_eq_f64,
         value::{Scalar, Val},
         ExError, ExResult, Express, FlatEx,
@@ -577,24 +752,45 @@ mod tests {
     fn test_no_vars() -> ExResult<()> {
         let pattern = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
         fn test_int(s: &str, reference: i32, pattern: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern).unwrap();
-            assert_eq!(reference, expr.eval(&[])?.to_int()?);
+            let res = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?
+                .eval(&[])?
+                .to_int();
+            match res {
+                Ok(i) => {
+                    assert_eq!(reference, i);
+                }
+                Err(e) => {
+                    println!("{:?}", e);
+                    assert!(false)
+                }
+            }
             Ok(())
         }
         fn test_float(s: &str, reference: f64, pattern: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern).unwrap();
+            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
-
+        fn test_error(s: &str, pattern: &str) -> ExResult<()> {
+            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?;
+            match expr.eval(&[])? {
+                Val::Error(_) => Ok(()),
+                _ => {
+                    assert!(false);
+                    Err(format_exerr!("'{}' should fail but didn't", s))
+                }
+            }
+        }
         test_int("2^4", 16, pattern)?;
+        test_error("2^-4", pattern)?;
         test_int("2+4", 6, pattern)?;
         test_int("9+4", 13, pattern)?;
         test_int("9+4^2", 25, pattern)?;
         test_int("9/4", 2, pattern)?;
+        test_int("9%4", 1, pattern)?;
         test_float("2.5+4.0^2", 18.5, pattern)?;
         test_float("2.5*4.0^2", 2.5 * 4.0 * 4.0, pattern)?;
-        test_float("2.5-4.0^2", -13.5, pattern)?;
+        test_float("2.5-4.0^-2", 2.5-4.0f64.powi(-2), pattern)?;
         test_float("9.0/4.0", 9.0 / 4.0, pattern)?;
         test_float("sum([9.0, 4.0])", 13.0, pattern)?;
         test_int("sum([9,1])", 10, pattern)?;
@@ -608,7 +804,7 @@ mod tests {
         test_float("sin(9.0)", 9.0f64.sin(), pattern)?;
         test_float("cos(91.0)", 91.0f64.cos(), pattern)?;
         test_float("tan(913.0)", 913.0f64.tan(), pattern)?;
-        test_float("sin(π)", 0.0, pattern)?;
+        test_float("sin(-π)", 0.0, pattern)?;
         test_float("cos(π)", -1.0, pattern)?;
         test_float("[9.0 , 3.2  , 1.0   , 2.0].0", 9.0, pattern)?;
         test_float("[9.0, 3.2,1.0,2.0].1", 3.2, pattern)?;
@@ -616,6 +812,13 @@ mod tests {
         test_float("[9.0, 3.2, 1.0, 2.0].3", 2.0, pattern)?;
         test_float("sin ifelse([   false,1,2.0   ])", 2.0f64.sin(), pattern)?;
         test_int("ifelse([true , 1,2.0])", 1, pattern)?;
+        test_int("1<<2", 4, pattern)?;
+        test_int("4>>2", 1, pattern)?;
+        test_int("signum(4>>1)", 1, pattern)?;
+        test_float("signum(-123.12)", -1.0, pattern)?;
+        test_float("abs(-123.12)", 123.12, pattern)?;
+        test_int("fact(4)", 2 * 3 * 4, pattern)?;
+        test_int("fact(0)", 1, pattern)?;
 
         Ok(())
     }
