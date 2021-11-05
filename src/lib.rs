@@ -316,7 +316,7 @@ mod data_type;
 mod parser;
 mod result;
 mod util;
-mod value;
+
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
@@ -324,8 +324,12 @@ pub use {
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
-    value::{parse_val, parse_val_owned, Scalar, Val, FlatExVal, OwnedFlatExVal},
 };
+
+#[cfg(feature = "value")]
+mod value;
+#[cfg(feature = "value")]
+pub use value::{parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Scalar, Val};
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.

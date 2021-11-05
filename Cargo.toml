@@ -29,6 +29,9 @@ opt-level = 3
 [profile.release]
 debug = true
 
+[features]
+value = []
+
 [dev-dependencies]
 rand = "0.8.4"
 itertools = "0.10.1"

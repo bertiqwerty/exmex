@@ -2,8 +2,10 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
+use exmex::OwnedFlatEx;
 use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
-use exmex::{FlatExVal, OwnedFlatEx, Val};
+#[cfg(feature = "value")]
+use exmex::{FlatExVal, Val};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
@@ -125,6 +127,7 @@ fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
 }
 
+#[cfg(feature = "value")]
 fn exmex_parse_val<'a>(strings: &'a [&str]) -> Vec<FlatExVal<'a, i32, f64>> {
     strings
         .iter()
@@ -132,6 +135,7 @@ fn exmex_parse_val<'a>(strings: &'a [&str]) -> Vec<FlatExVal<'a, i32, f64>> {
         .collect::<Vec<_>>()
 }
 
+#[cfg(feature = "value")]
 fn exmex_bench_parse_val(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_val, "exmex_parse_val", c);
 }
@@ -210,6 +214,7 @@ fn exmex_bench_flatex_parseval(c: &mut Criterion) {
     run_benchmark_parseval(func, "exmex flatex", c);
 }
 
+#[cfg(feature = "value")]
 fn exmex_bench_eval_val(c: &mut Criterion) {
     let parsed_exprs = exmex_parse_val(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
@@ -426,6 +431,7 @@ fn exmex_bench_serde(_c: &mut Criterion) -> () {
     }
 }
 
+#[cfg(feature = "value")]
 criterion_group!(
     benches,
     exmex_bench_deepex_parseval,
@@ -442,6 +448,27 @@ criterion_group!(
     exmex_bench_parse,
     exmex_bench_parse_owned,
     exmex_bench_parse_val,
+    exmex_bench_parse_optimized,
+    meval_bench_parse,
+    rsc_bench_parse,
+    evalexpr_bench_parse,
+);
+
+#[cfg(not(feature = "value"))]
+criterion_group!(
+    benches,
+    exmex_bench_deepex_parseval,
+    exmex_bench_flatex_parseval,
+    exmex_bench_serde,
+    fasteval_bench_eval,
+    exmex_bench_eval,
+    exmex_bench_eval_owned,
+    meval_bench_eval,
+    rsc_bench_eval,
+    evalexpr_bench_eval,
+    fasteval_bench_parse,
+    exmex_bench_parse,
+    exmex_bench_parse_owned,
     exmex_bench_parse_optimized,
     meval_bench_parse,
     rsc_bench_parse,
