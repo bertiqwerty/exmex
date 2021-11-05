@@ -15,7 +15,7 @@
 //! # }
 //! ```
 //! For floats, we have a list of predifined operators containing
-//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π 
+//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π
 //! and Euler's number can be used via `π`/`PI` and `E`, respectively. The full list is
 //! defined in [`DefaultOpsFactory`](DefaultOpsFactory). Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
@@ -58,8 +58,8 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx) 
-//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx) and 
+//! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx)
+//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx) and
 //! [`Express`](Express) are the only items made accessible by the wildcard import from
 //! [`prelude`](prelude).
 //!
@@ -124,7 +124,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! 
+//!
 //! ## Extendability
 //!
 //! How to use custom operators as well as custom data types of the operands even with
@@ -305,17 +305,17 @@
 
 use std::{fmt::Debug, str::FromStr};
 
+use data_type::DataType;
 use expression::deep::DeepEx;
 use num::Float;
-use data_type::DataType;
 mod definitions;
 mod expression;
 #[macro_use]
 mod operators;
+mod data_type;
 mod parser;
 mod result;
 mod util;
-mod data_type;
 mod value;
 pub use {
     expression::{
@@ -324,6 +324,7 @@ pub use {
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
+    value::{parse_val, parse_val_owned, Scalar, Val},
 };
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
@@ -366,4 +367,3 @@ where
 {
     FlatEx::<T>::from_str(text)
 }
-

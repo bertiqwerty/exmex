@@ -3,10 +3,24 @@ use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 use num::{Float, PrimInt, Signed};
 use smallvec::SmallVec;
 
-use crate::{data_type::DataType, format_exerr, BinOp, ExError, ExResult, MakeOperators, Operator};
+use crate::{
+    data_type::DataType, format_exerr, BinOp, ExError, ExResult, Express, FlatEx, MakeOperators,
+    Operator, OwnedFlatEx,
+};
 
 const ARRAY_LEN: usize = 8usize;
 pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
+
+const PATTERN: &str = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
+
+
+#[macro_export]
+macro_rules! make_tuple {
+    ($I:ty, $F:ty, $(($xs:expr, $variants:ident)),+) => {
+        exmex::Val::<$I, $F>::Tuple(smallvec::smallvec![$(exmex::Scalar::$variants($xs),)+])
+    };
+}
+
 
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {
@@ -713,13 +727,33 @@ where
     }
 }
 
+pub fn parse_val<I, F>(text: &str) -> ExResult<FlatEx<Val<I, F>, ValOpsFactory<I, F>>>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    FlatEx::<Val<I, F>, ValOpsFactory<I, F>>::from_pattern(text, PATTERN)
+}
+
+pub fn parse_val_owned<I, F>(text: &str) -> ExResult<OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    Ok(OwnedFlatEx::from_flatex(parse_val(text)?))
+}
+
 #[cfg(test)]
 mod tests {
 
     use crate::{
         format_exerr,
         util::assert_float_eq_f64,
-        value::{Scalar, Val},
+        value::{Scalar, Val, PATTERN},
         ExError, ExResult, Express, FlatEx,
     };
     use smallvec::smallvec;
@@ -750,9 +784,8 @@ mod tests {
 
     #[test]
     fn test_no_vars() -> ExResult<()> {
-        let pattern = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
-        fn test_int(s: &str, reference: i32, pattern: &str) -> ExResult<()> {
-            let res = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?
+        fn test_int(s: &str, reference: i32) -> ExResult<()> {
+            let res = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?
                 .eval(&[])?
                 .to_int();
             match res {
@@ -766,13 +799,13 @@ mod tests {
             }
             Ok(())
         }
-        fn test_float(s: &str, reference: f64, pattern: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?;
+        fn test_float(s: &str, reference: f64) -> ExResult<()> {
+            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
-        fn test_error(s: &str, pattern: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, pattern)?;
+        fn test_error(s: &str) -> ExResult<()> {
+            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
             match expr.eval(&[])? {
                 Val::Error(_) => Ok(()),
                 _ => {
@@ -781,44 +814,43 @@ mod tests {
                 }
             }
         }
-        test_int("2^4", 16, pattern)?;
-        test_error("2^-4", pattern)?;
-        test_int("2+4", 6, pattern)?;
-        test_int("9+4", 13, pattern)?;
-        test_int("9+4^2", 25, pattern)?;
-        test_int("9/4", 2, pattern)?;
-        test_int("9%4", 1, pattern)?;
-        test_float("2.5+4.0^2", 18.5, pattern)?;
-        test_float("2.5*4.0^2", 2.5 * 4.0 * 4.0, pattern)?;
-        test_float("2.5-4.0^-2", 2.5-4.0f64.powi(-2), pattern)?;
-        test_float("9.0/4.0", 9.0 / 4.0, pattern)?;
-        test_float("sum([9.0, 4.0])", 13.0, pattern)?;
-        test_int("sum([9,1])", 10, pattern)?;
-        test_float("sum([9.0])", 9.0, pattern)?;
-        test_float("sum([9.0,3.2]+[1.0,2.0])", 15.2, pattern)?;
+        test_int("2^4", 16)?;
+        test_error("2^-4")?;
+        test_int("2+4", 6)?;
+        test_int("9+4", 13)?;
+        test_int("9+4^2", 25)?;
+        test_int("9/4", 2)?;
+        test_int("9%4", 1)?;
+        test_float("2.5+4.0^2", 18.5)?;
+        test_float("2.5*4.0^2", 2.5 * 4.0 * 4.0)?;
+        test_float("2.5-4.0^-2", 2.5 - 4.0f64.powi(-2))?;
+        test_float("9.0/4.0", 9.0 / 4.0)?;
+        test_float("sum([9.0, 4.0])", 13.0)?;
+        test_int("sum([9,1])", 10)?;
+        test_float("sum([9.0])", 9.0)?;
+        test_float("sum([9.0,3.2]+[1.0,2.0])", 15.2)?;
         test_float(
             "prod([9.0,3.2,-1.6]+[1.0,2.0,7.45])",
             10.0 * 5.2 * (7.45 - 1.6),
-            pattern,
         )?;
-        test_float("sin(9.0)", 9.0f64.sin(), pattern)?;
-        test_float("cos(91.0)", 91.0f64.cos(), pattern)?;
-        test_float("tan(913.0)", 913.0f64.tan(), pattern)?;
-        test_float("sin(-π)", 0.0, pattern)?;
-        test_float("cos(π)", -1.0, pattern)?;
-        test_float("[9.0 , 3.2  , 1.0   , 2.0].0", 9.0, pattern)?;
-        test_float("[9.0, 3.2,1.0,2.0].1", 3.2, pattern)?;
-        test_float("[9.0 ,3.2,1.0,2.0].2", 1.0, pattern)?;
-        test_float("[9.0, 3.2, 1.0, 2.0].3", 2.0, pattern)?;
-        test_float("sin ifelse([   false,1,2.0   ])", 2.0f64.sin(), pattern)?;
-        test_int("ifelse([true , 1,2.0])", 1, pattern)?;
-        test_int("1<<2", 4, pattern)?;
-        test_int("4>>2", 1, pattern)?;
-        test_int("signum(4>>1)", 1, pattern)?;
-        test_float("signum(-123.12)", -1.0, pattern)?;
-        test_float("abs(-123.12)", 123.12, pattern)?;
-        test_int("fact(4)", 2 * 3 * 4, pattern)?;
-        test_int("fact(0)", 1, pattern)?;
+        test_float("sin(9.0)", 9.0f64.sin())?;
+        test_float("cos(91.0)", 91.0f64.cos())?;
+        test_float("tan(913.0)", 913.0f64.tan())?;
+        test_float("sin(-π)", 0.0)?;
+        test_float("cos(π)", -1.0)?;
+        test_float("[9.0 , 3.2  , 1.0   , 2.0].0", 9.0)?;
+        test_float("[9.0, 3.2,1.0,2.0].1", 3.2)?;
+        test_float("[9.0 ,3.2,1.0,2.0].2", 1.0)?;
+        test_float("[9.0, 3.2, 1.0, 2.0].3", 2.0)?;
+        test_float("sin ifelse([   false,1,2.0   ])", 2.0f64.sin())?;
+        test_int("ifelse([true , 1,2.0])", 1)?;
+        test_int("1<<2", 4)?;
+        test_int("4>>2", 1)?;
+        test_int("signum(4>>1)", 1)?;
+        test_float("signum(-123.12)", -1.0)?;
+        test_float("abs(-123.12)", 123.12)?;
+        test_int("fact(4)", 2 * 3 * 4)?;
+        test_int("fact(0)", 1)?;
 
         Ok(())
     }
