@@ -159,9 +159,12 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
+    /// `Val`ues with scalar variants can be created with [`from_float`](Val::from_float), 
+    /// [`from_int`](Val::from_int), or [`from_bool`](Val::from_bool).
     Scalar(Scalar<I, F>),
+    /// `Val`ues with tuple variants can be created with [`make_tuple`](make_tuple).
     Tuple(Tuple<I, F>),
-    /// since the trait `Try` is experimental, we keep track of an error in an additional arm
+    /// Since the trait `Try` is experimental, we keep track of an error in an additional arm.
     Error(ExError),
 }
 
@@ -190,8 +193,8 @@ where
 }
 
 /// *`feature = "value"`* -
-/// A scalar can contain an integer, a floats, or a bools. Due to [`make_tuple`](make_tuple) 
-/// library-user's do not need to use this.
+/// A scalar can contain either an integer, a float, or a bool. Due to [`make_tuple`](make_tuple) 
+/// crate users do not need to use this.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
     Int(I),
