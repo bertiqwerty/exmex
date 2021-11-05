@@ -153,7 +153,7 @@ macro_rules! from_type {
 /// #     Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Val<I = i32, F = f64>
 where
     I: DataType + PrimInt + Signed,
@@ -190,8 +190,9 @@ where
 }
 
 /// *`feature = "value"`* -
-/// A scalar can contain an integer, a floats, or a bools.
-#[derive(Clone, Debug)]
+/// A scalar can contain an integer, a floats, or a bools. Due to [`make_tuple`](make_tuple) 
+/// library-user's do not need to use this.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
     Int(I),
     Float(F),
