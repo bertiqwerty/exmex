@@ -13,17 +13,76 @@ pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
 
 const PATTERN: &str = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
 
-pub type FlatExVal<'a, I, F> = FlatEx::<'a, Val<I, F>, ValOpsFactory<I, F>>;
-pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx::<Val<I, F>, ValOpsFactory<I, F>>;
+/// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
+/// as operator factory. 
+pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>>;
+/// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
+/// as operator factory. 
+pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
 
-
+/// *`feature = "value"`* -
+/// Helps creating a tuple.
+///
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// use exmex::{make_tuple, parse_val, Express, Val};
+/// let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
+/// //                                   |     |
+/// //                                value   variant of enum Scalar
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// whose elements are accessible via the dot operator.
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// # use exmex::{make_tuple, parse_val, Express, Val};
+/// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
+/// // access first element of tuple which is a boolean
+/// let expr = parse_val::<i32, f64>("x.0")?;
+/// let res = expr.eval(&[tuple.clone()])?.to_bool()?;
+/// assert_eq!(res, true);
+///
+/// // access second element of tuple which is an integer
+/// let expr = parse_val::<i32, f64>("x.1")?;
+/// let res = expr.eval(&[tuple.clone()])?.to_int()?;
+/// assert_eq!(res, 5);
+///
+/// // access third element of tuple which is a float
+/// let expr = parse_val::<i32, f64>("x.2")?;
+/// let res = expr.eval(&[tuple.clone()])?.to_float()?;
+/// assert_eq!(res, 99.99);
+///
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// A unary operator that takes a tuple input is `ifelse`. Expected are 3 elements where the first is boolean.
+/// If the first element is true, `ifelse` returns the second element otherwise the last one.
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// # use exmex::{make_tuple, parse_val, Express, Val};
+/// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
+/// // access first element of tuple which is a boolean
+/// let expr = parse_val::<i32, f64>("ifelse(x)")?;
+/// let res = expr.eval(&[tuple])?.to_int()?;
+/// assert_eq!(res, 5);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 #[macro_export]
 macro_rules! make_tuple {
     ($I:ty, $F:ty, $(($xs:expr, $variants:ident)),+) => {
         exmex::Val::<$I, $F>::Tuple(smallvec::smallvec![$(exmex::Scalar::$variants($xs),)+])
     };
 }
-
 
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {
@@ -77,8 +136,10 @@ macro_rules! from_type {
     };
 }
 
-/// The value type [`Val`](Val) can contain integers, floats, or bools as scalars or tuples. 
-/// You can create a value as follows
+/// *`feature = "value"`* -
+/// The value type [`Val`](Val) can contain integers, floats, or bools as scalars or tuples.
+///  
+/// You can create a value as follows.
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -100,7 +161,7 @@ where
 {
     Scalar(Scalar<I, F>),
     Tuple(Tuple<I, F>),
-    // since the trait `Try` is experimental, we keep track of an error in an additional arm
+    /// since the trait `Try` is experimental, we keep track of an error in an additional arm
     Error(ExError),
 }
 
@@ -128,7 +189,8 @@ where
     }
 }
 
-
+/// *`feature = "value"`* -
+/// A scalar can contain an integer, a floats, or a bools.
 #[derive(Clone, Debug)]
 pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
     Int(I),
@@ -577,7 +639,22 @@ unary_op!(
     (|a: F| Val::from_float(-a), Float)
 );
 
-/// Factory of default operators for floating point values.
+/// *`feature = "value"`* - Factory of default operators for value data types. 
+///
+/// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are: 
+/// * `%` - reminder of integers
+/// * `|` - bitwise or of integers
+/// * `&` - bitwise and of integers
+/// * `XOR` - bitwise xor of integers
+/// * `<<` - left shift of integers
+/// * `>>` - right shift of integers
+/// * `||` - or for booleans
+/// * `&&` - and for booleans
+/// * `.` - access operator for tuple element
+/// * `sum` - sum of tuple elements
+/// * `prod` - product of tuple elements
+/// * `ifelse` - expects a 3-element-tuple with boolean at first position, similar to `condition ? a : b` in C++
+/// * `fact` - factorial of integers
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
 where
@@ -747,6 +824,22 @@ where
     }
 }
 
+/// *`feature = "value"`* - Parses a string into an expression of type
+/// [`FlatExVal`](FlatExVal) with datatype [`Val`](Val).
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// # use exmex::{make_tuple, parse_val, Express, Val};
+/// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
+/// // access first element of tuple which is a boolean
+/// let expr = parse_val::<i32, f64>("x^y")?;
+/// let res = expr.eval(&[Val::from_float(2.0), Val::from_int(3)])?.to_float()?;
+/// assert!( (res - 8.0).abs() < 1e-12);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 pub fn parse_val<I, F>(text: &str) -> ExResult<FlatEx<Val<I, F>, ValOpsFactory<I, F>>>
 where
     I: DataType + PrimInt + Signed,
@@ -757,6 +850,8 @@ where
     FlatEx::<Val<I, F>, ValOpsFactory<I, F>>::from_pattern(text, PATTERN)
 }
 
+/// *`feature = "value"`* - Parses a string into an expression of type [`OwnedFlatExVal`](OwnedFlatExVal) with
+/// datatype [`Val`](Val).
 pub fn parse_val_owned<I, F>(text: &str) -> ExResult<OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>>
 where
     I: DataType + PrimInt + Signed,

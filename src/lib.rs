@@ -329,7 +329,9 @@ pub use {
 #[cfg(feature = "value")]
 mod value;
 #[cfg(feature = "value")]
-pub use value::{parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Scalar, Val};
+pub use value::{
+    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Scalar, Val, ValOpsFactory,
+};
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
