@@ -1,4 +1,4 @@
-use exmex::{make_tuple, ExResult, Express};
+use exmex::{make_tuple, ExResult, Express, Val};
 mod utils;
 #[test]
 fn test_vars() -> ExResult<()> {
@@ -7,6 +7,12 @@ fn test_vars() -> ExResult<()> {
     utils::assert_float_eq_f64(expr.eval(&[tuple.clone()])?.to_float()?, 8.7);
     let expr = exmex::parse_val_owned::<i32, f64>("-ifelse(x)+5.3")?;
     utils::assert_float_eq_f64(expr.eval(&[tuple.clone()])?.to_float()?, 1.9);
+
+    let expr = exmex::parse_val_owned::<i64, f32>("-sin(x)+5.3")?;
+    utils::assert_float_eq_f32(
+        expr.eval(&[Val::<i64, f32>::from_float(2.2)])?.to_float()?,
+        -2.2f32.sin()+5.3,
+    );
 
     Ok(())
 }
