@@ -13,6 +13,9 @@ pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
 
 const PATTERN: &str = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
 
+pub type FlatExVal<'a, I, F> = FlatEx::<'a, Val<I, F>, ValOpsFactory<I, F>>;
+pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx::<Val<I, F>, ValOpsFactory<I, F>>;
+
 
 #[macro_export]
 macro_rules! make_tuple {
@@ -68,7 +71,7 @@ macro_rules! to_tuple_type {
 
 macro_rules! from_type {
     ($name:ident, $scalar_variant:ident, $T:ty) => {
-        fn $name(x: $T) -> Val<I, F> {
+        pub fn $name(x: $T) -> Val<I, F> {
             Val::<I, F>::Scalar(Scalar::$scalar_variant(x))
         }
     };

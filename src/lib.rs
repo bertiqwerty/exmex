@@ -324,7 +324,7 @@ pub use {
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
-    value::{parse_val, parse_val_owned, Scalar, Val},
+    value::{parse_val, parse_val_owned, Scalar, Val, FlatExVal, OwnedFlatExVal},
 };
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
