@@ -77,21 +77,21 @@ macro_rules! from_type {
     };
 }
 
-#[derive(Clone, Debug)]
-pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
-    Int(I),
-    Float(F),
-    Bool(bool),
-}
-impl<I, F> Scalar<I, F>
-where
-    I: DataType + PrimInt + Signed,
-    F: DataType + Float,
-{
-    to_type!(to_float, F, Float);
-    to_type!(to_int, I, Int);
-    to_type!(to_bool, bool, Bool);
-}
+/// The value type [`Val`](Val) can contain integers, floats, or bools as scalars or tuples. 
+/// You can create a value as follows
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// use exmex::Val;
+/// let v_f = Val::<i32, f64>::from_float(3.4);
+/// let v_i = Val::<i32, f64>::from_int(3);
+/// assert_eq!(v_f.to_float()?, 3.4);
+/// assert_eq!(v_i.to_int()?, 3);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub enum Val<I = i32, F = f64>
 where
@@ -126,6 +126,23 @@ where
             _ => Err(format_exerr!("expected scalar, found {:?}", self)),
         }
     }
+}
+
+
+#[derive(Clone, Debug)]
+pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
+    Int(I),
+    Float(F),
+    Bool(bool),
+}
+impl<I, F> Scalar<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    to_type!(to_float, F, Float);
+    to_type!(to_int, I, Int);
+    to_type!(to_bool, bool, Bool);
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
