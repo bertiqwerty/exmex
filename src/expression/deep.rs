@@ -773,3 +773,25 @@ fn test_deep_compile_2() {
         "(({x}^2.0)*({x}*2.0))+(({x}*2.0)*({x}^2.0))"
     );
 }
+
+#[test]
+fn test_compile() {
+    let expr = DeepEx::<f64>::from_str_float("1.0 * 3 * 2 * x / 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
+    let expr = DeepEx::<f64>::from_str_float(
+        "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
+    )
+    .unwrap();
+    assert_eq!(
+        "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
+        expr.unparse_raw()
+    );
+    let expr = DeepEx::<f64>::from_str_float("x + 1 - 2").unwrap();
+    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
+    let expr = DeepEx::<f64>::from_str_float("x - 1 + 2").unwrap();
+    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
+    let expr = DeepEx::<f64>::from_str_float("x * 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
+    let expr = DeepEx::<f64>::from_str_float("x / 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
+}

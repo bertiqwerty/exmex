@@ -1,10 +1,10 @@
+use crate::data_type::DataType;
 use crate::expression::flat_details::{self, FlatNodeVec, FlatOpVec};
 use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::data_type::DataType;
-use crate::{FloatOpsFactory, ExError, ExResult, MakeOperators};
+use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators};
 use num::Float;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;

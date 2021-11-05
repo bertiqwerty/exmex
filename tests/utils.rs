@@ -1,4 +1,3 @@
-#[cfg(test)]
 pub fn assert_float_eq<T: num::Float + std::fmt::Display>(
     f1: T,
     f2: T,
@@ -12,6 +11,11 @@ pub fn assert_float_eq<T: num::Float + std::fmt::Display>(
         println!("Floats not almost equal. {}\nf1: {}\nf2: {}\n", msg, f1, f2);
         assert!(false);
     }
+}
+
+#[cfg(test)]
+pub fn assert_float_eq_f32(f1: f32, f2: f32) {
+    assert_float_eq(f1, f2, 1e-6, 0.0, "");
 }
 
 #[cfg(test)]

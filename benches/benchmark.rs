@@ -2,8 +2,8 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
-use exmex::OwnedFlatEx;
 use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
+use exmex::{FlatExVal, OwnedFlatEx, Val};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
@@ -20,9 +20,9 @@ const N: usize = 4;
 const BENCH_EXPRESSIONS_NAMES: [&str; N] = ["sin", "power", "nested", "compile"];
 const BENCH_EXPRESSIONS_STRS: [&str; N] = [
     "sin(x)+sin(y)+sin(z)",
-    "x^2+y*y+z^z",
-    "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
-    "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
+    "x^2.0+y*y+z^z",
+    "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
+    "x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
 ];
 
 const BENCH_EXPRESSIONS_REFS: [fn(f64, f64, f64) -> f64; N] = [
@@ -124,6 +124,18 @@ fn exmex_parse<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
 fn exmex_bench_parse(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse, "exmex_parse", c);
 }
+
+fn exmex_parse_val<'a>(strings: &'a [&str]) -> Vec<FlatExVal<'a, i32, f64>> {
+    strings
+        .iter()
+        .map(|expr_str| exmex::parse_val(&expr_str).unwrap())
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse_val(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse_val, "exmex_parse_val", c);
+}
+
 ops_factory!(
     OnlyNeededOperators,
     f64,
@@ -196,6 +208,26 @@ fn exmex_bench_flatex_parseval(c: &mut Criterion) {
         flatex.eval(&[]).unwrap()
     }
     run_benchmark_parseval(func, "exmex flatex", c);
+}
+
+fn exmex_bench_eval_val(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse_val(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| {
+            move |x: f64| {
+                expr.eval(&[
+                    Val::from_float(x),
+                    Val::from_float(BENCH_Y),
+                    Val::from_float(BENCH_Z),
+                ])
+                .unwrap()
+                .to_float()
+                .unwrap()
+            }
+        })
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "exmex_val", c);
 }
 
 fn exmex_bench_eval(c: &mut Criterion) {
@@ -401,6 +433,7 @@ criterion_group!(
     exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,
+    exmex_bench_eval_val,
     exmex_bench_eval_owned,
     meval_bench_eval,
     rsc_bench_eval,
@@ -408,6 +441,7 @@ criterion_group!(
     fasteval_bench_parse,
     exmex_bench_parse,
     exmex_bench_parse_owned,
+    exmex_bench_parse_val,
     exmex_bench_parse_optimized,
     meval_bench_parse,
     rsc_bench_parse,
