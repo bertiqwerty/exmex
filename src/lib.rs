@@ -294,13 +294,19 @@
 //! # }
 //! ```
 //!
-//! ## Serialization and Deserialization
+//! ## Features
+//! Exmex comes with two features that can be activated optionally.
+//! ### Serialization and Deserialization
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
 //! The implementation un-parses and re-parses the whole expression.
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
 //! both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
+//! 
+//! ### A more General Value Type
+//! 
+//! To use different data types within an expression, one can activate the feature `value`. 
 //!
 
 use std::{fmt::Debug, str::FromStr};
