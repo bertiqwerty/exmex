@@ -407,8 +407,8 @@ macro_rules! single_type_arith {
                 match (a, b) {
                     (Scalar::$variant(na), Scalar::$variant(nb)) => $op(na, nb),
                     _ => Val::Error(format_exerr!(
-                        "can only {} int to {}",
-                        stringify!($name),
+                        "can only apply 2 {}s to {}",
+                        stringify!($variant),
                         stringify!($name)
                     )),
                 }
@@ -438,7 +438,6 @@ single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
 
 single_type_arith!(or, Bool, |a, b| Val::from_bool(a || b));
 single_type_arith!(and, Bool, |a, b| Val::from_bool(a && b));
-
 
 fn get<I, F>(tuple: Val<I, F>, idx: Val<I, F>) -> Val<I, F>
 where
@@ -592,11 +591,17 @@ unary_op!(
         |a: I| if a == I::zero() {
             Val::from_int(I::one())
         } else {
-            match I::from(
-                (1usize..(a.to_usize().unwrap() + 1usize))
-                    .map(|a| I::from(a).unwrap())
-                    .fold(I::one(), |a, b| a * b),
-            ) {
+            let a_usize_unpacked: usize = match a.to_usize() {
+                Some(x) => x,
+                None => return Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
+            };
+            let res = (1usize..(a_usize_unpacked + 1usize))
+                .map(|i: usize| I::from(i))
+                .fold(Some(I::one()), |a, b| match (a, b) {
+                    (Some(a_), Some(b_)) => Some(a_ * b_),
+                    _ => None,
+                });
+            match res {
                 Some(i) => Val::from_int(i),
                 None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
             }
@@ -760,6 +765,54 @@ where
                     is_commutative: false,
                 },
             ),
+            Operator::make_bin(
+                "==",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a == b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                ">=",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a >= b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                ">",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a > b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "<=",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a <= b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "<",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a < b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "!=",
+                BinOp {
+                    apply: |a, b| Val::from_bool(a != b),
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
             Operator::make_unary("ifelse", |a| ifelse(a)),
             Operator::make_unary("sum", |a| sum(a)),
             Operator::make_unary("prod", |a| prod(a)),
@@ -891,6 +944,11 @@ mod tests {
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
+        fn test_bool(s: &str, reference: bool) -> ExResult<()> {
+            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
+            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
+            Ok(())
+        }
         fn test_error(s: &str) -> ExResult<()> {
             let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
             match expr.eval(&[])? {
@@ -938,6 +996,13 @@ mod tests {
         test_float("abs(-123.12)", 123.12)?;
         test_int("fact(4)", 2 * 3 * 4)?;
         test_int("fact(0)", 1)?;
+        test_error("fact(-1)")?;
+        test_bool("1>2", false)?;
+        test_bool("1<2", true)?;
+        test_bool("1.4>=1.4", true)?;
+        test_bool("true==true", true)?;
+        test_bool("false==true", false)?;
+        test_bool("1.5 != 2.4", true)?;
 
         Ok(())
     }
