@@ -295,7 +295,11 @@
 //! ```
 //!
 //! ## Features
-//! Exmex comes with two features that can be activated optionally.
+//! Exmex comes with two features that can be activated optionally. The features can be activated in the `Cargo.toml` via
+//! ```
+//! [dependencies]
+//! exmex = { ..., features = ["serde", "value"] }
+//! ```
 //! ### Serialization and Deserialization
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
