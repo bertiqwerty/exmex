@@ -1003,6 +1003,9 @@ mod tests {
         test_bool("true==true", true)?;
         test_bool("false==true", false)?;
         test_bool("1.5 != 2.4", true)?;
+        test_error("1 + 1.0")?;
+        test_bool("1.0 == 1", false)?;
+        test_bool("1 == 1", true)?;
 
         Ok(())
     }
