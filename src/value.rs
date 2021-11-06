@@ -164,7 +164,7 @@ where
     Scalar(Scalar<I, F>),
     /// `Val`ues with tuple variants can be created with [`make_tuple`](make_tuple).
     Tuple(Tuple<I, F>),
-    /// Since the trait `Try` is experimental, we keep track of an error in an additional arm.
+    /// Since the trait `Try` is experimental, we keep track of an error in an additional variant.
     Error(ExError),
 }
 
