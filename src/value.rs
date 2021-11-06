@@ -14,10 +14,10 @@ pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
 const PATTERN: &str = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
 
 /// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
-/// as operator factory. 
+/// as operator factory.
 pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>>;
 /// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
-/// as operator factory. 
+/// as operator factory.
 pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
 
 /// *`feature = "value"`* -
@@ -159,7 +159,7 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
-    /// `Val`ues with scalar variants can be created with [`from_float`](Val::from_float), 
+    /// `Val`ues with scalar variants can be created with [`from_float`](Val::from_float),
     /// [`from_int`](Val::from_int), or [`from_bool`](Val::from_bool).
     Scalar(Scalar<I, F>),
     /// `Val`ues with tuple variants can be created with [`make_tuple`](make_tuple).
@@ -193,7 +193,7 @@ where
 }
 
 /// *`feature = "value"`* -
-/// A scalar can contain either an integer, a float, or a bool. Due to [`make_tuple`](make_tuple) 
+/// A scalar can contain either an integer, a float, or a bool. Due to [`make_tuple`](make_tuple)
 /// crate users do not need to use this.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Scalar<I: DataType + PrimInt + Signed, F: DataType + Float> {
@@ -268,27 +268,17 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
-    match a {
-        Scalar::Float(xa) => match b {
-            Scalar::Float(xb) => Val::<I, F>::from_float(xa.powf(xb)),
-            Scalar::Int(nb) => {
-                let powered = xa.powi(nb.to_i32().unwrap());
-                Val::<I, F>::from_float(powered)
-            }
-            Scalar::Bool(_) => Val::Error(ExError::from_str("cannot use bool as exponent")),
+    match (a, b) {
+        (Scalar::Float(x), Scalar::Float(y)) => Val::<I, F>::from_float(x.powf(y)),
+        (Scalar::Float(x), Scalar::Int(y)) => Val::<I, F>::from_float(x.powi(y.to_i32().unwrap())),
+        (Scalar::Int(x), Scalar::Int(y)) => match y.to_u32() {
+            Some(exponent_) => Val::<I, F>::from_int(x.pow(exponent_)),
+            None => Val::Error(format_exerr!(
+                "cannot convert {:?} to exponent of an int",
+                y
+            )),
         },
-        Scalar::Int(na) => match b {
-            Scalar::Float(_) => Val::Error(ExError::from_str("cannot use float as exponent")),
-            Scalar::Int(nb) => match nb.to_u32() {
-                Some(exponent_) => Val::<I, F>::from_int(na.pow(exponent_)),
-                None => Val::Error(format_exerr!(
-                    "cannot convert {:?} to exponent of an int",
-                    nb
-                )),
-            },
-            Scalar::Bool(_) => Val::Error(ExError::from_str("cannot use bool as exponent")),
-        },
-        Scalar::Bool(_) => Val::Error(ExError::from_str("cannot use bool as base")),
+        _ => Val::Error(ExError::from_str("cannot compute power")),
     }
 }
 
@@ -297,31 +287,24 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
-    match base {
-        Val::Scalar(x) => match exponent {
-            Val::Scalar(y) => pow_scalar(x, y),
-            Val::Tuple(_) => Val::Error(ExError::from_str("cannot use array as exponent")),
-            Val::Error(e) => Val::Error(e),
-        },
-        Val::Tuple(aa) => match exponent {
-            Val::Scalar(y) => {
-                let powered = aa
-                    .iter()
-                    .map(|xi| match pow_scalar(xi.clone(), y.clone()) {
-                        Val::Scalar(s) => Ok(s),
-                        Val::Tuple(_) => Err(ExError::from_str("we only allow tuples of scalars")),
-                        Val::Error(e) => Err(ExError::from_str(e.msg.as_str())),
-                    })
-                    .collect::<ExResult<Tuple<I, F>>>();
-                match powered {
-                    Err(e) => Val::Error(e),
-                    Ok(a) => Val::Tuple(a),
-                }
+    match (base, exponent) {
+        (Val::Scalar(x), Val::Scalar(y)) => pow_scalar(x, y),
+        (_, Val::Tuple(_)) => Val::Error(ExError::from_str("cannot use array as exponent")),
+        (Val::Tuple(x), Val::Scalar(y)) => {
+            let powered = x
+                .iter()
+                .map(|xi| match pow_scalar(xi.clone(), y.clone()) {
+                    Val::Scalar(s) => Ok(s),
+                    Val::Tuple(_) => Err(ExError::from_str("we only allow tuples of scalars")),
+                    Val::Error(e) => Err(format_exerr!("{}", e.msg)),
+                })
+                .collect::<ExResult<Tuple<I, F>>>();
+            match powered {
+                Err(e) => Val::Error(e),
+                Ok(a) => Val::Tuple(a),
             }
-            Val::Tuple(_) => Val::Error(ExError::from_str("cannot use tuple as exponent")),
-            Val::Error(e) => Val::Error(e),
-        },
-        Val::Error(e) => Val::Error(e),
+        }
+        (Val::Error(e), _) | (_, Val::Error(e)) => Val::Error(e),
     }
 }
 
@@ -367,19 +350,12 @@ macro_rules! tuple_scalar_ops {
 
 macro_rules! tuple_scalar_ops_final_match {
     ($a:ident, $b:ident) => {
-        match $a {
-            Val::Scalar(x) => match $b {
-                Val::Scalar(y) => op_scalar(x, y),
-                Val::Tuple(b) => op_scalar_to_tuple(x, b),
-                Val::Error(e) => Val::Error(e),
-            },
-            Val::Tuple(t) => match $b {
-                Val::Scalar(y) => op_scalar_to_tuple(y, t),
-
-                Val::Tuple(t2) => op_tuple(t, t2),
-                Val::Error(e) => Val::Error(e),
-            },
-            Val::Error(e) => Val::Error(e),
+        match ($a, $b) {
+            (Val::Scalar(x), Val::Scalar(y)) => op_scalar(x, y),
+            (Val::Scalar(x), Val::Tuple(y)) => op_scalar_to_tuple(x, y),
+            (Val::Tuple(x), Val::Scalar(y)) => op_scalar_to_tuple(y, x),
+            (Val::Tuple(x), Val::Tuple(y)) => op_tuple(x, y),
+            (Val::Error(e), _) | (_, Val::Error(e)) => Val::Error(e),
         }
     };
 }
@@ -396,21 +372,12 @@ macro_rules! base_arith {
                 I: DataType + PrimInt + Signed,
                 F: DataType + Float,
             {
-                match a {
-                    Scalar::Float(xa) => match b {
-                        Scalar::Float(xb) => Val::<I, F>::from_float(xa.$name(xb)),
-                        _ => Val::Error(ExError::from_str(
-                            format!("can only {} float to float", stringify!($name)).as_str(),
-                        )),
-                    },
-                    Scalar::Int(na) => match b {
-                        Scalar::Int(nb) => Val::<I, F>::from_int(na.$name(nb)),
-                        _ => Val::Error(ExError::from_str(
-                            format!("can only {} int to int", stringify!($name)).as_str(),
-                        )),
-                    },
-                    Scalar::Bool(_) => Val::Error(ExError::from_str(
-                        format!("cannot use bool in {}", stringify!($name)).as_str(),
+                match (a, b) {
+                    (Scalar::Float(x), Scalar::Float(y)) => Val::<I, F>::from_float(x.$name(y)),
+                    (Scalar::Int(x), Scalar::Int(y)) => Val::<I, F>::from_int(x.$name(y)),
+                    _ => Val::Error(ExError::from_str(
+                        format!("can only apply {} to 2 ints or 2 floats", stringify!($name))
+                            .as_str(),
                     )),
                 }
             }
@@ -471,6 +438,7 @@ single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
 
 single_type_arith!(or, Bool, |a, b| Val::from_bool(a || b));
 single_type_arith!(and, Bool, |a, b| Val::from_bool(a && b));
+
 
 fn get<I, F>(tuple: Val<I, F>, idx: Val<I, F>) -> Val<I, F>
 where
@@ -643,9 +611,9 @@ unary_op!(
     (|a: F| Val::from_float(-a), Float)
 );
 
-/// *`feature = "value"`* - Factory of default operators for value data types. 
+/// *`feature = "value"`* - Factory of default operators for value data types.
 ///
-/// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are: 
+/// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are:
 /// * `%` - reminder of integers
 /// * `|` - bitwise or of integers
 /// * `&` - bitwise and of integers
