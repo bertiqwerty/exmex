@@ -295,7 +295,7 @@
 //! ```
 //!
 //! ## Features
-//! Exmex comes with two features that can be activated optionally. The features can be activated in the `Cargo.toml` via
+//! Exmex comes with two features that can be activated in the `Cargo.toml` via
 //! ```text
 //! [dependencies]
 //! exmex = { ..., features = ["serde", "value"] }
