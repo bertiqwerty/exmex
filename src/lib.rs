@@ -300,6 +300,7 @@
 //! [dependencies]
 //! exmex = { ..., features = ["serde", "value"] }
 //! ```
+//! `serde` enables serialization and deserialization and `value` a more general value type.
 //! ### Serialization and Deserialization
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
@@ -310,7 +311,7 @@
 //! 
 //! ### A more General Value Type
 //! 
-//! To use different data types within an expression, one can activate the feature `value`. 
+//! To use different data types within an expression, one can activate the feature `value`.
 //!
 
 use std::{fmt::Debug, str::FromStr};

@@ -69,7 +69,6 @@ pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
 /// #
 /// # use exmex::{make_tuple, parse_val, Express, Val};
 /// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
-/// // access first element of tuple which is a boolean
 /// let expr = parse_val::<i32, f64>("ifelse(x)")?;
 /// let res = expr.eval(&[tuple])?.to_int()?;
 /// assert_eq!(res, 5);
@@ -857,7 +856,6 @@ where
 /// #
 /// # use exmex::{make_tuple, parse_val, Express, Val};
 /// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
-/// // access first element of tuple which is a boolean
 /// let expr = parse_val::<i32, f64>("x^y")?;
 /// let res = expr.eval(&[Val::from_float(2.0), Val::from_int(3)])?.to_float()?;
 /// assert!( (res - 8.0).abs() < 1e-12);
