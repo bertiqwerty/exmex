@@ -85,7 +85,7 @@ macro_rules! from_type {
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
-/// use exmex::{Express, Val};
+/// use exmex::Express;
 /// let expr = exmex::parse_val::<i32, f64>("5 else 3")?;
 /// assert_eq!(expr.eval(&[])?.to_int()?, 5);
 /// #
