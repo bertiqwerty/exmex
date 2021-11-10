@@ -36,31 +36,8 @@ macro_rules! to_type {
     };
 }
 
-macro_rules! from_type {
-    ($name:ident, $variant:ident, $T:ty) => {
-        pub fn $name(x: $T) -> Val<I, F> {
-            Val::<I, F>::$variant(x)
-        }
-    };
-}
-
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain integers, floats, or bools.
-///  
-/// You can create a value as follows.
-/// ```rust
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-/// #
-/// use exmex::Val;
-/// let v_f = Val::<i32, f64>::from_float(3.4);
-/// let v_i = Val::<i32, f64>::from_int(3);
-/// assert_eq!(v_f.to_float()?, 3.4);
-/// assert_eq!(v_i.to_int()?, 3);
-/// #
-/// #     Ok(())
-/// # }
-/// ```
 /// To use the value type, there is a separate parse function that wraps [`Express::from_regex`](Express::from_regex)
 /// and uses the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
 /// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
@@ -98,8 +75,6 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
-    /// `Val`ues with can be created with [`from_float`](Val::from_float),
-    /// [`from_int`](Val::from_int), or [`from_bool`](Val::from_bool).
     Int(I),
     Float(F),
     Bool(bool),
@@ -118,9 +93,6 @@ where
     to_type!(to_float, F, Float);
     to_type!(to_bool, bool, Bool);
 
-    from_type!(from_float, Float, F);
-    from_type!(from_int, Int, I);
-    from_type!(from_bool, Bool, bool);
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
@@ -161,10 +133,10 @@ where
     F: DataType + Float,
 {
     match (a, b) {
-        (Val::Float(x), Val::Float(y)) => Val::<I, F>::from_float(x.powf(y)),
-        (Val::Float(x), Val::Int(y)) => Val::<I, F>::from_float(x.powi(y.to_i32().unwrap())),
+        (Val::Float(x), Val::Float(y)) => Val::Float(x.powf(y)),
+        (Val::Float(x), Val::Int(y)) => Val::Float(x.powi(y.to_i32().unwrap())),
         (Val::Int(x), Val::Int(y)) => match y.to_u32() {
-            Some(exponent_) => Val::<I, F>::from_int(x.pow(exponent_)),
+            Some(exponent_) => Val::Int(x.pow(exponent_)),
             None => Val::Error(format_exerr!(
                 "cannot convert {:?} to exponent of an int",
                 y
@@ -182,8 +154,8 @@ macro_rules! base_arith {
             F: DataType + Float,
         {
             match (a, b) {
-                (Val::Float(x), Val::Float(y)) => Val::<I, F>::from_float(x.$name(y)),
-                (Val::Int(x), Val::Int(y)) => Val::<I, F>::from_int(x.$name(y)),
+                (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
+                (Val::Int(x), Val::Int(y)) => Val::Int(x.$name(y)),
                 _ => Val::Error(ExError::from_str(
                     format!("can only apply {} to 2 ints or 2 floats", stringify!($name)).as_str(),
                 )),
@@ -216,37 +188,37 @@ macro_rules! single_type_arith {
     };
 }
 
-single_type_arith!(rem, Int, |a, b| Val::from_int(a % b));
-single_type_arith!(bitwise_or, Int, |a, b| Val::from_int(a | b));
-single_type_arith!(bitwise_and, Int, |a, b| Val::from_int(a & b));
-single_type_arith!(bitwise_xor, Int, |a, b| Val::from_int(a ^ b));
+single_type_arith!(rem, Int, |a, b| Val::Int(a % b));
+single_type_arith!(bitwise_or, Int, |a, b| Val::Int(a | b));
+single_type_arith!(bitwise_and, Int, |a, b| Val::Int(a & b));
+single_type_arith!(bitwise_xor, Int, |a, b| Val::Int(a ^ b));
 single_type_arith!(right_shift, Int, |a: I, b: I| -> Val<I, F> {
     match b.to_usize() {
-        Some(bu) => Val::from_int(a >> bu),
+        Some(bu) => Val::Int(a >> bu),
         None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
     }
 });
 single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
     match b.to_usize() {
-        Some(bu) => Val::from_int(a << bu),
+        Some(bu) => Val::Int(a << bu),
         None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
     }
 });
 
-single_type_arith!(or, Bool, |a, b| Val::from_bool(a || b));
-single_type_arith!(and, Bool, |a, b| Val::from_bool(a && b));
+single_type_arith!(or, Bool, |a, b| Val::Bool(a || b));
+single_type_arith!(and, Bool, |a, b| Val::Bool(a && b));
 
 macro_rules! unary_match_name {
-    ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident, $from_types:ident)),+) => {
+    ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident)),+) => {
         match $scalar {
-            $(Val::$variants(x) => Val::<I, F>::$from_types(x.$name()),)+
+            $(Val::$variants(x) => Val::$variants(x.$name()),)+
             _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
         }
     };
 }
 
 macro_rules! unary_match_op {
-    ($name:ident, $scalar:ident, $(($ops:expr, $variants:ident, $unused_from_types:ident)),+) => {
+    ($name:ident, $scalar:ident, $(($ops:expr, $variants:ident)),+) => {
         match $scalar {
             $(Val::$variants(x) =>  $ops(x),)+
             _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
@@ -255,49 +227,49 @@ macro_rules! unary_match_op {
 }
 
 macro_rules! unary_match {
-    ($name:ident, $matcher:ident, $(($ops:expr, $variants:ident, $from_types:ident)),+) => {
+    ($name:ident, $matcher:ident, $(($ops:expr, $variants:ident)),+) => {
         fn $name<I, F>(val: Val<I, F>) -> Val<I, F>
         where
             I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
-            $matcher!($name, val, $(($ops, $variants, $from_types)),+)
+            $matcher!($name, val, $(($ops, $variants)),+)
         }
     };
 }
 
 macro_rules! unary_name {
-    ($name:ident, $(($variants:ident, $from_types:ident)),+) => {
-        unary_match!($name, unary_match_name, $((0, $variants, $from_types)),+);
+    ($name:ident, $($variants:ident),+) => {
+        unary_match!($name, unary_match_name, $((0, $variants)),+);
     }
 }
 
-unary_name!(abs, (Float, from_float), (Int, from_int));
-unary_name!(signum, (Float, from_float), (Int, from_int));
-unary_name!(sin, (Float, from_float));
-unary_name!(cos, (Float, from_float));
-unary_name!(tan, (Float, from_float));
-unary_name!(asin, (Float, from_float));
-unary_name!(acos, (Float, from_float));
-unary_name!(atan, (Float, from_float));
-unary_name!(sinh, (Float, from_float));
-unary_name!(cosh, (Float, from_float));
-unary_name!(tanh, (Float, from_float));
-unary_name!(floor, (Float, from_float));
-unary_name!(ceil, (Float, from_float));
-unary_name!(trunc, (Float, from_float));
-unary_name!(fract, (Float, from_float));
-unary_name!(exp, (Float, from_float));
-unary_name!(sqrt, (Float, from_float));
-unary_name!(ln, (Float, from_float));
-unary_name!(log2, (Float, from_float));
-unary_name!(swap_bytes, (Int, from_int));
-unary_name!(to_le, (Int, from_int));
-unary_name!(to_be, (Int, from_int));
+unary_name!(abs, Float, Int);
+unary_name!(signum, Float, Int);
+unary_name!(sin, Float);
+unary_name!(cos, Float);
+unary_name!(tan, Float);
+unary_name!(asin, Float);
+unary_name!(acos, Float);
+unary_name!(atan, Float);
+unary_name!(sinh, Float);
+unary_name!(cosh, Float);
+unary_name!(tanh, Float);
+unary_name!(floor, Float);
+unary_name!(ceil, Float);
+unary_name!(trunc, Float);
+unary_name!(fract, Float);
+unary_name!(exp, Float);
+unary_name!(sqrt, Float);
+unary_name!(ln, Float);
+unary_name!(log2, Float);
+unary_name!(swap_bytes, Int);
+unary_name!(to_le, Int);
+unary_name!(to_be, Int);
 
 macro_rules! unary_op {
     ($name:ident, $(($ops:expr, $variants:ident)),+) => {
-        unary_match!($name, unary_match_op, $(($ops, $variants, i32)),+);
+        unary_match!($name, unary_match_op, $(($ops, $variants)),+);
     }
 }
 
@@ -305,7 +277,7 @@ unary_op!(
     fact,
     (
         |a: I| if a == I::zero() {
-            Val::from_int(I::one())
+            Val::Int(I::one())
         } else {
             let a_usize_unpacked: usize = match a.to_usize() {
                 Some(x) => x,
@@ -318,7 +290,7 @@ unary_op!(
                     _ => None,
                 });
             match res {
-                Some(i) => Val::from_int(i),
+                Some(i) => Val::Int(i),
                 None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
             }
         },
@@ -328,8 +300,8 @@ unary_op!(
 
 unary_op!(
     minus,
-    (|a: I| Val::from_int(-a), Int),
-    (|a: F| Val::from_float(-a), Float)
+    (|a: I| Val::Int(-a), Int),
+    (|a: F| Val::Float(-a), Float)
 );
 
 /// *`feature = "value"`* - Factory of default operators for value data types.
@@ -474,7 +446,7 @@ where
             Operator::make_bin(
                 "==",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a == b),
+                    apply: |a, b| Val::Bool(a == b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -482,7 +454,7 @@ where
             Operator::make_bin(
                 ">=",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a >= b),
+                    apply: |a, b| Val::Bool(a >= b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -490,7 +462,7 @@ where
             Operator::make_bin(
                 ">",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a > b),
+                    apply: |a, b| Val::Bool(a > b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -498,7 +470,7 @@ where
             Operator::make_bin(
                 "<=",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a <= b),
+                    apply: |a, b| Val::Bool(a <= b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -506,7 +478,7 @@ where
             Operator::make_bin(
                 "<",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a < b),
+                    apply: |a, b| Val::Bool(a < b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -514,7 +486,7 @@ where
             Operator::make_bin(
                 "!=",
                 BinOp {
-                    apply: |a, b| Val::from_bool(a != b),
+                    apply: |a, b| Val::Bool(a != b),
                     prio: 1,
                     is_commutative: true,
                 },
@@ -573,10 +545,10 @@ where
             Operator::make_unary("fact", |a| fact(a)),
             Operator::make_constant(
                 "PI",
-                Val::from_float(F::from(std::f64::consts::PI).unwrap()),
+                Val::Float(F::from(std::f64::consts::PI).unwrap()),
             ),
-            Operator::make_constant("π", Val::from_float(F::from(std::f64::consts::PI).unwrap())),
-            Operator::make_constant("E", Val::from_float(F::from(std::f64::consts::E).unwrap())),
+            Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
+            Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
         ]
     }
 }
@@ -589,7 +561,7 @@ where
 /// #
 /// # use exmex::{parse_val, Express, Val};
 /// let expr = parse_val::<i32, f64>("x^y")?;
-/// let res = expr.eval(&[Val::from_float(2.0), Val::from_int(3)])?.to_float()?;
+/// let res = expr.eval(&[Val::Float(2.0), Val::Int(3)])?.to_float()?;
 /// assert!( (res - 8.0).abs() < 1e-12);
 /// #
 /// #     Ok(())

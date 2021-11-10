@@ -222,9 +222,9 @@ fn exmex_bench_eval_val(c: &mut Criterion) {
         .map(|expr| {
             move |x: f64| {
                 expr.eval(&[
-                    Val::from_float(x),
-                    Val::from_float(BENCH_Y),
-                    Val::from_float(BENCH_Z),
+                    Val::Float(x),
+                    Val::Float(BENCH_Y),
+                    Val::Float(BENCH_Z),
                 ])
                 .unwrap()
                 .to_float()
