@@ -1,12 +1,19 @@
-use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, ExError, ExResult};
+use crate::{ExError, ExResult, definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, format_exerr};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 
-fn make_op_not_available_error(repr: &str) -> ExError {
-    ExError {
-        msg: format!("operator {} not available", repr),
-    }
+enum OperatorType {
+    Bin,
+    Unary
+}
+
+fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
+    let op_type_str = match op_type {
+        OperatorType::Bin => "binary",
+        OperatorType::Unary => "unary"
+    };
+    format_exerr!("{} operator {} not available", op_type_str, repr)    
 }
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
@@ -23,8 +30,8 @@ pub struct Operator<'a, T: Clone> {
     constant: Option<T>,
 }
 
-fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str) -> ExResult<&'a O> {
-    wrapped_op.as_ref().ok_or_else(||make_op_not_available_error(repr))
+fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str, op_type: OperatorType) -> ExResult<&'a O> {
+    wrapped_op.as_ref().ok_or_else(||make_op_not_available_error(repr, op_type))
 }
 
 impl<'a, T: Clone> Operator<'a, T> {
@@ -80,11 +87,11 @@ impl<'a, T: Clone> Operator<'a, T> {
     }
 
     pub fn bin(&self) -> ExResult<BinOp<T>> {
-        let op = unwrap_operator(&self.bin_op, self.repr)?;
+        let op = unwrap_operator(&self.bin_op, self.repr, OperatorType::Bin)?;
         Ok(op.clone())
     }
     pub fn unary(&self) -> ExResult<fn(T) -> T> {
-        Ok(*unwrap_operator(&self.unary_op, self.repr)?)
+        Ok(*unwrap_operator(&self.unary_op, self.repr, OperatorType::Unary)?)
     }
     pub fn repr(&self) -> &'a str {
         self.repr

@@ -90,7 +90,6 @@ where
     from_type!(from_float, Float, F);
     from_type!(from_int, Int, I);
     from_type!(from_bool, Bool, bool);
-
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
@@ -640,22 +639,29 @@ mod tests {
             Ok(())
         }
         fn test_error(s: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
-            let v = expr.eval(&[])?;
-            match v {
-                Val::Error(_) => Ok(()),
-                _ => {
-                    Err(format_exerr!("'{}' should fail but didn't", s))
+            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT);
+            match expr {
+                Ok(exp) => {
+                    let v = exp.eval(&[])?;
+                    match v {
+                        Val::Error(e) => {
+                            println!("found expected error {:?}", e);
+                            Ok(())
+                        },
+                        _ => Err(format_exerr!("'{}' should fail but didn't", s)),
+                    }
                 }
+                Err(e) => {
+                    println!("found expected error {:?}", e);
+                    Ok(())
+                },
             }
         }
         fn test_none(s: &str) -> ExResult<()> {
             let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             match expr.eval(&[])? {
                 Val::None => Ok(()),
-                _ => {
-                    Err(format_exerr!("'{}' should return none but didn't", s))
-                }
+                _ => Err(format_exerr!("'{}' should return none but didn't", s)),
             }
         }
         test_float("2.0^2", 4.0)?;
@@ -698,7 +704,7 @@ mod tests {
         test_bool("true else 2", true)?;
         test_int("1 else 2", 1)?;
         test_error("if true else 2")?;
-        test_none("if false 423")?;
+        test_none("2 if false")?;
         Ok(())
     }
 }
