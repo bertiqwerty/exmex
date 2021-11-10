@@ -165,6 +165,8 @@ where
     Tuple(Tuple<I, F>),
     /// Since the trait `Try` is experimental, we keep track of an error in an additional variant.
     Error(ExError),
+    /// Sometimes, `Val` does not contain a value
+    None,
 }
 
 impl<I, F> Val<I, F>
@@ -187,6 +189,17 @@ where
         match self {
             Val::Scalar(s) => Ok(s),
             _ => Err(format_exerr!("expected scalar, found {:?}", self)),
+        }
+    }
+
+    fn unpack_err(self) -> ExError
+    where
+        I: DataType + PrimInt + Signed,
+        F: DataType + Float,
+    {
+        match self {
+            Val::Error(e) => e,
+            _ => format_exerr!("value {:?} does not contain error", self),
         }
     }
 }
@@ -281,6 +294,14 @@ where
     }
 }
 
+fn cannot_operate_none_err<I, F>(msg: &str) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    Val::Error(format_exerr!("cannot operate on None, {}", msg))
+}
+
 fn pow<I, F>(base: Val<I, F>, exponent: Val<I, F>) -> Val<I, F>
 where
     I: DataType + PrimInt + Signed,
@@ -296,6 +317,7 @@ where
                     Val::Scalar(s) => Ok(s),
                     Val::Tuple(_) => Err(ExError::from_str("we only allow tuples of scalars")),
                     Val::Error(e) => Err(format_exerr!("{}", e.msg)),
+                    Val::None => Err(cannot_operate_none_err::<I, F>("pow").unpack_err()),
                 })
                 .collect::<ExResult<Tuple<I, F>>>();
             match powered {
@@ -304,6 +326,7 @@ where
             }
         }
         (Val::Error(e), _) | (_, Val::Error(e)) => Val::Error(e),
+        (Val::None, _) | (_, Val::None) =>  cannot_operate_none_err::<I, F>("pow")
     }
 }
 
@@ -320,6 +343,8 @@ macro_rules! tuple_scalar_ops {
                     Val::Scalar(s) => Ok(s),
                     Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
                     Val::Error(e) => Err(e),
+                    Val::None => Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err()),
+
                 })
                 .collect::<ExResult<Tuple<I, F>>>();
             match tuple {
@@ -337,6 +362,7 @@ macro_rules! tuple_scalar_ops {
                     Val::Scalar(s) => Ok(s),
                     Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
                     Val::Error(e) => Err(e),
+                    Val::None => Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err()),
                 })
                 .collect::<ExResult<Tuple<I, F>>>();
             match tuple {
@@ -355,6 +381,7 @@ macro_rules! tuple_scalar_ops_final_match {
             (Val::Tuple(x), Val::Scalar(y)) => op_scalar_to_tuple(y, x),
             (Val::Tuple(x), Val::Tuple(y)) => op_tuple(x, y),
             (Val::Error(e), _) | (_, Val::Error(e)) => Val::Error(e),
+            (Val::None, _) | (_, Val::None) => cannot_operate_none_err::<I, F>(stringify!("")),
         }
     };
 }
@@ -455,27 +482,6 @@ where
     }
 }
 
-/// if condition {a} else {b}
-fn ifelse<I, F>(condition_a_b: Val<I, F>) -> Val<I, F>
-where
-    I: DataType + PrimInt + Signed,
-    F: DataType + Float,
-{
-    match condition_a_b {
-        Val::Tuple(t) => match t[0usize].clone().to_bool() {
-            Ok(b) => Val::Scalar(if b {
-                t[1usize].clone()
-            } else {
-                t[2usize].clone()
-            }),
-            Err(e) => Val::Error(e),
-        },
-        _ => Val::Error(ExError::from_str(
-            "can only use tuple with 3 elements for if else",
-        )),
-    }
-}
-
 macro_rules! fold_tuple {
     ($name:ident, $init_float:literal, $init_int:literal, $folder:expr) => {
         fn $name<I, F>(tuple: Val<I, F>) -> Val<I, F>
@@ -544,6 +550,7 @@ macro_rules! unary_m {
                     }
                 }
                 Val::Error(e) => Val::Error(e),
+                Val::None => cannot_operate_none_err(stringify!($name))
             }
         }
     };
@@ -629,7 +636,8 @@ unary_op!(
 /// * `.` - access operator for tuple element
 /// * `sum` - sum of tuple elements
 /// * `prod` - product of tuple elements
-/// * `ifelse` - expects a 3-element-tuple with boolean at first position, similar to `condition ? a : b` in C++
+/// * `if` - returns first operand if second is true, else None, inspired by Python's ternary if-else-operator to `a if condition else b`,
+/// * `else` - returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`, 
 /// * `fact` - factorial of integers
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
@@ -655,7 +663,7 @@ where
                 "^",
                 BinOp {
                     apply: |a, b| pow(a, b),
-                    prio: 4,
+                    prio: 6,
                     is_commutative: false,
                 },
             ),
@@ -663,7 +671,7 @@ where
                 "+",
                 BinOp {
                     apply: |a, b| add(a, b),
-                    prio: 1,
+                    prio: 3,
                     is_commutative: true,
                 },
             ),
@@ -671,7 +679,7 @@ where
                 "-",
                 BinOp {
                     apply: |a, b| sub(a, b),
-                    prio: 1,
+                    prio: 3,
                     is_commutative: false,
                 },
                 |a| minus(a),
@@ -680,7 +688,7 @@ where
                 "*",
                 BinOp {
                     apply: |a, b| mul(a, b),
-                    prio: 2,
+                    prio: 4,
                     is_commutative: true,
                 },
             ),
@@ -688,7 +696,7 @@ where
                 "/",
                 BinOp {
                     apply: |a, b| div(a, b),
-                    prio: 3,
+                    prio: 5,
                     is_commutative: false,
                 },
             ),
@@ -696,7 +704,7 @@ where
                 "%",
                 BinOp {
                     apply: |a, b| rem(a, b),
-                    prio: 3,
+                    prio: 5,
                     is_commutative: false,
                 },
             ),
@@ -704,7 +712,7 @@ where
                 "|",
                 BinOp {
                     apply: |a, b| bitwise_or(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: true,
                 },
             ),
@@ -712,7 +720,7 @@ where
                 "&",
                 BinOp {
                     apply: |a, b| bitwise_and(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: true,
                 },
             ),
@@ -720,7 +728,7 @@ where
                 "XOR",
                 BinOp {
                     apply: |a, b| bitwise_xor(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: true,
                 },
             ),
@@ -728,7 +736,7 @@ where
                 ">>",
                 BinOp {
                     apply: |a, b| right_shift(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: false,
                 },
             ),
@@ -736,7 +744,7 @@ where
                 "<<",
                 BinOp {
                     apply: |a, b| left_shift(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: false,
                 },
             ),
@@ -744,7 +752,7 @@ where
                 "&&",
                 BinOp {
                     apply: |a, b| and(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: true,
                 },
             ),
@@ -752,7 +760,7 @@ where
                 "||",
                 BinOp {
                     apply: |a, b| or(a, b),
-                    prio: 1,
+                    prio: 2,
                     is_commutative: true,
                 },
             ),
@@ -768,7 +776,7 @@ where
                 "==",
                 BinOp {
                     apply: |a, b| Val::from_bool(a == b),
-                    prio: 0,
+                    prio: 1,
                     is_commutative: true,
                 },
             ),
@@ -776,7 +784,7 @@ where
                 ">=",
                 BinOp {
                     apply: |a, b| Val::from_bool(a >= b),
-                    prio: 0,
+                    prio: 1,
                     is_commutative: true,
                 },
             ),
@@ -784,7 +792,7 @@ where
                 ">",
                 BinOp {
                     apply: |a, b| Val::from_bool(a > b),
-                    prio: 0,
+                    prio: 1,
                     is_commutative: true,
                 },
             ),
@@ -792,7 +800,7 @@ where
                 "<=",
                 BinOp {
                     apply: |a, b| Val::from_bool(a <= b),
-                    prio: 0,
+                    prio: 1,
                     is_commutative: true,
                 },
             ),
@@ -800,7 +808,7 @@ where
                 "<",
                 BinOp {
                     apply: |a, b| Val::from_bool(a < b),
-                    prio: 0,
+                    prio: 1,
                     is_commutative: true,
                 },
             ),
@@ -808,11 +816,37 @@ where
                 "!=",
                 BinOp {
                     apply: |a, b| Val::from_bool(a != b),
+                    prio: 1,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "if",
+                BinOp {
+                    apply: |v, cond| {
+                        let condition = match cond.to_bool() {
+                            Ok(b) => b,
+                            Err(e) => return Val::Error(e)                        
+                        };
+                        if condition {v} else {Val::None}
+                    },
                     prio: 0,
                     is_commutative: true,
                 },
             ),
-            Operator::make_unary("ifelse", |a| ifelse(a)),
+            Operator::make_bin(
+                "else",
+                BinOp {
+                    apply: |res_of_if, v| {
+                        match res_of_if {
+                            Val::None => v,
+                            _ => res_of_if                   
+                        }
+                    },
+                    prio: 0,
+                    is_commutative: true,
+                },
+            ),
             Operator::make_unary("sum", |a| sum(a)),
             Operator::make_unary("prod", |a| prod(a)),
             Operator::make_unary("signum", |a| signum(a)),
@@ -957,6 +991,7 @@ mod tests {
                 }
             }
         }
+        test_float("2.0^2", 4.0)?;
         test_int("2^4", 16)?;
         test_error("2^-4")?;
         test_int("2+4", 6)?;
@@ -984,10 +1019,11 @@ mod tests {
         test_float("[9.0 , 3.2  , 1.0   , 2.0].0", 9.0)?;
         test_float("[9.0, 3.2,1.0,2.0].1", 3.2)?;
         test_float("[9.0 ,3.2,1.0,2.0].2", 1.0)?;
-        test_float("[9.0, 3.2, 1.0, 2.0].3", 2.0)?;
-        test_float("sin ifelse([   false,1,2.0   ])", 2.0f64.sin())?;
-        test_int("ifelse([true , 1,2.0])", 1)?;
-        test_int("1<<2", 4)?;
+        test_float("[9.0, 3.2, 1.0, 2.0].3^2", 4.0)?;
+        test_float("sin (1 if false else 2.0)", 2.0f64.sin())?;
+        test_int("1 if true else 2.0", 1)?;
+        test_float("([9.0, 3.2, 1.0, 2.0] if true else 2.0).0", 9.0)?;
+        test_int("1<<4-2", 4)?;
         test_int("4>>2", 1)?;
         test_int("signum(4>>1)", 1)?;
         test_float("signum(-123.12)", -1.0)?;
@@ -1000,7 +1036,7 @@ mod tests {
         test_bool("1.4>=1.4", true)?;
         test_bool("true==true", true)?;
         test_bool("false==true", false)?;
-        test_bool("1.5 != 2.4", true)?;
+        test_bool("1.5 != 1.5 + 2.0", true)?;
         test_error("1 + 1.0")?;
         test_bool("1.0 == 1", false)?;
         test_bool("1 == 1", true)?;
