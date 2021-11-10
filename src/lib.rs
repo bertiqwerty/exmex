@@ -220,7 +220,7 @@
 //!
 //! You can use any type that implements [`Clone`](Clone),
 //! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type in the
-//! string does not match the number regex `r"\.?[0-9]+(\.[0-9]+)?"`, you have to pass a
+//! string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to pass a
 //! suitable regex and use the function
 //! [`from_pattern`](Express::from_pattern) instead of [`parse`](crate::parse) or
 //! [`from_str`](Express::from_str). Here is an example for `bool`.
@@ -252,12 +252,13 @@
 //!     Operator::make_unary("!", |a| !a)
 //! );
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "true|false")?;
+//! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "^(true|false)")?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
+//! You can also pre-compile the regex and use [`Express::from_regex`](Express::from_regex).
 //!
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,

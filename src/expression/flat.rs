@@ -6,6 +6,7 @@ use crate::expression::{
 };
 use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators};
 use num::Float;
+use regex::Regex;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
@@ -82,6 +83,16 @@ where
     {
         let ops = OF::make();
         let deepex = DeepEx::from_ops(text, &ops)?;
+        Ok(Self::flatten(deepex))
+    }
+
+    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: DataType,
+    {
+        let ops = OF::make();
+        let deepex = DeepEx::from_regex(text, &ops, number_regex)?;
         Ok(Self::flatten(deepex))
     }
 
@@ -213,6 +224,14 @@ where
         T: Clone + FromStr,
     {
         Ok(Self::from_flatex(FlatEx::from_str(text)?))
+    }
+
+    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: DataType,
+    {
+        Ok(Self::from_flatex(FlatEx::from_regex(text, number_regex)?))
     }
 
     fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>

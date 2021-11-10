@@ -1,6 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
+use lazy_static::lazy_static;
 use num::{Float, PrimInt, Signed};
+use regex::Regex;
 use smallvec::SmallVec;
 
 use crate::{
@@ -11,7 +13,10 @@ use crate::{
 const ARRAY_LEN: usize = 8usize;
 pub type Tuple<I, F> = SmallVec<[Scalar<I, F>; ARRAY_LEN]>;
 
-const PATTERN: &str = r"[0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\]";
+lazy_static! {
+    static ref RE_VAR_NAME_EXACT: Regex =
+        Regex::new(r"^([0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\])").unwrap();
+}
 
 /// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
 /// as operator factory.
@@ -57,21 +62,6 @@ pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
 /// let res = expr.eval(&[tuple.clone()])?.to_float()?;
 /// assert_eq!(res, 99.99);
 ///
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-/// A unary operator that takes a tuple input is `ifelse`. Expected are 3 elements where the first is boolean.
-/// If the first element is true, `ifelse` returns the second element otherwise the last one.
-/// ```rust
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-/// #
-/// # use exmex::{make_tuple, parse_val, Express, Val};
-/// # let tuple = make_tuple!(i32, f64, (true, Bool), (5, Int), (99.99, Float));
-/// let expr = parse_val::<i32, f64>("ifelse(x)")?;
-/// let res = expr.eval(&[tuple])?.to_int()?;
-/// assert_eq!(res, 5);
 /// #
 /// #     Ok(())
 /// # }
@@ -326,7 +316,7 @@ where
             }
         }
         (Val::Error(e), _) | (_, Val::Error(e)) => Val::Error(e),
-        (Val::None, _) | (_, Val::None) =>  cannot_operate_none_err::<I, F>("pow")
+        (Val::None, _) | (_, Val::None) => cannot_operate_none_err::<I, F>("pow"),
     }
 }
 
@@ -343,8 +333,9 @@ macro_rules! tuple_scalar_ops {
                     Val::Scalar(s) => Ok(s),
                     Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
                     Val::Error(e) => Err(e),
-                    Val::None => Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err()),
-
+                    Val::None => {
+                        Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err())
+                    }
                 })
                 .collect::<ExResult<Tuple<I, F>>>();
             match tuple {
@@ -362,7 +353,9 @@ macro_rules! tuple_scalar_ops {
                     Val::Scalar(s) => Ok(s),
                     Val::Tuple(_) => Err(ExError::from_str("tuples of tuples are not supported")),
                     Val::Error(e) => Err(e),
-                    Val::None => Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err()),
+                    Val::None => {
+                        Err(cannot_operate_none_err::<I, F>(stringify!($op_scalar)).unpack_err())
+                    }
                 })
                 .collect::<ExResult<Tuple<I, F>>>();
             match tuple {
@@ -637,7 +630,7 @@ unary_op!(
 /// * `sum` - sum of tuple elements
 /// * `prod` - product of tuple elements
 /// * `if` - returns first operand if second is true, else None, inspired by Python's ternary if-else-operator to `a if condition else b`,
-/// * `else` - returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`, 
+/// * `else` - returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`,
 /// * `fact` - factorial of integers
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
@@ -826,9 +819,13 @@ where
                     apply: |v, cond| {
                         let condition = match cond.to_bool() {
                             Ok(b) => b,
-                            Err(e) => return Val::Error(e)                        
+                            Err(e) => return Val::Error(e),
                         };
-                        if condition {v} else {Val::None}
+                        if condition {
+                            v
+                        } else {
+                            Val::None
+                        }
                     },
                     prio: 0,
                     is_commutative: true,
@@ -837,11 +834,9 @@ where
             Operator::make_bin(
                 "else",
                 BinOp {
-                    apply: |res_of_if, v| {
-                        match res_of_if {
-                            Val::None => v,
-                            _ => res_of_if                   
-                        }
+                    apply: |res_of_if, v| match res_of_if {
+                        Val::None => v,
+                        _ => res_of_if,
                     },
                     prio: 0,
                     is_commutative: true,
@@ -904,7 +899,7 @@ where
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    FlatEx::<Val<I, F>, ValOpsFactory<I, F>>::from_pattern(text, PATTERN)
+    FlatEx::<Val<I, F>, ValOpsFactory<I, F>>::from_regex(text, &RE_VAR_NAME_EXACT)
 }
 
 /// *`feature = "value"`* - Parses a string into an expression of type [`OwnedFlatExVal`](OwnedFlatExVal) with
@@ -925,7 +920,7 @@ mod tests {
     use crate::{
         format_exerr,
         util::assert_float_eq_f64,
-        value::{Scalar, Val, PATTERN},
+        value::{Scalar, Val, RE_VAR_NAME_EXACT},
         ExError, ExResult, Express, FlatEx,
     };
     use smallvec::smallvec;
@@ -957,7 +952,7 @@ mod tests {
     #[test]
     fn test_no_vars() -> ExResult<()> {
         fn test_int(s: &str, reference: i32) -> ExResult<()> {
-            let res = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?
+            let res = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?
                 .eval(&[])?
                 .to_int();
             match res {
@@ -972,17 +967,17 @@ mod tests {
             Ok(())
         }
         fn test_float(s: &str, reference: f64) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
+            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
         fn test_bool(s: &str, reference: bool) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
+            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             assert_eq!(reference, expr.eval(&[])?.to_bool()?);
             Ok(())
         }
         fn test_error(s: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_pattern(s, PATTERN)?;
+            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             match expr.eval(&[])? {
                 Val::Error(_) => Ok(()),
                 _ => {

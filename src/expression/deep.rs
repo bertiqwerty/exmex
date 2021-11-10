@@ -463,6 +463,19 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         parse(text, ops, parser::is_numeric_text)
     }
 
+    pub fn from_regex(
+        text: &'a str,
+        ops: &[Operator<'a, T>],
+        re_number: &Regex,
+    ) -> ExResult<DeepEx<'a, T>>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: DataType,
+    {
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
+        parse(text, ops, is_numeric)
+    }
+
     pub fn from_pattern(
         text: &'a str,
         ops: &[Operator<'a, T>],
@@ -472,8 +485,7 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: DataType,
     {
-        let beginning_num_re_pattern = format!("^({})", number_regex_pattern);
-        let re_number = match Regex::new(beginning_num_re_pattern.as_str()) {
+        let re_number = match Regex::new(number_regex_pattern) {
             Ok(regex) => regex,
             Err(_) => {
                 return Err(ExError {
@@ -481,8 +493,7 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
                 })
             }
         };
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
-        parse(text, ops, is_numeric)
+        Self::from_regex(text, ops, &re_number)
     }
 
     pub fn eval(&self, vars: &[T]) -> ExResult<T> {

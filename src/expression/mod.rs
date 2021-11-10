@@ -1,6 +1,7 @@
 use std::{fmt::Debug, str::FromStr};
 
 use num::Float;
+use regex::Regex;
 
 use crate::{ExResult, data_type::DataType};
 
@@ -31,12 +32,32 @@ pub trait Express<'a, T> {
         T: FromStr,
         Self: Sized;
 
+    /// Use custom number literals defined as regex to create an expression that can be evaluated.
+    ///
+    /// # Arguments
+    ///
+    /// * `text` - string to be parsed into an expression
+    /// * `number_regex` - compiled regex whose matches are number literals
+    ///
+    /// # Errors
+    ///
+    /// An [`ExError`](super::result::ExError) is returned, if
+    ///
+    /// * the text cannot be parsed.
+    ///
+    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: DataType,
+        Self: Sized;
+
     /// Use custom number literals defined as regex patterns to create an expression that can be evaluated.
     ///
     /// # Arguments
     ///
     /// * `text` - string to be parsed into an expression
-    /// * `number_regex_pattern` - regex pattern whose matches are number literals
+    /// * `number_regex_pattern` - regex pattern whose matches are number literals at the beginning of a string. For instance, the regex to match 
+    ///    boolean literals is `^(true|false)` instead of `true|false`. 
     ///
     /// # Errors
     ///

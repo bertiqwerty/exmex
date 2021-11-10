@@ -166,7 +166,7 @@ fn test_variables_non_ascii() {
         Operator::make_constant("γ", Thumbs { val: false })
     );
 
-    let literal_pattern = "👍|👎";
+    let literal_pattern = "^(👍|👎)";
 
     let sut = "γ ορ 👍ορ👎";
     let expr = FlatEx::<_, UnicodeOpsFactory>::from_pattern(sut, literal_pattern).unwrap();
