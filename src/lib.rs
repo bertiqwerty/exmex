@@ -342,7 +342,7 @@ pub use {
 mod value;
 #[cfg(feature = "value")]
 pub use value::{
-    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Scalar, Val, ValOpsFactory,
+    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValOpsFactory,
 };
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
