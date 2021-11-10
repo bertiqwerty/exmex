@@ -205,8 +205,7 @@ single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
 single_type_arith!(or, Bool, |a, b| Val::from_bool(a || b));
 single_type_arith!(and, Bool, |a, b| Val::from_bool(a && b));
 
-macro_rules! unary_match_scalar_name {
-
+macro_rules! unary_match_name {
     ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident, $from_types:ident)),+) => {
         match $scalar {
             $(Val::$variants(x) => Val::<I, F>::$from_types(x.$name()),)+
@@ -215,8 +214,7 @@ macro_rules! unary_match_scalar_name {
     };
 }
 
-macro_rules! unary_match_scalar_op {
-
+macro_rules! unary_match_op {
     ($name:ident, $scalar:ident, $(($ops:expr, $variants:ident, $unused_from_types:ident)),+) => {
         match $scalar {
             $(Val::$variants(x) =>  $ops(x),)+
@@ -225,21 +223,21 @@ macro_rules! unary_match_scalar_op {
     };
 }
 
-macro_rules! unary_m {
-    ($name:ident, $match:ident, $(($ops:expr, $variants:ident, $from_types:ident)),+) => {
+macro_rules! unary_match {
+    ($name:ident, $matcher:ident, $(($ops:expr, $variants:ident, $from_types:ident)),+) => {
         fn $name<I, F>(val: Val<I, F>) -> Val<I, F>
         where
             I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
-            $match!($name, val, $(($ops, $variants, $from_types)),+)
+            $matcher!($name, val, $(($ops, $variants, $from_types)),+)
         }
     };
 }
 
 macro_rules! unary_name {
     ($name:ident, $(($variants:ident, $from_types:ident)),+) => {
-        unary_m!($name, unary_match_scalar_name, $((0, $variants, $from_types)),+);
+        unary_match!($name, unary_match_name, $((0, $variants, $from_types)),+);
     }
 }
 
@@ -268,7 +266,7 @@ unary_name!(to_be, (Int, from_int));
 
 macro_rules! unary_op {
     ($name:ident, $(($ops:expr, $variants:ident)),+) => {
-        unary_m!($name, unary_match_scalar_op, $(($ops, $variants, i32)),+);
+        unary_match!($name, unary_match_op, $(($ops, $variants, i32)),+);
     }
 }
 
@@ -647,14 +645,14 @@ mod tests {
                         Val::Error(e) => {
                             println!("found expected error {:?}", e);
                             Ok(())
-                        },
+                        }
                         _ => Err(format_exerr!("'{}' should fail but didn't", s)),
                     }
                 }
                 Err(e) => {
                     println!("found expected error {:?}", e);
                     Ok(())
-                },
+                }
             }
         }
         fn test_none(s: &str) -> ExResult<()> {
