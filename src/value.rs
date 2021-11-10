@@ -61,6 +61,37 @@ macro_rules! from_type {
 /// #     Ok(())
 /// # }
 /// ```
+/// To use the value type, there is a separate parse function that wraps [`Express::from_regex`](Express::from_regex)
+/// and uses the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
+/// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
+/// or `condition ? a : b` in C.
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// use exmex::{Express, Val};
+/// let expr = exmex::parse_val::<i32, f64>("73 if x > y else 42")?;
+/// assert_eq!(expr.eval(&[Val::Float(3.4), Val::Float(3.2)])?.to_int()?, 73);
+/// assert_eq!(expr.eval(&[Val::Int(34), Val::Int(132)])?.to_int()?, 42);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// Note that the ternary operator is actually implemented as two binary operators called `if` and `else`. 
+/// To this end, we return `Val::None` from the `if`-operator if and only if the condition is false. On the flipside,
+/// this has strange side effects such as `5 else 3` being a valid expression evaluating to 5.   
+/// 
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// use exmex::{Express, Val};
+/// let expr = exmex::parse_val::<i32, f64>("5 else 3")?;
+/// assert_eq!(expr.eval(&[])?.to_int()?, 5);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Val<I = i32, F = f64>
 where
