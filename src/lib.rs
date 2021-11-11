@@ -260,7 +260,9 @@
 //! ```
 //! You can also pre-compile the regex and use [`Express::from_regex`](Express::from_regex).
 //! Two examples of exmex with non-trivial data types are:
-//! * Numbers can be operators and operators can operate on on operators as in [Advent of Code 2020](https://github.com/bertiqwerty/aoc2020/blob/main/src/day19.rs).
+//! * Numbers can be operators and operators can operate on on operators as in 
+//! [Advent of Code 2020](https://github.com/bertiqwerty/aoc2020/blob/main/src/day19.rs), see 
+//! also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
 //! * The type [`Val`](Val) allows expressions containing integers, floats, and bools.
 //! [`Val`](Val) is implemented as feature `value`.
 //!
