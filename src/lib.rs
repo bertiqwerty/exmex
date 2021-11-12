@@ -260,11 +260,10 @@
 //! ```
 //! You can also pre-compile the regex and use [`Express::from_regex`](Express::from_regex).
 //! Two examples of exmex with non-trivial data types are:
-//! * Numbers can be operators and operators can operate on on operators as in 
-//! [Advent of Code 2020](https://github.com/bertiqwerty/aoc2020/blob/main/src/day19.rs), see 
+//! * Numbers can be operators and operators can operate on operators, see, e.g., 
 //! also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
-//! * The type [`Val`](Val) allows expressions containing integers, floats, and bools.
-//! [`Val`](Val) is implemented as feature `value`.
+//! * The value type implemented as part of the feature `value` allows expressions containing integers, floats, and bools.
+//! Therewith, Pythonesque expressions of the form `"x if a > b else y"` are possible.
 //!
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
@@ -319,7 +318,7 @@
 //! ### A more General Value Type
 //! 
 //! To use different data types within an expression, one can activate the feature `value`. The additional
-//! flexibility comes with higher parsing (factor 1.1-1.2) and evaluation times (factor 2-3).
+//! flexibility comes with higher parsing (factor 1.1-1.4) and evaluation run times (factor 2-3).
 //!
 
 use std::{fmt::Debug, str::FromStr};
