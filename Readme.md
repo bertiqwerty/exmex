@@ -64,7 +64,7 @@ assert_eq!(result, u32::MAX - 1);
 
 ## Partial Differentiation
 
-To compute partial derivatives you can use the expression's method `partial`. The result is again an expression.
+To compute partial derivatives you can use the expression's method `partial`, if the data are floats. The result is again an expression.
 
 ```rust
 use exmex::prelude::*;
