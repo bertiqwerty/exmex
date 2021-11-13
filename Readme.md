@@ -61,6 +61,10 @@ let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
+More involved examples of data types are
+* operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
+* the type value type that can be activated with the feature `value`, see below.
+
 Expressions of type `FlatEx` have a lifetime parameter since they avoid string copies. There is also the type `OwnedFlatEx` that does not need a lifetime parameter, see the [docs](https://docs.rs/exmex/#owned-expression).
 ## Partial Differentiation
 
@@ -87,7 +91,7 @@ let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
 assert!((result - 2.0).abs() < 1e-12);
 ```
 
-## Different Data Types in an Expression
+## Mixing Data Types in one Expression with the Feature `value`
 
 After activating the Exmex-feature `value` one can use expressions with data of type `Val`. An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of `ValOpsFactory`  a pre-defined set of opertors for `Val`. See the following example for basic usage.
 ```rust
