@@ -54,10 +54,10 @@ macro_rules! to_type {
 /// #     Ok(())
 /// # }
 /// ```
-/// Note that the ternary operator is actually implemented as two binary operators called `if` and `else`. 
+/// Note that the ternary operator is actually implemented as two binary operators called `if` and `else`.
 /// To this end, we return `Val::None` from the `if`-operator if and only if the condition is false. On the flipside,
 /// this has strange side effects such as `5 else 3` being a valid expression evaluating to 5.   
-/// 
+///
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -92,7 +92,6 @@ where
     to_type!(to_int, I, Int);
     to_type!(to_float, F, Float);
     to_type!(to_bool, bool, Bool);
-
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
@@ -156,8 +155,10 @@ macro_rules! base_arith {
             match (a, b) {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
                 (Val::Int(x), Val::Int(y)) => Val::Int(x.$name(y)),
+                (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
+                (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
                 _ => Val::Error(ExError::from_str(
-                    format!("can only apply {} to 2 ints or 2 floats", stringify!($name)).as_str(),
+                    format!("can only apply {} to ints or floats", stringify!($name)).as_str(),
                 )),
             }
         }
@@ -247,6 +248,7 @@ macro_rules! unary_name {
 unary_name!(abs, Float, Int);
 unary_name!(signum, Float, Int);
 unary_name!(sin, Float);
+unary_name!(round, Float);
 unary_name!(cos, Float);
 unary_name!(tan, Float);
 unary_name!(asin, Float);
@@ -261,6 +263,7 @@ unary_name!(trunc, Float);
 unary_name!(fract, Float);
 unary_name!(exp, Float);
 unary_name!(sqrt, Float);
+unary_name!(cbrt, Float);
 unary_name!(ln, Float);
 unary_name!(log2, Float);
 unary_name!(swap_bytes, Int);
@@ -537,16 +540,15 @@ where
             Operator::make_unary("fract", |a| fract(a)),
             Operator::make_unary("exp", |a| exp(a)),
             Operator::make_unary("sqrt", |a| sqrt(a)),
+            Operator::make_unary("cbrt", |a| cbrt(a)),
+            Operator::make_unary("round", |a| round(a)),
             Operator::make_unary("log", |a| ln(a)),
             Operator::make_unary("log2", |a| log2(a)),
             Operator::make_unary("swap_bytes", |a| swap_bytes(a)),
             Operator::make_unary("to_le", |a| to_le(a)),
             Operator::make_unary("to_be", |a| to_be(a)),
             Operator::make_unary("fact", |a| fact(a)),
-            Operator::make_constant(
-                "PI",
-                Val::Float(F::from(std::f64::consts::PI).unwrap()),
-            ),
+            Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
         ]
@@ -681,8 +683,10 @@ mod tests {
         test_float("cos(91.0)", 91.0f64.cos())?;
         test_float("tan(913.0)", 913.0f64.tan())?;
         test_float("sin(-π)", 0.0)?;
+        test_float("round(π)", 3.0)?;
         test_float("cos(π)", -1.0)?;
         test_float("sin (1 if false else 2.0)", 2.0f64.sin())?;
+        test_float("cbrt(27.0)", 3.0)?;
         test_int("1 if true else 2.0", 1)?;
         test_float("(9.0 if true else 2.0)", 9.0)?;
         test_int("1<<4-2", 4)?;
@@ -699,9 +703,10 @@ mod tests {
         test_bool("true==true", true)?;
         test_bool("false==true", false)?;
         test_bool("1.5 != 1.5 + 2.0", true)?;
-        test_error("1 + 1.0")?;
+        test_float("1 + 1.0", 2.0)?;
         test_bool("1.0 == 1", false)?;
         test_bool("1 == 1", true)?;
+        test_bool("1.0 > 0.5", true)?;
         test_bool("true else 2", true)?;
         test_int("1 else 2", 1)?;
         test_error("if true else 2")?;
