@@ -1,4 +1,4 @@
-use std::{fmt::Debug, marker::PhantomData, str::FromStr};
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 
 use lazy_static::lazy_static;
 use num::{Float, PrimInt, Signed};
@@ -69,7 +69,7 @@ macro_rules! to_type {
 /// #     Ok(())
 /// # }
 /// ```
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Debug)]
 pub enum Val<I = i32, F = f64>
 where
     I: DataType + PrimInt + Signed,
@@ -122,6 +122,47 @@ where
             Result::Err(e) => Err(ExError {
                 msg: format!("could not parse {}, {:?}", s, e),
             }),
+        }
+    }
+}
+
+impl<I, F> PartialEq<Val<I, F>> for Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    fn eq(&self, other: &Val<I, F>) -> bool {
+        match (self, other) {
+            (Val::Float(x), Val::Float(y)) => x == y,
+            (Val::Int(x), Val::Int(y)) => x == y,
+            (Val::Bool(x), Val::Bool(y)) => x == y,
+            (Val::Float(x), Val::Int(y)) => *x == F::from(*y).unwrap(),
+            (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap() == *y,
+            _ => false,
+        }
+    }
+
+    fn ne(&self, other: &Val<I, F>) -> bool {
+        !(self == other)
+    }
+}
+
+impl<I, F> PartialOrd<Val<I, F>> for Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    fn partial_cmp(&self, other: &Val<I, F>) -> Option<Ordering> {
+        match (self, other) {
+            (Val::Float(x), Val::Float(y)) => x.partial_cmp(y),
+            (Val::Int(x), Val::Int(y)) => x.partial_cmp(y),
+            (Val::Float(x), Val::Int(y)) => x.partial_cmp(&F::from(*y).unwrap()),
+            (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap().partial_cmp(y),
+            _ => None
         }
     }
 }
@@ -704,9 +745,12 @@ mod tests {
         test_bool("false==true", false)?;
         test_bool("1.5 != 1.5 + 2.0", true)?;
         test_float("1 + 1.0", 2.0)?;
-        test_bool("1.0 == 1", false)?;
+        test_bool("1.0 == 1", true)?;
         test_bool("1 == 1", true)?;
-        test_bool("1.0 > 0.5", true)?;
+        test_bool("true == true", true)?;
+        test_bool("false != true", true)?;
+        test_bool("false != false", false)?;
+        test_bool("1 > 0.5", true)?;
         test_bool("true else 2", true)?;
         test_int("1 else 2", 1)?;
         test_error("if true else 2")?;
