@@ -113,7 +113,7 @@ More documentation and examples including integer data types and boolean literal
 cargo doc
 ```
 
-## Benchmarks `v0.11.0`
+## Benchmarks `v0.11.5`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
 
@@ -130,20 +130,22 @@ cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 20
 ```
 to compute the results. Reported is the best result over multiple invocations. More about taking the minimum run-time for benchmarking can be found below.
 
-|                                                      | sin     | power    | nested   | compile  | comment                                    |
-| ---------------------------------------------------- | ------- | -------- | -------- | -------- | ------------------------------------------ |
-| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 5.88    | 4.51     | 19.36    | 21.11    | more than mathematical expressions         |
-| **[Exmex](https://docs.rs/exmex)**                   | **0.27**| **0.5**  | **0.57** | **0.53** |                                            |
-| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.19    | 1.46     | 1.59     | 1.6      | only `f64`, supports a faster, unsafe mode |
-| [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.65    | 0.66     | 0.82     | 1.01     | only `f64`, no custom operators            |
-| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 4.88    | 8.21     | 13.32    | 24.28    |                                            |
+|                                                      | sin      | power   | nested   | compile  | comment                                    |
+| ---------------------------------------------------- | -------- | ------- | -------- | -------- | ------------------------------------------ |
+| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 5.88     | 4.51    | 19.36    | 21.11    | more than mathematical expressions         |
+| *[Exmex](https://docs.rs/exmex)*                     | **0.27** | **0.5** | **0.57** | **0.53** |                                            |
+| *[Exmex `value`](https://docs.rs/exmex)*             | 0.77     | 1.13    | 1.87     | 1.73     | floats, bools, and ints in one expression  |
+| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.19     | 1.46    | 1.59     | 1.6      | only `f64`, supports a faster, unsafe mode |
+| [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.65     | 0.66    | 0.82     | 1.01     | only `f64`, no custom operators            |
+| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 4.88     | 8.21    | 13.32    | 24.28    |                                            |
 
 
 Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing all expressions again in μs on the aforementioned machine are shown in the following.
 |                                                      | all expressions |
 | ---------------------------------------------------- | --------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 35.94           |
-| **[Exmex](https://docs.rs/exmex)**                   | 48.52           |
+| *[Exmex](https://docs.rs/exmex)*                     | 48.52           |
+| *[Exmex `value`](https://docs.rs/exmex)*             | 55.24           |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 18.42           |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | **17.99**       |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 20.50           |
