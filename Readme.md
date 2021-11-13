@@ -4,7 +4,7 @@
 ![license](https://img.shields.io/crates/l/exmex.svg)
 # Exmex
 
-Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator. Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their own operators and work with different data types such as float, integer, bool, or other types that implement `Clone`, `FromStr`, and `Debug`.
+Exmex is an extendable mathematical expression parser and evaluator. Easy to use and efficient evaluations are the main design goals. Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their own operators and work with different data types such as float, integer, bool, or other types that implement `Clone`, `FromStr`, and `Debug`.
 
 Parts of Exmex' functionality are accessible from Python via [Mexpress](https://github.com/bertiqwerty/mexpress).
 
@@ -61,7 +61,7 @@ let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
-
+Expressions of type `FlatEx` have a lifetime parameter since they avoid string copies. There is also the type `OwnedFlatEx` that does not need a lifetime parameter, see the [docs](https://docs.rs/exmex/#owned-expression).
 ## Partial Differentiation
 
 To compute partial derivatives of expressions with floating point numbers, you can use the method `partial`. The result is again an expression.
@@ -85,6 +85,17 @@ let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
 assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
 let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
 assert!((result - 2.0).abs() < 1e-12);
+```
+
+## Different Data Types in an Expression
+
+After activating the Exmex-feature `value` one can use expressions with data of type `Val`. An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of `ValOpsFactory`  a pre-defined set of opertors for `Val`. See the following example for basic usage.
+```rust
+use exmex::{Express, Val};
+
+let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
+let res = expr.eval(&[Val::Float(3.4), Val::Int(21)])?.to_float()?;
+assert!((res - 1.2).abs() < 1e-12);
 ```
 
 ## Serialization and Deserialization
