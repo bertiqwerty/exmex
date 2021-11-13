@@ -747,6 +747,8 @@ mod tests {
         test_float("1 + 1.0", 2.0)?;
         test_bool("1.0 == 1", true)?;
         test_bool("1 == 1", true)?;
+        test_bool("2 == true", false)?;
+        test_bool("1.5 < 1", false)?;
         test_bool("true == true", true)?;
         test_bool("false != true", true)?;
         test_bool("false != false", false)?;
