@@ -208,6 +208,39 @@ pub trait MakeOperators<T: Clone>: Clone {
 }
 
 /// Factory of default operators for floating point values.
+/// 
+/// |representation|description|
+/// |--------------|-----------|
+/// |`^`| power |
+/// |`*`| product |
+/// |`/`| division |
+/// |`+`| addition as binary or identity as unary operator|
+/// |`-`| subtraction as binary or inverting the sign as unary operator |
+/// |`abs`| absolute value |
+/// |`signum`| signum |
+/// |`sin`| sine |
+/// |`cos`| cosine |
+/// |`tan`| tangent |
+/// |`asin`| inverse sine |
+/// |`acos`| inverse cosine |
+/// |`atan`| inverse tangent |
+/// |`sinh`| hyperbolic sine |
+/// |`cosh`| hyperbolic cosine |
+/// |`tanh`| hyperbolic tangent |
+/// |`floor`| largest integer less than or equal to a number |
+/// |`ceil`| smallest integer greater than or equal to a number |
+/// |`trunc`| integer part of a number |
+/// |`fract`| fractional part of a number |
+/// |`exp`| exponential functionn |
+/// |`sqrt`| square root |
+/// |`cbrt`| cube root |
+/// |`log`| natural logarithm  |
+/// |`log2`| logarithm with basis 2  |
+/// |`PI`| constant π  |
+/// |`π`| second representations of constant π  |
+/// |`E`| Euler's number |
+/// 
+/// 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FloatOpsFactory<T: Float> {
     dummy: PhantomData<T>,
@@ -271,11 +304,13 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_unary("cosh", |a| a.cosh()),
             Operator::make_unary("tanh", |a| a.tanh()),
             Operator::make_unary("floor", |a| a.floor()),
+            Operator::make_unary("round", |a| a.round()),
             Operator::make_unary("ceil", |a| a.ceil()),
             Operator::make_unary("trunc", |a| a.trunc()),
             Operator::make_unary("fract", |a| a.fract()),
             Operator::make_unary("exp", |a| a.exp()),
             Operator::make_unary("sqrt", |a| a.sqrt()),
+            Operator::make_unary("cbrt", |a| a.cbrt()),
             Operator::make_unary("log", |a| a.ln()),
             Operator::make_unary("log2", |a| a.log2()),
             Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),

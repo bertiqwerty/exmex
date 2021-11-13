@@ -1,6 +1,8 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.11.4")]
-//! Exmex is a fast, simple, and **ex**tendable **m**athematical **ex**pression evaluator
-//! with the ability to compute [partial derivatives](FlatEx::partial) of expressions.  
+//! Exmex is an extendable mathematical expression parser and evaluator. Ease of use, flexibility, and efficient evaluations are its main design goals.
+//! Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators 
+//! for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their 
+//! own operators and work with different data types such as float, integer, bool, or other types that implement `Clone`, `FromStr`, and `Debug`.
 //!
 //! The following snippet shows how to evaluate a string.
 //! ```rust
