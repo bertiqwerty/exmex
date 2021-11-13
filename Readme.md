@@ -96,7 +96,6 @@ assert!((result - 2.0).abs() < 1e-12);
 After activating the Exmex-feature `value` one can use expressions with data of type `Val`. An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of `ValOpsFactory`  a pre-defined set of opertors for `Val`. See the following example for basic usage.
 ```rust
 use exmex::{Express, Val};
-
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
 let res = expr.eval(&[Val::Float(3.4), Val::Int(21)])?.to_float()?;
 assert!((res - 1.2).abs() < 1e-12);
