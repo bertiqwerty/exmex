@@ -49,7 +49,7 @@ macro_rules! to_type {
 /// use exmex::{Express, Val};
 /// let expr = exmex::parse_val::<i32, f64>("1.0 if x > y else 73")?;
 /// assert_eq!(expr.eval(&[Val::Float(3.4), Val::Int(3)])?.to_float()?, 1.0);
-/// assert_eq!(expr.eval(&[Val::Int(34), Val::Float(132)])?.to_int()?, 73);
+/// assert_eq!(expr.eval(&[Val::Int(34), Val::Float(132.0)])?.to_int()?, 73);
 /// #
 /// #     Ok(())
 /// # }

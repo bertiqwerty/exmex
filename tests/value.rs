@@ -28,7 +28,7 @@ fn test_vars() -> ExResult<()> {
 #[cfg(feature = "value")]
 fn test_readme() -> ExResult<()> {
     let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
-    let res = expr.eval(&[Val::Float(3.4), Val::Int(21)])?.to_float()?;
+    let res = expr.eval(&[Val::Float(34.0), Val::Int(21)])?.to_float()?;
     assert!((res - 1.2).abs() < 1e-12);
     Ok(())
 }
