@@ -418,13 +418,13 @@ macro_rules! cast {
 cast!(cast_to_float, Float, Int, F);
 cast!(cast_to_int, Int, Float, I);
 
-/// *`feature = "value"`* - Factory of default operators for value data types.
+/// *`feature = "value"`* - Factory of default operators for the data type [`Val`](Val).
 ///
 /// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are:
 ///
 /// |representation|description|
 /// |--------------|-----------|
-/// | `%` | reminder or of integers |
+/// | `%` | reminder of integers |
 /// | <code>&#124;</code> | bitwise or of integers |
 /// | `&` | bitwise and of integers |
 /// | `XOR` | bitwise exclusive or of integers |
@@ -432,8 +432,8 @@ cast!(cast_to_int, Int, Float, I);
 /// | `>>` | right shift of integers |
 /// | <code>&#124;&#124;</code> | or for booleans |
 /// | `&&` | and for booleans |
-/// | `if` | returns first operand if second is true, else `Val::None`, inspired by Python's ternary if-else-operator to `a if condition else b` |
-/// | `else` | returns second operand if first is `Val::None`, else first, inspired by Python's ternary if-else-operator to `a if condition else b` |
+/// | `if` | returns first operand if second is true, else `Val::None`, to make `x if condition else y` possible |
+/// | `else` | returns second operand if first is `Val::None`, else first, to make `x if condition else y` possible |
 /// | `==`, `!=`, `<`, `>`, `<=`, `>=`| comparison operators between numbers, e.g., `1 == 1.0` is true. Comparing booleans to none-booleans is false, e.g., `1 == true` is false. Comparisons with `Val::None` or `Val::Error` always results in `false`, e.g., `(5 if false) == (5 if false)` is false.|
 /// | `fact` | factorial of integers |
 /// | `to_float` | convert integer, float, or bool to float |
