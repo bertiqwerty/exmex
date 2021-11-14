@@ -204,8 +204,11 @@ where
     match (a, b) {
         (Val::Float(x), Val::Float(y)) => Val::Float(x.powf(y)),
         (Val::Float(x), Val::Int(y)) => Val::Float(x.powi(y.to_i32().unwrap())),
-        (Val::Int(x), Val::Int(y)) => match y.to_u32() {
-            Some(exponent_) => Val::Int(x.pow(exponent_)),
+        (Val::Int(x), Val::Int(y)) => match y.to_usize() {
+            Some(exponent_) => match num::checked_pow(x, exponent_) {
+                Some(res) => Val::Int(res),
+                None => Val::Error(format_exerr!("overflow in {:?}^{:?}", x, y)),
+            },
             None => Val::Error(format_exerr!(
                 "cannot convert {:?} to exponent of an int",
                 y
@@ -216,7 +219,7 @@ where
 }
 
 macro_rules! base_arith {
-    ($name:ident) => {
+    ($name:ident, $intname:ident) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
         where
             I: DataType + PrimInt + Signed,
@@ -224,7 +227,10 @@ macro_rules! base_arith {
         {
             match (a, b) {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
-                (Val::Int(x), Val::Int(y)) => Val::Int(x.$name(y)),
+                (Val::Int(x), Val::Int(y)) => match x.$intname(&y) {
+                    Some(res) => Val::Int(res),
+                    None => Val::Error(format_exerr!("overflow in {:?}{:?}{:?}", x, stringify!($intname), y)),
+                },
                 (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
                 (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
                 _ => Val::Error(ExError::from_str(
@@ -235,10 +241,10 @@ macro_rules! base_arith {
     };
 }
 
-base_arith!(add);
-base_arith!(sub);
-base_arith!(mul);
-base_arith!(div);
+base_arith!(add, checked_add);
+base_arith!(sub, checked_sub);
+base_arith!(mul, checked_mul);
+base_arith!(div, checked_div);
 
 macro_rules! single_type_arith {
     ($name:ident, $variant:ident, $op:expr) => {
@@ -836,6 +842,11 @@ mod tests {
         test_error("to_float(5 if false)")?;
         test_error("0/0")?;
         test_bool("(5 if false) == (5 if false)", false)?;
+        test_error("2^40")?;
+        test_error("1000000000*1000000000")?;
+        test_error("1500000000+1500000000")?;
+        test_error("-1500000000-1500000000")?;
+
         Ok(())
     }
 }
