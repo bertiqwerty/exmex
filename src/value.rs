@@ -37,9 +37,9 @@ macro_rules! to_type {
 }
 
 /// *`feature = "value"`* -
-/// The value type [`Val`](Val) can contain integers, floats, or bools.
-/// To use the value type, there is a separate parse function that wraps [`Express::from_regex`](Express::from_regex)
-/// and uses the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
+/// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
+/// To use the value type, there are separate parse functions that wrap [`Express::from_regex`](Express::from_regex)
+/// and use the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
 /// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
 /// or `condition ? a : b` in C.
 /// ```rust
@@ -47,9 +47,9 @@ macro_rules! to_type {
 /// # fn main() -> Result<(), Box<dyn Error>> {
 /// #
 /// use exmex::{Express, Val};
-/// let expr = exmex::parse_val::<i32, f64>("73 if x > y else 42")?;
-/// assert_eq!(expr.eval(&[Val::Float(3.4), Val::Float(3.2)])?.to_int()?, 73);
-/// assert_eq!(expr.eval(&[Val::Int(34), Val::Int(132)])?.to_int()?, 42);
+/// let expr = exmex::parse_val::<i32, f64>("1.0 if x > y else 73")?;
+/// assert_eq!(expr.eval(&[Val::Float(3.4), Val::Int(3)])?.to_float()?, 1.0);
+/// assert_eq!(expr.eval(&[Val::Int(34), Val::Float(132)])?.to_int()?, 73);
 /// #
 /// #     Ok(())
 /// # }
@@ -69,6 +69,35 @@ macro_rules! to_type {
 /// #     Ok(())
 /// # }
 /// ```
+/// We use the variant `Error` to report errors, since the trait `Try` is not yet stable.
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// use exmex::Express;
+/// let expr = exmex::parse_val::<i32, f64>("fact(3.5)")?;
+/// let res = expr.eval(&[])?;
+/// assert!(format!("{:?}", res) == "Error(ExError { msg: \"did not expect Float(3.5)\" })");
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// When converting the value to the expected primitive type with `to_int`, `to_float`, or `to_bool`, the case `Val::Error(ExError)` is 
+/// converted to `ExResult::Err(ExError)`.
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// # use exmex::Express;
+/// # let expr = exmex::parse_val::<i32, f64>("fact(3.5)")?;
+/// # let res = expr.eval(&[])?;
+/// # assert!(format!("{:?}", res) == "Error(ExError { msg: \"did not expect Float(3.5)\" })");
+/// assert!(res.to_int().is_err());
+/// #
+/// #     Ok(())
+/// # }
+/// ```
+/// 
 #[derive(Clone, Debug)]
 pub enum Val<I = i32, F = f64>
 where
@@ -376,19 +405,20 @@ cast!(cast_to_int, Int, Float, I);
 /// 
 /// |representation|description|
 /// |--------------|-----------|
-/// | `%` | reminder of integers|
-/// | `|` | bitwise or of integers|
-/// | `&` | bitwise and of integers|
-/// | `XOR` | bitwise xor of integers|
-/// | `<<` | left shift of integers|
-/// | `>>` | right shift of integers|
-/// | `||` | or for booleans|
-/// | `&&` | and for booleans|
-/// | `if` | returns first operand if second is true, else None, inspired by Python's ternary if-else-operator to `a if condition else b`|
-/// | `else` | returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`|
-/// | `fact` | factorial of integers|
-/// | `to_float` | convert integer, float, or bool to float|
-/// | `to_int` | convert integer, float, or bool to integer|
+/// | `%` | reminder or of integers |
+/// | <code>&#124;</code> | bitwise or of integers |
+/// | `&` | bitwise and of integers |
+/// | `XOR` | bitwise exclusive or of integers |
+/// | `<<` | left shift of integers |
+/// | `>>` | right shift of integers |
+/// | <code>&#124;&#124;</code> | or for booleans |
+/// | `&&` | and for booleans |
+/// | `if` | returns first operand if second is true, else `Val::None`, inspired by Python's ternary if-else-operator to `a if condition else b` |
+/// | `else` | returns second operand if first is `Val::None`, else first, inspired by Python's ternary if-else-operator to `a if condition else b` |
+/// | `==`, `!=`, `<`, `>`, `<=`, `>=`| comparison operators between numbers, e.g., `1 == 1.0` is true. Comparing booleans to none-booleans is false, e.g., `1 == true` is false. Comparisons with `Val::None` or `Val::Error` always results in `false`, e.g., `(5 if false) == (5 if false)` is false.| 
+/// | `fact` | factorial of integers |
+/// | `to_float` | convert integer, float, or bool to float |
+/// | `to_int` | convert integer, float, or bool to integer |
 /// 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
@@ -783,6 +813,8 @@ mod tests {
         test_bool("false != true", true)?;
         test_bool("false != false", false)?;
         test_bool("1 > 0.5", true)?;
+        test_error("to_float(10000000000000)")?;
+        test_bool("true == 1", false)?;
         test_bool("true else 2", true)?;
         test_int("1 else 2", 1)?;
         test_error("if true else 2")?;
@@ -797,6 +829,7 @@ mod tests {
         test_int("to_int(false)", 0)?;
         test_error("to_int(fact(-1))")?;
         test_error("to_float(5 if false)")?;
+        test_bool("(5 if false) == (5 if false)", false)?;
         Ok(())
     }
 }
