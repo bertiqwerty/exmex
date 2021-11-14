@@ -270,7 +270,11 @@ macro_rules! single_type_arith {
     };
 }
 
-single_type_arith!(rem, Int, |a, b| Val::Int(a % b));
+single_type_arith!(rem, Int, |a, b| if b == I::zero() {
+    Val::Error(ExError::from_str("% by zero"))
+} else {
+    Val::Int(a % b)
+});
 single_type_arith!(bitwise_or, Int, |a, b| Val::Int(a | b));
 single_type_arith!(bitwise_and, Int, |a, b| Val::Int(a & b));
 single_type_arith!(bitwise_xor, Int, |a, b| Val::Int(a ^ b));
@@ -860,6 +864,7 @@ mod tests {
         test_error("1000000000*1000000000")?;
         test_error("1500000000+1500000000")?;
         test_error("-1500000000-1500000000")?;
+        test_error("0%0")?;
 
         Ok(())
     }
