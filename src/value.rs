@@ -829,6 +829,7 @@ mod tests {
         test_int("to_int(false)", 0)?;
         test_error("to_int(fact(-1))")?;
         test_error("to_float(5 if false)")?;
+        test_error("0/0")?;
         test_bool("(5 if false) == (5 if false)", false)?;
         Ok(())
     }

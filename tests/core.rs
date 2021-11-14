@@ -522,6 +522,7 @@ fn test_partial() {
 
 #[test]
 fn test_eval() {
+    utils::assert_float_eq_f64(eval_str("0/0").unwrap(), f64::NAN);
     utils::assert_float_eq_f64(eval_str("abs(-22/2)").unwrap(), 11.0);
     utils::assert_float_eq_f64(eval_str("signum(-22/2)").unwrap(), -1.0);
     utils::assert_float_eq_f64(eval_str("cbrt(8)").unwrap(), 2.0);

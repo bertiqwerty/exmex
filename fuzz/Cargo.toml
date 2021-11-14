@@ -19,6 +19,9 @@ path = ".."
 [workspace]
 members = ["."]
 
+[features]
+value = ["exmex/value"]
+
 [[bin]]
 name = "eval_str"
 path = "fuzz_targets/eval_str.rs"
@@ -28,5 +31,11 @@ doc = false
 [[bin]]
 name = "from_str"
 path = "fuzz_targets/from_str.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "parse_val"
+path = "fuzz_targets/parse_val.rs"
 test = false
 doc = false
