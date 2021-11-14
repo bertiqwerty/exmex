@@ -229,7 +229,12 @@ macro_rules! base_arith {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
                 (Val::Int(x), Val::Int(y)) => match x.$intname(&y) {
                     Some(res) => Val::Int(res),
-                    None => Val::Error(format_exerr!("overflow in {:?}{:?}{:?}", x, stringify!($intname), y)),
+                    None => Val::Error(format_exerr!(
+                        "overflow in {:?}{:?}{:?}",
+                        x,
+                        stringify!($intname),
+                        y
+                    )),
                 },
                 (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
                 (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
@@ -271,14 +276,18 @@ single_type_arith!(bitwise_and, Int, |a, b| Val::Int(a & b));
 single_type_arith!(bitwise_xor, Int, |a, b| Val::Int(a ^ b));
 single_type_arith!(right_shift, Int, |a: I, b: I| -> Val<I, F> {
     match b.to_usize() {
-        Some(bu) => Val::Int(a >> bu),
-        None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
+        Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
+            Val::Int(a >> bu)
+        }
+        _ => Val::Error(format_exerr!("cannot shift right {:?} by {:?}", a, b)),
     }
 });
 single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
     match b.to_usize() {
-        Some(bu) => Val::Int(a << bu),
-        None => Val::Error(format_exerr!("cannot convert {:?} to usize", b)),
+        Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
+            Val::Int(a << bu)
+        }
+        _ => Val::Error(format_exerr!("cannot shift left {:?} by {:?}", a, b)),
     }
 });
 
@@ -779,6 +788,11 @@ mod tests {
                 _ => Err(format_exerr!("'{}' should return none but didn't", s)),
             }
         }
+        test_error("929<<92")?;
+        test_error("929<<32")?;
+        test_error("929>>32")?;
+        test_int("928<<31", 0)?;
+        test_int("929>>31", 0)?;
         test_float("2.0^2", 4.0)?;
         test_int("2^4", 16)?;
         test_error("2^-4")?;
