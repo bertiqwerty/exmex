@@ -13,7 +13,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.11.5"
+exmex = "0.12.0"
 ```
 to your `Cargo.toml` for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
 ```
@@ -93,7 +93,7 @@ assert!((result - 2.0).abs() < 1e-12);
 
 ## Mixing Data Types in one Expression with the Feature `value`
 
-After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.11.5/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.11.5/exmex/struct.ValOpsFactory.html)  a pre-defined set of opertors for `Val`. See the following example.
+After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.12.0/exmex/struct.ValOpsFactory.html)  a pre-defined set of opertors for `Val`. See the following example.
 ```rust
 use exmex::{Express, Val};
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
@@ -112,7 +112,7 @@ More documentation and examples including integer data types and boolean literal
 cargo doc
 ```
 
-## Benchmarks `v0.11.5`
+## Benchmarks `v0.12.0`
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
 
