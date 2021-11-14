@@ -162,7 +162,7 @@ where
             (Val::Int(x), Val::Int(y)) => x.partial_cmp(y),
             (Val::Float(x), Val::Int(y)) => x.partial_cmp(&F::from(*y).unwrap()),
             (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap().partial_cmp(y),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -348,20 +348,48 @@ unary_op!(
     (|a: F| Val::Float(-a), Float)
 );
 
+macro_rules! cast {
+    ($name:ident, $variant:ident, $other_variant:ident, $T:ident) => {
+        fn $name<I, F>(v: Val<I, F>) -> Val<I, F>
+        where
+            I: DataType + PrimInt + Signed,
+            F: DataType + Float,
+            <I as FromStr>::Err: Debug,
+            <F as FromStr>::Err: Debug,
+        {
+            match v {
+                Val::$variant(x) => Val::$variant(x),
+                Val::$other_variant(x) => Val::$variant($T::from(x).unwrap()),
+                Val::Bool(x) => Val::$variant(if x { $T::one() } else { $T::zero() }),
+                _ => Val::Error(format_exerr!("cannot convert '{:?}' to float", v)),
+            }
+        }
+    };
+}
+
+cast!(cast_to_float, Float, Int, F);
+cast!(cast_to_int, Int, Float, I);
+
 /// *`feature = "value"`* - Factory of default operators for value data types.
 ///
 /// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are:
-/// * `%` - reminder of integers
-/// * `|` - bitwise or of integers
-/// * `&` - bitwise and of integers
-/// * `XOR` - bitwise xor of integers
-/// * `<<` - left shift of integers
-/// * `>>` - right shift of integers
-/// * `||` - or for booleans
-/// * `&&` - and for booleans
-/// * `if` - returns first operand if second is true, else None, inspired by Python's ternary if-else-operator to `a if condition else b`,
-/// * `else` - returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`,
-/// * `fact` - factorial of integers
+/// 
+/// |representation|description|
+/// |--------------|-----------|
+/// | `%` | reminder of integers|
+/// | `|` | bitwise or of integers|
+/// | `&` | bitwise and of integers|
+/// | `XOR` | bitwise xor of integers|
+/// | `<<` | left shift of integers|
+/// | `>>` | right shift of integers|
+/// | `||` | or for booleans|
+/// | `&&` | and for booleans|
+/// | `if` | returns first operand if second is true, else None, inspired by Python's ternary if-else-operator to `a if condition else b`|
+/// | `else` | returns second operand if first is None, else first, inspired by Python's ternary if-else-operator to `a if condition else b`|
+/// | `fact` | factorial of integers|
+/// | `to_float` | convert integer, float, or bool to float|
+/// | `to_int` | convert integer, float, or bool to integer|
+/// 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
 where
@@ -589,6 +617,8 @@ where
             Operator::make_unary("to_le", |a| to_le(a)),
             Operator::make_unary("to_be", |a| to_be(a)),
             Operator::make_unary("fact", |a| fact(a)),
+            Operator::make_unary("to_int", |a| cast_to_int(a)),
+            Operator::make_unary("to_float", |a| cast_to_float(a)),
             Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
@@ -757,6 +787,16 @@ mod tests {
         test_int("1 else 2", 1)?;
         test_error("if true else 2")?;
         test_none("2 if false")?;
+        test_int("to_int(1)", 1)?;
+        test_int("to_int(3.5)", 3)?;
+        test_float("to_float(2)", 2.0)?;
+        test_float("to_float(3.5)", 3.5)?;
+        test_float("to_float(true)", 1.0)?;
+        test_float("to_float(false)", 0.0)?;
+        test_int("to_int(true)", 1)?;
+        test_int("to_int(false)", 0)?;
+        test_error("to_int(fact(-1))")?;
+        test_error("to_float(5 if false)")?;
         Ok(())
     }
 }
