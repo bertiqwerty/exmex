@@ -82,7 +82,7 @@ macro_rules! to_type {
 /// #     Ok(())
 /// # }
 /// ```
-/// When converting the value to the expected primitive type with `to_int`, `to_float`, or `to_bool`, the case `Val::Error(ExError)` is 
+/// When converting the value to the expected primitive type with `to_int`, `to_float`, or `to_bool`, the case `Val::Error(ExError)` is
 /// converted to `ExResult::Err(ExError)`.
 /// ```rust
 /// # use std::error::Error;
@@ -97,7 +97,7 @@ macro_rules! to_type {
 /// #     Ok(())
 /// # }
 /// ```
-/// 
+///
 #[derive(Clone, Debug)]
 pub enum Val<I = i32, F = f64>
 where
@@ -402,7 +402,7 @@ cast!(cast_to_int, Int, Float, I);
 /// *`feature = "value"`* - Factory of default operators for value data types.
 ///
 /// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are:
-/// 
+///
 /// |representation|description|
 /// |--------------|-----------|
 /// | `%` | reminder or of integers |
@@ -415,11 +415,11 @@ cast!(cast_to_int, Int, Float, I);
 /// | `&&` | and for booleans |
 /// | `if` | returns first operand if second is true, else `Val::None`, inspired by Python's ternary if-else-operator to `a if condition else b` |
 /// | `else` | returns second operand if first is `Val::None`, else first, inspired by Python's ternary if-else-operator to `a if condition else b` |
-/// | `==`, `!=`, `<`, `>`, `<=`, `>=`| comparison operators between numbers, e.g., `1 == 1.0` is true. Comparing booleans to none-booleans is false, e.g., `1 == true` is false. Comparisons with `Val::None` or `Val::Error` always results in `false`, e.g., `(5 if false) == (5 if false)` is false.| 
+/// | `==`, `!=`, `<`, `>`, `<=`, `>=`| comparison operators between numbers, e.g., `1 == 1.0` is true. Comparing booleans to none-booleans is false, e.g., `1 == true` is false. Comparisons with `Val::None` or `Val::Error` always results in `false`, e.g., `(5 if false) == (5 if false)` is false.|
 /// | `fact` | factorial of integers |
 /// | `to_float` | convert integer, float, or bool to float |
 /// | `to_int` | convert integer, float, or bool to integer |
-/// 
+///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValOpsFactory<I = i32, F = f64>
 where
@@ -476,7 +476,12 @@ where
             Operator::make_bin(
                 "/",
                 BinOp {
-                    apply: |a, b| div(a, b),
+                    apply: |a, b| match b {
+                        Val::Int(x) if x == I::zero() => {
+                            Val::Error(ExError::from_str("int division by zero"))
+                        }
+                        _ => div(a, b),
+                    },
                     prio: 5,
                     is_commutative: false,
                 },
