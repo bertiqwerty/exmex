@@ -63,7 +63,7 @@ assert_eq!(result, u32::MAX - 1);
 ```
 More involved examples of data types are
 * operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
-* the type value type that can be activated with the feature `value`, see below.
+* the type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
 Expressions of type `FlatEx` have a lifetime parameter since they avoid string copies. There is also the type `OwnedFlatEx` that does not need a lifetime parameter, see the [docs](https://docs.rs/exmex/#owned-expression).
 ## Partial Differentiation
