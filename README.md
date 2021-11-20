@@ -63,7 +63,7 @@ assert_eq!(result, u32::MAX - 1);
 ```
 More involved examples of data types are
 * operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
-* the type value type that can be activated with the feature `value`, see below.
+* the type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
 Expressions of type `FlatEx` have a lifetime parameter since they avoid string copies. There is also the type `OwnedFlatEx` that does not need a lifetime parameter, see the [docs](https://docs.rs/exmex/#owned-expression).
 ## Partial Differentiation
@@ -93,7 +93,7 @@ assert!((result - 2.0).abs() < 1e-12);
 
 ## Mixing Data Types in one Expression with the Feature `value`
 
-After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.12.0/exmex/struct.ValOpsFactory.html)  a pre-defined set of opertors for `Val`. See the following example.
+After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.12.0/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
 ```rust
 use exmex::{Express, Val};
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
@@ -132,8 +132,8 @@ to compute the results. Reported is the best result over multiple invocations. M
 |                                                      | sin      | power   | nested   | compile  | comment                                        |
 | ---------------------------------------------------- | -------- | ------- | -------- | -------- | ---------------------------------------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 5.88     | 4.51    | 19.36    | 21.11    | more than mathematical expressions             |
-| *[Exmex](https://docs.rs/exmex)*                     | **0.27** | **0.5** | **0.57** | **0.53** |                                                |
-| *[Exmex `value`](https://docs.rs/exmex)*             | 0.77     | 1.13    | 1.87     | 1.73     | multiple data types in one expression possible |
+| *[Exmex](https://docs.rs/exmex)* `f64`               | **0.27** | **0.5** | **0.57** | **0.53** |                                                |
+| *[Exmex](https://docs.rs/exmex)* `Val`               | 0.77     | 1.13    | 1.87     | 1.73     | multiple data types in one expression possible |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.19     | 1.46    | 1.59     | 1.6      | only `f64`, supports a faster, unsafe mode     |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.65     | 0.66    | 0.82     | 1.01     | only `f64`, no custom operators                |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 4.88     | 8.21    | 13.32    | 24.28    |                                                |
@@ -143,8 +143,8 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 |                                                      | all expressions |
 | ---------------------------------------------------- | --------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 35.94           |
-| *[Exmex](https://docs.rs/exmex)*                     | 48.52           |
-| *[Exmex `value`](https://docs.rs/exmex)*             | 55.24           |
+| *[Exmex](https://docs.rs/exmex)* `f64`               | 48.52           |
+| *[Exmex](https://docs.rs/exmex)* `Val`               | 55.24           |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 18.42           |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | **17.99**       |
 | [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 20.50           |
