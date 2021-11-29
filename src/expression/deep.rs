@@ -472,7 +472,7 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         <T as std::str::FromStr>::Err: Debug,
         T: DataType,
     {
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(&re_number, text);
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(re_number, text);
         parse(text, ops, is_numeric)
     }
 
@@ -606,19 +606,19 @@ use {
 fn test_reset_vars() {
     let deepex = DeepEx::<f64>::from_str_float("2*z+x+y * .5").unwrap();
     let ref_vars = ["x", "y", "z"];
-    for i in 0..ref_vars.len() {
-        assert_eq!(deepex.var_names[i], ref_vars[i]);
+    for (i, rv) in ref_vars.iter().enumerate() {
+        assert_eq!(deepex.var_names[i], *rv);
     }
     let deepex2 = DeepEx::<f64>::from_str_float("a*c*b").unwrap();
     let ref_vars = ["a", "b", "c"];
-    for i in 0..ref_vars.len() {
-        assert_eq!(deepex2.var_names[i], ref_vars[i]);
+    for (i, rv) in ref_vars.iter().enumerate() {
+        assert_eq!(deepex2.var_names[i], *rv);
     }
     let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
     let all_vars = ["a", "b", "c", "x", "y", "z"];
-    for i in 0..all_vars.len() {
-        assert_eq!(deepex_.var_names[i], all_vars[i]);
-        assert_eq!(deepex2_.var_names[i], all_vars[i]);
+    for (i, av) in all_vars.iter().enumerate() {
+        assert_eq!(deepex_.var_names[i], *av);
+        assert_eq!(deepex2_.var_names[i], *av);
     }
     assert_eq!(deepex.unparse_raw(), deepex_.unparse_raw());
     assert_eq!(deepex2.unparse_raw(), deepex2_.unparse_raw());
@@ -651,8 +651,8 @@ fn test_var_name_union() {
         }
     }
 
-    test("x", "y", &vec!["x", "y"]);
-    test("x+y*z", "z+y", &vec!["x", "y", "z"]);
+    test("x", "y", &["x", "y"]);
+    test("x+y*z", "z+y", &["x", "y", "z"]);
 }
 
 #[test]
@@ -679,7 +679,7 @@ fn test_partial_finite() {
             let f0 = dut.eval(&x0s).unwrap();
             let f1 = dut.eval(&x1s).unwrap();
             let finite_diff = (f1 - f0) / step;
-            let deri = partial_deepex(var_idx, dut.clone(), &ops).unwrap();
+            let deri = partial_deepex(var_idx, dut.clone(), ops).unwrap();
             let deri = deri.eval(&x0s).unwrap();
             println!(
                 "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
@@ -751,9 +751,9 @@ fn test_deep_compile() {
     let deepex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     assert_eq!(deepex.nodes.len(), 1);
     match deepex.nodes[0] {
-        DeepNode::Num(n) => assert_eq!(deepex.unary_op.op.apply(n), n),
+        DeepNode::Num(n) => assert_float_eq_f64(deepex.unary_op.op.apply(n), n),
         _ => {
-            assert!(false);
+            unreachable!();
         }
     }
 }

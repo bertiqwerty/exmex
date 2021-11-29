@@ -690,7 +690,7 @@ fn test_num_ops() {
     fn eval<'a>(deepex: &DeepEx<'a, f64>, vars: &[f64], val: f64) {
         assert_float_eq_f64(deepex.eval(vars).unwrap(), val);
     }
-    fn check_shape<'a>(deepex: &DeepEx<'a, f64>, n_nodes: usize) {
+    fn check_shape(deepex: &DeepEx<f64>, n_nodes: usize) {
         assert_eq!(deepex.nodes().len(), n_nodes);
         assert_eq!(deepex.bin_ops.ops.len(), n_nodes - 1);
         assert_eq!(deepex.bin_ops.reprs.len(), n_nodes - 1);
@@ -765,15 +765,11 @@ fn test_partial_outer() {
         let deepex_1 = DeepEx::<f64>::from_str_float(text).unwrap();
         let deepex = deepex_1.nodes()[0].clone();
 
-        match deepex {
-            DeepNode::Expr(e) => {
-                let deri =
-                    partial_derivative_outer(e.clone(), &partial_derivative_ops, &ops).unwrap();
-                for i in 0..vals.len() {
-                    assert_float_eq_f64(deri.eval(&[vals[i]]).unwrap(), ref_vals[i]);
-                }
+        if let DeepNode::Expr(e) = deepex {
+            let deri = partial_derivative_outer(e.clone(), &partial_derivative_ops, &ops).unwrap();
+            for i in 0..vals.len() {
+                assert_float_eq_f64(deri.eval(&[vals[i]]).unwrap(), ref_vals[i]);
             }
-            _ => (),
         }
     }
     test("x", &[1.0, 0.0, 2.0], &[1.0, 0.0, 2.0]);
@@ -795,7 +791,7 @@ fn test_partial_derivative_simple() {
     assert_eq!(derivative.bin_ops().ops.len(), 0);
     match derivative.nodes()[0] {
         DeepNode::Num(n) => assert_float_eq_f64(n, 0.0),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
     let deepex = DeepEx::<f64>::from_str_float("x").unwrap();
     let derivative = partial_deepex(0, deepex, &ops).unwrap();
@@ -803,7 +799,7 @@ fn test_partial_derivative_simple() {
     assert_eq!(derivative.bin_ops().ops.len(), 0);
     match derivative.nodes()[0] {
         DeepNode::Num(n) => assert_float_eq_f64(n, 1.0),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
     let deepex = DeepEx::<f64>::from_str_float("x^2").unwrap();
     let derivative = partial_deepex(0, deepex, &ops).unwrap();

@@ -368,8 +368,7 @@ fn test_preconditions() {
             match err {
                 Ok(_) => {
                     println!("expected an error that should contain '{}'", msg_part);
-
-                    assert!(false)
+                    unreachable!();
                 }
                 Err(e) => {
                     println!("msg '{}' should contain '{}'", e.msg, msg_part);

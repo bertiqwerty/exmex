@@ -364,26 +364,26 @@ fn test_flat_compile() {
     assert_eq!(flatex.nodes.len(), 2);
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
     match flatex.nodes[1].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
 
     let flatex = OwnedFlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
     match flatex.nodes[1].kind {
         FlatNodeKind::Num(_) => (),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
     match flatex.nodes[2].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
-        _ => assert!(false),
+        _ => unreachable!(),
     }
 }
 

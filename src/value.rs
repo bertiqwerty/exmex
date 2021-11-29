@@ -38,7 +38,7 @@ macro_rules! to_type {
 
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
-/// To use the value type, there are the separate parse functions [`parse_val`](`parse_val`) and 
+/// To use the value type, there are the separate parse functions [`parse_val`](`parse_val`) and
 /// [`parse_val_owned`](`parse_val_owned`) that wrap [`Express::from_regex`](Express::from_regex)
 /// and use the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
 /// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
@@ -140,7 +140,7 @@ where
     type Err = ExError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let res = Ok(if s.contains(".") {
+        let res = Ok(if s.contains('.') {
             Val::Float(s.parse::<F>().map_err(map_parse_err)?)
         } else if s == "false" || s == "true" {
             Val::Bool(s.parse::<bool>().map_err(map_parse_err)?)
@@ -172,10 +172,6 @@ where
             (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap() == *y,
             _ => false,
         }
-    }
-
-    fn ne(&self, other: &Val<I, F>) -> bool {
-        !(self == other)
     }
 }
 
@@ -215,7 +211,7 @@ where
                 y
             )),
         },
-        _ => Val::Error(ExError::from_str("cannot compute power of")),
+        _ => Val::Error(ExError::new("cannot compute power of")),
     }
 }
 
@@ -239,7 +235,7 @@ macro_rules! base_arith {
                 },
                 (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
                 (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
-                _ => Val::Error(ExError::from_str(
+                _ => Val::Error(ExError::new(
                     format!("can only apply {} to ints or floats", stringify!($name)).as_str(),
                 )),
             }
@@ -272,7 +268,7 @@ macro_rules! single_type_arith {
 }
 
 single_type_arith!(rem, Int, |a, b| if b == I::zero() {
-    Val::Error(ExError::from_str("% by zero"))
+    Val::Error(ExError::new("% by zero"))
 } else {
     Val::Int(a % b)
 });
@@ -376,12 +372,13 @@ unary_op!(
                 Some(x) => x,
                 None => return Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
             };
-            let res = (1usize..(a_usize_unpacked + 1usize))
-                .map(|i: usize| I::from(i))
-                .fold(Some(I::one()), |a, b| match (a, b) {
-                    (Some(a_), Some(b_)) => Some(a_ * b_),
-                    _ => None,
-                });
+            let res =
+                (1usize..(a_usize_unpacked + 1usize))
+                    .map(I::from)
+                    .fold(Some(I::one()), |a, b| match (a, b) {
+                        (Some(a_), Some(b_)) => Some(a_ * b_),
+                        _ => None,
+                    });
             match res {
                 Some(i) => Val::Int(i),
                 None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
@@ -463,7 +460,7 @@ where
             Operator::make_bin(
                 "^",
                 BinOp {
-                    apply: |a, b| pow(a, b),
+                    apply: pow,
                     prio: 6,
                     is_commutative: false,
                 },
@@ -471,7 +468,7 @@ where
             Operator::make_bin(
                 "+",
                 BinOp {
-                    apply: |a, b| add(a, b),
+                    apply: add,
                     prio: 3,
                     is_commutative: true,
                 },
@@ -479,16 +476,16 @@ where
             Operator::make_bin_unary(
                 "-",
                 BinOp {
-                    apply: |a, b| sub(a, b),
+                    apply: sub,
                     prio: 3,
                     is_commutative: false,
                 },
-                |a| minus(a),
+                minus,
             ),
             Operator::make_bin(
                 "*",
                 BinOp {
-                    apply: |a, b| mul(a, b),
+                    apply: mul,
                     prio: 4,
                     is_commutative: true,
                 },
@@ -498,7 +495,7 @@ where
                 BinOp {
                     apply: |a, b| match b {
                         Val::Int(x) if x == I::zero() => {
-                            Val::Error(ExError::from_str("int division by zero"))
+                            Val::Error(ExError::new("int division by zero"))
                         }
                         _ => div(a, b),
                     },
@@ -509,7 +506,7 @@ where
             Operator::make_bin(
                 "%",
                 BinOp {
-                    apply: |a, b| rem(a, b),
+                    apply: rem,
                     prio: 5,
                     is_commutative: false,
                 },
@@ -517,7 +514,7 @@ where
             Operator::make_bin(
                 "|",
                 BinOp {
-                    apply: |a, b| bitwise_or(a, b),
+                    apply: bitwise_or,
                     prio: 2,
                     is_commutative: true,
                 },
@@ -525,7 +522,7 @@ where
             Operator::make_bin(
                 "&",
                 BinOp {
-                    apply: |a, b| bitwise_and(a, b),
+                    apply: bitwise_and,
                     prio: 2,
                     is_commutative: true,
                 },
@@ -533,7 +530,7 @@ where
             Operator::make_bin(
                 "XOR",
                 BinOp {
-                    apply: |a, b| bitwise_xor(a, b),
+                    apply: bitwise_xor,
                     prio: 2,
                     is_commutative: true,
                 },
@@ -541,7 +538,7 @@ where
             Operator::make_bin(
                 ">>",
                 BinOp {
-                    apply: |a, b| right_shift(a, b),
+                    apply: right_shift,
                     prio: 2,
                     is_commutative: false,
                 },
@@ -549,7 +546,7 @@ where
             Operator::make_bin(
                 "<<",
                 BinOp {
-                    apply: |a, b| left_shift(a, b),
+                    apply: left_shift,
                     prio: 2,
                     is_commutative: false,
                 },
@@ -557,7 +554,7 @@ where
             Operator::make_bin(
                 "&&",
                 BinOp {
-                    apply: |a, b| and(a, b),
+                    apply: and,
                     prio: 2,
                     is_commutative: true,
                 },
@@ -565,7 +562,7 @@ where
             Operator::make_bin(
                 "||",
                 BinOp {
-                    apply: |a, b| or(a, b),
+                    apply: or,
                     prio: 2,
                     is_commutative: true,
                 },
@@ -647,33 +644,33 @@ where
                     is_commutative: true,
                 },
             ),
-            Operator::make_unary("signum", |a| signum(a)),
-            Operator::make_unary("abs", |a| abs(a)),
-            Operator::make_unary("sin", |a| sin(a)),
-            Operator::make_unary("cos", |a| cos(a)),
-            Operator::make_unary("tan", |a| tan(a)),
-            Operator::make_unary("asin", |a| asin(a)),
-            Operator::make_unary("acos", |a| acos(a)),
-            Operator::make_unary("atan", |a| atan(a)),
-            Operator::make_unary("sinh", |a| sinh(a)),
-            Operator::make_unary("cosh", |a| cosh(a)),
-            Operator::make_unary("tanh", |a| tanh(a)),
-            Operator::make_unary("floor", |a| floor(a)),
-            Operator::make_unary("ceil", |a| ceil(a)),
-            Operator::make_unary("trunc", |a| trunc(a)),
-            Operator::make_unary("fract", |a| fract(a)),
-            Operator::make_unary("exp", |a| exp(a)),
-            Operator::make_unary("sqrt", |a| sqrt(a)),
-            Operator::make_unary("cbrt", |a| cbrt(a)),
-            Operator::make_unary("round", |a| round(a)),
-            Operator::make_unary("log", |a| ln(a)),
-            Operator::make_unary("log2", |a| log2(a)),
-            Operator::make_unary("swap_bytes", |a| swap_bytes(a)),
-            Operator::make_unary("to_le", |a| to_le(a)),
-            Operator::make_unary("to_be", |a| to_be(a)),
-            Operator::make_unary("fact", |a| fact(a)),
-            Operator::make_unary("to_int", |a| cast_to_int(a)),
-            Operator::make_unary("to_float", |a| cast_to_float(a)),
+            Operator::make_unary("signum", signum),
+            Operator::make_unary("abs", abs),
+            Operator::make_unary("sin", sin),
+            Operator::make_unary("cos", cos),
+            Operator::make_unary("tan", tan),
+            Operator::make_unary("asin", asin),
+            Operator::make_unary("acos", acos),
+            Operator::make_unary("atan", atan),
+            Operator::make_unary("sinh", sinh),
+            Operator::make_unary("cosh", cosh),
+            Operator::make_unary("tanh", tanh),
+            Operator::make_unary("floor", floor),
+            Operator::make_unary("ceil", ceil),
+            Operator::make_unary("trunc", trunc),
+            Operator::make_unary("fract", fract),
+            Operator::make_unary("exp", exp),
+            Operator::make_unary("sqrt", sqrt),
+            Operator::make_unary("cbrt", cbrt),
+            Operator::make_unary("round", round),
+            Operator::make_unary("log", ln),
+            Operator::make_unary("log2", log2),
+            Operator::make_unary("swap_bytes", swap_bytes),
+            Operator::make_unary("to_le", to_le),
+            Operator::make_unary("to_be", to_be),
+            Operator::make_unary("fact", fact),
+            Operator::make_unary("to_int", cast_to_int),
+            Operator::make_unary("to_float", cast_to_float),
             Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
@@ -730,11 +727,11 @@ mod tests {
     use super::ValOpsFactory;
     #[test]
     fn test_to() -> ExResult<()> {
-        assert_eq!(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
+        assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
         assert_eq!(Val::<i32, f64>::Int(123).to_int()?, 123);
         assert!(Val::<i32, f64>::Bool(true).to_bool()?);
         assert!(Val::<i32, f64>::Bool(false).to_int().is_err());
-        assert_eq!(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
+        assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
         assert_eq!(Val::<i32, f64>::Int(34).to_int()?, 34);
         assert!(!Val::<i32, f64>::Bool(false).to_bool()?);
         Ok(())
@@ -752,7 +749,7 @@ mod tests {
                 }
                 Err(e) => {
                     println!("{:?}", e);
-                    assert!(false)
+                    unreachable!();
                 }
             }
             Ok(())

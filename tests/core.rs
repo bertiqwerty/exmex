@@ -11,6 +11,8 @@ use exmex::{
 };
 use exmex::{ExError, ops_factory, prelude::*};
 
+use crate::utils::assert_float_eq_f64;
+
 #[test]
 fn test_readme() {
     fn readme_partial() -> ExResult<()> {
@@ -84,11 +86,11 @@ fn test_variables_curly() {
 
     let sut = "sin({myvwmlf4i58eo;w/-sin(a)r_25})";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
     let sut = "((sin({myvar_25})))";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 }
 
 #[test]
@@ -104,11 +106,11 @@ fn test_variables_non_ascii() {
 
     let sut = "sin({myvwmlf4i😎8eo;w/-sin(a)r_25})";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
     let sut = "((sin({myvar_25✔})))";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     struct Thumbs {
@@ -253,16 +255,16 @@ fn test_variables() {
 
     let sut = "sin(myvar_25)";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
     let sut = "((sin(myvar_25)))";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.5707963267948966]).unwrap(), 1.0);
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
     let sut = "(0 * myvar_25 + cos(x))";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
     utils::assert_float_eq_f64(
-        expr.eval(&[1.5707963267948966, 3.141592653589793]).unwrap(),
+        expr.eval(&[std::f64::consts::FRAC_PI_2, std::f64::consts::PI]).unwrap(),
         -1.0,
     );
 
@@ -616,8 +618,8 @@ fn test_serde_public_interface() {
 }
 #[test]
 fn test_constants() {
-    assert_eq!(eval_str::<f64>("PI").unwrap(), std::f64::consts::PI);
-    assert_eq!(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
+    assert_float_eq_f64(eval_str::<f64>("PI").unwrap(), std::f64::consts::PI);
+    assert_float_eq_f64(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
     let expr = parse::<f64>("x / PI * 180").unwrap();
     utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 90.0);
 

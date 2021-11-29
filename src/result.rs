@@ -10,7 +10,7 @@ pub struct ExError {
     pub msg: String,
 }
 impl ExError {
-    pub fn from_str(msg: &str) -> ExError {
+    pub fn new(msg: &str) -> ExError {
         ExError {
             msg: msg.to_string(),
         }

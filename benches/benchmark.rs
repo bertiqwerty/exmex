@@ -105,7 +105,7 @@ fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
     });
 }
 
-fn exmex_parse_owned<'a>(strings: &'a [&str]) -> Vec<OwnedFlatEx<f64>> {
+fn exmex_parse_owned(strings: &[&str]) -> Vec<OwnedFlatEx<f64>> {
     strings
         .iter()
         .map(|expr_str| OwnedFlatEx::<f64>::from_str(expr_str).unwrap())
@@ -131,7 +131,7 @@ fn exmex_bench_parse(c: &mut Criterion) {
 fn exmex_parse_val<'a>(strings: &'a [&str]) -> Vec<FlatExVal<'a, i32, f64>> {
     strings
         .iter()
-        .map(|expr_str| exmex::parse_val(&expr_str).unwrap())
+        .map(|expr_str| exmex::parse_val(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -411,7 +411,7 @@ fn run_benchmark_deserialize<'de, Ex: Deserialize<'de>>(
     });
 }
 
-fn exmex_bench_serde(_c: &mut Criterion) -> () {
+fn exmex_bench_serde(_c: &mut Criterion) {
     for (_expr_str, _expr_name) in izip!(
         BENCH_EXPRESSIONS_STRS.iter(),
         BENCH_EXPRESSIONS_NAMES.iter()
