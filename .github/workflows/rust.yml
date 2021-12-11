@@ -16,9 +16,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
+    - name: Build without features
       run: cargo build --verbose
-    - name: Build with serde
+    - name: Build with serde and value
       run: cargo build --verbose --all-features
     - name: Run tests
       run: cargo test --verbose --all-features
