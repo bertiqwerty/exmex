@@ -1,5 +1,5 @@
 use crate::data_type::DataType;
-use crate::definitions::N_NODES_ON_STACK;
+use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::format_exerr;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
@@ -19,6 +19,23 @@ pub enum ParsedToken<'a, T: DataType> {
     Paren(Paren),
     Op(Operator<'a, T>),
     Var(&'a str),
+}
+
+/// Returns variable names in sorted order.
+pub fn find_parsed_vars<'a, T: DataType>(
+    parsed_tokens: &[ParsedToken<'a, T>],
+) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
+    let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
+    for pt in parsed_tokens {
+        match pt {
+            ParsedToken::Var(name) if !found_vars.contains(name) => {
+                found_vars.push(*name);
+            }
+            _ => (),
+        }
+    }
+    found_vars.sort_unstable();
+    found_vars
 }
 
 pub fn is_numeric_text(text: &str) -> Option<&str> {

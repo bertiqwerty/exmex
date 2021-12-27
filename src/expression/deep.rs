@@ -37,7 +37,7 @@ where
 {
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
-    let parsed_vars = deep_details::find_parsed_vars(&parsed_tokens);
+    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
     let (expr, _) =
         deep_details::make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
     Ok(expr)

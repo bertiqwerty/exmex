@@ -1,6 +1,6 @@
 use crate::{
     data_type::DataType,
-    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
     expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
     parser::{Paren, ParsedToken},
@@ -9,22 +9,6 @@ use crate::{
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
-
-pub fn find_parsed_vars<'a, T: DataType>(
-    parsed_tokens: &[ParsedToken<'a, T>],
-) -> SmallVec<[&'a str; N_VARS_ON_STACK]> {
-    let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
-    for pt in parsed_tokens {
-        match pt {
-            ParsedToken::Var(name) if !found_vars.contains(name) => {
-                found_vars.push(*name);
-            }
-            _ => (),
-        }
-    }
-    found_vars.sort_unstable();
-    found_vars
-}
 
 fn is_operator_binary<'a, T: DataType>(
     op: &Operator<'a, T>,
