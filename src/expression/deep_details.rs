@@ -1,4 +1,11 @@
-use crate::{ExError, ExResult, Operator, definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK}, expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs}, operators::{BinOp, UnaryOp, VecOfUnaryFuncs}, parser::{Paren, ParsedToken}, data_type::DataType};
+use crate::{
+    data_type::DataType,
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
+    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
+    parser::{Paren, ParsedToken},
+    ExError, ExResult, Operator,
+};
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
@@ -152,13 +159,8 @@ where
                     reprs_bin_ops.push(op.repr());
                     idx_tkn += 1;
                 } else {
-                    let (node, idx_forward) = process_unary(
-                        idx_tkn,
-                        op.unary()?,
-                        op.repr(),
-                        parsed_tokens,
-                        parsed_vars,
-                    )?;
+                    let (node, idx_forward) =
+                        process_unary(idx_tkn, op.unary()?, op.repr(), parsed_tokens, parsed_vars)?;
                     nodes.push(node);
                     idx_tkn += idx_forward;
                 }
