@@ -125,7 +125,7 @@ where
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
             self.deepex.ok_or(ExError {
-                msg: "need deep expression for derivation, not possible after calling `clear`"
+                msg: "need deep expression for derivation, not possible after calling `reduce_memory`"
                     .to_string(),
             })?,
             &ops,
