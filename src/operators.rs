@@ -116,7 +116,7 @@ pub struct UnaryOp<T> {
 }
 
 impl<T> UnaryOp<T> {
-    /// Applies unary operators one after the other starting with the last.
+    /// Applies unary operators one after the other starting with the one with the highest index.
     /// # Arguments
     ///
     /// * `x` - number the unary operators are applied to
@@ -130,7 +130,10 @@ impl<T> UnaryOp<T> {
         result
     }
 
-    pub fn append_front(&mut self, other: &mut UnaryOp<T>) {
+    /// Appends a unary operator to the beginning of the array. Accordingly,
+    /// this will be applied after than all other unary ops in the list, i.e., 
+    /// as latest operator.
+    pub fn append_latest(&mut self, other: &mut UnaryOp<T>) {
         self.funcs_to_be_composed = other
             .funcs_to_be_composed
             .iter()

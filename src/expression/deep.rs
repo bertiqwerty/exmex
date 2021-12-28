@@ -104,7 +104,7 @@ impl<'a, T> UnaryOpWithReprs<'a, T> {
     }
 
     pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
-        self.op.append_front(&mut other.op);
+        self.op.append_latest(&mut other.op);
         self.reprs = other
             .reprs
             .iter()
