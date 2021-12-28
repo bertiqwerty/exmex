@@ -60,7 +60,7 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
 
 pub fn flatten_vecs<T: Clone + Debug>(
     deep_expr: &DeepEx<T>,
-    prio_offset: i32,
+    prio_offset: i64,
 ) -> (FlatNodeVec<T>, FlatOpVec<T>) {
     let mut flat_nodes = FlatNodeVec::<T>::new();
     let mut flat_ops = FlatOpVec::<T>::new();
@@ -76,7 +76,7 @@ pub fn flatten_vecs<T: Clone + Debug>(
                 flat_nodes.push(flat_node);
             }
             DeepNode::Expr(e) => {
-                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i32);
+                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i64);
                 flat_nodes.append(&mut sub_nodes);
                 flat_ops.append(&mut sub_ops);
             }

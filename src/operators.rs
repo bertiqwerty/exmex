@@ -169,7 +169,7 @@ pub struct BinOp<T: Clone> {
     /// higher number will be executed first. For instance, in a sane world `*`
     /// has a higher priority than `+`. However, in Exmex land you could also define
     /// this differently.
-    pub prio: i32,
+    pub prio: i64,
     /// True if this is a commutative operator such as `*` or `+`, false if not such as `-`, `/`, or `^`.
     /// Commutativity is used to compile sub-expressions of numbers correctly.
     pub is_commutative: bool,
