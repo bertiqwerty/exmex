@@ -5,9 +5,9 @@ use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::operators::{UnaryOp, VecOfUnaryFuncs};
+use crate::operators::{UnaryOp};
 use crate::parser::{Paren, ParsedToken};
-use crate::{format_exerr, parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
+use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -47,8 +47,8 @@ where
     let mut open_unary_funcs: OufDepthPairs<T> = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
-    let gather_all_subsequent_unaries = |end_idx| -> Option<UnaryOp<T>> {
-        let composition = (0..end_idx + 1)
+    let iter_subsequent_unaries = |end_idx| {
+        (0..end_idx + 1)
             .rev()
             .map(|idx| match &parsed_tokens[idx] {
                 ParsedToken::Op(op) => {
@@ -61,8 +61,7 @@ where
                 _ => None,
             })
             .take_while(|f| f.is_some())
-            .collect::<Option<VecOfUnaryFuncs<T>>>();
-        Some(UnaryOp::from_vec(composition?))
+            .map(|f| f.unwrap())
     };
 
     let create_node = |idx_node, kind| {
@@ -70,13 +69,15 @@ where
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op) {
-                    return match gather_all_subsequent_unaries(idx_op) {
-                        Some(unary_op) => FlatNode { kind, unary_op },
-                        None => FlatNode::from_kind(kind),
+                    return FlatNode {
+                        kind,
+                        unary_op: UnaryOp::from_vec(
+                            iter_subsequent_unaries(idx_op).collect(),
+                        ),
                     };
-                } 
-            } 
-        } 
+                }
+            }
+        }
         FlatNode::from_kind(kind)
     };
     while idx_tkn < parsed_tokens.len() {
@@ -94,10 +95,7 @@ where
                     match p {
                         Paren::Close => return Err(ExError::new(err_msg)),
                         Paren::Open => open_unary_funcs.push((
-                            gather_all_subsequent_unaries(idx_tkn).ok_or(format_exerr!(
-                                "didn't find unary at {:?}",
-                                &parsed_tokens[idx_tkn]
-                            ))?,
+                            UnaryOp::from_vec(iter_subsequent_unaries(idx_tkn).collect()),
                             depth,
                         )),
                     };
@@ -106,14 +104,14 @@ where
             }
             ParsedToken::Num(n) => {
                 let kind = FlatNodeKind::Num(n.clone());
-                let flat_node = create_node(idx_tkn, kind);                
+                let flat_node = create_node(idx_tkn, kind);
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
                 let idx = parser::find_var_index(name, parsed_vars);
                 let kind = FlatNodeKind::Var(idx);
-                let flat_node = create_node(idx_tkn, kind);                
+                let flat_node = create_node(idx_tkn, kind);
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
@@ -492,6 +490,7 @@ where
 #[cfg(test)]
 use crate::{
     expression::deep::{self, UnaryOpWithReprs},
+    operators::VecOfUnaryFuncs,
     util::assert_float_eq_f64,
 };
 #[cfg(test)]
