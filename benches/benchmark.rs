@@ -210,14 +210,6 @@ fn exmex_bench_parse_fast(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_fast, "exmex_parse_fast", c);
 }
 
-
-fn exmex_bench_deepex_parseval(c: &mut Criterion) {
-    fn func(s: &str) -> f64 {
-        exmex::eval_str(s).unwrap()
-    }
-    run_benchmark_parseval(func, "exmex deepex", c);
-}
-
 fn exmex_bench_flatex_parseval(c: &mut Criterion) {
     fn func(s: &str) -> f64 {
         let flatex = exmex::fast_parse(s).unwrap();
@@ -446,7 +438,6 @@ fn exmex_bench_serde(_c: &mut Criterion) {
 #[cfg(feature = "value")]
 criterion_group!(
     benches,
-    exmex_bench_deepex_parseval,
     exmex_bench_flatex_parseval,
     exmex_bench_serde,
     fasteval_bench_eval,
@@ -470,7 +461,6 @@ criterion_group!(
 #[cfg(not(feature = "value"))]
 criterion_group!(
     benches,
-    exmex_bench_deepex_parseval,
     exmex_bench_flatex_parseval,
     exmex_bench_serde,
     fasteval_bench_eval,
