@@ -17,8 +17,8 @@ pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
 /// will be executed after the binary operation in case of its existence.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FlatOp<T: Clone> {
-    unary_op: UnaryOp<T>,
-    bin_op: BinOp<T>,
+    pub unary_op: UnaryOp<T>,
+    pub bin_op: BinOp<T>,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -114,7 +114,7 @@ pub fn flatten_vecs<T: Clone + Debug>(
     (flat_nodes, flat_ops)
 }
 
-pub fn prioritized_indices_flat<T: Clone>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
+pub fn prioritized_indices_flat<T: Clone + Debug>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
             (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {

@@ -1,15 +1,156 @@
 use crate::data_type::DataType;
-use crate::expression::flat_details::{self, FlatNodeVec, FlatOpVec};
+use crate::definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK;
+use crate::expression::flat_details::{self, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators};
+use crate::operators::{UnaryOp, VecOfUnaryFuncs};
+use crate::parser::{Paren, ParsedToken};
+use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
 use num::Float;
 use regex::Regex;
+use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
+
+type OufDepthPairs<U> = SmallVec<[(fn(U) -> U, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+
+fn close_open_unary<T>(ouf_depth_pairs: &mut OufDepthPairs<T>, depth: i64) -> VecOfUnaryFuncs<T> {
+    let oufs = ouf_depth_pairs
+        .iter()
+        .filter(|(_, d)| *d == depth)
+        .map(|(f, _)| *f)
+        .collect::<VecOfUnaryFuncs<T>>();
+    ouf_depth_pairs.retain(|(_, d)| *d != depth);
+    oufs
+}
+
+pub fn make_expression<'a, T, OF>(
+    parsed_tokens: &[ParsedToken<'a, T>],
+    parsed_vars: &[&'a str],
+) -> ExResult<FlatEx<'a, T, OF>>
+where
+    T: Clone + FromStr + Debug,
+    OF: MakeOperators<T>,
+{
+    let mut flat_nodes = FlatNodeVec::<T>::new();
+    let mut flat_ops = FlatOpVec::<T>::new();
+
+    let mut idx_tkn: usize = 0;
+    let depth_step: i64 = 1000;
+    let mut depth = 0;
+    let mut open_unary_funcs: OufDepthPairs<T> = SmallVec::new();
+
+    while idx_tkn < parsed_tokens.len() {
+        match &parsed_tokens[idx_tkn] {
+            ParsedToken::Op(op) => {
+                if idx_tkn > 0 && parser::is_operator_binary(op, &parsed_tokens[idx_tkn - 1]) {
+                    let mut bin_op = op.bin()?;
+                    bin_op.prio += depth * depth_step;
+                    flat_ops.push(FlatOp::<T> {
+                        unary_op: UnaryOp::new(),
+                        bin_op: bin_op,
+                    });
+                } else {
+                    open_unary_funcs.push((op.unary()?, depth));
+                }
+                idx_tkn += 1;
+            }
+            ParsedToken::Num(n) => {
+                let mut flat_node = FlatNode::from_kind(FlatNodeKind::Num(n.clone()));
+                if depth == 0 {
+                    flat_node.unary_op =
+                        UnaryOp::from_vec(close_open_unary(&mut open_unary_funcs, 0));
+                    open_unary_funcs = SmallVec::new();
+                }
+                flat_nodes.push(flat_node);
+                idx_tkn += 1;
+            }
+            ParsedToken::Var(name) => {
+                let idx = parser::find_var_index(name, parsed_vars);
+                let mut flat_node = FlatNode::from_kind(FlatNodeKind::Var(idx));
+                if depth == 0 {
+                    flat_node.unary_op =
+                        UnaryOp::from_vec(close_open_unary(&mut open_unary_funcs, 0));
+                    open_unary_funcs = SmallVec::new();
+                }
+                flat_nodes.push(flat_node);
+                idx_tkn += 1;
+            }
+            ParsedToken::Paren(p) => {
+                match p {
+                    Paren::Open => {
+                        idx_tkn += 1;
+                        depth += 1;
+                    }
+                    Paren::Close => {
+                        let lowest_prio_flat_op = flat_ops
+                            .iter_mut()
+                            .rev()
+                            .take_while(|op| op.bin_op.prio >= depth * depth_step)
+                            .min_by(|fo1, fo2| fo1.bin_op.prio.cmp(&fo2.bin_op.prio));
+                        match lowest_prio_flat_op {
+                            None => {
+                                // no binary operators of current depth, attach to last node
+                                let last_node = flat_nodes
+                                    .iter_mut()
+                                    .last()
+                                    .ok_or(ExError::new("there must be a node between parens"))?;
+                                last_node.unary_op.append_latest(&mut UnaryOp::from_vec(
+                                    close_open_unary(&mut open_unary_funcs, depth - 1),
+                                ));
+                            }
+                            Some(lowpfo) => {
+                                lowpfo.unary_op.append_latest(&mut UnaryOp::from_vec(
+                                    close_open_unary(&mut open_unary_funcs, depth - 1),
+                                ));
+                            }
+                        }
+                        idx_tkn += 1;
+                        depth -= 1;
+                    }
+                }
+            }
+        }
+    }
+    let indices = flat_details::prioritized_indices_flat(&flat_ops, &flat_nodes);
+    Ok(FlatEx {
+        nodes: flat_nodes,
+        ops: flat_ops,
+        prio_indices: indices,
+        n_unique_vars: parsed_vars.len(),
+        deepex: None,
+        dummy: PhantomData,
+    })
+}
+
+fn parse<'a, T, OF, F>(
+    text: &'a str,
+    ops: &[Operator<'a, T>],
+    is_numeric: F,
+) -> ExResult<FlatEx<'a, T, OF>>
+where
+    T: DataType,
+    <T as FromStr>::Err: Debug,
+    F: Fn(&'a str) -> Option<&'a str>,
+    OF: MakeOperators<T> + Debug,
+{
+    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
+    parser::check_parsed_token_preconditions(&parsed_tokens)?;
+    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
+    make_expression(&parsed_tokens[0..], &parsed_vars)
+}
+
+pub fn fast_parse<'a, T>(text: &'a str) -> ExResult<FlatEx<'a, T>>
+where
+    T: DataType + num::Float,
+    <T as FromStr>::Err: Debug,
+{
+    let default_ops = FloatOpsFactory::make();
+    parse::<T, FloatOpsFactory<T>, _>(text, &default_ops, parser::is_numeric_text)
+}
 
 /// This is the core data type representing a flattened expression and the result of
 /// parsing a string. We use flattened expressions to make efficient evaluation possible.
@@ -307,15 +448,61 @@ where
 }
 
 #[cfg(test)]
-use crate::{
-    expression::{deep::UnaryOpWithReprs, flat_details::FlatNodeKind},
-    operators::{UnaryOp, VecOfUnaryFuncs},
-    util::assert_float_eq_f64,
-};
+use crate::{expression::deep::UnaryOpWithReprs, util::assert_float_eq_f64};
 #[cfg(test)]
 use smallvec::smallvec;
 
-use super::flat_details::check_partial_index;
+use super::flat_details::{check_partial_index, FlatNode, FlatOp};
+
+#[test]
+fn test_fast_parse() {
+    fn test(sut: &str, vars: &[f64], reference: f64) {
+        println!("  ===  testing {}", sut);
+        let default_ops = FloatOpsFactory::make();
+        let flatex =
+            parse::<f64, FloatOpsFactory<f64>, _>(sut, &default_ops, parser::is_numeric_text)
+                .unwrap();
+        assert_float_eq_f64(flatex.eval(vars).unwrap(), reference);
+    }
+    test("sin(0)", &[], 0f64.sin());
+    test("1-(1-2)", &[], 2.0);
+    test("1-(1-x)", &[2.0], 2.0);
+    test("1*sin(2-0.1) + x", &[1.0], 1.0 + 1.9f64.sin());
+    test("sin(6)", &[], -0.27941549819892586);
+    test("sin(x+2)", &[5.0], 0.6569865987187891);
+    test("sin((x+1))", &[5.0], -0.27941549819892586);
+    test("sin(y^(x+1))", &[5.0, 2.0], 0.9200260381967907);
+    test("sin(((a*y^(x+1))))", &[0.5, 5.0, 2.0], 0.5514266812416906);
+    test(
+        "sin(((cos((a*y^(x+1))))))",
+        &[0.5, 5.0, 2.0],
+        0.7407750251209115,
+    );
+    test("sin(cos(x+1))", &[5.0], 0.819289219220601);
+    test(
+        "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}",
+        &[1.2, 1.0],
+        8.040556934857268,
+    );
+    test(
+        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
+        &[1.5, 0.2532],
+        -3.1164569260604176,
+    );
+    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453);
+    test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
+    &[1.0, 2.0, 3.0], 20.872570916580237);
+    test(
+        "sin(-(1.0))",
+        &[],
+        -0.8414709848078965,
+    );
+    test(
+        "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
+        &[1.0, 2.0, 3.0],
+        0.01661860154948708,
+    );
+}
 
 #[test]
 fn test_operate_unary() {
@@ -360,7 +547,7 @@ fn test_flat_compile() {
     assert_eq!(flatex.nodes.len(), 2);
 
     let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x").unwrap();
-    assert_float_eq_f64(flatex.eval(&[0.0]).unwrap(), 1.9f64.sin());
+    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 1.0+1.9f64.sin());
     assert_eq!(flatex.nodes.len(), 2);
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),

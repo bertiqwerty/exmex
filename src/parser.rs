@@ -21,6 +21,35 @@ pub enum ParsedToken<'a, T: DataType> {
     Var(&'a str),
 }
 
+/// Returns the index of the variable in the slice. Panics if not available!
+pub fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
+    let idx = parsed_vars.iter().enumerate().find(|(_, n)| **n == name);
+    match idx {
+        Some((i, _)) => i,
+        None => {
+            panic!("This is probably a bug. I don't know variable {}", name)
+        }
+    }
+}
+
+/// Disambiguates operators based on predecessor token.
+pub fn is_operator_binary<'a, T: DataType>(
+    op: &Operator<'a, T>,
+    parsed_token_on_the_left: &ParsedToken<'a, T>,
+) -> bool {
+    if op.has_bin() && !op.has_unary() {
+        true
+    } else if op.has_bin() && op.has_unary() {
+        match parsed_token_on_the_left {
+            ParsedToken::Num(_) | ParsedToken::Var(_) => true,
+            ParsedToken::Paren(p) => *p == Paren::Close,
+            ParsedToken::Op(_) => false,
+        }
+    } else {
+        false
+    }
+}
+
 /// Returns variable names in sorted order.
 pub fn find_parsed_vars<'a, T: DataType>(
     parsed_tokens: &[ParsedToken<'a, T>],

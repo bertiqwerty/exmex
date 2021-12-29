@@ -1,7 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/exmex/0.12.0")]
 //! Exmex is an extendable mathematical expression parser and evaluator. Ease of use, flexibility, and efficient evaluations are its main design goals.
-//! Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators 
-//! for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their 
+//! Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators
+//! for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their
 //! own operators and work with different data types such as float, integer, bool, or other types that implement `Clone`, `FromStr`, and `Debug`.
 //!
 //! The following snippet shows how to evaluate a string.
@@ -262,7 +262,7 @@
 //! ```
 //! You can also pre-compile the regex and use [`Express::from_regex`](Express::from_regex).
 //! Two examples of exmex with non-trivial data types are:
-//! * Numbers can be operators and operators can operate on operators, see, e.g., 
+//! * Numbers can be operators and operators can operate on operators, see, e.g.,
 //! also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
 //! * The value type implemented as part of the feature `value` allows expressions containing integers, floats, and bools.
 //! Therewith, Pythonesque expressions of the form `"x if a > b else y"` are possible.
@@ -316,9 +316,9 @@
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
 //! both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
-//! 
+//!
 //! ### A more General Value Type
-//! 
+//!
 //! To use different data types within an expression, one can activate the feature `value`. The additional
 //! flexibility comes with higher parsing (factor 1.1-1.4) and evaluation run times (factor 2-3).
 //!
@@ -339,7 +339,7 @@ mod util;
 
 pub use {
     expression::{
-        flat::{FlatEx, OwnedFlatEx},
+        flat::{self, FlatEx, OwnedFlatEx},
         Express,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
@@ -349,14 +349,19 @@ pub use {
 #[cfg(feature = "value")]
 mod value;
 #[cfg(feature = "value")]
-pub use value::{
-    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValOpsFactory,
-};
+pub use value::{parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValOpsFactory};
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
 pub mod prelude {
     pub use super::expression::{flat::FlatEx, Express};
+}
+
+pub fn fast_parse<T: Float + DataType>(text: &str) -> ExResult<FlatEx<T>>
+where
+    <T as FromStr>::Err: Debug,
+{
+    flat::fast_parse(text)
 }
 
 /// Parses a string, evaluates the expression, and returns the resulting number.

@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
-use exmex::OwnedFlatEx;
+use exmex::{OwnedFlatEx, fast_parse};
 use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
 #[cfg(feature = "value")]
 use exmex::{FlatExVal, Val};
@@ -198,6 +198,18 @@ fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64, OnlyNee
 fn exmex_bench_parse_optimized(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_optimized, "exmex_parse_optimized", c);
 }
+
+fn exmex_parse_fast<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
+    strings
+        .iter()
+        .map(|expr_str| fast_parse(expr_str).unwrap())
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse_fast(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse_fast, "exmex_parse_fast", c);
+}
+
 
 fn exmex_bench_deepex_parseval(c: &mut Criterion) {
     fn func(s: &str) -> f64 {
@@ -449,6 +461,7 @@ criterion_group!(
     exmex_bench_parse_owned,
     exmex_bench_parse_val,
     exmex_bench_parse_optimized,
+    exmex_bench_parse_fast,
     meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
@@ -470,6 +483,7 @@ criterion_group!(
     exmex_bench_parse,
     exmex_bench_parse_owned,
     exmex_bench_parse_optimized,
+    exmex_bench_parse_fast,
     meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
