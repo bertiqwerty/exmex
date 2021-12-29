@@ -61,7 +61,7 @@ where
                 _ => None,
             })
             .take_while(|f| f.is_some())
-            .map(|f| f.unwrap())
+            .flatten()
     };
 
     let create_node = |idx_node, kind| {
