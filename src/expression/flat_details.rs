@@ -33,7 +33,10 @@ pub struct FlatNode<T> {
     pub unary_op: UnaryOp<T>,
 }
 
-impl<T> FlatNode<T> {
+impl<T> FlatNode<T>
+where
+    T: Clone,
+{
     pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
         FlatNode {
             kind,
@@ -47,13 +50,10 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
         Err(ExError {
             msg: format!(
                 "index {} is invalid since we have only {} vars in {}",
-                var_idx,
-                n_vars,
-                unparsed
+                var_idx, n_vars, unparsed
             ),
         })
-    }
-    else {
+    } else {
         Ok(())
     }
 }
@@ -114,7 +114,10 @@ pub fn flatten_vecs<T: Clone + Debug>(
     (flat_nodes, flat_ops)
 }
 
-pub fn prioritized_indices_flat<T: Clone + Debug>(ops: &[FlatOp<T>], nodes: &FlatNodeVec<T>) -> ExprIdxVec {
+pub fn prioritized_indices_flat<T: Clone + Debug>(
+    ops: &[FlatOp<T>],
+    nodes: &FlatNodeVec<T>,
+) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
             (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {

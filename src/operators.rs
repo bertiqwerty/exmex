@@ -1,19 +1,19 @@
-use crate::{ExError, ExResult, definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, format_exerr};
+use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, format_exerr, ExError, ExResult};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 
 enum OperatorType {
     Bin,
-    Unary
+    Unary,
 }
 
 fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
     let op_type_str = match op_type {
         OperatorType::Bin => "binary",
-        OperatorType::Unary => "unary"
+        OperatorType::Unary => "unary",
     };
-    format_exerr!("{} operator {} not available", op_type_str, repr)    
+    format_exerr!("{} operator {} not available", op_type_str, repr)
 }
 
 /// Operators can be custom-defined by the library-user in terms of this struct.
@@ -30,8 +30,14 @@ pub struct Operator<'a, T: Clone> {
     constant: Option<T>,
 }
 
-fn unwrap_operator<'a, O>(wrapped_op: &'a Option<O>, repr: &str, op_type: OperatorType) -> ExResult<&'a O> {
-    wrapped_op.as_ref().ok_or_else(||make_op_not_available_error(repr, op_type))
+fn unwrap_operator<'a, O>(
+    wrapped_op: &'a Option<O>,
+    repr: &str,
+    op_type: OperatorType,
+) -> ExResult<&'a O> {
+    wrapped_op
+        .as_ref()
+        .ok_or_else(|| make_op_not_available_error(repr, op_type))
 }
 
 impl<'a, T: Clone> Operator<'a, T> {
@@ -91,7 +97,11 @@ impl<'a, T: Clone> Operator<'a, T> {
         Ok(op.clone())
     }
     pub fn unary(&self) -> ExResult<fn(T) -> T> {
-        Ok(*unwrap_operator(&self.unary_op, self.repr, OperatorType::Unary)?)
+        Ok(*unwrap_operator(
+            &self.unary_op,
+            self.repr,
+            OperatorType::Unary,
+        )?)
     }
     pub fn repr(&self) -> &'a str {
         self.repr
@@ -115,7 +125,10 @@ pub struct UnaryOp<T> {
     funcs_to_be_composed: VecOfUnaryFuncs<T>,
 }
 
-impl<T> UnaryOp<T> {
+impl<T> UnaryOp<T>
+where
+    T: Clone,
+{
     /// Applies unary operators one after the other starting with the one with the highest index.
     /// # Arguments
     ///
@@ -131,7 +144,7 @@ impl<T> UnaryOp<T> {
     }
 
     /// Appends a unary operator to the beginning of the array. Accordingly,
-    /// this will be applied after than all other unary ops in the list, i.e., 
+    /// this will be applied after than all other unary ops in the list, i.e.,
     /// as latest operator.
     pub fn append_latest(&mut self, other: &mut UnaryOp<T>) {
         self.funcs_to_be_composed = other
@@ -156,6 +169,17 @@ impl<T> UnaryOp<T> {
         Self {
             funcs_to_be_composed: v,
         }
+    }
+
+    pub fn from_op(op: &Operator<T>) -> ExResult<Self> {
+        let mut funcs_to_be_composed = VecOfUnaryFuncs::new();
+        funcs_to_be_composed.push(
+            op.unary_op
+                .ok_or(format_exerr!("{} does not contain unary op", op.repr))?,
+        );
+        Ok(Self {
+            funcs_to_be_composed,
+        })
     }
 
     pub fn clear(&mut self) {
@@ -211,7 +235,7 @@ pub trait MakeOperators<T: Clone>: Clone {
 }
 
 /// Factory of default operators for floating point values.
-/// 
+///
 /// |representation|description|
 /// |--------------|-----------|
 /// |`^`| power |
@@ -242,8 +266,8 @@ pub trait MakeOperators<T: Clone>: Clone {
 /// |`PI`| constant π  |
 /// |`π`| second representations of constant π  |
 /// |`E`| Euler's number |
-/// 
-/// 
+///
+///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct FloatOpsFactory<T: Float> {
     dummy: PhantomData<T>,

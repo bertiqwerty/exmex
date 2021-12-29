@@ -95,7 +95,7 @@ pub struct UnaryOpWithReprs<'a, T> {
     pub reprs: SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-impl<'a, T> UnaryOpWithReprs<'a, T> {
+impl<'a, T> UnaryOpWithReprs<'a, T> where T: Clone{
     pub fn new() -> UnaryOpWithReprs<'a, T> {
         UnaryOpWithReprs {
             reprs: smallvec![],

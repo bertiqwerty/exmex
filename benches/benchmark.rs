@@ -220,7 +220,7 @@ fn exmex_bench_deepex_parseval(c: &mut Criterion) {
 
 fn exmex_bench_flatex_parseval(c: &mut Criterion) {
     fn func(s: &str) -> f64 {
-        let flatex = FlatEx::<f64>::from_str(s).unwrap();
+        let flatex = exmex::fast_parse(s).unwrap();
         flatex.eval(&[]).unwrap()
     }
     run_benchmark_parseval(func, "exmex flatex", c);
