@@ -66,7 +66,7 @@ where
                 _ => Err(format_exerr!(
                     "expected parsed token {:?} to be a unary op",
                     &parsed_tokens[idx]
-                ))?,
+                )),
             })
             .collect::<ExResult<VecOfUnaryFuncs<T>>>()?;
         Ok(UnaryOp::from_vec(composition))
@@ -91,7 +91,7 @@ where
                     bin_op.prio += depth * depth_step;
                     flat_ops.push(FlatOp::<T> {
                         unary_op: UnaryOp::new(),
-                        bin_op: bin_op,
+                        bin_op,
                     });
                 } else if let ParsedToken::Paren(p) = &parsed_tokens[idx_tkn + 1] {
                     let err_msg = "a unary operator cannot on the left of a closing paren";
@@ -133,7 +133,7 @@ where
                                 let last_node = flat_nodes
                                     .iter_mut()
                                     .last()
-                                    .ok_or(ExError::new("there must be a node between parens"))?;
+                                    .ok_or_else(||ExError::new("there must be a node between parens"))?;
                                 let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
                                 match &mut closed {
                                     None => (),
@@ -184,7 +184,7 @@ where
     Ok(res)
 }
 
-pub fn fast_parse<'a, T>(text: &'a str) -> ExResult<FlatEx<'a, T>>
+pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
     T: DataType + num::Float,
     <T as FromStr>::Err: Debug,
