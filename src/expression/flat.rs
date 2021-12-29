@@ -62,19 +62,22 @@ where
             })
             .take_while(|f| f.is_some())
             .collect::<Option<VecOfUnaryFuncs<T>>>();
-            Some(UnaryOp::from_vec(composition?))
+        Some(UnaryOp::from_vec(composition?))
     };
 
-    let attach_unary_to_node = |idx_node| {
+    let create_node = |idx_node, kind| {
         if idx_node > 0 {
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op) {
-                    return gather_all_subsequent_unaries(idx_op);
-                }
-            }
-        }
-        None
+                    return match gather_all_subsequent_unaries(idx_op) {
+                        Some(unary_op) => FlatNode { kind, unary_op },
+                        None => FlatNode::from_kind(kind),
+                    };
+                } 
+            } 
+        } 
+        FlatNode::from_kind(kind)
     };
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
@@ -102,25 +105,15 @@ where
                 idx_tkn += 1;
             }
             ParsedToken::Num(n) => {
-                let unary_of_node = attach_unary_to_node(idx_tkn);
-                let flat_node = match unary_of_node {
-                    None => FlatNode::from_kind(FlatNodeKind::Num(n.clone())),
-                    Some(unary_op) => FlatNode {
-                        kind: FlatNodeKind::Num(n.clone()),
-                        unary_op,
-                    },
-                };
+                let kind = FlatNodeKind::Num(n.clone());
+                let flat_node = create_node(idx_tkn, kind);                
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
                 let idx = parser::find_var_index(name, parsed_vars);
                 let kind = FlatNodeKind::Var(idx);
-                let unary_of_node = attach_unary_to_node(idx_tkn);
-                let flat_node = match unary_of_node {
-                    None => FlatNode::from_kind(kind),
-                    Some(unary_op) => FlatNode { kind, unary_op },
-                };
+                let flat_node = create_node(idx_tkn, kind);                
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
