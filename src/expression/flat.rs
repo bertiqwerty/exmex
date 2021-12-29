@@ -48,25 +48,21 @@ where
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
     let gather_all_subsequent_unaries = |end_idx| -> Option<UnaryOp<T>> {
-        let start_idx = (0..end_idx + 1)
+        let composition = (0..end_idx + 1)
             .rev()
-            .take_while(|idx| match &parsed_tokens[*idx] {
-                ParsedToken::Op(op) => !is_binary(op, *idx),
-                _ => false,
+            .map(|idx| match &parsed_tokens[idx] {
+                ParsedToken::Op(op) => {
+                    if !is_binary(op, idx) {
+                        Some(op.unary().unwrap())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
             })
-            .last();
-        match start_idx {
-            None => None,
-            Some(start_idx) => {
-                let composition = (start_idx..(end_idx + 1))
-                    .map(|idx| match &parsed_tokens[idx] {
-                        ParsedToken::Op(op) => Some(op.unary().unwrap()),
-                        _ => None,
-                    })
-                    .collect::<Option<VecOfUnaryFuncs<T>>>()?;
-                Some(UnaryOp::from_vec(composition))
-            }
-        }
+            .take_while(|f| f.is_some())
+            .collect::<Option<VecOfUnaryFuncs<T>>>();
+            Some(UnaryOp::from_vec(composition?))
     };
 
     let attach_unary_to_node = |idx_node| {
@@ -74,7 +70,7 @@ where
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op) {
-                    return Some(gather_all_subsequent_unaries(idx_op)?);
+                    return gather_all_subsequent_unaries(idx_op);
                 }
             }
         }
