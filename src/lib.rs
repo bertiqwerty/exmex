@@ -326,7 +326,6 @@
 use std::{fmt::Debug, str::FromStr};
 
 use data_type::DataType;
-use expression::deep::DeepEx;
 use num::Float;
 mod definitions;
 mod expression;
@@ -375,14 +374,14 @@ pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
-    let deepex = DeepEx::<T>::from_str_float(text)?;
-    if deepex.n_vars() > 0 {
+    let flatex = flat::fast_parse(text)?;
+    if flatex.n_vars() > 0 {
         return Err(ExError {
             msg: format!("input string contains variables, '{}' ", text),
         });
     }
 
-    deepex.eval(&[])
+    flatex.eval(&[])
 }
 
 /// Parses a string and returns the expression that can be evaluated.

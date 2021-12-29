@@ -7,7 +7,7 @@ use crate::expression::{
 };
 use crate::operators::{UnaryOp, VecOfUnaryFuncs};
 use crate::parser::{Paren, ParsedToken};
-use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
+use crate::{format_exerr, parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
 use num::Float;
 use regex::Regex;
 use smallvec::SmallVec;
@@ -15,14 +15,17 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-type OufDepthPairs<U> = SmallVec<[(fn(U) -> U, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+type OufDepthPairs<T> = SmallVec<[(UnaryOp<T>, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
-fn close_open_unary<T>(ouf_depth_pairs: &mut OufDepthPairs<T>, depth: i64) -> VecOfUnaryFuncs<T> {
+fn close_open_unary<T>(ouf_depth_pairs: &mut OufDepthPairs<T>, depth: i64) -> Option<UnaryOp<T>>
+where
+    T: Clone,
+{
     let oufs = ouf_depth_pairs
         .iter()
         .filter(|(_, d)| *d == depth)
-        .map(|(f, _)| *f)
-        .collect::<VecOfUnaryFuncs<T>>();
+        .map(|(f, _)| f.clone())
+        .last();
     ouf_depth_pairs.retain(|(_, d)| *d != depth);
     oufs
 }
@@ -43,12 +46,38 @@ where
     let mut depth = 0;
     let mut open_unary_funcs: OufDepthPairs<T> = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
+
+    let gather_all_subsequent_unaries = |end_idx| -> ExResult<UnaryOp<T>> {
+        let start_idx = (0..end_idx + 1)
+            .rev()
+            .take_while(|idx| match &parsed_tokens[*idx] {
+                ParsedToken::Op(op) => !is_binary(op, *idx),
+                _ => false,
+            })
+            .last()
+            .ok_or(format_exerr!(
+                "no unary op found before {:?}",
+                &parsed_tokens[end_idx]
+            ))?;
+
+        let composition = (start_idx..(end_idx + 1))
+            .map(|idx| match &parsed_tokens[idx] {
+                ParsedToken::Op(op) => op.unary(),
+                _ => Err(format_exerr!(
+                    "expected parsed token {:?} to be a unary op",
+                    &parsed_tokens[idx]
+                ))?,
+            })
+            .collect::<ExResult<VecOfUnaryFuncs<T>>>()?;
+        Ok(UnaryOp::from_vec(composition))
+    };
+
     let attach_unary_to_node = |mut node: FlatNode<T>, idx_node| {
         if idx_node > 0 {
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op) {
-                    node.unary_op = UnaryOp::from_op(op)?;
+                    node.unary_op = gather_all_subsequent_unaries(idx_op)?;
                 }
             }
         }
@@ -65,10 +94,12 @@ where
                         bin_op: bin_op,
                     });
                 } else if let ParsedToken::Paren(p) = &parsed_tokens[idx_tkn + 1] {
-                    let err_msg = "a unary operator cannot be next to a closing paren";
+                    let err_msg = "a unary operator cannot on the left of a closing paren";
                     match p {
                         Paren::Close => return Err(ExError::new(err_msg)),
-                        Paren::Open => open_unary_funcs.push((op.unary()?, depth)),
+                        Paren::Open => {
+                            open_unary_funcs.push((gather_all_subsequent_unaries(idx_tkn)?, depth))
+                        }
                     };
                 }
                 idx_tkn += 1;
@@ -103,14 +134,18 @@ where
                                     .iter_mut()
                                     .last()
                                     .ok_or(ExError::new("there must be a node between parens"))?;
-                                last_node.unary_op.append_latest(&mut UnaryOp::from_vec(
-                                    close_open_unary(&mut open_unary_funcs, depth - 1),
-                                ));
+                                let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
+                                match &mut closed {
+                                    None => (),
+                                    Some(uop) => last_node.unary_op.append_latest(uop),
+                                }
                             }
                             Some(lowpfo) => {
-                                lowpfo.unary_op.append_latest(&mut UnaryOp::from_vec(
-                                    close_open_unary(&mut open_unary_funcs, depth - 1),
-                                ));
+                                let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
+                                match &mut closed {
+                                    None => (),
+                                    Some(uop) => lowpfo.unary_op.append_latest(uop),
+                                }
                             }
                         }
                         idx_tkn += 1;
@@ -145,7 +180,9 @@ where
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    make_expression(&parsed_tokens[0..], &parsed_vars)
+    let res = make_expression(&parsed_tokens[0..], &parsed_vars)?;
+    println!("{:#?}", res);
+    Ok(res)
 }
 
 pub fn fast_parse<'a, T>(text: &'a str) -> ExResult<FlatEx<'a, T>>
@@ -453,7 +490,7 @@ where
 }
 
 #[cfg(test)]
-use crate::{expression::deep::UnaryOpWithReprs, util::assert_float_eq_f64};
+use crate::{expression::deep::{self, UnaryOpWithReprs}, util::assert_float_eq_f64};
 #[cfg(test)]
 use smallvec::smallvec;
 
@@ -466,6 +503,7 @@ fn test_fast_parse() {
         let flatex = fast_parse::<f64>(sut).unwrap();
         assert_float_eq_f64(flatex.eval(vars).unwrap(), reference);
     }
+    test("sin(1)", &[], 1.0.sin());
     test("2*3^2", &[], 2.0 * 3.0.powi(2));
     test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0);
     test("sin(-(0.7))", &[], (-0.7).sin());
@@ -513,7 +551,7 @@ fn test_fast_parse() {
 #[test]
 fn test_operate_unary() {
     let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
-    let deepex = DeepEx::<f64>::from_str_float(lstr).unwrap();
+    let deepex = deep::from_str(lstr).unwrap();
     let mut funcs = VecOfUnaryFuncs::new();
     funcs.push(|x: f64| x * 1.23456);
     let deepex = deepex.operate_unary(UnaryOpWithReprs {

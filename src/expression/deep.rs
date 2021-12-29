@@ -4,10 +4,8 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::deep_details::{
-        self, prioritized_indices, BinOpsWithReprsBuf, UnaryOpWithReprsBuf,
-    },
-    operators::{BinOp, FloatOpsFactory, MakeOperators, UnaryOp},
+    expression::deep_details::{self, BinOpsWithReprsBuf, UnaryOpWithReprsBuf},
+    operators::{BinOp, UnaryOp},
     parser, ExError, ExResult, Operator,
 };
 use num::Float;
@@ -95,7 +93,10 @@ pub struct UnaryOpWithReprs<'a, T> {
     pub reprs: SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-impl<'a, T> UnaryOpWithReprs<'a, T> where T: Clone{
+impl<'a, T> UnaryOpWithReprs<'a, T>
+where
+    T: Clone,
+{
     pub fn new() -> UnaryOpWithReprs<'a, T> {
         UnaryOpWithReprs {
             reprs: smallvec![],
@@ -446,15 +447,6 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         }
     }
 
-    pub fn from_str_float(text: &'a str) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Float + DataType,
-    {
-        let ops = FloatOpsFactory::<T>::make();
-        DeepEx::from_ops(text, &ops)
-    }
-
     pub fn from_ops(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         <T as std::str::FromStr>::Err: Debug,
@@ -494,38 +486,6 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
             }
         };
         Self::from_regex(text, ops, &re_number)
-    }
-
-    pub fn eval(&self, vars: &[T]) -> ExResult<T> {
-        let mut numbers = self
-            .nodes
-            .iter()
-            .map(|node| -> ExResult<T> {
-                match node {
-                    DeepNode::Num(n) => Ok(n.clone()),
-                    DeepNode::Var((idx, _)) => Ok(vars[*idx].clone()),
-                    DeepNode::Expr(e) => e.eval(vars),
-                }
-            })
-            .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
-        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; self.nodes.len()];
-        let prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
-        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
-            let num_idx = prio_indices[i];
-            let mut shift_left = 0usize;
-            while ignore[num_idx - shift_left] {
-                shift_left += 1usize;
-            }
-            let mut shift_right = 1usize;
-            while ignore[num_idx + shift_right] {
-                shift_right += 1usize;
-            }
-            let num_1 = numbers[num_idx - shift_left].clone();
-            let num_2 = numbers[num_idx + shift_right].clone();
-            numbers[num_idx - shift_left] = (self.bin_ops.ops[bin_op_idx].apply)(num_1, num_2);
-            ignore[num_idx + shift_right] = true;
-        }
-        Ok(self.unary_op.op.apply(numbers[0].clone()))
     }
 }
 
@@ -595,21 +555,29 @@ impl<'a, T: Clone + Debug> DeepBuf<T> {
 #[cfg(test)]
 use {
     crate::{
+        expression::deep_details::prioritized_indices,
         expression::partial_derivatives::partial_deepex,
+        operators::{FloatOpsFactory, MakeOperators},
         util::{assert_float_eq, assert_float_eq_f64},
     },
     rand::{thread_rng, Rng},
     std::ops::Range,
 };
 
+#[cfg(test)]
+pub fn from_str(text: &str) -> ExResult<DeepEx<f64>> {
+    let ops = FloatOpsFactory::<f64>::make();
+    DeepEx::from_ops(text, &ops)
+}
+
 #[test]
 fn test_reset_vars() {
-    let deepex = DeepEx::<f64>::from_str_float("2*z+x+y * .5").unwrap();
+    let deepex = from_str("2*z+x+y * .5").unwrap();
     let ref_vars = ["x", "y", "z"];
     for (i, rv) in ref_vars.iter().enumerate() {
         assert_eq!(deepex.var_names[i], *rv);
     }
-    let deepex2 = DeepEx::<f64>::from_str_float("a*c*b").unwrap();
+    let deepex2 = from_str("a*c*b").unwrap();
     let ref_vars = ["a", "b", "c"];
     for (i, rv) in ref_vars.iter().enumerate() {
         assert_eq!(deepex2.var_names[i], *rv);
@@ -622,23 +590,13 @@ fn test_reset_vars() {
     }
     assert_eq!(deepex.unparse_raw(), deepex_.unparse_raw());
     assert_eq!(deepex2.unparse_raw(), deepex2_.unparse_raw());
-    assert_float_eq_f64(deepex.eval(&[2.0, 6.0, 1.5]).unwrap(), 8.0);
-    assert_float_eq_f64(deepex2.eval(&[3.0, 5.0, 4.0]).unwrap(), 60.0);
-    assert_float_eq_f64(deepex_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(), 8.0);
-    assert_float_eq_f64(
-        deepex2_.eval(&[3.0, 5.0, 4.0, 2.0, 6.0, 1.5]).unwrap(),
-        60.0,
-    );
 }
 
 #[test]
-fn test_var_name_union() {
-    fn from_str(text: &str) -> DeepEx<f64> {
-        DeepEx::from_str_float(text).unwrap()
-    }
-    fn test(str_1: &str, str_2: &str, var_names: &[&str]) {
-        let first = from_str(str_1);
-        let second = from_str(str_2);
+fn test_var_name_union() -> ExResult<()> {
+    fn test(str_1: &str, str_2: &str, var_names: &[&str]) -> ExResult<()> {
+        let first = from_str(str_1)?;
+        let second = from_str(str_2)?;
         let (first, second) = first.var_names_union(second);
 
         assert_eq!(first.n_vars(), var_names.len());
@@ -649,17 +607,55 @@ fn test_var_name_union() {
         for vn in second.var_names {
             assert!(var_names.contains(&vn));
         }
+        Ok(())
     }
 
-    test("x", "y", &["x", "y"]);
-    test("x+y*z", "z+y", &["x", "y", "z"]);
+    test("x", "y", &["x", "y"])?;
+    test("x+y*z", "z+y", &["x", "y", "z"])?;
+    Ok(())
+}
+
+#[cfg(test)]
+pub fn eval<T>(deepex: &DeepEx<T>, vars: &[T]) -> ExResult<T>
+where
+    T: DataType,
+{
+    let mut numbers = deepex
+        .nodes
+        .iter()
+        .map(|node| -> ExResult<T> {
+            match node {
+                DeepNode::Num(n) => Ok(n.clone()),
+                DeepNode::Var((idx, _)) => Ok(vars[*idx].clone()),
+                DeepNode::Expr(e) => eval(e, vars),
+            }
+        })
+        .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
+    let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; deepex.nodes.len()];
+    let prio_indices = prioritized_indices(&deepex.bin_ops.ops, &deepex.nodes);
+    for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
+        let num_idx = prio_indices[i];
+        let mut shift_left = 0usize;
+        while ignore[num_idx - shift_left] {
+            shift_left += 1usize;
+        }
+        let mut shift_right = 1usize;
+        while ignore[num_idx + shift_right] {
+            shift_right += 1usize;
+        }
+        let num_1 = numbers[num_idx - shift_left].clone();
+        let num_2 = numbers[num_idx + shift_right].clone();
+        numbers[num_idx - shift_left] = (deepex.bin_ops.ops[bin_op_idx].apply)(num_1, num_2);
+        ignore[num_idx + shift_right] = true;
+    }
+    Ok(deepex.unary_op.op.apply(numbers[0].clone()))
 }
 
 #[test]
 fn test_partial_finite() {
     let ops = FloatOpsFactory::<f64>::make();
     fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
-        let dut = DeepEx::<f64>::from_str_float(sut).unwrap();
+        let dut = from_str(sut).unwrap();
         let n_vars = dut.n_vars();
         let step = 1e-5;
         let mut rng = thread_rng();
@@ -676,11 +672,11 @@ fn test_partial_finite() {
                 .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
                 .collect();
 
-            let f0 = dut.eval(&x0s).unwrap();
-            let f1 = dut.eval(&x1s).unwrap();
+            let f0 = eval(&dut, &x0s).unwrap();
+            let f1 = eval(&dut, &x1s).unwrap();
             let finite_diff = (f1 - f0) / step;
             let deri = partial_deepex(var_idx, dut.clone(), ops).unwrap();
-            let deri = deri.eval(&x0s).unwrap();
+            let deri = eval(&deri, &x0s).unwrap();
             println!(
                 "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
                 deri, finite_diff
@@ -716,7 +712,7 @@ fn test_partial_finite() {
 
 #[test]
 fn test_var_names() {
-    let deepex = DeepEx::<f64>::from_str_float("x+y+{x}+z*(-y)").unwrap();
+    let deepex = from_str("x+y+{x}+z*(-y)").unwrap();
     let reference: SmallVec<[&str; N_VARS_ON_STACK]> = smallvec!["x", "y", "z"];
     assert_eq!(deepex.var_names, reference);
 }
@@ -760,20 +756,18 @@ fn test_deep_compile() {
 
 #[test]
 fn test_deep_compile_2() {
-    let deepex =
-        DeepEx::<f64>::from_str_float("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))")
-            .unwrap();
+    let deepex = from_str("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
     println!("{}", deepex);
     assert_eq!(
         format!("{}", deepex),
         "(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))"
     );
 
-    let deepex = DeepEx::<f64>::from_str_float("(((a+x^2*x^2)))").unwrap();
+    let deepex = from_str("(((a+x^2*x^2)))").unwrap();
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "{a}+{x}^2.0*{x}^2.0");
 
-    let deepex = DeepEx::<f64>::from_str_float("1+(((a+x^2*x^2)))").unwrap();
+    let deepex = from_str("1+(((a+x^2*x^2)))").unwrap();
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "1.0+({a}+{x}^2.0*{x}^2.0)");
     let mut ddeepex = partial_deepex(1, deepex, &FloatOpsFactory::make()).unwrap();
@@ -787,22 +781,20 @@ fn test_deep_compile_2() {
 
 #[test]
 fn test_compile() {
-    let expr = DeepEx::<f64>::from_str_float("1.0 * 3 * 2 * x / 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
-    let expr = DeepEx::<f64>::from_str_float(
-        "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
-    )
-    .unwrap();
+    let expr = from_str("1.0 * 3 * 2 * x / 2 / 3").unwrap();
+    assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 2.0);
+    let expr = from_str("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))")
+        .unwrap();
     assert_eq!(
         "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
         expr.unparse_raw()
     );
-    let expr = DeepEx::<f64>::from_str_float("x + 1 - 2").unwrap();
-    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
-    let expr = DeepEx::<f64>::from_str_float("x - 1 + 2").unwrap();
-    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
-    let expr = DeepEx::<f64>::from_str_float("x * 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
-    let expr = DeepEx::<f64>::from_str_float("x / 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
+    let expr = from_str("x + 1 - 2").unwrap();
+    assert_float_eq_f64(eval(&expr, &[0.0]).unwrap(), -1.0);
+    let expr = from_str("x - 1 + 2").unwrap();
+    assert_float_eq_f64(eval(&expr, &[0.0]).unwrap(), 1.0);
+    let expr = from_str("x * 2 / 3").unwrap();
+    assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 4.0 / 3.0);
+    let expr = from_str("x / 2 / 3").unwrap();
+    assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 1.0 / 3.0);
 }

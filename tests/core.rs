@@ -9,7 +9,7 @@ use smallvec::{smallvec, SmallVec};
 use exmex::{
     eval_str, parse, ExResult, OwnedFlatEx, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
-use exmex::{ExError, ops_factory, prelude::*};
+use exmex::{ops_factory, prelude::*, ExError};
 
 use crate::utils::assert_float_eq_f64;
 
@@ -264,7 +264,8 @@ fn test_variables() {
     let sut = "(0 * myvar_25 + cos(x))";
     let expr = FlatEx::<f64>::from_str(sut).unwrap();
     utils::assert_float_eq_f64(
-        expr.eval(&[std::f64::consts::FRAC_PI_2, std::f64::consts::PI]).unwrap(),
+        expr.eval(&[std::f64::consts::FRAC_PI_2, std::f64::consts::PI])
+            .unwrap(),
         -1.0,
     );
 
@@ -524,79 +525,66 @@ fn test_partial() {
 
 #[test]
 fn test_eval() {
-    utils::assert_float_eq_f64(eval_str("0/0").unwrap(), f64::NAN);
-    utils::assert_float_eq_f64(eval_str("abs(-22/2)").unwrap(), 11.0);
-    utils::assert_float_eq_f64(eval_str("signum(-22/2)").unwrap(), -1.0);
-    utils::assert_float_eq_f64(eval_str("cbrt(8)").unwrap(), 2.0);
-    utils::assert_float_eq_f64(eval_str("2*3^2").unwrap(), 18.0);
-    utils::assert_float_eq_f64(eval_str("cos(PI/2)").unwrap(), 0.0);
-    utils::assert_float_eq_f64(eval_str("cos(π/2)").unwrap(), 0.0);
-    utils::assert_float_eq_f64(eval_str("-3^2").unwrap(), 9.0);
-    utils::assert_float_eq_f64(eval_str("11.3").unwrap(), 11.3);
-    utils::assert_float_eq_f64(eval_str("round(11.3)").unwrap(), 11.0);
-    utils::assert_float_eq_f64(eval_str("+11.3").unwrap(), 11.3);
-    utils::assert_float_eq_f64(eval_str("-11.3").unwrap(), -11.3);
-    utils::assert_float_eq_f64(eval_str("(-11.3)").unwrap(), -11.3);
-    utils::assert_float_eq_f64(eval_str("11.3+0.7").unwrap(), 12.0);
-    utils::assert_float_eq_f64(eval_str("31.3+0.7*2").unwrap(), 32.7);
-    utils::assert_float_eq_f64(eval_str("1.3+0.7*2-1").unwrap(), 1.7);
-    utils::assert_float_eq_f64(eval_str("1.3+0.7*2-1/10").unwrap(), 2.6);
-    utils::assert_float_eq_f64(eval_str("(1.3+0.7)*2-1/10").unwrap(), 3.9);
-    utils::assert_float_eq_f64(eval_str("1.3+(0.7*2)-1/10").unwrap(), 2.6);
-    utils::assert_float_eq_f64(eval_str("1.3+0.7*(2-1)/10").unwrap(), 1.37);
-    utils::assert_float_eq_f64(eval_str("1.3+0.7*(2-1/10)").unwrap(), 2.63);
-    utils::assert_float_eq_f64(eval_str("-1*(1.3+0.7*(2-1/10))").unwrap(), -2.63);
-    utils::assert_float_eq_f64(eval_str("-1*(1.3+(-0.7)*(2-1/10))").unwrap(), 0.03);
-    utils::assert_float_eq_f64(eval_str("-1*((1.3+0.7)*(2-1/10))").unwrap(), -3.8);
-    utils::assert_float_eq_f64(eval_str("sin 3.14159265358979").unwrap(), 0.0);
-    utils::assert_float_eq_f64(eval_str("0-sin(3.14159265358979 / 2)").unwrap(), -1.0);
-    utils::assert_float_eq_f64(eval_str("-sin(3.14159265358979 / 2)").unwrap(), -1.0);
-    utils::assert_float_eq_f64(eval_str("3-(-1+sin(PI/2)*2)").unwrap(), 2.0);
-    utils::assert_float_eq_f64(
-        eval_str("3-(-1+sin(cos(-3.14159265358979))*2)").unwrap(),
-        5.6829419696157935,
-    );
-    utils::assert_float_eq_f64(eval_str("-(-1+((-PI)/5)*2)").unwrap(), 2.256637061435916);
-    utils::assert_float_eq_f64(eval_str("((2-4)/5)*2").unwrap(), -0.8);
-    utils::assert_float_eq_f64(eval_str("-(-1+(sin(-PI)/5)*2)").unwrap(), 1.0);
-    utils::assert_float_eq_f64(
-        eval_str("-(-1+sin(cos(-PI)/5)*2)").unwrap(),
-        1.3973386615901224,
-    );
-    utils::assert_float_eq_f64(eval_str("-cos(PI)").unwrap(), 1.0);
-    utils::assert_float_eq_f64(eval_str("1+sin(-cos(-PI))").unwrap(), 1.8414709848078965);
-    utils::assert_float_eq_f64(eval_str("-1+sin(-cos(-PI))").unwrap(), -0.1585290151921035);
-    utils::assert_float_eq_f64(
-        eval_str("-(-1+sin(-cos(-PI)/5)*2)").unwrap(),
-        0.6026613384098776,
-    );
-    utils::assert_float_eq_f64(eval_str("sin(-(2))*2").unwrap(), -1.8185948536513634);
-    utils::assert_float_eq_f64(eval_str("sin(sin(2))*2").unwrap(), 1.5781446871457767);
-    utils::assert_float_eq_f64(eval_str("sin(-(sin(2)))*2").unwrap(), -1.5781446871457767);
-    utils::assert_float_eq_f64(eval_str("-sin(2)*2").unwrap(), -1.8185948536513634);
-    utils::assert_float_eq_f64(eval_str("sin(-sin(2))*2").unwrap(), -1.5781446871457767);
-    utils::assert_float_eq_f64(eval_str("sin(-sin(2)^2)*2").unwrap(), 1.4715655294841483);
-    utils::assert_float_eq_f64(
-        eval_str("sin(-sin(2)*-sin(2))*2").unwrap(),
-        1.4715655294841483,
-    );
-    utils::assert_float_eq_f64(eval_str("--(1)").unwrap(), 1.0);
-    utils::assert_float_eq_f64(eval_str("--1").unwrap(), 1.0);
-    utils::assert_float_eq_f64(eval_str("----1").unwrap(), 1.0);
-    utils::assert_float_eq_f64(eval_str("---1").unwrap(), -1.0);
-    utils::assert_float_eq_f64(eval_str("3-(4-2/3+(1-2*2))").unwrap(), 2.666666666666666);
-    utils::assert_float_eq_f64(
-        eval_str("log(log(2))*tan(2)+exp(1.5)").unwrap(),
-        5.2825344122094045,
-    );
-    utils::assert_float_eq_f64(
-        eval_str("log(log2(2))*tan(2)+exp(1.5)").unwrap(),
-        4.4816890703380645,
-    );
-    utils::assert_float_eq_f64(eval_str("log2(2)").unwrap(), 1.0);
-    utils::assert_float_eq_f64(eval_str("2^log2(2)").unwrap(), 2.0);
-    utils::assert_float_eq_f64(eval_str("2^(cos(0)+2)").unwrap(), 8.0);
-    utils::assert_float_eq_f64(eval_str("2^cos(0)+2").unwrap(), 4.0);
+    fn test(sut: &str, reference: f64) {
+        println!(" === testing {}", sut);
+        utils::assert_float_eq_f64(eval_str(sut).unwrap(), reference);
+    }
+
+    // test("0/0", f64::NAN);
+    // test("abs(-22/2)", 11.0);
+    // test("signum(-22/2)", -1.0);
+    // test("cbrt(8)", 2.0);
+    // test("2*3^2", 18.0);
+    // test("cos(PI/2)", 0.0);
+    // test("cos(π/2)", 0.0);
+    // test("-3^2", 9.0);
+    // test("11.3", 11.3);
+    // test("round(11.3)", 11.0);
+    // test("+11.3", 11.3);
+    // test("-11.3", -11.3);
+    // test("(-11.3)", -11.3);
+    // test("11.3+0.7", 12.0);
+    // test("31.3+0.7*2", 32.7);
+    // test("1.3+0.7*2-1", 1.7);
+    // test("1.3+0.7*2-1/10", 2.6);
+    // test("(1.3+0.7)*2-1/10", 3.9);
+    // test("1.3+(0.7*2)-1/10", 2.6);
+    // test("1.3+0.7*(2-1)/10", 1.37);
+    // test("1.3+0.7*(2-1/10)", 2.63);
+    // test("-1*(1.3+0.7*(2-1/10))", -2.63);
+    // test("-1*(1.3+(-0.7)*(2-1/10))", 0.03);
+    // test("-1*((1.3+0.7)*(2-1/10))", -3.8);
+    // test("sin 3.14159265358979", 0.0);
+    // test("0-sin(3.14159265358979 / 2)", -1.0);
+    test("-sin(π / 2)", -1.0);
+    // test("3-(-1+sin(PI/2)*2)", 2.0);
+    // test("3-(-1+sin(cos(-3.14159265358979))*2)", 5.6829419696157935);
+    // test("-(-1+((-PI)/5)*2)", 2.256637061435916);
+    // test("((2-4)/5)*2", -0.8);
+    // test("-(-1+(sin(-PI)/5)*2)", 1.0);
+    // test("-(-1+sin(cos(-PI)/5)*2)", 1.3973386615901224);
+    // test("-cos(PI)", 1.0);
+    // test("1+sin(-cos(-PI))", 1.8414709848078965);
+    // test("-1+sin(-cos(-PI))", -0.1585290151921035);
+    // test("-(-1+sin(-cos(-PI)/5)*2)", 0.6026613384098776);
+    // test("sin(-(2))*2", -1.8185948536513634);
+    // test("sin(sin(2))*2", 1.5781446871457767);
+    // test("sin(-(sin(2)))*2", -1.5781446871457767);
+    // test("-sin(2)*2", -1.8185948536513634);
+    // test("sin(-sin(2))*2", -1.5781446871457767);
+    // test("sin(-sin(2)^2)*2", 1.4715655294841483);
+    // test("sin(-sin(2)*-sin(2))*2", 1.4715655294841483);
+    // test("--(1)", 1.0);
+    // test("--1", 1.0);
+    // test("----1", 1.0);
+    // test("---1", -1.0);
+    // test("3-(4-2/3+(1-2*2))", 2.666666666666666);
+    // test("log(log(2))*tan(2)+exp(1.5)", 5.2825344122094045);
+    // test("log(log2(2))*tan(2)+exp(1.5)", 4.4816890703380645);
+    // test("log2(2)", 1.0);
+    // test("2^log2(2)", 2.0);
+    // test("2^(cos(0)+2)", 8.0);
+    // test("2^cos(0)+2", 4.0);
 }
 
 #[test]

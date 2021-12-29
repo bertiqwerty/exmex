@@ -171,17 +171,6 @@ where
         }
     }
 
-    pub fn from_op(op: &Operator<T>) -> ExResult<Self> {
-        let mut funcs_to_be_composed = VecOfUnaryFuncs::new();
-        funcs_to_be_composed.push(
-            op.unary_op
-                .ok_or(format_exerr!("{} does not contain unary op", op.repr))?,
-        );
-        Ok(Self {
-            funcs_to_be_composed,
-        })
-    }
-
     pub fn clear(&mut self) {
         self.funcs_to_be_composed.clear();
     }
