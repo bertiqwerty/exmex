@@ -47,41 +47,38 @@ where
     let mut open_unary_funcs: OufDepthPairs<T> = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
-    let gather_all_subsequent_unaries = |end_idx| -> ExResult<UnaryOp<T>> {
+    let gather_all_subsequent_unaries = |end_idx| -> Option<UnaryOp<T>> {
         let start_idx = (0..end_idx + 1)
             .rev()
             .take_while(|idx| match &parsed_tokens[*idx] {
                 ParsedToken::Op(op) => !is_binary(op, *idx),
                 _ => false,
             })
-            .last()
-            .ok_or(format_exerr!(
-                "no unary op found before {:?}",
-                &parsed_tokens[end_idx]
-            ))?;
-
-        let composition = (start_idx..(end_idx + 1))
-            .map(|idx| match &parsed_tokens[idx] {
-                ParsedToken::Op(op) => op.unary(),
-                _ => Err(format_exerr!(
-                    "expected parsed token {:?} to be a unary op",
-                    &parsed_tokens[idx]
-                )),
-            })
-            .collect::<ExResult<VecOfUnaryFuncs<T>>>()?;
-        Ok(UnaryOp::from_vec(composition))
+            .last();
+        match start_idx {
+            None => None,
+            Some(start_idx) => {
+                let composition = (start_idx..(end_idx + 1))
+                    .map(|idx| match &parsed_tokens[idx] {
+                        ParsedToken::Op(op) => Some(op.unary().unwrap()),
+                        _ => None,
+                    })
+                    .collect::<Option<VecOfUnaryFuncs<T>>>()?;
+                Some(UnaryOp::from_vec(composition))
+            }
+        }
     };
 
-    let attach_unary_to_node = |mut node: FlatNode<T>, idx_node| {
+    let attach_unary_to_node = |idx_node| {
         if idx_node > 0 {
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op) {
-                    node.unary_op = gather_all_subsequent_unaries(idx_op)?;
+                    return Some(gather_all_subsequent_unaries(idx_op)?);
                 }
             }
         }
-        Ok(node)
+        None
     };
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
@@ -97,22 +94,38 @@ where
                     let err_msg = "a unary operator cannot on the left of a closing paren";
                     match p {
                         Paren::Close => return Err(ExError::new(err_msg)),
-                        Paren::Open => {
-                            open_unary_funcs.push((gather_all_subsequent_unaries(idx_tkn)?, depth))
-                        }
+                        Paren::Open => open_unary_funcs.push((
+                            gather_all_subsequent_unaries(idx_tkn).ok_or(format_exerr!(
+                                "didn't find unary at {:?}",
+                                &parsed_tokens[idx_tkn]
+                            ))?,
+                            depth,
+                        )),
                     };
                 }
                 idx_tkn += 1;
             }
             ParsedToken::Num(n) => {
-                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(n.clone()));
-                flat_nodes.push(attach_unary_to_node(flat_node, idx_tkn)?);
+                let unary_of_node = attach_unary_to_node(idx_tkn);
+                let flat_node = match unary_of_node {
+                    None => FlatNode::from_kind(FlatNodeKind::Num(n.clone())),
+                    Some(unary_op) => FlatNode {
+                        kind: FlatNodeKind::Num(n.clone()),
+                        unary_op,
+                    },
+                };
+                flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
                 let idx = parser::find_var_index(name, parsed_vars);
-                let flat_node = FlatNode::from_kind(FlatNodeKind::Var(idx));
-                flat_nodes.push(attach_unary_to_node(flat_node, idx_tkn)?);
+                let kind = FlatNodeKind::Var(idx);
+                let unary_of_node = attach_unary_to_node(idx_tkn);
+                let flat_node = match unary_of_node {
+                    None => FlatNode::from_kind(kind),
+                    Some(unary_op) => FlatNode { kind, unary_op },
+                };
+                flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => {
@@ -130,10 +143,9 @@ where
                         match lowest_prio_flat_op {
                             None => {
                                 // no binary operators of current depth, attach to last node
-                                let last_node = flat_nodes
-                                    .iter_mut()
-                                    .last()
-                                    .ok_or_else(||ExError::new("there must be a node between parens"))?;
+                                let last_node = flat_nodes.iter_mut().last().ok_or_else(|| {
+                                    ExError::new("there must be a node between parens")
+                                })?;
                                 let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
                                 match &mut closed {
                                     None => (),
@@ -489,7 +501,10 @@ where
 }
 
 #[cfg(test)]
-use crate::{expression::deep::{self, UnaryOpWithReprs}, util::assert_float_eq_f64};
+use crate::{
+    expression::deep::{self, UnaryOpWithReprs},
+    util::assert_float_eq_f64,
+};
 #[cfg(test)]
 use smallvec::smallvec;
 
