@@ -15,7 +15,21 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-type UnaryOpIdxDepthPairs = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+
+/// This is called in case a closing paren occurs. If available, the index of the unary operator of the
+/// relevant depth operators will be returned and the open operator will be removed.
+///   
+fn pop_open_unary(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option<usize> {
+    let last_open_idx = unary_stack
+        .iter()
+        .rev()
+        .filter(|(_, d)| *d == depth)
+        .map(|(idx, _)| *idx)
+        .next();
+    unary_stack.retain(|(_, d)| *d != depth);
+    last_open_idx
+}
 
 pub fn make_expression<'a, T, OF>(
     parsed_tokens: &[ParsedToken<'a, T>],
@@ -31,7 +45,7 @@ where
     let mut idx_tkn: usize = 0;
     let depth_step: i64 = 1000;
     let mut depth = 0;
-    let mut open_unary_funcs: UnaryOpIdxDepthPairs = SmallVec::new();
+    let mut unary_stack: UnaryOpIdxDepthStack = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
     let iter_subsequent_unaries = |end_idx| {
@@ -51,16 +65,6 @@ where
             .take_while(|f| f.is_some())
             .count();
         (end_idx + 1 - start_idx..end_idx + 1).map(unpack).flatten()
-    };
-
-    let close_open_unary = |ouf_depth_pairs: &mut UnaryOpIdxDepthPairs, depth: i64| {
-        let last_open_idx = ouf_depth_pairs
-            .iter()
-            .filter(|(_, d)| *d == depth)
-            .map(|(idx, _)| *idx)
-            .last();
-        ouf_depth_pairs.retain(|(_, d)| *d != depth);
-        last_open_idx
     };
 
     let create_node = |idx_node, kind| {
@@ -91,7 +95,7 @@ where
                     let err_msg = "a unary operator cannot on the left of a closing paren";
                     match p {
                         Paren::Close => return Err(ExError::new(err_msg)),
-                        Paren::Open => open_unary_funcs.push((idx_tkn, depth)),
+                        Paren::Open => unary_stack.push((idx_tkn, depth)),
                     };
                 }
                 idx_tkn += 1;
@@ -127,7 +131,7 @@ where
                                 let last_node = flat_nodes.iter_mut().last().ok_or_else(|| {
                                     ExError::new("there must be a node between parens")
                                 })?;
-                                let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
+                                let mut closed = pop_open_unary(&mut unary_stack, depth - 1);
                                 match &mut closed {
                                     None => (),
                                     Some(uop_idx) => last_node
@@ -136,7 +140,7 @@ where
                                 }
                             }
                             Some(lowpfo) => {
-                                let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
+                                let mut closed = pop_open_unary(&mut unary_stack, depth - 1);
                                 match &mut closed {
                                     None => (),
                                     Some(uop_idx) => lowpfo
@@ -180,7 +184,7 @@ where
     make_expression(&parsed_tokens[0..], &parsed_vars)
 }
 
-/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression. 
+/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression.
 /// Serialization and partial differentiation is not possible when using fast parsing.
 pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
