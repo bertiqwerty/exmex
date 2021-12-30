@@ -491,8 +491,8 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             unary_outer_op: Some(
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<T>> {
                     let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
-                    let mut minus = minus_find_unary(ops)?;
-                    sin.append_front(&mut minus);
+                    let minus = minus_find_unary(ops)?;
+                    sin.append_front(&minus);
                     Ok(f.with_new_unary_op(sin))
                 },
             ),

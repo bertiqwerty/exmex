@@ -104,8 +104,8 @@ where
         }
     }
 
-    pub fn append_front(&mut self, other: &mut UnaryOpWithReprs<'a, T>) {
-        self.op.append_after(&mut other.op);
+    pub fn append_front(&mut self, other: &UnaryOpWithReprs<'a, T>) {
+        self.op.append_after(&other.op);
         self.reprs = other
             .reprs
             .iter()
@@ -394,8 +394,8 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
     }
 
     /// Applies a unary operator to self
-    pub fn operate_unary(mut self, mut unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.append_front(&mut unary_op);
+    pub fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
+        self.unary_op.append_front(&unary_op);
         self.compile();
         self
     }
