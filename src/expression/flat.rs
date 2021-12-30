@@ -31,6 +31,29 @@ fn pop_unary_stack(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option
     }
 }
 
+fn is_binary<'a, T>(op: &Operator<'a, T>, idx: usize, parsed_tokens: &[ParsedToken<'a, T>]) -> bool
+where
+    T: DataType,
+{
+    idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])
+}
+
+fn unpack_unary<'a, T>(idx: usize, parsed_tokens: &[ParsedToken<'a, T>]) -> Option<fn(T) -> T>
+where
+    T: DataType,
+{
+    match &parsed_tokens[idx] {
+        ParsedToken::Op(op) => {
+            if !is_binary(op, idx, parsed_tokens) {
+                Some(op.unary().unwrap())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 pub fn make_expression<'a, T, OF>(
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
@@ -46,35 +69,27 @@ where
     let depth_step: i64 = 1000;
     let mut depth = 0;
     let mut unary_stack: UnaryOpIdxDepthStack = SmallVec::new();
-    let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
-    let iter_subsequent_unaries = |end_idx| {
-        let unpack = |idx| match &parsed_tokens[idx] {
-            ParsedToken::Op(op) => {
-                if !is_binary(op, idx) {
-                    Some(op.unary().unwrap())
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+    let iter_subsequent_unaries = |end_idx: usize| {
+        let unpack = |idx| unpack_unary(idx, parsed_tokens); 
         let start_idx = (0..end_idx + 1)
             .rev()
             .map(unpack)
             .take_while(|f| f.is_some())
             .count();
-        (end_idx + 1 - start_idx..end_idx + 1).map(unpack).flatten()
+        (end_idx + 1 - start_idx..end_idx + 1)
+            .map(unpack)
+            .flatten()
     };
 
     let create_node = |idx_node, kind| {
         if idx_node > 0 {
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
-                if !is_binary(op, idx_op) {
+                if !is_binary(op, idx_op, parsed_tokens) {
                     return FlatNode {
                         kind,
-                        unary_op: UnaryOp::from_vec(iter_subsequent_unaries(idx_op).collect()),
+                        unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op)),
                     };
                 }
             }
@@ -84,7 +99,7 @@ where
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(op) => {
-                if is_binary(op, idx_tkn) {
+                if is_binary(op, idx_tkn, parsed_tokens) {
                     let mut bin_op = op.bin()?;
                     bin_op.prio += depth * depth_step;
                     flat_ops.push(FlatOp::<T> {

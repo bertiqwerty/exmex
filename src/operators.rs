@@ -148,9 +148,9 @@ where
     pub fn append_after(&mut self, other: &UnaryOp<T>) {
         self.append_after_iter(other.funcs_to_be_composed.iter().copied());
     }
-    
-    /// Appends an iterator of unary functions to the beginning of the array of unary functions of `self`. 
-    /// Accordingly, the newly added unary functions will be applied after all other unary functions in the 
+
+    /// Appends an iterator of unary functions to the beginning of the array of unary functions of `self`.
+    /// Accordingly, the newly added unary functions will be applied after all other unary functions in the
     /// list, i.e., as latest.
     pub fn append_after_iter<I>(&mut self, other_iter: I)
     where
@@ -174,6 +174,15 @@ where
     pub fn from_vec(v: VecOfUnaryFuncs<T>) -> Self {
         Self {
             funcs_to_be_composed: v,
+        }
+    }
+
+    pub fn from_iter<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = fn(T) -> T>,
+    {
+        Self {
+            funcs_to_be_composed: iter.collect(),
         }
     }
 
