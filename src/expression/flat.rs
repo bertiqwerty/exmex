@@ -20,7 +20,7 @@ type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STAC
 /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
 /// relevant depth operators will be returned and the open operator will be removed.
 ///   
-fn pop_open_unary(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option<usize> {
+fn pop_unary_stack(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option<usize> {
     let last_idx_depth = unary_stack.last().copied();
     match last_idx_depth {
         Some((idx, d)) if d == depth => {
@@ -131,7 +131,7 @@ where
                                 let last_node = flat_nodes.iter_mut().last().ok_or_else(|| {
                                     ExError::new("there must be a node between parens")
                                 })?;
-                                let mut closed = pop_open_unary(&mut unary_stack, depth - 1);
+                                let mut closed = pop_unary_stack(&mut unary_stack, depth - 1);
                                 match &mut closed {
                                     None => (),
                                     Some(uop_idx) => last_node
@@ -140,7 +140,7 @@ where
                                 }
                             }
                             Some(lowpfo) => {
-                                let mut closed = pop_open_unary(&mut unary_stack, depth - 1);
+                                let mut closed = pop_unary_stack(&mut unary_stack, depth - 1);
                                 match &mut closed {
                                     None => (),
                                     Some(uop_idx) => lowpfo
