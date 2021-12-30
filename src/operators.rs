@@ -143,15 +143,21 @@ where
         result
     }
 
-    /// Appends a unary operator to the beginning of the array. Accordingly,
-    /// this will be applied after all other unary ops in the list, i.e.,
-    /// as latest operator.
-    pub fn append_latest(&mut self, other: &UnaryOp<T>) {
-        self.funcs_to_be_composed = other
-            .funcs_to_be_composed
-            .iter()
-            .chain(self.funcs_to_be_composed.iter())
-            .copied()
+    /// Composes `self` with another unary operator.
+    /// The other unary operator will be applied after self.
+    pub fn append_after(&mut self, other: &UnaryOp<T>) {
+        self.append_after_iter(other.funcs_to_be_composed.iter().copied());
+    }
+    
+    /// Appends an iterator of unary functions to the beginning of the array of unary functions of `self`. 
+    /// Accordingly, the newly added unary functions will be applied after all other unary functions in the 
+    /// list, i.e., as latest.
+    pub fn append_after_iter<I>(&mut self, other_iter: I)
+    where
+        I: Iterator<Item = fn(T) -> T>,
+    {
+        self.funcs_to_be_composed = other_iter
+            .chain(self.funcs_to_be_composed.iter().copied())
             .collect::<SmallVec<_>>();
     }
 

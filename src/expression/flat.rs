@@ -34,8 +34,8 @@ where
     let mut open_unary_funcs: UnaryOpIdxDepthPairs = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
-    let collect_subsequent_unaries = |end_idx| {
-        let uop_iter = (0..end_idx + 1)
+    let iter_subsequent_unaries = |end_idx| {
+        (0..end_idx + 1)
             .rev()
             .map(|idx| match &parsed_tokens[idx] {
                 ParsedToken::Op(op) => {
@@ -48,8 +48,7 @@ where
                 _ => None,
             })
             .take_while(|f| f.is_some())
-            .flatten();
-        UnaryOp::from_vec(uop_iter.collect())
+            .flatten()
     };
 
     let close_open_unary = |ouf_depth_pairs: &mut UnaryOpIdxDepthPairs, depth: i64| {
@@ -69,7 +68,7 @@ where
                 if !is_binary(op, idx_op) {
                     return FlatNode {
                         kind,
-                        unary_op: collect_subsequent_unaries(idx_op),
+                        unary_op: UnaryOp::from_vec(iter_subsequent_unaries(idx_op).collect()),
                     };
                 }
             }
@@ -131,7 +130,7 @@ where
                                     None => (),
                                     Some(uop_idx) => last_node
                                         .unary_op
-                                        .append_latest(&mut collect_subsequent_unaries(*uop_idx)),
+                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)),
                                 }
                             }
                             Some(lowpfo) => {
@@ -140,7 +139,7 @@ where
                                     None => (),
                                     Some(uop_idx) => lowpfo
                                         .unary_op
-                                        .append_latest(&mut collect_subsequent_unaries(*uop_idx)),
+                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)),
                                 }
                             }
                         }
