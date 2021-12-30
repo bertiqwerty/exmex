@@ -5,7 +5,7 @@ use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
 };
-use crate::operators::{UnaryOp};
+use crate::operators::UnaryOp;
 use crate::parser::{Paren, ParsedToken};
 use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
 use num::Float;
@@ -15,20 +15,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
 
-type OufDepthPairs<T> = SmallVec<[(UnaryOp<T>, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
-
-fn close_open_unary<T>(ouf_depth_pairs: &mut OufDepthPairs<T>, depth: i64) -> Option<UnaryOp<T>>
-where
-    T: Clone,
-{
-    let oufs = ouf_depth_pairs
-        .iter()
-        .filter(|(_, d)| *d == depth)
-        .map(|(f, _)| f.clone())
-        .last();
-    ouf_depth_pairs.retain(|(_, d)| *d != depth);
-    oufs
-}
+type UnaryOpIdxDepthPairs = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
 pub fn make_expression<'a, T, OF>(
     parsed_tokens: &[ParsedToken<'a, T>],
@@ -44,11 +31,11 @@ where
     let mut idx_tkn: usize = 0;
     let depth_step: i64 = 1000;
     let mut depth = 0;
-    let mut open_unary_funcs: OufDepthPairs<T> = SmallVec::new();
+    let mut open_unary_funcs: UnaryOpIdxDepthPairs = SmallVec::new();
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
-    let iter_subsequent_unaries = |end_idx| {
-        (0..end_idx + 1)
+    let collect_subsequent_unaries = |end_idx| {
+        let uop_iter = (0..end_idx + 1)
             .rev()
             .map(|idx| match &parsed_tokens[idx] {
                 ParsedToken::Op(op) => {
@@ -61,7 +48,18 @@ where
                 _ => None,
             })
             .take_while(|f| f.is_some())
-            .flatten()
+            .flatten();
+        UnaryOp::from_vec(uop_iter.collect())
+    };
+
+    let close_open_unary = |ouf_depth_pairs: &mut UnaryOpIdxDepthPairs, depth: i64| {
+        let last_open_idx = ouf_depth_pairs
+            .iter()
+            .filter(|(_, d)| *d == depth)
+            .map(|(idx, _)| *idx)
+            .last();
+        ouf_depth_pairs.retain(|(_, d)| *d != depth);
+        last_open_idx
     };
 
     let create_node = |idx_node, kind| {
@@ -71,9 +69,7 @@ where
                 if !is_binary(op, idx_op) {
                     return FlatNode {
                         kind,
-                        unary_op: UnaryOp::from_vec(
-                            iter_subsequent_unaries(idx_op).collect(),
-                        ),
+                        unary_op: collect_subsequent_unaries(idx_op),
                     };
                 }
             }
@@ -94,10 +90,7 @@ where
                     let err_msg = "a unary operator cannot on the left of a closing paren";
                     match p {
                         Paren::Close => return Err(ExError::new(err_msg)),
-                        Paren::Open => open_unary_funcs.push((
-                            UnaryOp::from_vec(iter_subsequent_unaries(idx_tkn).collect()),
-                            depth,
-                        )),
+                        Paren::Open => open_unary_funcs.push((idx_tkn, depth)),
                     };
                 }
                 idx_tkn += 1;
@@ -136,14 +129,18 @@ where
                                 let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
                                 match &mut closed {
                                     None => (),
-                                    Some(uop) => last_node.unary_op.append_latest(uop),
+                                    Some(uop_idx) => last_node
+                                        .unary_op
+                                        .append_latest(&mut collect_subsequent_unaries(*uop_idx)),
                                 }
                             }
                             Some(lowpfo) => {
                                 let mut closed = close_open_unary(&mut open_unary_funcs, depth - 1);
                                 match &mut closed {
                                     None => (),
-                                    Some(uop) => lowpfo.unary_op.append_latest(uop),
+                                    Some(uop_idx) => lowpfo
+                                        .unary_op
+                                        .append_latest(&mut collect_subsequent_unaries(*uop_idx)),
                                 }
                             }
                         }
