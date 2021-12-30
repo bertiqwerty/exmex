@@ -180,16 +180,15 @@ where
     make_expression(&parsed_tokens[0..], &parsed_vars)
 }
 
-/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation. Serialization and
-/// partial differentiation is not possible when using fast parsing.
-///
+/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression. 
+/// Serialization and partial differentiation is not possible when using fast parsing.
 pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
     T: DataType + num::Float,
     <T as FromStr>::Err: Debug,
 {
     let default_ops = FloatOpsFactory::make();
-    parse::<T, FloatOpsFactory<T>, _>(text, &default_ops, parser::is_numeric_text)
+    parse(text, &default_ops, parser::is_numeric_text)
 }
 
 /// This is the core data type representing a flattened expression and the result of
