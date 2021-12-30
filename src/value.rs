@@ -740,6 +740,7 @@ mod tests {
     #[test]
     fn test_no_vars() -> ExResult<()> {
         fn test_int(s: &str, reference: i32) -> ExResult<()> {
+            println!("=== testing\n{}", s);
             let res = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?
                 .eval(&[])?
                 .to_int();
@@ -755,11 +756,13 @@ mod tests {
             Ok(())
         }
         fn test_float(s: &str, reference: f64) -> ExResult<()> {
+            println!("=== testing\n{}", s);
             let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
         fn test_bool(s: &str, reference: bool) -> ExResult<()> {
+            println!("=== testing\n{}", s);
             let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
             assert_eq!(reference, expr.eval(&[])?.to_bool()?);
             Ok(())

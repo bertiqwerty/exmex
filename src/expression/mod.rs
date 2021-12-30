@@ -130,7 +130,8 @@ pub trait Express<'a, T> {
     fn partial(self, var_idx: usize) -> ExResult<Self>
     where
         Self: Sized,
-        T: Float;
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug;
 
     /// Creates an expression string that corresponds to the `FlatEx` instance. This is
     /// not necessarily the input string. More precisely,

@@ -9,7 +9,6 @@ use crate::{
     parser, ExError, ExResult, Operator,
 };
 use num::Float;
-use regex::Regex;
 use smallvec::{smallvec, SmallVec};
 use std::{
     fmt,
@@ -453,39 +452,6 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         T: DataType,
     {
         parse(text, ops, parser::is_numeric_text)
-    }
-
-    pub fn from_regex(
-        text: &'a str,
-        ops: &[Operator<'a, T>],
-        re_number: &Regex,
-    ) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(re_number, text);
-        parse(text, ops, is_numeric)
-    }
-
-    pub fn from_pattern(
-        text: &'a str,
-        ops: &[Operator<'a, T>],
-        number_regex_pattern: &str,
-    ) -> ExResult<DeepEx<'a, T>>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        let re_number = match Regex::new(number_regex_pattern) {
-            Ok(regex) => regex,
-            Err(_) => {
-                return Err(ExError {
-                    msg: "Cannot compile the passed number regex.".to_string(),
-                })
-            }
-        };
-        Self::from_regex(text, ops, &re_number)
     }
 }
 

@@ -13,7 +13,7 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
         OperatorType::Bin => "binary",
         OperatorType::Unary => "unary",
     };
-    format_exerr!("{} operator {} not available", op_type_str, repr)
+    format_exerr!("{} operator '{}' not available", op_type_str, repr)
 }
 
 /// Operators can be custom-defined by the library-user in terms of this struct.

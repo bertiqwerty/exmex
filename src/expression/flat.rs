@@ -38,23 +38,27 @@ where
     idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])
 }
 
-fn unpack_unary<'a, T>(idx: usize, parsed_tokens: &[ParsedToken<'a, T>]) -> Option<fn(T) -> T>
+fn unpack_unary<'a, T>(
+    idx: usize,
+    parsed_tokens: &[ParsedToken<'a, T>],
+) -> ExResult<Option<fn(T) -> T>>
 where
     T: DataType,
 {
     match &parsed_tokens[idx] {
         ParsedToken::Op(op) => {
             if !is_binary(op, idx, parsed_tokens) {
-                Some(op.unary().unwrap())
+                Ok(Some(op.unary()?))
             } else {
-                None
+                Ok(None)
             }
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
 pub fn make_expression<'a, T, OF>(
+    text: &'a str,
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
 ) -> ExResult<FlatEx<'a, T, OF>>
@@ -71,15 +75,23 @@ where
     let mut unary_stack: UnaryOpIdxDepthStack = SmallVec::new();
 
     let iter_subsequent_unaries = |end_idx: usize| {
-        let unpack = |idx| unpack_unary(idx, parsed_tokens); 
-        let start_idx = (0..end_idx + 1)
+        let unpack = |idx| unpack_unary(idx, parsed_tokens);
+        let dist_from_end = (0..end_idx + 1)
             .rev()
             .map(unpack)
-            .take_while(|f| f.is_some())
+            .take_while(|f| match f {
+                Ok(f) => f.is_some(),
+                _ => false,
+            })
             .count();
-        (end_idx + 1 - start_idx..end_idx + 1)
-            .map(unpack)
-            .flatten()
+        let start_idx = end_idx + 1 - dist_from_end;
+        
+        // check if we did terminate due to an error
+        if start_idx > 0 {
+            unpack(start_idx - 1)?;
+        }
+        
+        Ok((start_idx..end_idx + 1).map(unpack).flatten().flatten())
     };
 
     let create_node = |idx_node, kind| {
@@ -87,14 +99,14 @@ where
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
                 if !is_binary(op, idx_op, parsed_tokens) {
-                    return FlatNode {
+                    return Ok(FlatNode {
                         kind,
-                        unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op)),
-                    };
+                        unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op)?),
+                    });
                 }
             }
         }
-        FlatNode::from_kind(kind)
+        Ok(FlatNode::from_kind(kind))
     };
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
@@ -117,14 +129,14 @@ where
             }
             ParsedToken::Num(n) => {
                 let kind = FlatNodeKind::Num(n.clone());
-                let flat_node = create_node(idx_tkn, kind);
+                let flat_node = create_node(idx_tkn, kind)?;
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
                 let idx = parser::find_var_index(name, parsed_vars);
                 let kind = FlatNodeKind::Var(idx);
-                let flat_node = create_node(idx_tkn, kind);
+                let flat_node = create_node(idx_tkn, kind)?;
                 flat_nodes.push(flat_node);
                 idx_tkn += 1;
             }
@@ -151,7 +163,7 @@ where
                                     None => (),
                                     Some(uop_idx) => last_node
                                         .unary_op
-                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)),
+                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)?),
                                 }
                             }
                             Some(lowpfo) => {
@@ -160,7 +172,7 @@ where
                                     None => (),
                                     Some(uop_idx) => lowpfo
                                         .unary_op
-                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)),
+                                        .append_after_iter(iter_subsequent_unaries(*uop_idx)?),
                                 }
                             }
                         }
@@ -178,6 +190,7 @@ where
         prio_indices: indices,
         n_unique_vars: parsed_vars.len(),
         deepex: None,
+        text: Some(text),
         dummy: PhantomData,
     })
 }
@@ -191,12 +204,12 @@ where
     T: DataType,
     <T as FromStr>::Err: Debug,
     F: Fn(&'a str) -> Option<&'a str>,
-    OF: MakeOperators<T> + Debug,
+    OF: MakeOperators<T>,
 {
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    make_expression(&parsed_tokens[0..], &parsed_vars)
+    make_expression(text, &parsed_tokens[0..], &parsed_vars)
 }
 
 /// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression.
@@ -247,6 +260,7 @@ where
     prio_indices: ExprIdxVec,
     n_unique_vars: usize,
     deepex: Option<DeepEx<'a, T>>,
+    text: Option<&'a str>,
     dummy: PhantomData<OF>,
 }
 
@@ -265,6 +279,7 @@ where
             prio_indices: indices,
             n_unique_vars,
             deepex: Some(deepex),
+            text: None,
             dummy: PhantomData,
         }
     }
@@ -291,8 +306,8 @@ where
         T: DataType,
     {
         let ops = OF::make();
-        let deepex = DeepEx::from_regex(text, &ops, number_regex)?;
-        Ok(Self::flatten(deepex))
+        let is_numeric = |text: &'a str| parser::is_numeric_regex(number_regex, text);
+        parse(text, &ops, is_numeric)
     }
 
     fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
@@ -300,9 +315,15 @@ where
         <T as std::str::FromStr>::Err: Debug,
         T: DataType,
     {
-        let ops = OF::make();
-        let deepex = DeepEx::from_pattern(text, &ops, number_regex_pattern)?;
-        Ok(Self::flatten(deepex))
+        let re_number = match Regex::new(number_regex_pattern) {
+            Ok(regex) => regex,
+            Err(_) => {
+                return Err(ExError {
+                    msg: "Cannot compile the passed number regex.".to_string(),
+                })
+            }
+        };
+        Self::from_regex(text, &re_number)
     }
 
     fn eval(&self, vars: &[T]) -> ExResult<T> {
@@ -314,12 +335,24 @@ where
             self.n_unique_vars,
         )
     }
-    fn partial(self, var_idx: usize) -> ExResult<Self>
+    fn partial(mut self, var_idx: usize) -> ExResult<Self>
     where
-        T: Float,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
     {
         check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
         let ops = FloatOpsFactory::make();
+
+        if self.deepex.is_none() {
+            self.deepex = match self.text {
+                Some(t) => Some(DeepEx::from_ops(t, &OF::make())?),
+                None => {
+                    return Err(ExError::new(
+                        "Need either text or deep expression. Did you call `reduce_memory`?",
+                    ));
+                }
+            }
+        }
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
@@ -332,11 +365,14 @@ where
         Ok(Self::flatten(d_i))
     }
     fn unparse(&self) -> ExResult<String> {
-        match &self.deepex {
-            Some(deepex) => Ok(deepex.unparse_raw()),
-            None => Err(ExError {
-                msg: "unparse impossible, since deep expression optimized away".to_string(),
-            }),
+        match self.text {
+            Some(t) => Ok(t.to_string()),
+            None => match &self.deepex {
+                Some(deepex) => Ok(deepex.unparse_raw()),
+                None => Err(ExError {
+                    msg: "unparse impossible, since deep expression optimized away".to_string(),
+                }),
+            },
         }
     }
     fn reduce_memory(&mut self) {
