@@ -338,7 +338,7 @@ mod util;
 
 pub use {
     expression::{
-        flat::{self, FlatEx, OwnedFlatEx},
+        flat::{self, fast_parse, FlatEx, OwnedFlatEx},
         Express,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
@@ -354,13 +354,6 @@ pub use value::{parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValO
 /// one can `use exmex::prelude::*;`.
 pub mod prelude {
     pub use super::expression::{flat::FlatEx, Express};
-}
-
-pub fn fast_parse<T: Float + DataType>(text: &str) -> ExResult<FlatEx<T>>
-where
-    <T as FromStr>::Err: Debug,
-{
-    flat::fast_parse(text)
 }
 
 /// Parses a string, evaluates the expression, and returns the resulting number.
