@@ -236,7 +236,7 @@ fn exmex_bench_eval_val(c: &mut Criterion) {
             }
         })
         .collect::<Vec<_>>();
-    run_benchmark(funcs, "exmex_val", c);
+    run_benchmark(funcs, "exmex_eval_val", c);
 }
 
 fn exmex_bench_eval(c: &mut Criterion) {
@@ -245,7 +245,17 @@ fn exmex_bench_eval(c: &mut Criterion) {
         .iter()
         .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
         .collect::<Vec<_>>();
-    run_benchmark(funcs, "exmex", c);
+    run_benchmark(funcs, "exmex_eval", c);
+}
+
+
+fn exmex_bench_eval_fp(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse_fast(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "exmex_eval_fp", c);
 }
 
 fn exmex_bench_eval_owned(c: &mut Criterion) {
@@ -254,7 +264,7 @@ fn exmex_bench_eval_owned(c: &mut Criterion) {
         .iter()
         .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
         .collect::<Vec<_>>();
-    run_benchmark(funcs, "exmex_owned", c);
+    run_benchmark(funcs, "exmex_eval_owned", c);
 }
 
 fn evalexpr_parse(strings: &[&str]) -> Vec<(Node, HashMapContext)> {
@@ -445,6 +455,7 @@ criterion_group!(
     exmex_bench_eval_val,
     exmex_bench_eval_owned,
     meval_bench_eval,
+    exmex_bench_eval_fp,
     rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
@@ -467,6 +478,7 @@ criterion_group!(
     exmex_bench_eval,
     exmex_bench_eval_owned,
     meval_bench_eval,
+    exmex_bench_eval_fp,
     rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
