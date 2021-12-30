@@ -26,7 +26,7 @@ impl Error for ExError {}
 /// Exmex' result type with [`ExError`](ExError) as error type.
 pub type ExResult<U> = Result<U, ExError>;
 
-/// Creates an [`ExError`](ExError) with formatted message.
+/// Creates an [`ExError`](ExError) with a formatted message.
 /// ```rust
 /// # use std::error::Error;
 /// use exmex::{format_exerr, ExError};
