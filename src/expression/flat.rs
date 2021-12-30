@@ -21,14 +21,14 @@ type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STAC
 /// relevant depth operators will be returned and the open operator will be removed.
 ///   
 fn pop_open_unary(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option<usize> {
-    let last_open_idx = unary_stack
-        .iter()
-        .rev()
-        .filter(|(_, d)| *d == depth)
-        .map(|(idx, _)| *idx)
-        .next();
-    unary_stack.retain(|(_, d)| *d != depth);
-    last_open_idx
+    let last_idx_depth = unary_stack.last().copied();
+    match last_idx_depth {
+        Some((idx, d)) if d == depth => {
+            unary_stack.pop();
+            Some(idx)
+        }
+        _ => None,
+    }
 }
 
 pub fn make_expression<'a, T, OF>(
