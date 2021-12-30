@@ -179,6 +179,8 @@ where
     Ok(res)
 }
 
+/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation. Serialization and 
+/// partial differentiation is not possible when using fast parsing.
 pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
     T: DataType + num::Float,
