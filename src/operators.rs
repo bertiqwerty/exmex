@@ -146,7 +146,7 @@ where
     /// Appends a unary operator to the beginning of the array. Accordingly,
     /// this will be applied after all other unary ops in the list, i.e.,
     /// as latest operator.
-    pub fn append_latest(&mut self, other: &mut UnaryOp<T>) {
+    pub fn append_latest(&mut self, other: &UnaryOp<T>) {
         self.funcs_to_be_composed = other
             .funcs_to_be_composed
             .iter()
