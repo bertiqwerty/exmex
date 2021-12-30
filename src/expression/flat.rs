@@ -35,20 +35,22 @@ where
     let is_binary = |op, idx| idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1]);
 
     let iter_subsequent_unaries = |end_idx| {
-        (0..end_idx + 1)
-            .rev()
-            .map(|idx| match &parsed_tokens[idx] {
-                ParsedToken::Op(op) => {
-                    if !is_binary(op, idx) {
-                        Some(op.unary().unwrap())
-                    } else {
-                        None
-                    }
+        let unpack = |idx| match &parsed_tokens[idx] {
+            ParsedToken::Op(op) => {
+                if !is_binary(op, idx) {
+                    Some(op.unary().unwrap())
+                } else {
+                    None
                 }
-                _ => None,
-            })
+            }
+            _ => None,
+        };
+        let start_idx = (0..end_idx + 1)
+            .rev()
+            .map(unpack)
             .take_while(|f| f.is_some())
-            .flatten()
+            .count();
+        (end_idx + 1 - start_idx..end_idx + 1).map(unpack).flatten()
     };
 
     let close_open_unary = |ouf_depth_pairs: &mut UnaryOpIdxDepthPairs, depth: i64| {
@@ -175,13 +177,12 @@ where
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let res = make_expression(&parsed_tokens[0..], &parsed_vars)?;
-    Ok(res)
+    make_expression(&parsed_tokens[0..], &parsed_vars)
 }
 
-/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation. Serialization and 
+/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation. Serialization and
 /// partial differentiation is not possible when using fast parsing.
-/// 
+///
 pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
     T: DataType + num::Float,
