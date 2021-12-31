@@ -285,10 +285,9 @@
 //!
 //! ## Display
 //!
-//! Instances of [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx) can be displayed as string. Note that this
-//! [`unparse`](Express::unparse)d string does not necessarily coincide with the original
-//! string, since, e.g., curly brackets are added, expressions are compiled, and constants are
-//! replaced by their numeric values during parsing.
+//! Instances of [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx) can be displayed as string. This
+//! [`unparse`](Express::unparse)d string coincides with the original
+//! string.
 //!
 //! ```rust
 //! # use std::error::Error;
@@ -296,7 +295,7 @@
 //! #
 //! use exmex::prelude::*;
 //! let expr = exmex::parse::<f64>("-sin(z)/cos(mother_of_names) + 2^7 + E")?;
-//! assert_eq!(format!("{}", expr), "-(sin({z}))/cos({mother_of_names})+130.71828182845906");
+//! assert_eq!(format!("{}", expr), "-sin(z)/cos(mother_of_names) + 2^7 + E");
 //! #
 //! #     Ok(())
 //! # }

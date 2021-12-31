@@ -207,7 +207,7 @@ fn exmex_parse_fast<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
 }
 
 fn exmex_bench_parse_fast(c: &mut Criterion) {
-    run_benchmark_parse(exmex_parse_fast, "exmex_parse_fast", c);
+    run_benchmark_parse(exmex_parse_fast, "exmex_parse_fp", c);
 }
 
 fn exmex_bench_flatex_parseval(c: &mut Criterion) {

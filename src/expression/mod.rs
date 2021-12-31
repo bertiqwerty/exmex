@@ -133,20 +133,14 @@ pub trait Express<'a, T> {
         T: DataType + Float,
         <T as FromStr>::Err: Debug;
 
-    /// Creates an expression string that corresponds to the `FlatEx` instance. This is
-    /// not necessarily the input string. More precisely,
-    /// * variables are put between curly braces,
-    /// * spaces outside of curly brackets are ignored,
-    /// * parentheses can be different from the input, and
-    /// * expressions are compiled
-    /// as shown in the following example.
+    /// Creates an expression string that corresponds to the `FlatEx` instance. 
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
     /// use exmex::prelude::*;
     /// let flatex = FlatEx::<f64>::from_str("--sin ( z) +  {another var} + 1 + 2")?;
-    /// assert_eq!(format!("{}", flatex), "-(-(sin({z})))+{another var}+3.0");
+    /// assert_eq!(format!("{}", flatex), "--sin ( z) +  {another var} + 1 + 2");
     /// #
     /// #     Ok(())
     /// # }

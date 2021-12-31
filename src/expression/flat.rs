@@ -1,5 +1,5 @@
 use crate::data_type::DataType;
-use crate::definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK;
+use crate::definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK};
 use crate::expression::flat_details::{self, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
@@ -16,6 +16,8 @@ use std::marker::PhantomData;
 use std::str::FromStr;
 
 type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+
+const DEPTH_PRIO_STEP: i64 = 1000;
 
 /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
 /// relevant depth operators will be returned and the open operator will be removed.
@@ -70,7 +72,6 @@ where
     let mut flat_ops = FlatOpVec::<T>::new();
 
     let mut idx_tkn: usize = 0;
-    let depth_step: i64 = 1000;
     let mut depth = 0;
     let mut unary_stack: UnaryOpIdxDepthStack = SmallVec::new();
 
@@ -85,12 +86,12 @@ where
             })
             .count();
         let start_idx = end_idx + 1 - dist_from_end;
-        
+
         // check if we did terminate due to an error
         if start_idx > 0 {
             unpack(start_idx - 1)?;
         }
-        
+
         Ok((start_idx..end_idx + 1).map(unpack).flatten().flatten())
     };
 
@@ -113,7 +114,7 @@ where
             ParsedToken::Op(op) => {
                 if is_binary(op, idx_tkn, parsed_tokens) {
                     let mut bin_op = op.bin()?;
-                    bin_op.prio += depth * depth_step;
+                    bin_op.prio += depth * DEPTH_PRIO_STEP;
                     flat_ops.push(FlatOp::<T> {
                         unary_op: UnaryOp::new(),
                         bin_op,
@@ -150,7 +151,7 @@ where
                         let lowest_prio_flat_op = flat_ops
                             .iter_mut()
                             .rev()
-                            .take_while(|op| op.bin_op.prio >= depth * depth_step)
+                            .take_while(|op| op.bin_op.prio >= depth * DEPTH_PRIO_STEP)
                             .min_by(|fo1, fo2| fo1.bin_op.prio.cmp(&fo2.bin_op.prio));
                         match lowest_prio_flat_op {
                             None => {
@@ -209,7 +210,9 @@ where
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    make_expression(text, &parsed_tokens[0..], &parsed_vars)
+    let mut expr = make_expression(text, &parsed_tokens[0..], &parsed_vars)?;
+    expr.compile();
+    Ok(expr)
 }
 
 /// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression.
@@ -283,6 +286,65 @@ where
             dummy: PhantomData,
         }
     }
+
+    fn compile(&mut self) {
+        let mut num_inds = self.prio_indices.clone();
+        let mut used_prio_indices = ExprIdxVec::new();
+
+        let mut already_declined: SmallVec<[bool; N_NODES_ON_STACK]> =
+            smallvec::smallvec![false; self.nodes.len()];
+
+        for node in &mut self.nodes {
+            match &node.kind {
+                FlatNodeKind::Num(num) => {
+                    *node =
+                        FlatNode::from_kind(FlatNodeKind::Num(node.unary_op.apply(num.clone())));
+                }
+                _ => (),
+            }
+        }
+        for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
+            let num_idx = num_inds[i];
+            let node_1 = &self.nodes[num_idx];
+            let node_2 = &self.nodes[num_idx + 1];
+            if let (FlatNodeKind::Num(num_1), FlatNodeKind::Num(num_2)) =
+                (node_1.kind.clone(), node_2.kind.clone())
+            {
+                if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
+                    let op_result =
+                        self.ops[bin_op_idx]
+                            .unary_op
+                            .apply((self.ops[bin_op_idx].bin_op.apply)(num_1, num_2));
+                    self.nodes[num_idx] = FlatNode::from_kind(FlatNodeKind::Num(op_result));
+                    self.nodes.remove(num_idx + 1);
+                    already_declined.remove(num_idx + 1);
+                    // reduce indices after removed position
+                    for num_idx_after in num_inds.iter_mut() {
+                        if *num_idx_after > num_idx {
+                            *num_idx_after -= 1;
+                        }
+                    }
+                    used_prio_indices.push(bin_op_idx);
+                } else {
+                    already_declined[num_idx] = true;
+                    already_declined[num_idx + 1] = true;
+                }
+            } else {
+                already_declined[num_idx] = true;
+                already_declined[num_idx + 1] = true;
+            }
+        }
+
+        self.ops = self
+            .ops
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !used_prio_indices.contains(i))
+            .map(|(_, op)| op.clone())
+            .collect();
+
+        self.prio_indices = flat_details::prioritized_indices_flat(&self.ops, &self.nodes);
+    }
 }
 
 impl<'a, T, OF> Express<'a, T> for FlatEx<'a, T, OF>
@@ -296,8 +358,7 @@ where
         T: DataType,
     {
         let ops = OF::make();
-        let deepex = DeepEx::from_ops(text, &ops)?;
-        Ok(Self::flatten(deepex))
+        parse(text, &ops, parser::is_numeric_text)
     }
 
     fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
@@ -356,10 +417,8 @@ where
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
-            self.deepex.ok_or(ExError {
-                msg: "need deep expression for derivation, not possible after calling `reduce_memory`"
-                    .to_string(),
-            })?,
+            self.deepex
+                .expect("This is bug. deepex cannot be None here."),
             &ops,
         )?;
         Ok(Self::flatten(d_i))
@@ -429,6 +488,7 @@ where
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
     n_unique_vars: usize,
+    text: Option<String>,
     dummy: PhantomData<OF>,
 }
 impl<T, OF> OwnedFlatEx<T, OF>
@@ -444,6 +504,7 @@ where
             ops: flatex.ops,
             prio_indices: flatex.prio_indices,
             n_unique_vars: flatex.n_unique_vars,
+            text: flatex.text.map(|s| s.to_string()),
             dummy: PhantomData,
         }
     }
@@ -490,31 +551,45 @@ where
         )
     }
 
-    fn partial(self, var_idx: usize) -> ExResult<Self>
+    fn partial(mut self, var_idx: usize) -> ExResult<Self>
     where
         T: Float,
+        <T as FromStr>::Err: Debug,
     {
         check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
 
         let ops = FloatOpsFactory::make();
-        let deep_buf = match self.deepex_buf {
-            Some(d) => Ok(d),
-            None => Err(ExError {
-                msg: "need deep expression for derivation, not possible after calling `clear`"
-                    .to_string(),
-            }),
-        }?;
+
+        if self.deepex_buf.is_none() {
+            self.deepex_buf = match self.text {
+                Some(t) => {
+                    let deepex = DeepEx::from_ops(t.as_str(), &OF::make())?;
+                    Some(DeepBuf::from_deepex(&deepex))
+                }
+                None => {
+                    return Err(ExError::new(
+                        "Need either text or deep expression. Did you call `reduce_memory`?",
+                    ));
+                }
+            };
+        }
+
+        let deep_buf = self
+            .deepex_buf
+            .expect("This is bug. deepex buffer cannot be None here.");
         let deepex = deep_buf.to_deepex(&ops)?;
         let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
         Ok(Self::from_flatex(FlatEx::<T, OF>::flatten(d_i)))
     }
-
     fn unparse(&self) -> ExResult<String> {
-        match &self.deepex_buf {
-            Some(deepex) => Ok(deepex.unparsed.clone()),
-            None => Err(ExError {
-                msg: "unparse impossible, since deep expression optimized away".to_string(),
-            }),
+        match &self.text {
+            Some(t) => Ok(t.clone()),
+            None => match &self.deepex_buf {
+                Some(deepex) => Ok(deepex.unparsed.clone()),
+                None => Err(ExError {
+                    msg: "unparse impossible, since deep expression optimized away".to_string(),
+                }),
+            },
         }
     }
 
@@ -553,55 +628,61 @@ use smallvec::smallvec;
 use super::flat_details::{check_partial_index, FlatNode, FlatOp};
 
 #[test]
-fn test_fast_parse() {
-    fn test(sut: &str, vars: &[f64], reference: f64) {
+fn test_fast_parse() -> ExResult<()> {
+    fn test(sut: &str, vars: &[f64], reference: f64) -> ExResult<()> {
         println!("  ===  testing {}", sut);
-        let flatex = fast_parse::<f64>(sut).unwrap();
-        assert_float_eq_f64(flatex.eval(vars).unwrap(), reference);
+        let flatex = fast_parse::<f64>(sut)?;
+        println!("{:#?}", flatex);
+        assert_float_eq_f64(flatex.eval(vars)?, reference);
+        Ok(())
     }
-    test("sin(1)", &[], 1.0.sin());
-    test("2*3^2", &[], 2.0 * 3.0.powi(2));
-    test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0);
-    test("sin(-(0.7))", &[], (-0.7).sin());
-    test("sin(-0.7)", &[], (-0.7).sin());
-    test("sin(-x)", &[0.7], (-0.7).sin());
-    test("1.3+(-0.7)", &[], 0.6);
-    test("2-1/2", &[], 2.0 - 1.0 / 2.0);
-    test("log(log2(2))*tan(2)+exp(1.5)", &[], 4.4816890703380645);
-    test("sin(0)", &[], 0f64.sin());
-    test("1-(1-2)", &[], 2.0);
-    test("1-(1-x)", &[2.0], 2.0);
-    test("1*sin(2-0.1) + x", &[1.0], 1.0 + 1.9f64.sin());
-    test("sin(6)", &[], -0.27941549819892586);
-    test("sin(x+2)", &[5.0], 0.6569865987187891);
-    test("sin((x+1))", &[5.0], -0.27941549819892586);
-    test("sin(y^(x+1))", &[5.0, 2.0], 0.9200260381967907);
-    test("sin(((a*y^(x+1))))", &[0.5, 5.0, 2.0], 0.5514266812416906);
+    test("sin(1)", &[], 1.0.sin())?;
+    test("2*3^2", &[], 2.0 * 3.0.powi(2))?;
+    test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0)?;
+    test("sin(-(0.7))", &[], (-0.7).sin())?;
+    test("sin(-0.7)", &[], (-0.7).sin())?;
+    test("sin(-x)", &[0.7], (-0.7).sin())?;
+    test("1.3+(-0.7)", &[], 0.6)?;
+    test("2-1/2", &[], 2.0 - 1.0 / 2.0)?;
+    test("log(log2(2))*tan(2)+exp(1.5)", &[], 4.4816890703380645)?;
+    test("sin(0)", &[], 0f64.sin())?;
+    test("1-(1-2)", &[], 2.0)?;
+    test("1-(1-x)", &[2.0], 2.0)?;
+    test("1*sin(2-0.1) + x", &[1.0], 1.0 + 1.9f64.sin())?;
+    test("sin(6)", &[], -0.27941549819892586)?;
+    test("sin(x+2)", &[5.0], 0.6569865987187891)?;
+    test("sin((x+1))", &[5.0], -0.27941549819892586)?;
+    test("sin(y^(x+1))", &[5.0, 2.0], 0.9200260381967907)?;
+    test("sin(((a*y^(x+1))))", &[0.5, 5.0, 2.0], 0.5514266812416906)?;
     test(
         "sin(((cos((a*y^(x+1))))))",
         &[0.5, 5.0, 2.0],
         0.7407750251209115,
-    );
-    test("sin(cos(x+1))", &[5.0], 0.819289219220601);
+    )?;
+    test("sin(cos(x+1))", &[5.0], 0.819289219220601)?;
     test(
         "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}",
         &[1.2, 1.0],
         8.040556934857268,
-    );
+    )?;
     test(
         "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
         &[1.5, 0.2532],
         -3.1164569260604176,
-    );
-    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453);
+    )?;
+    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
     test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
-    &[1.0, 2.0, 3.0], 20.872570916580237);
-    test("sin(-(1.0))", &[], -0.8414709848078965);
+    &[1.0, 2.0, 3.0], 20.872570916580237)?;
+    test("sin(-(1.0))", &[], -0.8414709848078965)?;
+    test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
+    test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
+    test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * (12.0).sin())?;
     test(
         "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
         &[1.0, 2.0, 3.0],
         0.01661860154948708,
-    );
+    )?;
+    Ok(())
 }
 
 #[test]
@@ -622,20 +703,23 @@ fn test_operate_unary() {
 }
 
 #[test]
-fn test_flat_clear() {
-    let mut flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))").unwrap();
-    assert!(flatex.deepex.is_some());
-    flatex.reduce_memory();
-    assert!(flatex.deepex.is_none());
-    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    assert_eq!(flatex.nodes.len(), 2);
-    let mut flatex = OwnedFlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))").unwrap();
-    assert!(flatex.deepex_buf.is_some());
-    flatex.reduce_memory();
-    assert!(flatex.deepex_buf.is_none());
-    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    assert_eq!(flatex.nodes.len(), 2);
+fn test_flat_clear() -> ExResult<()> {
+    let flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
+    assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
+    let mut deri = flatex.partial(0)?;
+    assert!(deri.deepex.is_some());
+    deri.reduce_memory();
+    assert!(deri.deepex.is_none());
+
+    let flatex = OwnedFlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
+    assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
+    let mut deri = flatex.partial(0)?;
+    assert!(deri.deepex_buf.is_some());
+    deri.reduce_memory();
+    assert!(deri.deepex_buf.is_none());
+    Ok(())
 }
+
 #[test]
 fn test_flat_compile() {
     let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1)").unwrap();
@@ -678,50 +762,51 @@ fn test_flat_compile() {
 fn test_display() {
     let mut flatex = FlatEx::<f64>::from_str("sin(var)/5").unwrap();
     println!("{}", flatex);
-    assert_eq!(format!("{}", flatex), "sin({var})/5.0");
+    assert_eq!(format!("{}", flatex), "sin(var)/5");
     flatex.reduce_memory();
-    assert_eq!(
-        format!("{}", flatex),
-        "unparse impossible, since deep expression optimized away"
-    );
+    assert_eq!(format!("{}", flatex), "sin(var)/5");
 
     let flatex = FlatEx::<f64>::from_str("sin(var)/5").unwrap();
     let mut owned_flatex = OwnedFlatEx::from_flatex(flatex);
-    assert_eq!(format!("{}", owned_flatex), "sin({var})/5.0");
+    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
     owned_flatex.reduce_memory();
-    assert_eq!(
-        format!("{}", owned_flatex),
-        "unparse impossible, since deep expression optimized away"
-    );
+    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
 }
 
 #[test]
-fn test_unparse() {
-    fn test(text: &str, text_ref: &str) {
-        let flatex = FlatEx::<f64>::from_str(text).unwrap();
-        let deepex = flatex.deepex.unwrap();
+fn test_unparse() -> ExResult<()> {
+    fn test(text: &str, text_ref: &str) -> ExResult<()> {
+        let mut flatex = FlatEx::<f64>::from_str(text)?;
+        assert_eq!(flatex.unparse()?, text);
+        flatex.reduce_memory();
+        assert!(flatex.unparse().is_ok());
+
+        let mut flatex = OwnedFlatEx::<f64>::from_str(text)?;
+        assert_eq!(flatex.unparse()?, text);
+        flatex.reduce_memory();
+        assert!(flatex.unparse().is_ok());
+
+        let deepex = DeepEx::<f64>::from_ops(text, &FloatOpsFactory::make())?;
         assert_eq!(deepex.unparse_raw(), text_ref);
-        let mut flatex_reparsed = FlatEx::<f64>::from_str(text).unwrap();
-        assert_eq!(flatex_reparsed.unparse().unwrap(), text_ref);
-        flatex_reparsed.reduce_memory();
-        assert!(flatex_reparsed.unparse().is_err());
+        Ok(())
     }
     let text = "5+x";
     let text_ref = "5.0+{x}";
-    test(text, text_ref);
+    test(text, text_ref)?;
     let text = "sin(5+var)^(1/{y})+{var}";
     let text_ref = "sin(5.0+{var})^(1.0/{y})+{var}";
-    test(text, text_ref);
+    test(text, text_ref)?;
     let text = "-(5+var)^(1/{y})+{var}";
     let text_ref = "-(5.0+{var})^(1.0/{y})+{var}";
-    test(text, text_ref);
+    test(text, text_ref)?;
     let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
     let text_ref = "cos(sin(-(5.0+{var})^(1.0/{y})))+{var}";
-    test(text, text_ref);
+    test(text, text_ref)?;
     let text = "cos(sin(-5+var^(1/{y})))-{var}";
     let text_ref = "cos(sin(-5.0+{var}^(1.0/{y})))-{var}";
-    test(text, text_ref);
+    test(text, text_ref)?;
     let text = "cos(sin(-z+var*(1/{y})))+{var}";
     let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
-    test(text, text_ref);
+    test(text, text_ref)?;
+    Ok(())
 }

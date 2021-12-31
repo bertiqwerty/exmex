@@ -68,15 +68,16 @@ fn test_readme() {
     assert!(!readme_int().is_err());
 }
 #[test]
-fn test_variables_curly_space_names() {
+fn test_variables_curly_space_names() -> ExResult<()>{
     let sut = "{x } + { y }";
-    let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[1.0, 1.0]).unwrap(), 2.0);
-    assert_eq!(expr.unparse().unwrap(), "{x }+{ y }");
+    let expr = FlatEx::<f64>::from_str(sut)?;
+    utils::assert_float_eq_f64(expr.eval(&[1.0, 1.0])?, 2.0);
+    assert_eq!(expr.unparse()?, sut);
     let sut = "2*(4*{ xasd sa } + { y z}^2)";
-    let expr = FlatEx::<f64>::from_str(sut).unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[2.0, 3.0]).unwrap(), 34.0);
-    assert_eq!(expr.unparse().unwrap(), "2.0*(4.0*{ xasd sa }+{ y z}^2.0)");
+    let expr = FlatEx::<f64>::from_str(sut)?;
+    utils::assert_float_eq_f64(expr.eval(&[2.0, 3.0])?, 34.0);
+    assert_eq!(expr.unparse()?, sut);
+    Ok(())
 }
 #[test]
 fn test_variables_curly() {
@@ -379,11 +380,25 @@ fn test_partial() {
         flatex: FlatEx<f64>,
         reference: fn(f64) -> f64,
     ) {
+        let mut rng = rand::thread_rng();
+
         assert!(flatex.clone().partial(flatex.n_vars()).is_err());
+
+        // test owned flatex without buffer
+        let owned_flatex_wo_buff = OwnedFlatEx::from_flatex(flatex.clone());
+        let owned_deri = owned_flatex_wo_buff.partial(var_idx).unwrap();
+        for _ in 0..3 {
+            let vut = rng.gen_range(random_range.clone());
+            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
+            vars[var_idx] = vut;
+            println!("value under test {}.", vut);
+            utils::assert_float_eq_f64(owned_deri.eval(&vars).unwrap(), reference(vut));
+        }
+
+        // test flatex
         let deri = flatex.clone().partial(var_idx).unwrap();
         println!("flatex {}", flatex);
         println!("partial {}", deri);
-        let mut rng = rand::thread_rng();
         for _ in 0..3 {
             let vut = rng.gen_range(random_range.clone());
             let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
@@ -392,9 +407,10 @@ fn test_partial() {
             utils::assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
         }
 
-        let owned_flatex = OwnedFlatEx::from_flatex(flatex);
-        println!("flatex owned {}", owned_flatex);
-        let owned_deri = owned_flatex.partial(var_idx).unwrap();
+        // test owned flatex with buffer
+        let owned_flatex_w_buff = OwnedFlatEx::from_flatex(flatex.clone());
+        println!("flatex owned {}", owned_flatex_w_buff);
+        let owned_deri = owned_flatex_w_buff.partial(var_idx).unwrap();
         println!("partial owned {}", owned_deri);
         for _ in 0..3 {
             let vut = rng.gen_range(random_range.clone());
@@ -607,17 +623,18 @@ fn test_serde_public_interface() {
     assert_eq!(s, format!("{}", deserialized));
 }
 #[test]
-fn test_constants() {
-    assert_float_eq_f64(eval_str::<f64>("PI").unwrap(), std::f64::consts::PI);
-    assert_float_eq_f64(eval_str::<f64>("E").unwrap(), std::f64::consts::E);
-    let expr = parse::<f64>("x / PI * 180").unwrap();
-    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 90.0);
+fn test_constants() -> ExResult<()> {
+    assert_float_eq_f64(eval_str::<f64>("PI")?, std::f64::consts::PI);
+    assert_float_eq_f64(eval_str::<f64>("E")?, std::f64::consts::E);
+    let expr = parse::<f64>("x / PI * 180")?;
+    utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2])?, 90.0);
 
-    let expr = parse::<f32>("E ^ x").unwrap();
-    utils::assert_float_eq_f32(expr.eval(&[5.0]).unwrap(), 1f32.exp().powf(5.0));
+    let expr = parse::<f32>("E ^ x")?;
+    utils::assert_float_eq_f32(expr.eval(&[5.0])?, 1f32.exp().powf(5.0));
 
     let expr = parse::<f32>("E ^ Erwin");
-    assert_eq!(expr.unwrap().unparse().unwrap(), "2.7182817^{Erwin}");
+    assert_eq!(expr?.unparse()?, "E ^ Erwin");
+    Ok(())
 }
 
 #[test]
