@@ -132,6 +132,17 @@ fn exmex_bench_parse_owned(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_owned, "exmex_parse_owned", c);
 }
 
+fn exmex_parse_uncompiled<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
+    strings
+        .iter()
+        .map(|expr_str| FlatEx::<f64>::from_str_wo_compile(expr_str).unwrap())
+        .collect::<Vec<_>>()
+}
+
+fn exmex_bench_parse_uncompiled(c: &mut Criterion) {
+    run_benchmark_parse(exmex_parse_uncompiled, "exmex_parse_uncompiled", c);
+}
+
 fn exmex_parse<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64>> {
     strings
         .iter()
@@ -230,6 +241,15 @@ fn exmex_bench_eval_val(c: &mut Criterion) {
         })
         .collect::<Vec<_>>();
     run_benchmark(funcs, "exmex_eval_val", c);
+}
+
+fn exmex_bench_eval_uncompiled(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse_uncompiled(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |x: f64| expr.eval(&[x, BENCH_Y, BENCH_Z]).unwrap())
+        .collect::<Vec<_>>();
+    run_benchmark(funcs, "exmex_eval_uncompiled", c);
 }
 
 fn exmex_bench_eval(c: &mut Criterion) {
@@ -436,6 +456,7 @@ criterion_group!(
     exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,
+    exmex_bench_eval_uncompiled,
     exmex_bench_eval_val,
     exmex_bench_eval_owned,
     meval_bench_eval,
@@ -443,6 +464,7 @@ criterion_group!(
     evalexpr_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
+    exmex_bench_parse_uncompiled,
     exmex_bench_parse_owned,
     exmex_bench_parse_val,
     exmex_bench_parse_optimized,
@@ -458,12 +480,14 @@ criterion_group!(
     exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,
+    exmex_bench_eval_uncompiled,
     exmex_bench_eval_owned,
     meval_bench_eval,
     rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
+    exmex_bench_parse_uncompiled,
     exmex_bench_parse_owned,
     exmex_bench_parse_optimized,
     meval_bench_parse,

@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.12.0")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.13.0")]
 //! Exmex is an extendable mathematical expression parser and evaluator. Ease of use, flexibility, and efficient evaluations are its main design goals.
 //! Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators
 //! for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their
@@ -107,7 +107,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! If you are willing to pay the price of roughly doubled parsing times, you can
+//! If you are willing to pay the price of higher parsing times, you can
 //! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns
 //! its strings. Evaluation times should be comparable. However, a lifetime parameter is
 //! not needed anymore as shown in the following.
@@ -318,8 +318,10 @@
 //!
 //! ### A more General Value Type
 //!
-//! To use different data types within an expression, one can activate the feature `value`. The additional
-//! flexibility comes with higher parsing (factor 1.1-1.4) and evaluation run times (factor 2-3).
+//! To use different data types within an expression, one can activate the feature `value` and 
+//! use the more general type `Val`. The additional flexibility comes with higher parsing 
+//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120). 
+//! Note that serialization is not yet supported for `Val`, see <https://github.com/bertiqwerty/exmex/issues/23>.
 //!
 
 use std::{fmt::Debug, str::FromStr};
@@ -337,7 +339,7 @@ mod util;
 
 pub use {
     expression::{
-        flat::{self, FlatEx, OwnedFlatEx},
+        flat::{FlatEx, OwnedFlatEx},
         Express,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},

@@ -354,14 +354,14 @@ where
         self.prio_indices = flat_details::prioritized_indices_flat(&self.ops, &self.nodes);
     }
 
-    /// Parses into an expression without compilation. Makes direct evaluation of strings slightly faster.
+    /// Parses into an expression without compilation. Allow slightly faster direct evaluation of strings.
     pub fn from_str_wo_compile(text: &'a str) -> ExResult<Self>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
     {
         let ops = OF::make();
-        parse(text, &ops, parser::is_numeric_text)
+        parse_wo_compile(text, &ops, parser::is_numeric_text)
     }
 }
 
