@@ -366,13 +366,12 @@ pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
-    let flatex = FlatEx::<T>::from_str(text)?;
+    let flatex = FlatEx::<T>::from_str_wo_compile(text)?;
     if flatex.n_vars() > 0 {
         return Err(ExError {
             msg: format!("input string contains variables, '{}' ", text),
         });
     }
-
     flatex.eval(&[])
 }
 

@@ -85,7 +85,7 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
 #[cfg(feature = "value")]
 fn exmex_bench_flatex_val_parseval(c: &mut Criterion) {
     fn func(s: &str) -> f64 {
-        let flatex = exmex::parse_val::<i32, f64>(s).unwrap();
+        let flatex = FlatExVal::<i32, f64>::from_str_wo_compile(s).unwrap();
         flatex.eval(&[]).unwrap().to_float().unwrap()
     }
     run_benchmark_parseval(func, "exmex_val", c);

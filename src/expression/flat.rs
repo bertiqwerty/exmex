@@ -210,12 +210,26 @@ where
     F: Fn(&'a str) -> Option<&'a str>,
     OF: MakeOperators<T>,
 {
+    let mut expr = parse_wo_compile(text, ops, is_numeric)?;
+    expr.compile();
+    Ok(expr)
+}
+
+fn parse_wo_compile<'a, T, OF, F>(
+    text: &'a str,
+    ops: &[Operator<'a, T>],
+    is_numeric: F,
+) -> ExResult<FlatEx<'a, T, OF>>
+where
+    T: DataType,
+    <T as FromStr>::Err: Debug,
+    F: Fn(&'a str) -> Option<&'a str>,
+    OF: MakeOperators<T>,
+{
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let mut expr = make_expression(text, &parsed_tokens[0..], &parsed_vars)?;
-    expr.compile();
-    Ok(expr)
+    make_expression(text, &parsed_tokens[0..], &parsed_vars)
 }
 
 /// This is the core data type representing a flattened expression and the result of
@@ -279,7 +293,9 @@ where
         }
     }
 
-    fn compile(&mut self) {
+    /// Executes calculations that can trivially be executed, e.g., two numbers that need to be 
+    /// multiplied anyway.
+    pub fn compile(&mut self) {
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
 
@@ -336,6 +352,16 @@ where
             .collect();
 
         self.prio_indices = flat_details::prioritized_indices_flat(&self.ops, &self.nodes);
+    }
+
+    /// Parses into an expression without compilation. Makes direct evaluation of strings slightly faster.
+    pub fn from_str_wo_compile(text: &'a str) -> ExResult<Self>
+    where
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        let ops = OF::make();
+        parse(text, &ops, parser::is_numeric_text)
     }
 }
 
