@@ -156,7 +156,7 @@ fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
 }
 
 impl<'a, T: Clone + Debug> DeepEx<'a, T> {
-    /// Evaluates all operators with numbers as operands.
+    /// Compiles expression
     pub fn compile(&mut self) {
         lift_nodes(self);
 
