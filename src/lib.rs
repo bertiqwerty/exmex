@@ -337,7 +337,7 @@ mod util;
 
 pub use {
     expression::{
-        flat::{self, fast_parse, FlatEx, OwnedFlatEx},
+        flat::{self, FlatEx, OwnedFlatEx},
         Express,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
@@ -366,7 +366,7 @@ pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
-    let flatex = flat::fast_parse(text)?;
+    let flatex = FlatEx::<T>::from_str(text)?;
     if flatex.n_vars() > 0 {
         return Err(ExError {
             msg: format!("input string contains variables, '{}' ", text),

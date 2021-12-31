@@ -156,7 +156,7 @@ fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
 }
 
 impl<'a, T: Clone + Debug> DeepEx<'a, T> {
-    /// Compiles expression
+    /// Compiles expression, needed for partial differentation.
     pub fn compile(&mut self) {
         lift_nodes(self);
 
@@ -523,11 +523,9 @@ use {
     crate::{
         expression::deep_details::prioritized_indices,
         expression::partial_derivatives::partial_deepex,
-        operators::{FloatOpsFactory, MakeOperators},
-        util::{assert_float_eq, assert_float_eq_f64},
-    },
-    rand::{thread_rng, Rng},
-    std::ops::Range,
+        operators::{FloatOpsFactory, MakeOperators, VecOfUnaryFuncs},
+        util::assert_float_eq_f64,
+    }
 };
 
 #[cfg(test)]
@@ -618,65 +616,6 @@ where
 }
 
 #[test]
-fn test_partial_finite() {
-    let ops = FloatOpsFactory::<f64>::make();
-    fn test<'a>(sut: &str, ops: &'a [Operator<'a, f64>], range: Range<f64>) {
-        let dut = from_str(sut).unwrap();
-        let n_vars = dut.n_vars();
-        let step = 1e-5;
-        let mut rng = thread_rng();
-
-        let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
-        println!(
-            "test_partial_finite - checking derivatives at {:?} for {}",
-            x0s, sut
-        );
-        for (var_idx, var_name) in dut.var_names.iter().enumerate() {
-            let x1s: Vec<f64> = x0s
-                .iter()
-                .enumerate()
-                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
-                .collect();
-
-            let f0 = eval(&dut, &x0s).unwrap();
-            let f1 = eval(&dut, &x1s).unwrap();
-            let finite_diff = (f1 - f0) / step;
-            let deri = partial_deepex(var_idx, dut.clone(), ops).unwrap();
-            let deri = eval(&deri, &x0s).unwrap();
-            println!(
-                "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
-                deri, finite_diff
-            );
-            let msg = format!("sut {}, d_{} is {}", sut, var_name, deri);
-            println!("test_partial_finite - {}", msg);
-            assert_float_eq::<f64>(deri, finite_diff, 1e-5, 1e-3, msg.as_str());
-        }
-    }
-    test("sqrt(x)", &ops, 0.0..10000.0);
-    test("asin(x)", &ops, -1.0..1.0);
-    test("acos(x)", &ops, -1.0..1.0);
-    test("atan(x)", &ops, -1.0..1.0);
-    test("1/x", &ops, -10.0..10.0);
-    test("x^x", &ops, 0.01..2.0);
-    test("x^y", &ops, 4.036286084344371..4.036286084344372);
-    test("z+sin(x)+cos(y)", &ops, -1.0..1.0);
-    test("sin(cos(sin(z)))", &ops, -10.0..10.0);
-    test("sin(x+z)", &ops, -10.0..10.0);
-    test("sin(x-z)", &ops, -10.0..10.0);
-    test("y-sin(x-z)", &ops, -10.0..10.0);
-    test("(sin(x)^2)/x/4", &ops, -10.0..10.0);
-    test("sin(y+x)/((x*2)/y)*(2*x)", &ops, -1.0..1.0);
-    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", &ops, 0.01..1.0);
-    test("log(x^2)", &ops, 0.1..10.0);
-    test("tan(x)", &ops, -1.0..1.0);
-    test("tan(exp(x))", &ops, -1000.0..0.0);
-    test("exp(y-x)", &ops, -1.0..1.0);
-    test("sqrt(exp(y-x))", &ops, -1000.0..0.0);
-    test("sin(sin(x+z))", &ops, -10.0..10.0);
-    test("asin(sqrt(x+y))", &ops, 0.0..0.5);
-}
-
-#[test]
 fn test_var_names() {
     let deepex = from_str("x+y+{x}+z*(-y)").unwrap();
     let reference: SmallVec<[&str; N_VARS_ON_STACK]> = smallvec!["x", "y", "z"];
@@ -721,7 +660,7 @@ fn test_deep_compile() {
 }
 
 #[test]
-fn test_deep_compile_2() {
+fn test_deep_lift_node() {
     let deepex = from_str("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
     println!("{}", deepex);
     assert_eq!(
@@ -746,7 +685,7 @@ fn test_deep_compile_2() {
 }
 
 #[test]
-fn test_compile() {
+fn test_deep_compile_2() {
     let expr = from_str("1.0 * 3 * 2 * x / 2 / 3").unwrap();
     assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 2.0);
     let expr = from_str("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))")
@@ -763,4 +702,21 @@ fn test_compile() {
     assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 4.0 / 3.0);
     let expr = from_str("x / 2 / 3").unwrap();
     assert_float_eq_f64(eval(&expr, &[2.0]).unwrap(), 1.0 / 3.0);
+}
+
+#[test]
+fn test_operate_unary() -> ExResult<()> {
+    let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
+    let deepex = from_str(lstr)?;
+    let mut funcs = VecOfUnaryFuncs::new();
+    funcs.push(|x: f64| x * 1.23456);
+    let deepex = deepex.operate_unary(UnaryOpWithReprs {
+        reprs: smallvec!["eagle"],
+        op: UnaryOp::from_vec(funcs),
+    });
+    assert_float_eq_f64(
+        eval(&deepex, &[1.0, 1.75, 2.25])?,
+        -0.23148000000000002 * 8.0,
+    );
+    Ok(())
 }

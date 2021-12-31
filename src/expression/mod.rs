@@ -3,7 +3,7 @@ use std::{fmt::Debug, str::FromStr};
 use num::Float;
 use regex::Regex;
 
-use crate::{ExResult, data_type::DataType};
+use crate::{data_type::DataType, ExResult};
 
 pub mod deep;
 mod deep_details;
@@ -56,8 +56,8 @@ pub trait Express<'a, T> {
     /// # Arguments
     ///
     /// * `text` - string to be parsed into an expression
-    /// * `number_regex_pattern` - regex pattern whose matches are number literals at the beginning of a string. For instance, the regex to match 
-    ///    boolean literals is `^(true|false)` instead of `true|false`. 
+    /// * `number_regex_pattern` - regex pattern whose matches are number literals at the beginning of a string. For instance, the regex to match
+    ///    boolean literals is `^(true|false)` instead of `true|false`.
     ///
     /// # Errors
     ///
@@ -133,7 +133,7 @@ pub trait Express<'a, T> {
         T: DataType + Float,
         <T as FromStr>::Err: Debug;
 
-    /// Creates an expression string that corresponds to the `FlatEx` instance. 
+    /// Creates an expression string that corresponds to the `FlatEx` instance.
     /// ```rust
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
@@ -148,9 +148,8 @@ pub trait Express<'a, T> {
     ///
     fn unparse(&self) -> ExResult<String>;
 
-    /// This function frees some memory. After calling, the methods [`partial`](Express::partial) and
-    /// [`unparse`](Express::unparse) as well as the implementation of the
-    /// [`Display`](std::fmt::Display) trait might stop working.
+    /// This function frees some memory. After calling [`partial`](Express::partial) memory might 
+    /// be re-allocated.
     fn reduce_memory(&mut self);
 
     /// Returns the number of variables of the expression

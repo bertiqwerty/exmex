@@ -1,6 +1,9 @@
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK};
-use crate::expression::flat_details::{self, FlatNodeKind, FlatNodeVec, FlatOpVec};
+use crate::expression::flat_details::{
+    self, FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec,
+};
+
 use crate::expression::{
     deep::{DeepBuf, DeepEx, ExprIdxVec},
     partial_derivatives, Express,
@@ -215,17 +218,6 @@ where
     Ok(expr)
 }
 
-/// Parses a string directly into a [`FlatEx`](FlatEx) without compilation of the expression.
-/// Serialization and partial differentiation is not possible when using fast parsing.
-pub fn fast_parse<T>(text: &str) -> ExResult<FlatEx<T>>
-where
-    T: DataType + num::Float,
-    <T as FromStr>::Err: Debug,
-{
-    let default_ops = FloatOpsFactory::make();
-    parse(text, &default_ops, parser::is_numeric_text)
-}
-
 /// This is the core data type representing a flattened expression and the result of
 /// parsing a string. We use flattened expressions to make efficient evaluation possible.
 /// Simplified, a flat expression consists of a [`SmallVec`](https://docs.rs/smallvec/)
@@ -401,7 +393,7 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
     {
-        check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
+        flat_details::check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
         let ops = FloatOpsFactory::make();
 
         if self.deepex.is_none() {
@@ -556,7 +548,7 @@ where
         T: Float,
         <T as FromStr>::Err: Debug,
     {
-        check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
+        flat_details::check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
 
         let ops = FloatOpsFactory::make();
 
@@ -617,90 +609,7 @@ where
 }
 
 #[cfg(test)]
-use crate::{
-    expression::deep::{self, UnaryOpWithReprs},
-    operators::VecOfUnaryFuncs,
-    util::assert_float_eq_f64,
-};
-#[cfg(test)]
-use smallvec::smallvec;
-
-use super::flat_details::{check_partial_index, FlatNode, FlatOp};
-
-#[test]
-fn test_fast_parse() -> ExResult<()> {
-    fn test(sut: &str, vars: &[f64], reference: f64) -> ExResult<()> {
-        println!("  ===  testing {}", sut);
-        let flatex = fast_parse::<f64>(sut)?;
-        println!("{:#?}", flatex);
-        assert_float_eq_f64(flatex.eval(vars)?, reference);
-        Ok(())
-    }
-    test("sin(1)", &[], 1.0.sin())?;
-    test("2*3^2", &[], 2.0 * 3.0.powi(2))?;
-    test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0)?;
-    test("sin(-(0.7))", &[], (-0.7).sin())?;
-    test("sin(-0.7)", &[], (-0.7).sin())?;
-    test("sin(-x)", &[0.7], (-0.7).sin())?;
-    test("1.3+(-0.7)", &[], 0.6)?;
-    test("2-1/2", &[], 2.0 - 1.0 / 2.0)?;
-    test("log(log2(2))*tan(2)+exp(1.5)", &[], 4.4816890703380645)?;
-    test("sin(0)", &[], 0f64.sin())?;
-    test("1-(1-2)", &[], 2.0)?;
-    test("1-(1-x)", &[2.0], 2.0)?;
-    test("1*sin(2-0.1) + x", &[1.0], 1.0 + 1.9f64.sin())?;
-    test("sin(6)", &[], -0.27941549819892586)?;
-    test("sin(x+2)", &[5.0], 0.6569865987187891)?;
-    test("sin((x+1))", &[5.0], -0.27941549819892586)?;
-    test("sin(y^(x+1))", &[5.0, 2.0], 0.9200260381967907)?;
-    test("sin(((a*y^(x+1))))", &[0.5, 5.0, 2.0], 0.5514266812416906)?;
-    test(
-        "sin(((cos((a*y^(x+1))))))",
-        &[0.5, 5.0, 2.0],
-        0.7407750251209115,
-    )?;
-    test("sin(cos(x+1))", &[5.0], 0.819289219220601)?;
-    test(
-        "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}",
-        &[1.2, 1.0],
-        8.040556934857268,
-    )?;
-    test(
-        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
-        &[1.5, 0.2532],
-        -3.1164569260604176,
-    )?;
-    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
-    test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
-    &[1.0, 2.0, 3.0], 20.872570916580237)?;
-    test("sin(-(1.0))", &[], -0.8414709848078965)?;
-    test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
-    test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
-    test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * (12.0).sin())?;
-    test(
-        "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
-        &[1.0, 2.0, 3.0],
-        0.01661860154948708,
-    )?;
-    Ok(())
-}
-
-#[test]
-fn test_operate_unary() {
-    let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
-    let deepex = deep::from_str(lstr).unwrap();
-    let mut funcs = VecOfUnaryFuncs::new();
-    funcs.push(|x: f64| x * 1.23456);
-    let deepex = deepex.operate_unary(UnaryOpWithReprs {
-        reprs: smallvec!["eagle"],
-        op: UnaryOp::from_vec(funcs),
-    });
-    let flatex = FlatEx::<f64>::flatten(deepex);
-    assert_float_eq_f64(
-        flatex.eval(&[1.0, 1.75, 2.25]).unwrap(),
-        -0.23148000000000002 * 8.0,
-    );
-}
+use crate::util::assert_float_eq_f64;
 
 #[test]
 fn test_flat_clear() -> ExResult<()> {
@@ -782,21 +691,6 @@ fn test_flat_compile() -> ExResult<()> {
         _ => unreachable!(),
     }
     Ok(())
-}
-
-#[test]
-fn test_display() {
-    let mut flatex = FlatEx::<f64>::from_str("sin(var)/5").unwrap();
-    println!("{}", flatex);
-    assert_eq!(format!("{}", flatex), "sin(var)/5");
-    flatex.reduce_memory();
-    assert_eq!(format!("{}", flatex), "sin(var)/5");
-
-    let flatex = FlatEx::<f64>::from_str("sin(var)/5").unwrap();
-    let mut owned_flatex = OwnedFlatEx::from_flatex(flatex);
-    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
-    owned_flatex.reduce_memory();
-    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
 }
 
 #[test]

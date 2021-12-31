@@ -817,3 +817,4 @@ fn test_partial_derivative_simple() {
     let result = deep::eval(&derivative, &[1.0]).unwrap();
     assert_float_eq_f64(result, 0.5403023058681398);
 }
+
