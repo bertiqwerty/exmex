@@ -329,8 +329,7 @@ where
                     already_declined[num_idx] = true;
                     already_declined[num_idx + 1] = true;
                 }
-            } 
-            else {
+            } else {
                 already_declined[num_idx] = true;
                 already_declined[num_idx + 1] = true;
             }
@@ -748,8 +747,16 @@ fn test_flat_compile() -> ExResult<()> {
         45.37365538326699,
         13,
     )?;
-    test("x / 2 / 3", &[1.0], 1.0/6.0, 3)?;
-    test("x * 2 / 3", &[1.0], 2.0/3.0, 2)?;
+    test("x / 2 / 3", &[1.0], 1.0 / 6.0, 3)?;
+    test("x * 2 / 3", &[1.0], 2.0 / 3.0, 2)?;
+    test(
+        "(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))",
+        &[2.21],
+        43.175444,
+        10,
+    )?;
+    test("(((a+x^2*x^2)))", &[3.0, 2.21], 26.854432810000002, 5)?;
+
     let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x")?;
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
