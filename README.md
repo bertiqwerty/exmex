@@ -133,7 +133,7 @@ to compute the results. Reported is the best result over multiple invocations. M
 | ---------------------------------------------------- | -------- | ------- | -------- | -------- | ---------------------------------------------- |
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 5.88     | 4.51    | 19.36    | 21.11    | more than mathematical expressions             |
 | *[Exmex](https://docs.rs/exmex)* `f64`               | **0.27** | **0.5** | **0.57** | **0.53** | can compute partial derivatives                |
-| *[Exmex uncompiled](https://docs.rs/exmex)* `f64`    | **0.27** | **0.5** | **0.57** | **1.17** | can compute partial derivatives                |
+| *[Exmex uncompiled](https://docs.rs/exmex)* `f64`    | **0.27** | **0.5** | **0.57** | 1.17     | can compute partial derivatives                |
 | *[Exmex](https://docs.rs/exmex)* `Val`               | 0.77     | 1.13    | 1.87     | 1.73     | multiple data types in one expression possible |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 1.19     | 1.46    | 1.59     | 1.6      | only `f64`, supports a faster, unsafe mode     |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.65     | 0.66    | 0.82     | 1.01     | only `f64`, no custom operators                |
