@@ -42,10 +42,10 @@ const BENCH_Y: f64 = 3.0;
 const BENCH_Z: f64 = 4.0;
 
 const BENCH_PARSEVAL_STRS: [&str; N] = [
-    "2*3^2",
-    "sin(-(sin(2)))*2",
-    "-1*(1.3+(-0.7)*(2-1/10))",
-    "log(log2(2))*tan(2)+exp(1.5)",
+    "2.0*3.0^2",
+    "sin(-(sin(2.0)))*2.0",
+    "-1*(1.3+(-0.7)*(2.0-1.0/10.0))",
+    "log(log2(2.0))*tan(2.0)+exp(1.5)",
 ];
 
 const BENCH_PARSEVAL_REFS: [f64; N] = [18.0, -1.5781446871457767, 0.03, 4.4816890703380645];
@@ -79,6 +79,23 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
             })
         });
     }
+}
+
+
+#[cfg(feature = "value")]
+fn exmex_bench_flatex_val_parseval(c: &mut Criterion) {
+    fn func(s: &str) -> f64 {
+        let flatex = exmex::parse_val::<i32, f64>(s).unwrap();
+        flatex.eval(&[]).unwrap().to_float().unwrap()
+    }
+    run_benchmark_parseval(func, "exmex_val", c);
+}
+
+fn exmex_bench_flatex_parseval(c: &mut Criterion) {
+    fn func(s: &str) -> f64 {
+        exmex::eval_str(s).unwrap()
+    }
+    run_benchmark_parseval(func, "exmex", c);
 }
 
 fn run_benchmark_parseval(func: fn(&str) -> f64, eval_name: &str, c: &mut Criterion) {
@@ -196,13 +213,6 @@ fn exmex_parse_optimized<'a>(strings: &'a [&str]) -> Vec<FlatEx<'a, f64, OnlyNee
 
 fn exmex_bench_parse_optimized(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_optimized, "exmex_parse_optimized", c);
-}
-
-fn exmex_bench_flatex_parseval(c: &mut Criterion) {
-    fn func(s: &str) -> f64 {
-        exmex::eval_str(s).unwrap()
-    }
-    run_benchmark_parseval(func, "exmex flatex", c);
 }
 
 #[cfg(feature = "value")]
@@ -422,6 +432,7 @@ fn exmex_bench_serde(_c: &mut Criterion) {
 criterion_group!(
     benches,
     exmex_bench_flatex_parseval,
+    exmex_bench_flatex_val_parseval,
     exmex_bench_serde,
     fasteval_bench_eval,
     exmex_bench_eval,
