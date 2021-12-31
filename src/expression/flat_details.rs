@@ -120,7 +120,7 @@ pub fn prioritized_indices_flat<T: Clone + Debug>(
 ) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
-            (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) => {
+            (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) if ops[bin_op_idx].bin_op.is_commutative => {
                 let prio_inc = 5;
                 &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
             }

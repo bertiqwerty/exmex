@@ -329,7 +329,8 @@ where
                     already_declined[num_idx] = true;
                     already_declined[num_idx + 1] = true;
                 }
-            } else {
+            } 
+            else {
                 already_declined[num_idx] = true;
                 already_declined[num_idx + 1] = true;
             }
@@ -721,18 +722,35 @@ fn test_flat_clear() -> ExResult<()> {
 }
 
 #[test]
-fn test_flat_compile() {
-    let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1)").unwrap();
-    assert_float_eq_f64(flatex.eval(&[]).unwrap(), 1.9f64.sin());
-    assert_eq!(flatex.nodes.len(), 1);
+fn test_flat_compile() -> ExResult<()> {
+    fn test(text: &str, vars: &[f64], ref_val: f64, ref_len: usize) -> ExResult<()> {
+        println!("testing {}...", text);
+        let flatex = FlatEx::<f64>::from_str(text)?;
+        assert_float_eq_f64(flatex.eval(vars)?, ref_val);
+        assert_eq!(flatex.nodes.len(), ref_len);
+        let flatex = OwnedFlatEx::<f64>::from_flatex(flatex);
+        assert_float_eq_f64(flatex.eval(vars)?, ref_val);
+        assert_eq!(flatex.nodes.len(), ref_len);
+        let flatex = OwnedFlatEx::<f64>::from_str(text)?;
+        assert_float_eq_f64(flatex.eval(vars)?, ref_val);
+        assert_eq!(flatex.nodes.len(), ref_len);
+        println!("...ok.");
+        Ok(())
+    }
 
-    let flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))").unwrap();
-    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    assert_eq!(flatex.nodes.len(), 2);
-
-    let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x").unwrap();
-    assert_float_eq_f64(flatex.eval(&[1.0]).unwrap(), 1.0 + 1.9f64.sin());
-    assert_eq!(flatex.nodes.len(), 2);
+    test("1*sin(2-0.1)", &[], 1.9f64.sin(), 1)?;
+    test("x*(2*(2*(2*4*8)))", &[1.0], 32.0 * 8.0, 2)?;
+    test("1*sin(2-0.1) + x", &[1.0], 1.0 + 1.9f64.sin(), 2)?;
+    test("1.0 * 3 * 2 * x / 2 / 3", &[2.0], 2.0, 4)?;
+    test(
+        "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
+        &[2.21, 2.0, 3.0],
+        45.37365538326699,
+        13,
+    )?;
+    test("x / 2 / 3", &[1.0], 1.0/6.0, 3)?;
+    test("x * 2 / 3", &[1.0], 2.0/3.0, 2)?;
+    let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x")?;
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
         _ => unreachable!(),
@@ -742,7 +760,7 @@ fn test_flat_compile() {
         _ => unreachable!(),
     }
 
-    let flatex = OwnedFlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x").unwrap();
+    let flatex = OwnedFlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
@@ -756,6 +774,7 @@ fn test_flat_compile() {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 0),
         _ => unreachable!(),
     }
+    Ok(())
 }
 
 #[test]
