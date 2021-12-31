@@ -43,10 +43,9 @@ where
     idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])
 }
 
-fn unpack_unary<'a, T>(
-    idx: usize,
-    parsed_tokens: &[ParsedToken<'a, T>],
-) -> ExResult<Option<fn(T) -> T>>
+type ExResultOption<T> = ExResult<Option<T>>;
+
+fn unpack_unary<T>(idx: usize, parsed_tokens: &[ParsedToken<T>]) -> ExResultOption<fn(T) -> T>
 where
     T: DataType,
 {
@@ -293,7 +292,7 @@ where
         }
     }
 
-    /// Executes calculations that can trivially be executed, e.g., two numbers that need to be 
+    /// Executes calculations that can trivially be executed, e.g., two numbers that need to be
     /// multiplied anyway.
     pub fn compile(&mut self) {
         let mut num_inds = self.prio_indices.clone();
@@ -303,12 +302,8 @@ where
             smallvec::smallvec![false; self.nodes.len()];
 
         for node in &mut self.nodes {
-            match &node.kind {
-                FlatNodeKind::Num(num) => {
-                    *node =
-                        FlatNode::from_kind(FlatNodeKind::Num(node.unary_op.apply(num.clone())));
-                }
-                _ => (),
+            if let FlatNodeKind::Num(num) = &node.kind {
+                *node = FlatNode::from_kind(FlatNodeKind::Num(node.unary_op.apply(num.clone())));
             }
         }
         for (i, &bin_op_idx) in self.prio_indices.iter().enumerate() {
