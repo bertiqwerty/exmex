@@ -698,6 +698,14 @@ fn test_serde_public_interface() {
     let serialized = serde_json::to_string(&flatex).unwrap();
     let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
     assert_eq!(s, format!("{}", deserialized));
+    let flatex = OwnedFlatEx::<f64>::from_flatex(flatex);
+    let serialized = serde_json::to_string(&flatex).unwrap();
+    let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
+    assert_eq!(s, format!("{}", deserialized));
+    let flatex = OwnedFlatEx::<f64>::from_str(s).unwrap();
+    let serialized = serde_json::to_string(&flatex).unwrap();
+    let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
+    assert_eq!(s, format!("{}", deserialized));
 }
 #[test]
 fn test_constants() -> ExResult<()> {
