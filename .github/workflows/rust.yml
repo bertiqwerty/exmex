@@ -5,7 +5,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build_n_test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -16,6 +16,8 @@ jobs:
     - uses: actions/checkout@v2
     - name: Run tests
       run: cargo test --verbose --all-features
+    - name: Clippy
+      run: cargo clippy -- -D warnings
   fuzz:
     runs-on: ubuntu-latest
     steps:
@@ -28,16 +30,12 @@ jobs:
         override: true
         components: clippy
     - name: install fuzz
-      run: cargo install cargo-fuzz
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-fuzz 
     - name: fuzz
       uses: actions-rs/cargo@v1
       with:
         command: fuzz
         args: run eval_str -- -runs=10000
-    - name: clippy
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-      
-
-
