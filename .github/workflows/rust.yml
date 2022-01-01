@@ -24,14 +24,17 @@ jobs:
         toolchain: nightly
         override: true
         components: clippy
-    - uses: actions-rs/cargo@v1
+    - name: clippy
+      uses: actions-rs/cargo@v1
       with:
         command: clippy
-    - uses: actions-rs/cargo@v1
+    - name: install cargo-fuzz
+      uses: actions-rs/cargo@v1
       with:
         command: install
         args: cargo-fuzz 
-    - uses: actions-rs/cargo@v1
+    - name: fuzz
+      uses: actions-rs/cargo@v1
       with:
         command: fuzz
         args: run eval_str -- -runs=1000
