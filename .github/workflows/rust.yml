@@ -19,13 +19,25 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2    
+    - name: install nightly
+      uses: actions-rs/toolchain@v1
       with:
+        profile: minimal
         toolchain: nightly
         override: true
         components: clippy
+    - name: install fuzz
+      run: cargo install cargo-fuzz
+    - name: fuzz
+      uses: actions-rs/cargo@v1
+      with:
+        command: fuzz
+        args: run eval_str -- -runs=10000
     - name: clippy
       uses: actions-rs/cargo@v1
       with:
         command: clippy
+      
+
 
