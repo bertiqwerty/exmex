@@ -1,4 +1,4 @@
-name: Test
+name: CI
 on: [push, pull_request]
 
 env:
@@ -13,9 +13,6 @@ jobs:
       run: cargo build --verbose
     - name: Build with serde and value
       run: cargo build --verbose --all-features
-  test:
-    runs-on: ubuntu-latest
-    steps:
     - uses: actions/checkout@v2
     - name: Run tests
       run: cargo test --verbose --all-features
@@ -23,9 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
-    - name: Run fuzz
-      run: cargo install cargo-fuzz && cargo fuzz run eval_str -- -runs=1000
+        toolchain: nightly
+        override: true
+        components: clippy
+    - uses: actions-rs/cargo@v1
+      with:
+        command: clippy
+    - uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-fuzz 
+    - uses: actions-rs/cargo@v1
+      with:
+        command: fuzz
+        args: run eval_str -- -runs=1000
 
