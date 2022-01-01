@@ -13,19 +13,28 @@ jobs:
       run: cargo build --verbose
     - name: Build with serde and value
       run: cargo build --verbose --all-features
-    - uses: actions/checkout@v2
+    - name: Clippy
+      run: cargo clippy -- -D warnings
     - name: Run tests
       run: cargo test --verbose --all-features
   fuzz:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2    
+    - name: Nightly
+      uses: actions-rs/toolchain@v1
       with:
+        profile: minimal
         toolchain: nightly
         override: true
         components: clippy
-    - name: clippy
+    - name: Install fuzz
       uses: actions-rs/cargo@v1
       with:
-        command: clippy
-
+        command: install
+        args: cargo-fuzz 
+    - name: Fuzz
+      uses: actions-rs/cargo@v1
+      with:
+        command: fuzz
+        args: run eval_str -- -runs=10000

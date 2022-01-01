@@ -110,7 +110,7 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
                     DeepEx::zero()
                 }
             }
-            DeepNode::Expr(e) => partial_deepex(var_idx, e, ops)?,
+            DeepNode::Expr(e) => partial_deepex(var_idx, *e, ops)?,
         };
         let (res, _) = res.var_names_union(deepex);
         return Ok(res);
@@ -120,7 +120,7 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
 
     let make_deepex = |node: DeepNode<'a, T>| match node {
         DeepNode::Expr(e) => e,
-        _ => DeepEx::from_node(node),
+        _ => Box::new(DeepEx::from_node(node)),
     };
 
     let mut nodes = deepex
@@ -128,9 +128,9 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
         .iter()
         .map(|node| -> ExResult<_> {
             let deepex_val = make_deepex(node.clone());
-            let deepex_der = partial_deepex(var_idx, deepex_val.clone(), ops)?;
+            let deepex_der = partial_deepex(var_idx, (*deepex_val).clone(), ops)?;
             Ok(Some(ValueDerivative {
-                val: deepex_val,
+                val: *deepex_val,
                 der: deepex_der,
             }))
         })
@@ -770,7 +770,7 @@ fn test_partial_outer() {
         let deepex = deepex_1.nodes()[0].clone();
 
         if let DeepNode::Expr(e) = deepex {
-            let deri = partial_derivative_outer(e.clone(), &partial_derivative_ops, &ops).unwrap();
+            let deri = partial_derivative_outer(*e, &partial_derivative_ops, &ops).unwrap();
             for i in 0..vals.len() {
                 assert_float_eq_f64(deep::eval(&deri, &[vals[i]]).unwrap(), ref_vals[i]);
             }

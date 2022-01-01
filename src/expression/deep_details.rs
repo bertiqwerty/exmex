@@ -60,7 +60,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
                     op: uop,
                 },
             )?;
-            Ok((DeepNode::Expr(expr), i_forward + n_uops + 1))
+            Ok((DeepNode::Expr(Box::new(expr)), i_forward + n_uops + 1))
         }
         ParsedToken::Var(name) => {
             let expr = DeepEx::new(
@@ -71,7 +71,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
                     op: uop,
                 },
             )?;
-            Ok((DeepNode::Expr(expr), n_uops + 1))
+            Ok((DeepNode::Expr(Box::new(expr)), n_uops + 1))
         }
         ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(n.clone())), n_uops + 1)),
         _ => Err(ExError {
@@ -138,7 +138,7 @@ where
                         parsed_vars,
                         UnaryOpWithReprs::new(),
                     )?;
-                    nodes.push(DeepNode::Expr(expr));
+                    nodes.push(DeepNode::Expr(Box::new(expr)));
                     idx_tkn += i_forward;
                 }
                 Paren::Close => {
