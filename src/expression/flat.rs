@@ -36,11 +36,11 @@ fn pop_unary_stack(unary_stack: &mut UnaryOpIdxDepthStack, depth: i64) -> Option
     }
 }
 
-fn is_binary<'a, T>(op: &Operator<'a, T>, idx: usize, parsed_tokens: &[ParsedToken<'a, T>]) -> bool
+fn is_binary<'a, T>(op: &Operator<'a, T>, idx: usize, parsed_tokens: &[ParsedToken<'a, T>]) -> ExResult<bool>
 where
     T: DataType,
 {
-    idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])
+    Ok(idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])?)
 }
 
 type ExResultOption<T> = ExResult<Option<T>>;
@@ -51,7 +51,7 @@ where
 {
     match &parsed_tokens[idx] {
         ParsedToken::Op(op) => {
-            if !is_binary(op, idx, parsed_tokens) {
+            if !is_binary(op, idx, parsed_tokens)? {
                 Ok(Some(op.unary()?))
             } else {
                 Ok(None)
@@ -101,7 +101,7 @@ where
         if idx_node > 0 {
             let idx_op = idx_node - 1;
             if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
-                if !is_binary(op, idx_op, parsed_tokens) {
+                if !is_binary(op, idx_op, parsed_tokens)? {
                     return Ok(FlatNode {
                         kind,
                         unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op)?),
@@ -114,7 +114,7 @@ where
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(op) => {
-                if is_binary(op, idx_tkn, parsed_tokens) {
+                if is_binary(op, idx_tkn, parsed_tokens)? {
                     let mut bin_op = op.bin()?;
                     bin_op.prio += depth * DEPTH_PRIO_STEP;
                     flat_ops.push(FlatOp::<T> {
@@ -122,9 +122,11 @@ where
                         bin_op,
                     });
                 } else if let ParsedToken::Paren(p) = &parsed_tokens[idx_tkn + 1] {
-                    let err_msg = "a unary operator cannot on the left of a closing paren";
                     match p {
-                        Paren::Close => return Err(ExError::new(err_msg)),
+                        Paren::Close => {
+                            let err_msg = "a unary operator cannot on the left of a closing paren";
+                            return Err(ExError::new(err_msg));
+                        }
                         Paren::Open => unary_stack.push((idx_tkn, depth)),
                     };
                 }

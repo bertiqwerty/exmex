@@ -111,7 +111,7 @@ where
     while idx_tkn < parsed_tokens.len() {
         match &parsed_tokens[idx_tkn] {
             ParsedToken::Op(op) => {
-                if idx_tkn > 0 && parser::is_operator_binary(op, &parsed_tokens[idx_tkn - 1]) {
+                if idx_tkn > 0 && parser::is_operator_binary(op, &parsed_tokens[idx_tkn - 1])? {
                     bin_ops.push(op.bin()?);
                     reprs_bin_ops.push(op.repr());
                     idx_tkn += 1;

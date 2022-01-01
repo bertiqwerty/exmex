@@ -36,17 +36,22 @@ pub fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
 pub fn is_operator_binary<'a, T: DataType>(
     op: &Operator<'a, T>,
     parsed_token_on_the_left: &ParsedToken<'a, T>,
-) -> bool {
+) -> ExResult<bool> {
     if op.has_bin() && !op.has_unary() {
-        true
-    } else if op.has_bin() && op.has_unary() {
         match parsed_token_on_the_left {
+            ParsedToken::Op(op_) => {
+                Err(format_exerr!("a binary operator cannot be on the right another operator, {:?} next to {:?}", op, op_))
+            },
+            _ => Ok(true)
+        }
+    } else if op.has_bin() && op.has_unary() {
+        Ok(match parsed_token_on_the_left {
             ParsedToken::Num(_) | ParsedToken::Var(_) => true,
             ParsedToken::Paren(p) => *p == Paren::Close,
             ParsedToken::Op(_) => false,
-        }
+        })
     } else {
-        false
+        Ok(false)
     }
 }
 
@@ -425,6 +430,7 @@ fn test_preconditions() {
 
         let ops = FloatOpsFactory::<f32>::make();
         let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+        println!("{:?}", elts);
         match elts {
             Err(e) => check_err_msg::<Vec<ParsedToken<f32>>>(Err(e), msg_part),
             Ok(elts) => {
