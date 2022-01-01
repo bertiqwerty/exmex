@@ -28,14 +28,4 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-    - name: install cargo-fuzz
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: cargo-fuzz 
-    - name: fuzz
-      uses: actions-rs/cargo@v1
-      with:
-        command: fuzz
-        args: run eval_str -- -runs=1000
 
