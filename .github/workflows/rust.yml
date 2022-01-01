@@ -1,24 +1,31 @@
 name: Test
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  testing:
-
+  build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Build without features
       run: cargo build --verbose
     - name: Build with serde and value
       run: cargo build --verbose --all-features
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
     - name: Run tests
       run: cargo test --verbose --all-features
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+    - name: Run fuzz
+      run: cargo install cargo-fuzz && cargo fuzz run eval_str -- -runs=1000
+
