@@ -14,7 +14,7 @@ jobs:
     - name: Build with serde and value
       run: cargo build --verbose --all-features
     - name: Clippy
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --all-features -- -D warnings
     - name: Run tests
       run: cargo test --verbose --all-features
   fuzz:
@@ -33,8 +33,18 @@ jobs:
       with:
         command: install
         args: cargo-fuzz 
-    - name: Fuzz
+    - name: Fuzz eval_str
       uses: actions-rs/cargo@v1
       with:
         command: fuzz
-        args: run eval_str -- -runs=10000
+        args: run eval_str -- -runs=20000
+    - name: Fuzz from_str
+      uses: actions-rs/cargo@v1
+      with:
+        command: fuzz
+        args: run --all-features from_str -- -runs=20000
+    - name: Fuzz parse_val
+      uses: actions-rs/cargo@v1
+      with:
+        command: fuzz
+        args: run --all-features parse_val -- -runs=20000
