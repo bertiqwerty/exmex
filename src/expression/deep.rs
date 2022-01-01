@@ -44,7 +44,8 @@ where
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum DeepNode<'a, T: Clone + Debug> {
-    Expr(DeepEx<'a, T>),
+    /// Boxing this due to <https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant>
+    Expr(Box<DeepEx<'a, T>>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval`](Expression::eval).
@@ -131,7 +132,7 @@ pub struct DeepEx<'a, T: Clone + Debug> {
 fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
     if deepex.nodes.len() == 1 && deepex.unary_op.op.len() == 0 {
         if let DeepNode::Expr(e) = &deepex.nodes[0] {
-            *deepex = e.clone();
+            *deepex = (**e).clone();
         }
     } else {
         for node in &mut deepex.nodes {
@@ -381,8 +382,8 @@ impl<'a, T: Clone + Debug> DeepEx<'a, T> {
         let (self_vars_updated, other_vars_updated) = self.var_names_union(other);
         let mut resex = DeepEx::new(
             vec![
-                DeepNode::Expr(self_vars_updated),
-                DeepNode::Expr(other_vars_updated),
+                DeepNode::Expr(Box::new(self_vars_updated)),
+                DeepNode::Expr(Box::new(other_vars_updated)),
             ],
             bin_op,
             UnaryOpWithReprs::new(),
@@ -462,7 +463,8 @@ impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DeepBufNode<T: Clone + Debug> {
-    Expr(DeepBuf<T>),
+    /// Boxing this due to <https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant>
+    Expr(Box<DeepBuf<T>>),
     Num(T),
     /// The contained integer points to the index of the variable in the slice of
     /// variables passed to [`eval`](Expression::eval).
@@ -487,7 +489,7 @@ impl<'a, T: Clone + Debug> DeepBuf<T> {
                 .nodes()
                 .iter()
                 .map(|node| match node {
-                    DeepNode::Expr(e) => DeepBufNode::Expr(Self::from_deepex(e)),
+                    DeepNode::Expr(e) => DeepBufNode::Expr(Box::new(Self::from_deepex(e))),
                     DeepNode::Num(n) => DeepBufNode::Num(n.clone()),
                     DeepNode::Var(v) => DeepBufNode::Var((v.0, v.1.to_string())),
                 })
@@ -504,7 +506,7 @@ impl<'a, T: Clone + Debug> DeepBuf<T> {
                 .iter()
                 .map(|node| -> ExResult<_> {
                     match node {
-                        DeepBufNode::Expr(e) => Ok(DeepNode::Expr(e.to_deepex(ops)?)),
+                        DeepBufNode::Expr(e) => Ok(DeepNode::Expr(Box::new(e.to_deepex(ops)?))),
                         DeepBufNode::Num(n) => Ok(DeepNode::Num(n.clone())),
                         DeepBufNode::Var(v) => Ok(DeepNode::Var((v.0, v.1.as_str()))),
                     }
@@ -519,13 +521,11 @@ impl<'a, T: Clone + Debug> DeepBuf<T> {
 }
 
 #[cfg(test)]
-use {
-    crate::{
-        expression::deep_details::prioritized_indices,
-        expression::partial_derivatives::partial_deepex,
-        operators::{FloatOpsFactory, MakeOperators, VecOfUnaryFuncs},
-        util::assert_float_eq_f64,
-    }
+use crate::{
+    expression::deep_details::prioritized_indices,
+    expression::partial_derivatives::partial_deepex,
+    operators::{FloatOpsFactory, MakeOperators, VecOfUnaryFuncs},
+    util::assert_float_eq_f64,
 };
 
 #[cfg(test)]
@@ -647,7 +647,7 @@ fn test_deep_compile() {
     let nodes = vec![
         DeepNode::Num(4.5),
         DeepNode::Num(0.5),
-        DeepNode::Expr(deep_ex),
+        DeepNode::Expr(Box::new(deep_ex)),
     ];
     let deepex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
     assert_eq!(deepex.nodes.len(), 1);
