@@ -630,7 +630,7 @@ where
                         }
                     },
                     prio: 0,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
@@ -641,7 +641,7 @@ where
                         _ => res_of_if,
                     },
                     prio: 0,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_unary("signum", signum),
