@@ -223,7 +223,7 @@
 //! You can use any type that implements [`Clone`](Clone),
 //! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type's literals 
 //! in the string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to create a suitable factory
-//! type that implements [`MakeLiteralMatcher`](MakeLiteralMatcher). From a regex pattern, you can utilize the macro 
+//! type that implements [`MakeLiteralMatcher`](MakeLiteralMatcher). Given a suitable regex pattern, you can utilize the macro 
 //! [`literal_matcher_factory`](literal_matcher_factory).
 //! Here is an example for `bool`.
 //! ```rust
@@ -231,7 +231,10 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, MakeLiteralMatcher, MakeOperators, Operator, literal_matcher_factory, ops_factory};
+//! use exmex::{
+//!     BinOp, MakeLiteralMatcher, MakeOperators, Operator, 
+//!     literal_matcher_factory, ops_factory
+//! };
 //! ops_factory!(
 //!     BooleanOpsFactory,
 //!     bool,
@@ -255,7 +258,8 @@
 //! );
 //! literal_matcher_factory!(BooleanMatcherFactory, "^(true|false)");
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<_, BooleanOpsFactory, BooleanMatcherFactory>::from_str(to_be_parsed)?;
+//! type FlatExBool<'a> = FlatEx::<'a, bool, BooleanOpsFactory, BooleanMatcherFactory>;
+//! let expr = FlatExBool::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
