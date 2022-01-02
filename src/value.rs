@@ -5,8 +5,8 @@ use num::{Float, PrimInt, Signed};
 use regex::Regex;
 
 use crate::{
-    data_type::DataType, format_exerr, BinOp, ExError, ExResult, Express, FlatEx, MakeOperators,
-    Operator, OwnedFlatEx,
+    data_type::DataType, expression::MakeLiteralMatcher, format_exerr, BinOp, ExError, ExResult,
+    Express, FlatEx, MakeOperators, Operator, OwnedFlatEx,
 };
 
 lazy_static! {
@@ -16,10 +16,11 @@ lazy_static! {
 
 /// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
 /// as operator factory.
-pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>>;
+pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>;
 /// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
 /// as operator factory.
-pub type OwnedFlatExVal<I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
+pub type OwnedFlatExVal<I, F> =
+    OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>;
 
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {
@@ -678,6 +679,17 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ValLiteralMatcherFactory;
+impl MakeLiteralMatcher for ValLiteralMatcherFactory {
+    fn make() -> fn(&str) -> Option<&str> {
+        fn matcher(text: &str) -> Option<&str> {
+            crate::expression::matches_regex(&RE_VAR_NAME_EXACT, text)
+        }
+        matcher
+    }
+}
+
 /// *`feature = "value"`* - Parses a string into an expression of type
 /// [`FlatExVal`](FlatExVal) with datatype [`Val`](Val).
 /// ```rust
@@ -692,39 +704,42 @@ where
 /// #     Ok(())
 /// # }
 /// ```
-pub fn parse_val<I, F>(text: &str) -> ExResult<FlatEx<Val<I, F>, ValOpsFactory<I, F>>>
+pub fn parse_val<I, F>(
+    text: &str,
+) -> ExResult<FlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    FlatEx::<Val<I, F>, ValOpsFactory<I, F>>::from_regex(text, &RE_VAR_NAME_EXACT)
+    FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>::from_str(text)
 }
 
 /// *`feature = "value"`* - Parses a string into an expression of type [`OwnedFlatExVal`](OwnedFlatExVal) with
 /// datatype [`Val`](Val).
-pub fn parse_val_owned<I, F>(text: &str) -> ExResult<OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>>
+pub fn parse_val_owned<I, F>(
+    text: &str,
+) -> ExResult<OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    Ok(OwnedFlatEx::from_flatex(parse_val(text)?))
+    Ok(OwnedFlatEx::<_, _, ValLiteralMatcherFactory>::from_flatex(
+        parse_val(text)?,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
 
     use crate::{
-        format_exerr,
-        util::assert_float_eq_f64,
-        value::{Val, RE_VAR_NAME_EXACT},
-        ExError, ExResult, Express, FlatEx,
+        format_exerr, parse_val, util::assert_float_eq_f64, value::Val, ExError, ExResult, Express,
+        FlatExVal, OwnedFlatExVal,
     };
 
-    use super::ValOpsFactory;
     #[test]
     fn test_to() -> ExResult<()> {
         assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
@@ -741,9 +756,7 @@ mod tests {
     fn test_no_vars() -> ExResult<()> {
         fn test_int(s: &str, reference: i32) -> ExResult<()> {
             println!("=== testing\n{}", s);
-            let res = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?
-                .eval(&[])?
-                .to_int();
+            let res = parse_val::<i32, f64>(s)?.eval(&[])?.to_int();
             match res {
                 Ok(i) => {
                     assert_eq!(reference, i);
@@ -757,18 +770,43 @@ mod tests {
         }
         fn test_float(s: &str, reference: f64) -> ExResult<()> {
             println!("=== testing\n{}", s);
-            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
+            let expr = FlatExVal::<i32, f64>::from_str(s)?;
+            assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
+            let expr = OwnedFlatExVal::<i32, f64>::from_flatex(expr);
+            assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
+            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
         fn test_bool(s: &str, reference: bool) -> ExResult<()> {
             println!("=== testing\n{}", s);
-            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
+            let expr = FlatExVal::<i32, f64>::from_str(s)?;
+            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
+            let expr = OwnedFlatExVal::<i32, f64>::from_flatex(expr);
+            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
+            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
             assert_eq!(reference, expr.eval(&[])?.to_bool()?);
             Ok(())
         }
         fn test_error(s: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT);
+            let expr = FlatExVal::<i32, f64>::from_str(s);
+            match expr {
+                Ok(exp) => {
+                    let v = exp.eval(&[])?;
+                    match v {
+                        Val::Error(e) => {
+                            println!("found expected error {:?}", e);
+                            Ok(())
+                        }
+                        _ => Err(format_exerr!("'{}' should fail but didn't", s)),
+                    }
+                }
+                Err(e) => {
+                    println!("found expected error {:?}", e);
+                    Ok(())
+                }
+            }?;
+            let expr = OwnedFlatExVal::<i32, f64>::from_str(s);
             match expr {
                 Ok(exp) => {
                     let v = exp.eval(&[])?;
@@ -787,12 +825,19 @@ mod tests {
             }
         }
         fn test_none(s: &str) -> ExResult<()> {
-            let expr = FlatEx::<Val, ValOpsFactory>::from_regex(s, &RE_VAR_NAME_EXACT)?;
+            let expr = FlatExVal::<i32, f64>::from_str(s)?;
+            match expr.eval(&[])? {
+                Val::None => Ok(()),
+                _ => Err(format_exerr!("'{}' should return none but didn't", s)),
+            }?;
+            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
             match expr.eval(&[])? {
                 Val::None => Ok(()),
                 _ => Err(format_exerr!("'{}' should return none but didn't", s)),
             }
         }
+        test_int("1+2 if 1 > 0 else 2+4", 3)?;
+        test_int("1+2 if 1 < 0 else 2+4", 6)?;
         test_error("929<<92")?;
         test_error("929<<32")?;
         test_error("929>>32")?;

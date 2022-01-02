@@ -221,17 +221,17 @@
 //! ### Custom Data Types of Numbers
 //!
 //! You can use any type that implements [`Clone`](Clone),
-//! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type in the
-//! string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to pass a
-//! suitable regex and use the function
-//! [`from_pattern`](Express::from_pattern) instead of [`parse`](crate::parse) or
-//! [`from_str`](Express::from_str). Here is an example for `bool`.
+//! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type's literals 
+//! in the string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to create a suitable factory
+//! type that implements [`MakeLiteralMatcher`](MakeLiteralMatcher). From a regex pattern, you can utilize the macro 
+//! [`literal_matcher_factory`](literal_matcher_factory).
+//! Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! use exmex::{BinOp, MakeOperators, Operator, ops_factory};
+//! use exmex::{BinOp, MakeLiteralMatcher, MakeOperators, Operator, literal_matcher_factory, ops_factory};
 //! ops_factory!(
 //!     BooleanOpsFactory,
 //!     bool,
@@ -253,14 +253,14 @@
 //!     ),
 //!     Operator::make_unary("!", |a| !a)
 //! );
+//! literal_matcher_factory!(BooleanMatcherFactory, "^(true|false)");
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! let expr = FlatEx::<_, BooleanOpsFactory>::from_pattern(to_be_parsed, "^(true|false)")?;
+//! let expr = FlatEx::<_, BooleanOpsFactory, BooleanMatcherFactory>::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
 //! # }
 //! ```
-//! You can also pre-compile the regex and use [`Express::from_regex`](Express::from_regex).
 //! Two examples of exmex with non-trivial data types are:
 //! * Numbers can be operators and operators can operate on operators, see, e.g.,
 //! also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
@@ -318,9 +318,9 @@
 //!
 //! ### A more General Value Type
 //!
-//! To use different data types within an expression, one can activate the feature `value` and 
-//! use the more general type `Val`. The additional flexibility comes with higher parsing 
-//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120). 
+//! To use different data types within an expression, one can activate the feature `value` and
+//! use the more general type `Val`. The additional flexibility comes with higher parsing
+//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120).
 //! Note that serialization is not yet supported for `Val`, see <https://github.com/bertiqwerty/exmex/issues/23>.
 //!
 
@@ -340,7 +340,7 @@ mod util;
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
-        Express,
+        matches_regex, Express, MakeLiteralMatcher, NumberMatcherFactory,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
@@ -349,7 +349,10 @@ pub use {
 #[cfg(feature = "value")]
 mod value;
 #[cfg(feature = "value")]
-pub use value::{parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValOpsFactory};
+pub use value::{
+    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValLiteralMatcherFactory,
+    ValOpsFactory,
+};
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.

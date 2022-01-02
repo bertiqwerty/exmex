@@ -1,9 +1,8 @@
 use std::{fmt::Debug, str::FromStr};
 
+use crate::{data_type::DataType, parser, ExResult};
 use num::Float;
 use regex::Regex;
-
-use crate::{data_type::DataType, ExResult};
 
 pub mod deep;
 mod deep_details;
@@ -30,46 +29,6 @@ pub trait Express<'a, T> {
     where
         <T as std::str::FromStr>::Err: Debug,
         T: FromStr,
-        Self: Sized;
-
-    /// Use custom number literals defined as regex to create an expression that can be evaluated.
-    ///
-    /// # Arguments
-    ///
-    /// * `text` - string to be parsed into an expression
-    /// * `number_regex` - compiled regex whose matches are number literals
-    ///
-    /// # Errors
-    ///
-    /// An [`ExError`](super::result::ExError) is returned, if
-    ///
-    /// * the text cannot be parsed.
-    ///
-    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-        Self: Sized;
-
-    /// Use custom number literals defined as regex patterns to create an expression that can be evaluated.
-    ///
-    /// # Arguments
-    ///
-    /// * `text` - string to be parsed into an expression
-    /// * `number_regex_pattern` - regex pattern whose matches are number literals at the beginning of a string. For instance, the regex to match
-    ///    boolean literals is `^(true|false)` instead of `true|false`.
-    ///
-    /// # Errors
-    ///
-    /// An [`ExError`](super::result::ExError) is returned, if
-    ///
-    /// * the argument `number_regex_pattern` cannot be compiled or
-    /// * the text cannot be parsed.
-    ///
-    fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
         Self: Sized;
 
     /// Evaluates an expression with the given variable values and returns the computed
@@ -148,10 +107,49 @@ pub trait Express<'a, T> {
     ///
     fn unparse(&self) -> ExResult<String>;
 
-    /// This function frees some memory. After calling [`partial`](Express::partial) memory might 
+    /// This function frees some memory. After calling [`partial`](Express::partial) memory might
     /// be re-allocated.
     fn reduce_memory(&mut self);
 
     /// Returns the number of variables of the expression
     fn n_vars(&self) -> usize;
+}
+
+pub trait MakeLiteralMatcher {
+    fn make() -> fn(&str) -> Option<&str>;
+}
+
+#[derive(Clone, Debug)]
+pub struct NumberMatcherFactory;
+impl MakeLiteralMatcher for NumberMatcherFactory {
+    fn make() -> fn(&str) -> Option<&str> {
+        return parser::is_numeric_text;
+    }
+}
+
+/// Utility function that converts a regex match into the form expected by the trait
+/// [`MakeLiteralMatcher`](MakeLiteralMatcher).
+pub fn matches_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
+    let maybe_num = re.find(text);
+    match maybe_num {
+        Some(m) => Some(m.as_str()),
+        None => None,
+    }
+}
+#[macro_export]
+macro_rules! literal_matcher_factory {
+    ($factory_name:ident, $str:expr) => {
+        pub struct $factory_name;
+        impl MakeLiteralMatcher for $factory_name {
+            fn make() -> fn(&str) -> Option<&str> {
+                fn matcher(text: &str) -> Option<&str> {
+                    lazy_static::lazy_static! {
+                        static ref RE_VAR_NAME_EXACT: regex::Regex = regex::Regex::new($str).unwrap();
+                    }
+                    exmex::matches_regex(&RE_VAR_NAME_EXACT, text)
+                }
+                matcher
+            }
+        }
+    }
 }

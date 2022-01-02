@@ -12,7 +12,6 @@ use crate::operators::UnaryOp;
 use crate::parser::{Paren, ParsedToken};
 use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
 use num::Float;
-use regex::Regex;
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -61,14 +60,15 @@ where
     }
 }
 
-pub fn make_expression<'a, T, OF>(
+pub fn make_expression<'a, T, OF, LMF>(
     text: &'a str,
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
-) -> ExResult<FlatEx<'a, T, OF>>
+) -> ExResult<FlatEx<'a, T, OF, LMF>>
 where
     T: Clone + FromStr + Debug,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
     let mut flat_nodes = FlatNodeVec::<T>::new();
     let mut flat_ops = FlatOpVec::<T>::new();
@@ -196,38 +196,37 @@ where
         n_unique_vars: parsed_vars.len(),
         deepex: None,
         text: Some(text),
-        dummy: PhantomData,
+        dummy_ops_factory: PhantomData,
+        dummy_literal_matcher_factory: PhantomData,
     })
 }
 
-fn parse<'a, T, OF, F>(
+fn parse<'a, T, OF, LMF>(
     text: &'a str,
-    ops: &[Operator<'a, T>],
-    is_numeric: F,
-) -> ExResult<FlatEx<'a, T, OF>>
+    ops: &[Operator<'a, T>]
+) -> ExResult<FlatEx<'a, T, OF, LMF>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
-    F: Fn(&'a str) -> Option<&'a str>,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher,
 {
-    let mut expr = parse_wo_compile(text, ops, is_numeric)?;
+    let mut expr = parse_wo_compile(text, ops)?;
     expr.compile();
     Ok(expr)
 }
 
-fn parse_wo_compile<'a, T, OF, F>(
+fn parse_wo_compile<'a, T, OF, LMF>(
     text: &'a str,
     ops: &[Operator<'a, T>],
-    is_numeric: F,
-) -> ExResult<FlatEx<'a, T, OF>>
+) -> ExResult<FlatEx<'a, T, OF, LMF>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
-    F: Fn(&'a str) -> Option<&'a str>,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
-    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
+    let parsed_tokens = parser::tokenize_and_analyze(text, ops, LMF::make())?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
     make_expression(text, &parsed_tokens[0..], &parsed_vars)
@@ -240,7 +239,7 @@ where
 /// to the nodes in an order following operator priorities.
 ///
 /// Creation of expressions is possible with the function [`parse`](crate::parse) which is equivalent to
-/// [`FlatEx::from_str`](FlatEx::from_str) or with [`FlatEx::from_pattern`](FlatEx::from_pattern).
+/// [`FlatEx::from_str`](FlatEx::from_str).
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -260,10 +259,11 @@ where
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T, OF = FloatOpsFactory<T>>
+pub struct FlatEx<'a, T, OF = FloatOpsFactory<T>, LMF = NumberMatcherFactory>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher,
 {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
@@ -271,13 +271,15 @@ where
     n_unique_vars: usize,
     deepex: Option<DeepEx<'a, T>>,
     text: Option<&'a str>,
-    dummy: PhantomData<OF>,
+    dummy_ops_factory: PhantomData<OF>,
+    dummy_literal_matcher_factory: PhantomData<LMF>
 }
 
-impl<'a, T, OF> FlatEx<'a, T, OF>
+impl<'a, T, OF, LMF> FlatEx<'a, T, OF, LMF>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher,
 {
     fn flatten(deepex: DeepEx<'a, T>) -> Self {
         let (nodes, ops) = flat_details::flatten_vecs(&deepex, 0);
@@ -290,7 +292,8 @@ where
             n_unique_vars,
             deepex: Some(deepex),
             text: None,
-            dummy: PhantomData,
+            dummy_ops_factory: PhantomData,
+            dummy_literal_matcher_factory: PhantomData,
         }
     }
 
@@ -358,14 +361,15 @@ where
         <T as FromStr>::Err: Debug,
     {
         let ops = OF::make();
-        parse_wo_compile(text, &ops, parser::is_numeric_text)
+        parse_wo_compile(text, &ops)
     }
 }
 
-impl<'a, T, OF> Express<'a, T> for FlatEx<'a, T, OF>
+impl<'a, T, OF, LMF> Express<'a, T> for FlatEx<'a, T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher,
 {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
@@ -373,33 +377,7 @@ where
         T: DataType,
     {
         let ops = OF::make();
-        parse(text, &ops, parser::is_numeric_text)
-    }
-
-    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        let ops = OF::make();
-        let is_numeric = |text: &'a str| parser::is_numeric_regex(number_regex, text);
-        parse(text, &ops, is_numeric)
-    }
-
-    fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        let re_number = match Regex::new(number_regex_pattern) {
-            Ok(regex) => regex,
-            Err(_) => {
-                return Err(ExError {
-                    msg: "Cannot compile the passed number regex.".to_string(),
-                })
-            }
-        };
-        Self::from_regex(text, &re_number)
+        parse(text, &ops)
     }
 
     fn eval(&self, vars: &[T]) -> ExResult<T> {
@@ -459,10 +437,11 @@ where
 }
 
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
-impl<'a, T, OF> Display for FlatEx<'a, T, OF>
+impl<'a, T, OF, LMF> Display for FlatEx<'a, T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
@@ -493,10 +472,11 @@ where
 /// # }
 /// ```
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OwnedFlatEx<T, OF = FloatOpsFactory<T>>
+pub struct OwnedFlatEx<T, OF = FloatOpsFactory<T>, LMF = NumberMatcherFactory>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher,
 {
     deepex_buf: Option<DeepBuf<T>>,
     nodes: FlatNodeVec<T>,
@@ -504,15 +484,18 @@ where
     prio_indices: ExprIdxVec,
     n_unique_vars: usize,
     text: Option<String>,
-    dummy: PhantomData<OF>,
+    dummy_ops_factory: PhantomData<OF>,
+    dummy_literal_matcher_factory: PhantomData<LMF>
+
 }
-impl<T, OF> OwnedFlatEx<T, OF>
+impl<T, OF, LMF> OwnedFlatEx<T, OF, LMF>
 where
     T: Clone + Debug,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
     /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
-    pub fn from_flatex(flatex: FlatEx<T, OF>) -> Self {
+    pub fn from_flatex(flatex: FlatEx<T, OF, LMF>) -> Self {
         Self {
             deepex_buf: flatex.deepex.map(|d| DeepBuf::from_deepex(&d)),
             nodes: flatex.nodes,
@@ -520,14 +503,17 @@ where
             prio_indices: flatex.prio_indices,
             n_unique_vars: flatex.n_unique_vars,
             text: flatex.text.map(|s| s.to_string()),
-            dummy: PhantomData,
+            dummy_ops_factory: PhantomData,
+            dummy_literal_matcher_factory: PhantomData
+
         }
     }
 }
-impl<'a, T, OF> Express<'a, T> for OwnedFlatEx<T, OF>
+impl<'a, T, OF, LMF> Express<'a, T> for OwnedFlatEx<T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
     fn from_str(text: &'a str) -> ExResult<Self>
     where
@@ -535,25 +521,6 @@ where
         T: Clone + FromStr,
     {
         Ok(Self::from_flatex(FlatEx::from_str(text)?))
-    }
-
-    fn from_regex(text: &'a str, number_regex: &Regex) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        Ok(Self::from_flatex(FlatEx::from_regex(text, number_regex)?))
-    }
-
-    fn from_pattern(text: &'a str, number_regex_pattern: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        Ok(Self::from_flatex(FlatEx::from_pattern(
-            text,
-            number_regex_pattern,
-        )?))
     }
 
     fn eval(&self, vars: &[T]) -> ExResult<T> {
@@ -594,7 +561,7 @@ where
             .expect("This is bug. deepex buffer cannot be None here.");
         let deepex = deep_buf.to_deepex(&ops)?;
         let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
-        Ok(Self::from_flatex(FlatEx::<T, OF>::flatten(d_i)))
+        Ok(Self::from_flatex(FlatEx::flatten(d_i)))
     }
     fn unparse(&self) -> ExResult<String> {
         match &self.text {
@@ -617,10 +584,11 @@ where
     }
 }
 /// The expression is displayed as a string created by [`unparse`](OwnedFlatEx::unparse).
-impl<T, OF> Display for OwnedFlatEx<T, OF>
+impl<T, OF, LMF> Display for OwnedFlatEx<T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
+    LMF: MakeLiteralMatcher
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
@@ -633,6 +601,8 @@ where
 
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
+
+use super::{NumberMatcherFactory, MakeLiteralMatcher};
 
 #[test]
 fn test_flat_clear() -> ExResult<()> {

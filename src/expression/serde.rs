@@ -3,8 +3,8 @@ use std::{fmt, fmt::Debug, marker::PhantomData};
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::data_type::DataType;
-use crate::OwnedFlatEx;
-use crate::{prelude::*, MakeOperators};
+
+use crate::{prelude::*, MakeLiteralMatcher, MakeOperators, OwnedFlatEx};
 
 fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     serializer: S,
@@ -17,7 +17,9 @@ fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     )
 }
 
-impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Serialize for FlatEx<'a, T, OF> {
+impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Serialize
+    for FlatEx<'a, T, OF, LMF>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -26,8 +28,8 @@ impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Serialize for FlatEx<'a, T,
     }
 }
 
-impl<'de,  T: DataType + 'de, OF: MakeOperators<T>> Deserialize<'de>
-    for FlatEx<'de, T, OF>
+impl<'de, T: DataType + 'de, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Deserialize<'de>
+    for FlatEx<'de, T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -38,21 +40,24 @@ where
         deserializer.deserialize_str(FlatExVisitor {
             lifetime_dummy: PhantomData,
             of_dummy: PhantomData,
+            literal_matcher_dummy: PhantomData,
         })
     }
 }
 
 #[derive(Debug)]
-struct FlatExVisitor<'a, T, OF> {
+struct FlatExVisitor<'a, T, OF, LMF> {
     lifetime_dummy: PhantomData<&'a T>,
     of_dummy: PhantomData<OF>,
+    literal_matcher_dummy: PhantomData<LMF>,
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>> Visitor<'de> for FlatExVisitor<'de, T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Visitor<'de>
+    for FlatExVisitor<'de, T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = FlatEx<'de, T, OF>;
+    type Value = FlatEx<'de, T, OF, LMF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a borrowed &str that can be parsed by `exmex` crate")
@@ -67,7 +72,9 @@ where
     }
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, OF> {
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Serialize
+    for OwnedFlatEx<T, OF, LMF>
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -76,7 +83,8 @@ impl<'de, T: DataType, OF: MakeOperators<T>> Serialize for OwnedFlatEx<T, OF> {
     }
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>> Deserialize<'de> for OwnedFlatEx<T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Deserialize<'de>
+    for OwnedFlatEx<T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -87,21 +95,24 @@ where
         deserializer.deserialize_str(OwnedFlatExVisitor {
             generic_dummy: PhantomData,
             another_dummy: PhantomData,
+            next_dummy: PhantomData,
         })
     }
 }
 
 #[derive(Debug)]
-struct OwnedFlatExVisitor<T, OF> {
+struct OwnedFlatExVisitor<T, OF, LMF> {
     generic_dummy: PhantomData<T>,
     another_dummy: PhantomData<OF>,
+    next_dummy: PhantomData<LMF>,
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>> Visitor<'de> for OwnedFlatExVisitor<T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Visitor<'de>
+    for OwnedFlatExVisitor<T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = OwnedFlatEx<T, OF>;
+    type Value = OwnedFlatEx<T, OF, LMF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a &str that can be parsed by the crate Exmex")
