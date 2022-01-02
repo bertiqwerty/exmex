@@ -40,8 +40,7 @@ macro_rules! to_type {
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
 /// To use the value type, there are the separate parse functions [`parse_val`](`parse_val`) and
-/// [`parse_val_owned`](`parse_val_owned`) that wrap [`Express::from_regex`](Express::from_regex)
-/// and use the corresponding operator factory [`ValOpsFactory`](ValOpsFactory). In the following example,
+/// [`parse_val_owned`](`parse_val_owned`). In the following example,
 /// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
 /// or `condition ? a : b` in C.
 /// ```rust
@@ -678,7 +677,7 @@ where
         ]
     }
 }
-
+/// Factory to match numeric literals of [`Val`](Val), i.e., floats, ints, or booleans.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValLiteralMatcherFactory;
 impl MakeLiteralMatcher for ValLiteralMatcherFactory {

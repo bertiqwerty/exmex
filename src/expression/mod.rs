@@ -115,10 +115,14 @@ pub trait Express<'a, T> {
     fn n_vars(&self) -> usize;
 }
 
+/// Implement this trait to create a matcher for custom literals of operands.
 pub trait MakeLiteralMatcher {
+    /// Returns a function that returns `Some(matching_str)` in case a string was 
+    /// match and None otherwise. 
     fn make() -> fn(&str) -> Option<&str>;
 }
 
+/// Default factory to match numeric literals.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct NumberMatcherFactory;
 impl MakeLiteralMatcher for NumberMatcherFactory {
@@ -127,7 +131,7 @@ impl MakeLiteralMatcher for NumberMatcherFactory {
     }
 }
 
-/// Utility function that converts a regex match into the form expected by the trait
+/// Utility function that converts a regex match into matcher of the form expected by the trait
 /// [`MakeLiteralMatcher`](MakeLiteralMatcher).
 pub fn matches_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
     let maybe_num = re.find(text);
