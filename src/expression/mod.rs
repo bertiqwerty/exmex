@@ -117,8 +117,8 @@ pub trait Express<'a, T> {
 
 /// Implement this trait to create a matcher for custom literals of operands.
 pub trait MakeLiteralMatcher {
-    /// Returns a function that returns `Some(matching_str)` in case a string was 
-    /// match and None otherwise. 
+    /// Returns a function that returns `Some(matching_str)` in case of a match of 
+    /// a literal at the beginning of the string and `None` otherwise. 
     fn make() -> fn(&str) -> Option<&str>;
 }
 
