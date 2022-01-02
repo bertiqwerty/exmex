@@ -19,7 +19,7 @@ lazy_static! {
 pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>>;
 /// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
 /// as operator factory.
-pub type OwnedFlatExVal<'a, I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
+pub type OwnedFlatExVal<I, F> = OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>>;
 
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {

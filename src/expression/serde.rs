@@ -26,8 +26,8 @@ impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Serialize for FlatEx<'a, T,
     }
 }
 
-impl<'de: 'a, 'a, T: DataType + 'a, OF: MakeOperators<T>> Deserialize<'de>
-    for FlatEx<'a, T, OF>
+impl<'de,  T: DataType + 'de, OF: MakeOperators<T>> Deserialize<'de>
+    for FlatEx<'de, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -48,11 +48,11 @@ struct FlatExVisitor<'a, T, OF> {
     of_dummy: PhantomData<OF>,
 }
 
-impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>> Visitor<'de> for FlatExVisitor<'a, T, OF>
+impl<'de, T: DataType, OF: MakeOperators<T>> Visitor<'de> for FlatExVisitor<'de, T, OF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = FlatEx<'a, T, OF>;
+    type Value = FlatEx<'de, T, OF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a borrowed &str that can be parsed by `exmex` crate")
@@ -104,7 +104,7 @@ where
     type Value = OwnedFlatEx<T, OF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "a &str that can be parsed by `exmex` crate")
+        write!(f, "a &str that can be parsed by the crate Exmex")
     }
 
     fn visit_str<E>(self, unparsed: &str) -> Result<Self::Value, E>
