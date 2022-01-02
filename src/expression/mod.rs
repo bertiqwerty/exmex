@@ -119,7 +119,7 @@ pub trait MakeLiteralMatcher {
     fn make() -> fn(&str) -> Option<&str>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct NumberMatcherFactory;
 impl MakeLiteralMatcher for NumberMatcherFactory {
     fn make() -> fn(&str) -> Option<&str> {
@@ -139,6 +139,7 @@ pub fn matches_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
 #[macro_export]
 macro_rules! literal_matcher_factory {
     ($factory_name:ident, $str:expr) => {
+        #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
         pub struct $factory_name;
         impl MakeLiteralMatcher for $factory_name {
             fn make() -> fn(&str) -> Option<&str> {

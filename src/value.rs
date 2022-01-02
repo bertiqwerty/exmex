@@ -679,7 +679,7 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ValLiteralMatcherFactory;
 impl MakeLiteralMatcher for ValLiteralMatcherFactory {
     fn make() -> fn(&str) -> Option<&str> {
