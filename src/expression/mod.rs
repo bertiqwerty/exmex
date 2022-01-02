@@ -123,7 +123,7 @@ pub trait MakeLiteralMatcher {
 pub struct NumberMatcherFactory;
 impl MakeLiteralMatcher for NumberMatcherFactory {
     fn make() -> fn(&str) -> Option<&str> {
-        return parser::is_numeric_text;
+        parser::is_numeric_text
     }
 }
 

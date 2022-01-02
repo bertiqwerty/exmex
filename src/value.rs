@@ -706,7 +706,7 @@ impl MakeLiteralMatcher for ValLiteralMatcherFactory {
 /// ```
 pub fn parse_val<I, F>(
     text: &str,
-) -> ExResult<FlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>>
+) -> ExResult<FlatExVal<I, F>>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
@@ -720,7 +720,7 @@ where
 /// datatype [`Val`](Val).
 pub fn parse_val_owned<I, F>(
     text: &str,
-) -> ExResult<OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>>
+) -> ExResult<OwnedFlatExVal<I, F>>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
