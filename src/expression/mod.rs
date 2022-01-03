@@ -135,6 +135,7 @@ impl MatchLiteral for NumberMatcher {
 /// 
 /// For instance, to match only boolean literals one can use
 /// ```rust
+/// use exmex::{literal_matcher_from_pattern, MatchLiteral};
 /// literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
 /// ```
 #[macro_export]
