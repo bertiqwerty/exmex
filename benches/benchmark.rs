@@ -81,7 +81,6 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
     }
 }
 
-
 #[cfg(feature = "value")]
 fn exmex_bench_flatex_val_parseval(c: &mut Criterion) {
     fn func(s: &str) -> f64 {
@@ -448,6 +447,36 @@ fn exmex_bench_serde(_c: &mut Criterion) {
     }
 }
 
+fn run_benchmark_partial<F: FnMut(usize) -> ()>(funcs: Vec<F>, eval_name: &str, c: &mut Criterion) {
+    for (mut func, exp_name) in izip!(funcs, BENCH_EXPRESSIONS_NAMES.iter()) {
+        c.bench_function(format!("{}_{}", eval_name, exp_name).as_str(), |b| {
+            b.iter(|| {
+                for i in 0..3 {
+                    func(black_box(i as usize));
+                }
+            })
+        });
+    }
+}
+
+fn exmex_bench_partial(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |i: usize| {expr.clone().partial(i).unwrap();})
+        .collect::<Vec<_>>();
+    run_benchmark_partial(funcs, "exmex_partial", c);
+}
+
+fn exmex_bench_partial_owned(c: &mut Criterion) {
+    let parsed_exprs = exmex_parse_owned(&BENCH_EXPRESSIONS_STRS);
+    let funcs = parsed_exprs
+        .iter()
+        .map(|expr| move |i: usize| {expr.clone().partial(i).unwrap();})
+        .collect::<Vec<_>>();
+    run_benchmark_partial(funcs, "exmex_partial_owned", c);
+}
+
 #[cfg(feature = "value")]
 criterion_group!(
     benches,
@@ -471,6 +500,8 @@ criterion_group!(
     meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
+    exmex_bench_partial,
+    exmex_bench_partial_owned,
 );
 
 #[cfg(not(feature = "value"))]
@@ -493,5 +524,7 @@ criterion_group!(
     meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
+    exmex_bench_partial,
+    exmex_bench_partial_owned,
 );
 criterion_main!(benches);
