@@ -325,7 +325,6 @@
 //! To use different data types within an expression, one can activate the feature `value` and
 //! use the more general type `Val`. The additional flexibility comes with higher parsing
 //! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120).
-//! Note that serialization is not yet supported for `Val`, see <https://github.com/bertiqwerty/exmex/issues/23>.
 //!
 
 use std::{fmt::Debug, str::FromStr};
