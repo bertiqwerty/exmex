@@ -390,7 +390,7 @@ where
             self.n_unique_vars,
         )
     }
-    fn partial(mut self, var_idx: usize) -> ExResult<Self>
+    fn partial(&mut self, var_idx: usize) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -411,8 +411,8 @@ where
 
         let d_i = partial_derivatives::partial_deepex(
             var_idx,
-            self.deepex
-                .expect("This is bug. deepex cannot be None here."),
+            self.deepex.clone()
+                .expect("This is a bug. deepex cannot be None here."),
             &ops,
         )?;
         Ok(Self::flatten(d_i))
@@ -532,7 +532,7 @@ where
         )
     }
 
-    fn partial(mut self, var_idx: usize) -> ExResult<Self>
+    fn partial(&mut self, var_idx: usize) -> ExResult<Self>
     where
         T: Float,
         <T as FromStr>::Err: Debug,
@@ -542,7 +542,7 @@ where
         let ops = FloatOpsFactory::make();
 
         if self.deepex_buf.is_none() {
-            self.deepex_buf = match self.text {
+            self.deepex_buf = match &self.text {
                 Some(t) => {
                     let deepex = DeepEx::from_ops(t.as_str(), &OF::make())?;
                     Some(DeepBuf::from_deepex(&deepex))
@@ -556,8 +556,8 @@ where
         }
 
         let deep_buf = self
-            .deepex_buf
-            .expect("This is bug. deepex buffer cannot be None here.");
+            .deepex_buf.clone()
+            .expect("This is a bug. deepex buffer cannot be None here.");
         let deepex = deep_buf.to_deepex(&ops)?;
         let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
         Ok(Self::from_flatex(FlatEx::flatten(d_i)))
@@ -605,14 +605,14 @@ use super::{MatchLiteral, NumberMatcher};
 
 #[test]
 fn test_flat_clear() -> ExResult<()> {
-    let flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
+    let mut flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
     assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
     let mut deri = flatex.partial(0)?;
     assert!(deri.deepex.is_some());
     deri.reduce_memory();
     assert!(deri.deepex.is_none());
 
-    let flatex = OwnedFlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
+    let mut flatex = OwnedFlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
     assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
     let mut deri = flatex.partial(0)?;
     assert!(deri.deepex_buf.is_some());

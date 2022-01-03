@@ -460,12 +460,12 @@ fn run_benchmark_partial<F: FnMut(usize) -> ()>(funcs: Vec<F>, eval_name: &str, 
 }
 
 fn exmex_bench_partial(c: &mut Criterion) {
-    let parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
+    let mut parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
-        .iter()
+        .iter_mut()
         .map(|expr| {
             move |i: usize| {
-                expr.clone().partial(i).unwrap();
+                expr.partial(i).unwrap();
             }
         })
         .collect::<Vec<_>>();
@@ -473,12 +473,12 @@ fn exmex_bench_partial(c: &mut Criterion) {
 }
 
 fn exmex_bench_partial_owned(c: &mut Criterion) {
-    let parsed_exprs = exmex_parse_owned(&BENCH_EXPRESSIONS_STRS);
+    let mut parsed_exprs = exmex_parse_owned(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
-        .iter()
+        .iter_mut()
         .map(|expr| {
             move |i: usize| {
-                expr.clone().partial(i).unwrap();
+                expr.partial(i).unwrap();
             }
         })
         .collect::<Vec<_>>();

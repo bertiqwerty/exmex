@@ -60,8 +60,8 @@ pub trait Express<'a, T> {
     /// #
     /// use exmex::prelude::*;
     ///
-    /// let expr = FlatEx::<f64>::from_str("sin(1+y^2)*x")?;
-    /// let dexpr_dx = expr.clone().partial(0)?;
+    /// let mut expr = FlatEx::<f64>::from_str("sin(1+y^2)*x")?;
+    /// let dexpr_dx = expr.partial(0)?;
     /// let dexpr_dy = expr.partial(1)?;
     ///
     /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
@@ -85,7 +85,7 @@ pub trait Express<'a, T> {
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](super::result::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(self, var_idx: usize) -> ExResult<Self>
+    fn partial(&mut self, var_idx: usize) -> ExResult<Self>
     where
         Self: Sized,
         T: DataType + Float,

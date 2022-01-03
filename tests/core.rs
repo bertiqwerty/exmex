@@ -94,14 +94,14 @@ fn test_flatex() -> ExResult<()> {
 #[test]
 fn test_readme() {
     fn readme_partial() -> ExResult<()> {
-        let expr = parse::<f64>("y*x^2")?;
+        let mut expr = parse::<f64>("y*x^2")?;
 
         // d_x
-        let dexpr_dx = expr.partial(0)?;
+        let mut dexpr_dx = expr.partial(0)?;
         assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
 
         // d_xy
-        let ddexpr_dxy = dexpr_dx.partial(1)?;
+        let mut ddexpr_dxy = dexpr_dx.partial(1)?;
         assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
         let result = ddexpr_dxy.eval(&[2.0, f64::MAX])?;
         assert!((result - 4.0).abs() < 1e-12);
@@ -462,7 +462,7 @@ fn test_partial() -> ExResult<()> {
         assert!(flatex.clone().partial(flatex.n_vars()).is_err());
 
         // test owned flatex without buffer
-        let owned_flatex_wo_buff = OwnedFlatEx::from_flatex(flatex.clone());
+        let mut owned_flatex_wo_buff = OwnedFlatEx::from_flatex(flatex.clone());
         let owned_deri = owned_flatex_wo_buff.partial(var_idx)?;
         for _ in 0..3 {
             let vut = rng.gen_range(random_range.clone());
@@ -485,7 +485,7 @@ fn test_partial() -> ExResult<()> {
         }
 
         // test owned flatex with buffer
-        let owned_flatex_w_buff = OwnedFlatEx::from_flatex(flatex.clone());
+        let mut owned_flatex_w_buff = OwnedFlatEx::from_flatex(flatex.clone());
         println!("flatex owned {}", owned_flatex_w_buff);
         let owned_deri = owned_flatex_w_buff.partial(var_idx)?;
         println!("partial owned {}", owned_deri);
@@ -551,7 +551,7 @@ fn test_partial() -> ExResult<()> {
     println!("{}", sut);
     let var_idx = 1;
     let n_vars = 2;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
+    let mut flatex_1 = FlatEx::<f64>::from_str(sut)?;
     let reference = |x: f64| x.cos() + x.sin();
     test(
         var_idx,
@@ -560,10 +560,10 @@ fn test_partial() -> ExResult<()> {
         flatex_1.clone(),
         reference,
     )?;
-    let deri = flatex_1.partial(var_idx)?;
+    let mut deri = flatex_1.partial(var_idx)?;
     let reference = |x: f64| -x.sin() + x.cos();
     test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference)?;
-    let deri = deri.partial(var_idx)?;
+    let mut deri = deri.partial(var_idx)?;
     let reference = |x: f64| -x.cos() - x.sin();
     test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference)?;
     let deri = deri.partial(var_idx)?;

@@ -74,8 +74,8 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let expr = exmex::parse::<f64>("x^2 + y^2")?;
-//! let dexpr_dx = expr.clone().partial(0)?;
+//! let mut expr = exmex::parse::<f64>("x^2 + y^2")?;
+//! let dexpr_dx = expr.partial(0)?;
 //! let dexpr_dy = expr.partial(1)?;
 //! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
 //! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
