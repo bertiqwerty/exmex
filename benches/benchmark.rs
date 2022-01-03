@@ -463,7 +463,11 @@ fn exmex_bench_partial(c: &mut Criterion) {
     let parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
         .iter()
-        .map(|expr| move |i: usize| {expr.clone().partial(i).unwrap();})
+        .map(|expr| {
+            move |i: usize| {
+                expr.clone().partial(i).unwrap();
+            }
+        })
         .collect::<Vec<_>>();
     run_benchmark_partial(funcs, "exmex_partial", c);
 }
@@ -472,7 +476,11 @@ fn exmex_bench_partial_owned(c: &mut Criterion) {
     let parsed_exprs = exmex_parse_owned(&BENCH_EXPRESSIONS_STRS);
     let funcs = parsed_exprs
         .iter()
-        .map(|expr| move |i: usize| {expr.clone().partial(i).unwrap();})
+        .map(|expr| {
+            move |i: usize| {
+                expr.clone().partial(i).unwrap();
+            }
+        })
         .collect::<Vec<_>>();
     run_benchmark_partial(funcs, "exmex_partial_owned", c);
 }
