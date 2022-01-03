@@ -4,7 +4,7 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::data_type::DataType;
 
-use crate::{prelude::*, MakeLiteralMatcher, MakeOperators, OwnedFlatEx};
+use crate::{prelude::*, MatchLiteral, MakeOperators, OwnedFlatEx};
 
 fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     serializer: S,
@@ -17,7 +17,7 @@ fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     )
 }
 
-impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Serialize
+impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
     for FlatEx<'a, T, OF, LMF>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -28,7 +28,7 @@ impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Se
     }
 }
 
-impl<'de, T: DataType + 'de, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Deserialize<'de>
+impl<'de, T: DataType + 'de, OF: MakeOperators<T>, LMF: MatchLiteral> Deserialize<'de>
     for FlatEx<'de, T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
@@ -52,7 +52,7 @@ struct FlatExVisitor<'a, T, OF, LMF> {
     literal_matcher_dummy: PhantomData<LMF>,
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Visitor<'de>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Visitor<'de>
     for FlatExVisitor<'de, T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Serialize
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
     for OwnedFlatEx<T, OF, LMF>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -83,7 +83,7 @@ impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Serialize
     }
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Deserialize<'de>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Deserialize<'de>
     for OwnedFlatEx<T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
@@ -107,7 +107,7 @@ struct OwnedFlatExVisitor<T, OF, LMF> {
     next_dummy: PhantomData<LMF>,
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MakeLiteralMatcher> Visitor<'de>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Visitor<'de>
     for OwnedFlatExVisitor<T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,

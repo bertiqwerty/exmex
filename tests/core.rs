@@ -8,7 +8,7 @@ use smallvec::{smallvec, SmallVec};
 use exmex::{
     eval_str, parse, ExResult, OwnedFlatEx, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
-use exmex::{literal_matcher_factory, ops_factory, prelude::*, ExError, MakeLiteralMatcher};
+use exmex::{literal_matcher_from_pattern, ops_factory, prelude::*, ExError, MatchLiteral};
 
 use crate::utils::{assert_float_eq, assert_float_eq_f64};
 use rand::{thread_rng, Rng};
@@ -248,18 +248,18 @@ fn test_variables_non_ascii() -> ExResult<()> {
         Operator::make_constant("γ", Thumbs { val: false })
     );
 
-    literal_matcher_factory!(ThumbsMatcherFactory, r"^(👍|👎)");
+    literal_matcher_from_pattern!(ThumbsMatcher, r"^(👍|👎)");
 
     let sut = "γ ορ 👍ορ👎";
-    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcherFactory>::from_str(sut)?;
+    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcher>::from_str(sut)?;
     assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
 
     let sut = "(👍 ανδ👎)ορ 👍";
-    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcherFactory>::from_str(sut)?;
+    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcher>::from_str(sut)?;
     assert_eq!(expr.eval(&[]).unwrap(), Thumbs { val: true });
 
     let sut = "(👍ανδ 👎)οργαβ23";
-    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcherFactory>::from_str(sut)?;
+    let expr = FlatEx::<_, UnicodeOpsFactory, ThumbsMatcher>::from_str(sut)?;
     assert_eq!(expr.eval(&[Thumbs { val: true }])?, Thumbs { val: true });
     assert_eq!(expr.eval(&[Thumbs { val: false }])?, Thumbs { val: false });
     Ok(())

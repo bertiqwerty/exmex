@@ -221,10 +221,10 @@
 //! ### Custom Data Types of Numbers
 //!
 //! You can use any type that implements [`Clone`](Clone),
-//! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type's literals 
-//! in the string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to create a suitable factory
-//! type that implements [`MakeLiteralMatcher`](MakeLiteralMatcher). Given a suitable regex pattern, you can utilize the macro 
-//! [`literal_matcher_factory`](literal_matcher_factory).
+//! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type's literals
+//! in the string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to create a suitable matcher
+//! type that implements [`MatchLiteral`](MatchLiteral). Given a suitable regex pattern, you can utilize the macro
+//! [`literal_matcher_from_pattern`](literal_matcher_from_pattern).
 //! Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
@@ -232,8 +232,8 @@
 //! #
 //! use exmex::prelude::*;
 //! use exmex::{
-//!     BinOp, MakeLiteralMatcher, MakeOperators, Operator, 
-//!     literal_matcher_factory, ops_factory
+//!     BinOp, MakeOperators, MatchLiteral, Operator,
+//!     literal_matcher_from_pattern, ops_factory
 //! };
 //! ops_factory!(
 //!     BooleanOpsFactory,
@@ -256,9 +256,9 @@
 //!     ),
 //!     Operator::make_unary("!", |a| !a)
 //! );
-//! literal_matcher_factory!(BooleanMatcherFactory, "^(true|false)");
+//! literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! type FlatExBool<'a> = FlatEx::<'a, bool, BooleanOpsFactory, BooleanMatcherFactory>;
+//! type FlatExBool<'a> = FlatEx::<'a, bool, BooleanOpsFactory, BooleanMatcher>;
 //! let expr = FlatExBool::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
@@ -344,7 +344,7 @@ mod util;
 pub use {
     expression::{
         flat::{FlatEx, OwnedFlatEx},
-        matches_regex, Express, MakeLiteralMatcher, NumberMatcherFactory,
+        Express, MatchLiteral, NumberMatcher,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
@@ -354,7 +354,7 @@ pub use {
 mod value;
 #[cfg(feature = "value")]
 pub use value::{
-    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValLiteralMatcherFactory,
+    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValMatcher,
     ValOpsFactory,
 };
 

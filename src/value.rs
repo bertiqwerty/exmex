@@ -1,26 +1,11 @@
 use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 
-use lazy_static::lazy_static;
 use num::{Float, PrimInt, Signed};
-use regex::Regex;
 
 use crate::{
-    data_type::DataType, expression::MakeLiteralMatcher, format_exerr, BinOp, ExError, ExResult,
-    Express, FlatEx, MakeOperators, Operator, OwnedFlatEx,
+    data_type::DataType, expression::MatchLiteral, format_exerr, BinOp, ExError, ExResult,
+    Express, FlatEx, MakeOperators, Operator, OwnedFlatEx, literal_matcher_from_pattern,
 };
-
-lazy_static! {
-    static ref RE_VAR_NAME_EXACT: Regex =
-        Regex::new(r"^([0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\])").unwrap();
-}
-
-/// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
-/// as operator factory.
-pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>;
-/// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
-/// as operator factory.
-pub type OwnedFlatExVal<I, F> =
-    OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>;
 
 macro_rules! to_type {
     ($name:ident, $T:ty, $variant:ident) => {
@@ -677,17 +662,17 @@ where
         ]
     }
 }
-/// Factory to match numeric literals of [`Val`](Val), i.e., floats, ints, or booleans.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct ValLiteralMatcherFactory;
-impl MakeLiteralMatcher for ValLiteralMatcherFactory {
-    fn make() -> fn(&str) -> Option<&str> {
-        fn matcher(text: &str) -> Option<&str> {
-            crate::expression::matches_regex(&RE_VAR_NAME_EXACT, text)
-        }
-        matcher
-    }
-}
+/// Factory to match literals of [`Val`](Val), i.e., floats, ints, or booleans.
+const PATTERN: &str = r"^([0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\])";
+literal_matcher_from_pattern!(ValMatcher, PATTERN);
+
+/// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
+/// as operator factory.
+pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
+/// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
+/// as operator factory.
+pub type OwnedFlatExVal<I, F> =
+    OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
 
 /// *`feature = "value"`* - Parses a string into an expression of type
 /// [`FlatExVal`](FlatExVal) with datatype [`Val`](Val).
@@ -712,7 +697,7 @@ where
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValLiteralMatcherFactory>::from_str(text)
+    FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>::from_str(text)
 }
 
 /// *`feature = "value"`* - Parses a string into an expression of type [`OwnedFlatExVal`](OwnedFlatExVal) with
@@ -726,7 +711,7 @@ where
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    Ok(OwnedFlatEx::<_, _, ValLiteralMatcherFactory>::from_flatex(
+    Ok(OwnedFlatEx::<_, _, ValMatcher>::from_flatex(
         parse_val(text)?,
     ))
 }

@@ -2,7 +2,6 @@ use std::{fmt::Debug, str::FromStr};
 
 use crate::{data_type::DataType, parser, ExResult};
 use num::Float;
-use regex::Regex;
 
 pub mod deep;
 mod deep_details;
@@ -116,45 +115,40 @@ pub trait Express<'a, T> {
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.
-pub trait MakeLiteralMatcher {
-    /// Returns a function that returns `Some(matching_str)` in case of a match of 
-    /// a literal at the beginning of the string and `None` otherwise. 
-    fn make() -> fn(&str) -> Option<&str>;
+pub trait MatchLiteral {
+    /// This method is expected to return `Some(matching_str)` in case of a match of
+    /// a literal at the beginning of the input and `None` otherwise.
+    fn is_literal(text: &str) -> Option<&str>;
 }
 
 /// Default factory to match numeric literals.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct NumberMatcherFactory;
-impl MakeLiteralMatcher for NumberMatcherFactory {
-    fn make() -> fn(&str) -> Option<&str> {
-        parser::is_numeric_text
+pub struct NumberMatcher;
+impl MatchLiteral for NumberMatcher {
+    fn is_literal(text: &str) -> Option<&str> {
+        parser::is_numeric_text(text)
     }
 }
 
-/// Utility function that converts a regex match into matcher of the form expected by the trait
-/// [`MakeLiteralMatcher`](MakeLiteralMatcher).
-pub fn matches_regex<'a>(re: &Regex, text: &'a str) -> Option<&'a str> {
-    let maybe_num = re.find(text);
-    match maybe_num {
-        Some(m) => Some(m.as_str()),
-        None => None,
-    }
-}
+/// Helper to implement a struct called `$matcher_name` that implements 
+/// [`MatchLiteral`](MatchLiteral) and matches the regex pattern `$regex_pattern`.
+/// 
+/// For instance, to match only boolean literals one can use
+/// ```rust
+/// literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
+/// ```
 #[macro_export]
-macro_rules! literal_matcher_factory {
-    ($factory_name:ident, $str:expr) => {
+macro_rules! literal_matcher_from_pattern {
+    ($matcher_name:ident, $regex_pattern:expr) => {
         #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-        pub struct $factory_name;
-        impl MakeLiteralMatcher for $factory_name {
-            fn make() -> fn(&str) -> Option<&str> {
-                fn matcher(text: &str) -> Option<&str> {
-                    lazy_static::lazy_static! {
-                        static ref RE_VAR_NAME_EXACT: regex::Regex = regex::Regex::new($str).unwrap();
-                    }
-                    exmex::matches_regex(&RE_VAR_NAME_EXACT, text)
+        pub struct $matcher_name;
+        impl MatchLiteral for $matcher_name {
+            fn is_literal(text: &str) -> Option<&str> {
+                lazy_static::lazy_static! {
+                    static ref RE_VAR_NAME_EXACT: regex::Regex = regex::Regex::new($regex_pattern).unwrap();
                 }
-                matcher
+                RE_VAR_NAME_EXACT.find(text).map(|m|m.as_str())
             }
         }
-    }
+    };
 }
