@@ -1,15 +1,14 @@
 use crate::{
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
-    expression::{flat::{ExprIdxVec, FlatOpVec, FlatNodeKind, FlatNode, FlatNodeVec, FlatOp}},
+    expression::flat::{ExprIdxVec, FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
-    parser::{Paren, ParsedToken, self},
+    parser::{self, Paren, ParsedToken},
+    partial::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs},
     ExError, ExResult,
-    partial::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs}
 };
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
-
 
 /// Handles the case that a token is a unary operator and returns a tuple.
 /// The first element is a node that is either an expression with a unary operator or a
@@ -66,7 +65,10 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
         }
         ParsedToken::Var(name) => {
             let expr = DeepEx::new(
-                vec![DeepNode::Var((parser::find_var_index(name, parsed_vars), name))],
+                vec![DeepNode::Var((
+                    parser::find_var_index(name, parsed_vars),
+                    name,
+                ))],
                 BinOpsWithReprs::new(),
                 UnaryOpWithReprs {
                     reprs: vec_of_uop_reprs,
@@ -129,7 +131,10 @@ where
                 idx_tkn += 1;
             }
             ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var((parser::find_var_index(name, parsed_vars), name)));
+                nodes.push(DeepNode::Var((
+                    parser::find_var_index(name, parsed_vars),
+                    name,
+                )));
                 idx_tkn += 1;
             }
             ParsedToken::Paren(p) => match p {
@@ -194,7 +199,6 @@ pub struct UnaryOpWithReprsBuf<T> {
     pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-
 
 pub fn flatten_vecs<T: Clone + Debug>(
     deep_expr: &DeepEx<T>,
