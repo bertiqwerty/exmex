@@ -79,12 +79,6 @@ where
             .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
         let mut deepex = DeepEx::from_ops(unparsed.as_str(), &OF::make())?;
         deepex.reset_vars(var_names);
-        println!("{:#?}", deepex);
-        for n in deepex.nodes() {
-            if let DeepNode::Expr(e) = n {
-                println!("node {:#?}", e);
-            }
-        }
         let d_i = partial_deepex(var_idx, deepex, &ops)?;
         Ok(d_i.flatten())
     }
