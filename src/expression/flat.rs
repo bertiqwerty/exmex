@@ -396,8 +396,8 @@ where
         }
     }
 
-    /// Executes calculations that can trivially be executed, e.g., two numbers that need to be
-    /// multiplied anyway.
+    /// Executes calculations that can trivially be executed, e.g., multiplies two numbers that 
+    /// need to be multiplied anyway.
     pub fn compile(&mut self) {
         let mut num_inds = self.prio_indices.clone();
         let mut used_prio_indices = ExprIdxVec::new();
