@@ -1,4 +1,4 @@
-use std::{fmt, fmt::Debug, marker::PhantomData};
+use std::{fmt, fmt::Debug, marker::PhantomData, str::FromStr};
 
 use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 

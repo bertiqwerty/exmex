@@ -5,10 +5,10 @@ use crate::expression::Express;
 use crate::operators::UnaryOp;
 use crate::parser::{Paren, ParsedToken};
 use crate::{
-    parser, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
-    Operator, BinOp,
+    parser, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+    Operator,
 };
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
@@ -99,7 +99,6 @@ pub fn eval_flatex<T: Clone + Debug>(
     }
     Ok(numbers[0].clone())
 }
-
 
 /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
 /// relevant depth operators will be returned and the open operator will be removed.
@@ -277,7 +276,7 @@ where
         nodes: flat_nodes,
         ops: flat_ops,
         prio_indices: indices,
-        var_names: parsed_vars.iter().map(|s|s.to_string()).collect(),
+        var_names: parsed_vars.iter().map(|s| s.to_string()).collect(),
         text: text.to_string(),
         dummy_ops_factory: PhantomData,
         dummy_literal_matcher_factory: PhantomData,
@@ -309,14 +308,15 @@ where
     make_expression(text, &parsed_tokens[0..], &parsed_vars)
 }
 
-
 pub fn prioritized_indices_flat<T: Clone + Debug>(
     ops: &[FlatOp<T>],
     nodes: &FlatNodeVec<T>,
 ) -> ExprIdxVec {
     let prio_increase =
         |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
-            (FlatNodeKind::Num(_), FlatNodeKind::Num(_)) if ops[bin_op_idx].bin_op.is_commutative => {
+            (FlatNodeKind::Num(_), FlatNodeKind::Num(_))
+                if ops[bin_op_idx].bin_op.is_commutative =>
+            {
                 let prio_inc = 5;
                 &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
             }
@@ -396,7 +396,7 @@ where
         }
     }
 
-    /// Executes calculations that can trivially be executed, e.g., multiplies two numbers that 
+    /// Executes calculations that can trivially be executed, e.g., multiplies two numbers that
     /// need to be multiplied anyway.
     pub fn compile(&mut self) {
         let mut num_inds = self.prio_indices.clone();
@@ -470,15 +470,6 @@ where
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
 {
-    fn from_str(text: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
-        let ops = OF::make();
-        parse(text, &ops)
-    }
-
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         eval_flatex(
             vars,
@@ -494,6 +485,25 @@ where
     }
     fn var_names(&self) -> &[String] {
         &self.var_names
+    }
+}
+
+impl<T, OF, LMF> FromStr for FlatEx<T, OF, LMF>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LMF: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    type Err = ExError;
+
+    fn from_str(text: &str) -> ExResult<Self>
+    where
+        <T as std::str::FromStr>::Err: Debug,
+        T: DataType,
+    {
+        let ops = OF::make();
+        parse(text, &ops)
     }
 }
 
@@ -570,4 +580,3 @@ fn test_flat_compile() -> ExResult<()> {
     }
     Ok(())
 }
-

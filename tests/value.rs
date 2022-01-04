@@ -1,5 +1,9 @@
 #[cfg(feature = "value")]
 use exmex::{ExResult, Express, Val};
+
+#[cfg(feature = "serde")]
+#[cfg(feature = "value")]
+use std::str::FromStr;
 #[cfg(feature = "value")]
 mod utils;
 #[test]

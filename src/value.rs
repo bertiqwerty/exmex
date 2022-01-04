@@ -3,8 +3,8 @@ use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::{Float, PrimInt, Signed};
 
 use crate::{
-    data_type::DataType, expression::MatchLiteral, format_exerr, BinOp, ExError, ExResult,
-    Express, FlatEx, MakeOperators, Operator, literal_matcher_from_pattern,
+    data_type::DataType, expression::MatchLiteral, format_exerr, literal_matcher_from_pattern,
+    BinOp, ExError, ExResult, FlatEx, MakeOperators, Operator,
 };
 
 macro_rules! to_type {
@@ -24,8 +24,8 @@ macro_rules! to_type {
 
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
-/// To use the value type, there are the is a parse function [`parse_val`](`parse_val`). 
-/// In the following example, the ternary Python-style `a if condition else b` is used. 
+/// To use the value type, there are the is a parse function [`parse_val`](`parse_val`).
+/// In the following example, the ternary Python-style `a if condition else b` is used.
 /// This is equivalent to `if condition {a} else {b}` in Rust or `condition ? a : b` in C.
 /// ```rust
 /// # use std::error::Error;
@@ -682,9 +682,7 @@ pub type FlatExVal<I, F> = FlatEx<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
 /// #     Ok(())
 /// # }
 /// ```
-pub fn parse_val<I, F>(
-    text: &str,
-) -> ExResult<FlatExVal<I, F>>
+pub fn parse_val<I, F>(text: &str) -> ExResult<FlatExVal<I, F>>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
@@ -696,11 +694,11 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
         format_exerr, parse_val, util::assert_float_eq_f64, value::Val, ExError, ExResult, Express,
-        FlatExVal
+        FlatExVal,
     };
+    use std::str::FromStr;
 
     #[test]
     fn test_to() -> ExResult<()> {
@@ -760,7 +758,6 @@ mod tests {
                     Ok(())
                 }
             }
-  
         }
         fn test_none(s: &str) -> ExResult<()> {
             let expr = FlatExVal::<i32, f64>::from_str(s)?;

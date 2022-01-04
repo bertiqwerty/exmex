@@ -9,6 +9,8 @@ use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
 use std::ops::Range;
 #[cfg(feature = "partial")]
+use std::str::FromStr;
+#[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
     let expr = parse::<f64>("y*x^2")?;

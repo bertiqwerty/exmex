@@ -317,9 +317,9 @@ pub use partial::Differentiate;
 /// 
 pub mod prelude {
     pub use crate::expression::{flat::FlatEx, Express};
+    pub use std::str::FromStr;
     #[cfg(feature = "partial")]
     pub use crate::Differentiate;
-
 }
 
 /// Parses a string, evaluates the expression, and returns the resulting number.

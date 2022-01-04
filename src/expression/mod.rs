@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::fmt::Debug;
 
 use crate::{parser, ExResult};
 
@@ -10,22 +10,6 @@ mod serde;
 /// evaluated for specific variable values, and unparsed, i.e., 
 /// transformed into a string representation.  
 pub trait Express<T> {
-    /// Parses a string into an expression that can be evaluated.
-    ///
-    /// # Arguments
-    ///
-    /// * `text` - string to be parsed into an expression
-    ///
-    /// # Errors
-    ///
-    /// An error is returned if `text` cannot be parsed.
-    ///
-    fn from_str(text: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: FromStr,
-        Self: Sized;
-
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
