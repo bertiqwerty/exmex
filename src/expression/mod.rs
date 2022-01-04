@@ -6,8 +6,8 @@ pub mod flat;
 #[cfg(feature = "serde")]
 mod serde;
 
-/// Expressions implementing this trait can be evaluated for specific variable values,
-/// differentiated partially, and unparsed, i.e., transformed into a string representation.  
+/// Expressions implementing this trait can be evaluated for specific variable values, 
+/// and unparsed, i.e., transformed into a string representation.  
 pub trait Express<T> {
     /// Parses a string into an expression that can be evaluated.
     ///
