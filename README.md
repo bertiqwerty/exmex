@@ -151,7 +151,6 @@ Note that we also tried the optimization flag `--emit=asm` which did not change 
 | [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/)                        | 35.94           |
 | *[Exmex](https://docs.rs/exmex)* `f64`                                      | 24.83           |
 | *[Exmex uncompiled](https://docs.rs/exmex)* `f64`                           | 21.56           |
-| *[Exmex owned](https://docs.rs/exmex/latest/exmex/#owned-expression)* `f64` | 29.80           |
 | *[Exmex](https://docs.rs/exmex)* `Val`                                      | 37.45           |
 | [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/)                        | 18.42           |
 | [Meval](https://docs.rs/meval/0.2.0/meval/)                                 | **17.99**       |
