@@ -63,9 +63,9 @@
 //! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx)
 //! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx) and
 //! [`Express`](Express) are the only items made accessible by the wildcard import from
-//! [`prelude`](prelude).
+//! [`prelude`](prelude) if the feature `partial` is not used.
 //!
-//! //! ## Features
+//! ## Features
 //! Exmex comes with three features that can be activated in the `Cargo.toml` via
 //! ```text
 //! [dependencies]
@@ -307,8 +307,13 @@ mod partial;
 #[cfg(feature = "partial")]
 pub use partial::Differentiate;
 
-/// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
-/// one can `use exmex::prelude::*;`.
+/// Exmex' prelude can be imported via can `use exmex::prelude::*;`.
+/// 
+/// The prelude contains
+/// * expression trait [`Express`](Express), 
+/// * its implementation [`FlatEx`](FlatEx),
+/// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active. 
+/// 
 pub mod prelude {
     pub use crate::expression::{flat::FlatEx, Express};
     #[cfg(feature = "partial")]

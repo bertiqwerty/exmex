@@ -661,7 +661,6 @@ where
         ]
     }
 }
-/// Factory to match literals of [`Val`](Val), i.e., floats, ints, or booleans.
 const PATTERN: &str = r"^([0-9]+(\.[0-9]+)?|true|false|\[\s*(\-?.?[0-9]+(\.[0-9]+)?|true|false)(\s*,\s*-?\.?[0-9]+(\.[0-9]+)?|true|false)*\s*\])";
 literal_matcher_from_pattern!(ValMatcher, PATTERN);
 

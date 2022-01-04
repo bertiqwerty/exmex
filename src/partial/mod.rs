@@ -8,11 +8,12 @@ pub mod deep;
 mod deep_details;
 pub mod partial_derivatives;
 
+/// *`feature = "partial"`* - Trait for partial differentiation.  
 pub trait Differentiate<T, Ex> {
-    /// This method computes a new instance that is a partial derivative of
-    /// `self` with default operators.
+    /// *`feature = "partial"`* - This method computes a new expression 
+    /// that is expected to be a partial derivative of`self` with default operators.
     ///
-    /// # Examples
+    /// # Example
     ///
     /// ```rust
     /// # use std::error::Error;

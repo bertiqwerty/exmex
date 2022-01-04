@@ -82,7 +82,8 @@ impl MatchLiteral for NumberMatcher {
 /// Helper to implement a struct called `$matcher_name` that implements
 /// [`MatchLiteral`](MatchLiteral) and matches the regex pattern `$regex_pattern`.
 ///
-/// For instance, to match only boolean literals one can use
+/// For instance, to match only boolean literals one can create a struct with name
+/// `BooleanMatcher` via
 /// ```rust
 /// use exmex::{literal_matcher_from_pattern, MatchLiteral};
 /// literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
@@ -90,6 +91,8 @@ impl MatchLiteral for NumberMatcher {
 #[macro_export]
 macro_rules! literal_matcher_from_pattern {
     ($matcher_name:ident, $regex_pattern:expr) => {
+        /// Literal matcher type that was created with the macro 
+        /// [`literal_matcher_from_pattern`](literal_matcher_from_pattern).
         #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
         pub struct $matcher_name;
         impl MatchLiteral for $matcher_name {
