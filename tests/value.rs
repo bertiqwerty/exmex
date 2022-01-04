@@ -1,8 +1,5 @@
 #[cfg(feature = "value")]
-use {
-    exmex::{ExResult, Express, Val},
-    utils::assert_float_eq_f64,
-};
+use exmex::{ExResult, Express, Val};
 #[cfg(feature = "value")]
 mod utils;
 #[test]
@@ -19,30 +16,32 @@ fn test_vars() -> ExResult<()> {
     utils::assert_float_eq_f64(res, 1.9);
 
     let expr = exmex::parse_val::<i64, f32>("-sin(x)+5.3")?;
-    utils::assert_float_eq_f32(
+    utils::assert_float_eq::<f32>(
         expr.eval(&[Val::Float(2.2)])?.to_float()?,
         -2.2f32.sin() + 5.3,
+        1e-6,
+        0.0,
+        "",
     );
 
     let expr = exmex::parse_val::<i64, f32>("-sin(x) if y > 0 else z + 3")?;
-    utils::assert_float_eq_f32(
+    utils::assert_float_eq::<f32>(
         expr.eval(&[Val::Float(1.0), Val::Int(2), Val::Int(3)])?
             .to_float()?,
         -1f32.sin(),
+        1e-6,
+        0.0,
+        "",
     );
     assert_eq!(
         expr.eval(&[Val::Float(1.0), Val::Int(-1), Val::Int(3)])?
             .to_int()?,
         6,
     );
-    
+
     let expr = exmex::parse_val::<i32, f64>("z if false else 2")?;
     println!("{:#?}", expr);
-    assert_eq!(
-        expr.eval(&[Val::Int(-3)])?
-            .to_int()?,
-        2,
-    );
+    assert_eq!(expr.eval(&[Val::Int(-3)])?.to_int()?, 2,);
 
     Ok(())
 }
@@ -60,7 +59,7 @@ fn test_readme() -> ExResult<()> {
 #[cfg(feature = "serde")]
 #[cfg(feature = "value")]
 fn test_serde_public() -> ExResult<()> {
-    use exmex::{FlatExVal};
+    use exmex::FlatExVal;
 
     let s = "{x}^3.0 if z < 0 else y";
 
@@ -72,7 +71,7 @@ fn test_serde_public() -> ExResult<()> {
     let res = deserialized.eval(&[Val::Float(2.0), Val::Bool(false), Val::Float(1.0)])?;
     assert_eq!(res.to_bool()?, false);
     let res = deserialized.eval(&[Val::Float(2.0), Val::Float(1.0), Val::Int(-1)])?;
-    assert_float_eq_f64(res.to_float()?, 8.0);
+    utils::assert_float_eq_f64(res.to_float()?, 8.0);
     assert_eq!(s, format!("{}", deserialized));
     Ok(())
 }

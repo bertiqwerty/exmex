@@ -1,14 +1,17 @@
+#[cfg(test)]
 mod utils;
-use std::ops::{BitAnd, BitOr};
-use std::str::FromStr;
-use std::{iter::once};
-
+#[cfg(test)]
 use exmex::{
-    eval_str, parse, ExResult, {BinOp, FloatOpsFactory, MakeOperators, Operator},
+    eval_str, literal_matcher_from_pattern, ops_factory, parse,
+    prelude::*,
+    ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
-use exmex::{literal_matcher_from_pattern, ops_factory, prelude::*, ExError, MatchLiteral};
-
-use crate::utils::{assert_float_eq_f64};
+#[cfg(test)]
+use std::{
+    iter::once,
+    ops::{BitAnd, BitOr},
+    str::FromStr,
+};
 
 #[test]
 fn test_display() -> ExResult<()> {
@@ -23,7 +26,7 @@ fn test_flatex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64], reference: f64) -> ExResult<()> {
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::from_str(sut)?;
-        assert_float_eq_f64(flatex.eval(vars)?, reference);
+        utils::assert_float_eq_f64(flatex.eval(vars)?, reference);
         println!("...ok.");
         Ok(())
     }
@@ -112,11 +115,11 @@ fn test_readme() {
 fn test_variables_curly_space_names() -> ExResult<()> {
     let sut = "{x } + { y }";
     let expr = FlatEx::<f32>::from_str(sut)?;
-    utils::assert_float_eq_f32(expr.eval(&[1.0, 1.0])?, 2.0);
+    utils::assert_float_eq::<f32>(expr.eval(&[1.0, 1.0])?, 2.0, 1e-6, 0.0, "");
     assert_eq!(expr.unparse(), sut);
     let sut = "2*(4*{ xasd sa } + { y z}^2)";
     let expr = FlatEx::<f32>::from_str(sut)?;
-    utils::assert_float_eq_f32(expr.eval(&[2.0, 3.0])?, 34.0);
+    utils::assert_float_eq::<f32>(expr.eval(&[2.0, 3.0])?, 34.0, 1e-6, 0.0, "");
     assert_eq!(expr.unparse(), sut);
     Ok(())
 }
@@ -350,7 +353,7 @@ fn test_custom_ops_invert() -> ExResult<()> {
         }
     }
     let expr = FlatEx::<f32, SomeF32Operators>::from_str("sqrt(invert(a))")?;
-    utils::assert_float_eq_f32(expr.eval(&[0.25]).unwrap(), 2.0);
+    utils::assert_float_eq::<f32>(expr.eval(&[0.25]).unwrap(), 2.0, 1e-6, 0.0, "");
     Ok(())
 }
 
@@ -383,7 +386,7 @@ fn test_custom_ops() -> ExResult<()> {
     }
     let expr = FlatEx::<f32, SomeF32Operators>::from_str("2**2*invert(3)")?;
     let val = expr.eval(&[])?;
-    utils::assert_float_eq_f32(val, 4.0 / 3.0);
+    utils::assert_float_eq::<f32>(val, 4.0 / 3.0,  1e-6, 0.0, "");
 
     #[derive(Clone)]
     struct ExtendedF32Operators;
@@ -407,10 +410,9 @@ fn test_custom_ops() -> ExResult<()> {
     }
     let expr = FlatEx::<f32, ExtendedF32Operators>::from_str("2^2*1/(berti) + zer0(4)")?;
     let val = expr.eval(&[4.0])?;
-    utils::assert_float_eq_f32(val, 1.0);
+    utils::assert_float_eq::<f32>(val, 1.0,  1e-6, 0.0, "");
     Ok(())
 }
-
 
 #[test]
 fn test_eval_str() -> ExResult<()> {
@@ -501,13 +503,13 @@ fn test_serde_public_interface() -> ExResult<()> {
 }
 #[test]
 fn test_constants() -> ExResult<()> {
-    assert_float_eq_f64(eval_str::<f64>("PI")?, std::f64::consts::PI);
-    assert_float_eq_f64(eval_str::<f64>("E")?, std::f64::consts::E);
+    utils::assert_float_eq_f64(eval_str::<f64>("PI")?, std::f64::consts::PI);
+    utils::assert_float_eq_f64(eval_str::<f64>("E")?, std::f64::consts::E);
     let expr = parse::<f64>("x / PI * 180")?;
     utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2])?, 90.0);
 
     let expr = parse::<f32>("E ^ x")?;
-    utils::assert_float_eq_f32(expr.eval(&[5.0])?, 1f32.exp().powf(5.0));
+    utils::assert_float_eq::<f32>(expr.eval(&[5.0])?, 1f32.exp().powf(5.0), 1e-6, 0.0, "");
 
     let expr = parse::<f32>("E ^ Erwin");
     assert_eq!(expr?.unparse(), "E ^ Erwin");
@@ -519,4 +521,3 @@ fn test_fuzz() {
     assert!(eval_str::<f64>("an").is_err());
     assert!(FlatEx::<f64>::from_str("\n").is_err());
 }
-
