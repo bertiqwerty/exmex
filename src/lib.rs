@@ -79,6 +79,7 @@
 //!
 //! Expressions with floating point data types can be transformed into their 
 //! partial derivatives again represented by expressions after activating the feature `partial`.
+//! See the [readme](https://github.com/bertiqwerty/exmex#partial-differentiation) for examples.
 //! 
 //! ### Serialization and Deserialization
 //!
@@ -92,7 +93,7 @@
 //!
 //! To use different data types within an expression, one can activate the feature `value` and
 //! use the more general type `Val`. The additional flexibility comes with higher parsing
-//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120).
+//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0130).
 //!
 //! ## Extendability
 //!
