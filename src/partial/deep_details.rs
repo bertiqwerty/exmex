@@ -1,5 +1,5 @@
 use crate::{
-    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK},
     expression::flat::{ExprIdxVec, FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
     parser::{self, Paren, ParsedToken},
@@ -187,17 +187,6 @@ pub fn prioritized_indices<T: Clone + Debug>(
         prio_i2.partial_cmp(&prio_i1).unwrap()
     });
     indices
-}
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct BinOpsWithReprsBuf<T: Clone> {
-    pub reprs: SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>,
-    pub ops: BinOpVec<T>,
-}
-
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct UnaryOpWithReprsBuf<T> {
-    pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
-    pub op: UnaryOp<T>,
 }
 
 pub fn flatten_vecs<T: Clone + Debug>(
