@@ -1,15 +1,94 @@
 use crate::{
-    definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
+    data_type::DataType,
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
     expression::{
-        deep::{BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+        deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs},
         deep_details,
+        flat::ExprIdxVec,
     },
-    operators::{Operator, UnaryOp},
-    ExError, ExResult,
+    operators::{FloatOpsFactory, Operator, UnaryOp},
+    ExError, ExResult, Express, FlatEx, MakeOperators, MatchLiteral,
 };
 use num::Float;
 use smallvec::{smallvec, SmallVec};
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
+
+pub trait Differentiate<T, Ex> {
+    /// This method computes a new instance that is a partial derivative of
+    /// `self` with default operators.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::prelude::*;
+    ///
+    /// let mut expr = FlatEx::<f64>::from_str("sin(1+y^2)*x")?;
+    /// let dexpr_dx = expr.partial(0)?;
+    /// let dexpr_dy = expr.partial(1)?;
+    ///
+    /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
+    /// //             |    
+    /// //           The partial derivative dexpr_dx does depend on x. Still, it
+    /// //           expects the same number of parameters as the corresponding
+    /// //           antiderivative. Hence, you can pass any number for x.  
+    ///
+    /// assert!((dexpr_dy.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// # Arguments
+    ///
+    /// * `var_idx` - variable with respect to which the partial derivative is computed
+    ///
+    /// # Errors
+    ///
+    /// * If `self` has been [`reduce_memory`](Express::reduce_memory)ed, we cannot compute the partial derivative and return an [`ExError`](super::result::ExError).
+    /// * If you use custom operators this might not work as expected. It could return an [`ExError`](super::result::ExError) if
+    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
+    ///
+    fn partial(&self, var_idx: usize) -> ExResult<Ex>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+        Ex: Express<T>;
+}
+
+impl<T, OF, LMF> Differentiate<T, FlatEx<T, OF, LMF>> for FlatEx<T, OF, LMF>
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LMF: MatchLiteral,
+{
+    fn partial(&self, var_idx: usize) -> ExResult<Self>
+    where
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+    {
+        let unparsed = self.unparse();
+        flat_details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
+        let ops = FloatOpsFactory::make();
+        let var_names = self
+            .var_names()
+            .iter()
+            .map(AsRef::as_ref)
+            .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
+        let mut deepex = DeepEx::from_ops(unparsed.as_str(), &OF::make())?;
+        deepex.reset_vars(var_names);
+        println!("{:#?}", deepex);
+        for n in deepex.nodes() {
+            if let DeepNode::Expr(e) = n {
+                println!("node {:#?}", e);
+            }
+        }
+        let d_i = partial_deepex(var_idx, deepex, &ops)?;
+        Ok(d_i.flatten())
+    }
+}
 
 #[derive(Clone)]
 struct ValueDerivative<'a, T: Copy + Debug> {
@@ -611,11 +690,9 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 }
 
 #[cfg(test)]
-use crate::{
-    expression::deep,
-    operators::{FloatOpsFactory, MakeOperators},
-    util::assert_float_eq_f64,
-};
+use crate::{expression::deep, util::assert_float_eq_f64};
+
+use super::flat_details;
 
 #[test]
 fn test_partial() {
@@ -817,4 +894,3 @@ fn test_partial_derivative_simple() {
     let result = deep::eval(&derivative, &[1.0]).unwrap();
     assert_float_eq_f64(result, 0.5403023058681398);
 }
-

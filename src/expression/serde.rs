@@ -4,21 +4,19 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::data_type::DataType;
 
-use crate::{prelude::*, MatchLiteral, MakeOperators, OwnedFlatEx};
+use crate::{prelude::*, MatchLiteral, MakeOperators};
 
-fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
+fn serialize<'a, T: Clone, S: Serializer, Ex: Express<T>>(
     serializer: S,
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
-        expr.unparse()
-            .map_err(|e| serde::ser::Error::custom(format!("serialization failed - {}", e.msg)))?
-            .as_str(),
+        expr.unparse().as_str(),
     )
 }
 
-impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
-    for FlatEx<'a, T, OF, LMF>
+impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
+    for FlatEx<T, OF, LMF>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -29,7 +27,7 @@ impl<'de: 'a, 'a, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serializ
 }
 
 impl<'de, T: DataType + 'de, OF: MakeOperators<T>, LMF: MatchLiteral> Deserialize<'de>
-    for FlatEx<'de, T, OF, LMF>
+    for FlatEx<T, OF, LMF>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
@@ -57,7 +55,7 @@ impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Visitor<'de>
 where
     <T as std::str::FromStr>::Err: Debug,
 {
-    type Value = FlatEx<'de, T, OF, LMF>;
+    type Value = FlatEx<T, OF, LMF>;
 
     fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "a borrowed &str that can be parsed by `exmex` crate")
@@ -72,64 +70,11 @@ where
     }
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
-    for OwnedFlatEx<T, OF, LMF>
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serialize(serializer, self)
-    }
-}
-
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Deserialize<'de>
-    for OwnedFlatEx<T, OF, LMF>
-where
-    <T as std::str::FromStr>::Err: Debug,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(OwnedFlatExVisitor {
-            generic_dummy: PhantomData,
-            another_dummy: PhantomData,
-            next_dummy: PhantomData,
-        })
-    }
-}
-
-#[derive(Debug)]
-struct OwnedFlatExVisitor<T, OF, LMF> {
-    generic_dummy: PhantomData<T>,
-    another_dummy: PhantomData<OF>,
-    next_dummy: PhantomData<LMF>,
-}
-
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Visitor<'de>
-    for OwnedFlatExVisitor<T, OF, LMF>
-where
-    <T as std::str::FromStr>::Err: Debug,
-{
-    type Value = OwnedFlatEx<T, OF, LMF>;
-
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "a &str that can be parsed by the crate Exmex")
-    }
-
-    fn visit_str<E>(self, unparsed: &str) -> Result<Self::Value, E>
-    where
-        E: de::Error,
-    {
-        let owned_flatex = Self::Value::from_str(unparsed);
-        owned_flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg)))
-    }
-}
 
 #[cfg(test)]
 use {
     crate::operators::{BinOp, Operator},
+    crate::expression::partial_derivatives::Differentiate,
     serde_test::Token,
 };
 
@@ -139,12 +84,6 @@ fn test_ser_de() {
         serde_test::assert_ser_tokens(&exp, &[Token::Str(s)]);
         let serialized = serde_json::to_string(&exp).unwrap();
         let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
-        assert_eq!(s, format!("{}", deserialized));
-
-        let exp = OwnedFlatEx::from_flatex(exp);
-        serde_test::assert_ser_tokens(&exp, &[Token::Str(s)]);
-        let serialized = serde_json::to_string(&exp).unwrap();
-        let deserialized = serde_json::from_str::<OwnedFlatEx<f64>>(serialized.as_str()).unwrap();
         assert_eq!(s, format!("{}", deserialized));
     };
 

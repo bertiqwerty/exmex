@@ -342,7 +342,7 @@ mod util;
 
 pub use {
     expression::{
-        flat::{FlatEx, OwnedFlatEx},
+        flat::FlatEx,
         Express, MatchLiteral, NumberMatcher,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
@@ -353,9 +353,11 @@ pub use {
 mod value;
 #[cfg(feature = "value")]
 pub use value::{
-    parse_val, parse_val_owned, FlatExVal, OwnedFlatExVal, Val, ValMatcher,
+    parse_val, FlatExVal, Val, ValMatcher,
     ValOpsFactory,
 };
+#[cfg(feature = "partial")]
+pub use expression::partial_derivatives::Differentiate;
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
@@ -375,7 +377,7 @@ where
     <T as FromStr>::Err: Debug,
 {
     let flatex = FlatEx::<T>::from_str_wo_compile(text)?;
-    if flatex.n_vars() > 0 {
+    if flatex.var_names().len() > 0 {
         return Err(ExError {
             msg: format!("input string contains variables, '{}' ", text),
         });

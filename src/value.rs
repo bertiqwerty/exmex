@@ -4,7 +4,7 @@ use num::{Float, PrimInt, Signed};
 
 use crate::{
     data_type::DataType, expression::MatchLiteral, format_exerr, BinOp, ExError, ExResult,
-    Express, FlatEx, MakeOperators, Operator, OwnedFlatEx, literal_matcher_from_pattern,
+    Express, FlatEx, MakeOperators, Operator, literal_matcher_from_pattern,
 };
 
 macro_rules! to_type {
@@ -668,11 +668,7 @@ literal_matcher_from_pattern!(ValMatcher, PATTERN);
 
 /// *`feature = "value"`* - Alias for [`FlatEx`](FlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
 /// as operator factory.
-pub type FlatExVal<'a, I, F> = FlatEx<'a, Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
-/// *`feature = "value"`* - Alias for [`OwnedFlatEx`](OwnedFlatEx) with [`Val`](Val) as data type and [`ValOpsFactory`](ValOpsFactory)
-/// as operator factory.
-pub type OwnedFlatExVal<I, F> =
-    OwnedFlatEx<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
+pub type FlatExVal<I, F> = FlatEx<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
 
 /// *`feature = "value"`* - Parses a string into an expression of type
 /// [`FlatExVal`](FlatExVal) with datatype [`Val`](Val).
@@ -700,28 +696,12 @@ where
     FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>::from_str(text)
 }
 
-/// *`feature = "value"`* - Parses a string into an expression of type [`OwnedFlatExVal`](OwnedFlatExVal) with
-/// datatype [`Val`](Val).
-pub fn parse_val_owned<I, F>(
-    text: &str,
-) -> ExResult<OwnedFlatExVal<I, F>>
-where
-    I: DataType + PrimInt + Signed,
-    F: DataType + Float,
-    <I as FromStr>::Err: Debug,
-    <F as FromStr>::Err: Debug,
-{
-    Ok(OwnedFlatEx::<_, _, ValMatcher>::from_flatex(
-        parse_val(text)?,
-    ))
-}
-
 #[cfg(test)]
 mod tests {
 
     use crate::{
         format_exerr, parse_val, util::assert_float_eq_f64, value::Val, ExError, ExResult, Express,
-        FlatExVal, OwnedFlatExVal,
+        FlatExVal
     };
 
     #[test]
@@ -756,19 +736,11 @@ mod tests {
             println!("=== testing\n{}", s);
             let expr = FlatExVal::<i32, f64>::from_str(s)?;
             assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
-            let expr = OwnedFlatExVal::<i32, f64>::from_flatex(expr);
-            assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
-            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
-            assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
             Ok(())
         }
         fn test_bool(s: &str, reference: bool) -> ExResult<()> {
             println!("=== testing\n{}", s);
             let expr = FlatExVal::<i32, f64>::from_str(s)?;
-            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
-            let expr = OwnedFlatExVal::<i32, f64>::from_flatex(expr);
-            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
-            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
             assert_eq!(reference, expr.eval(&[])?.to_bool()?);
             Ok(())
         }
@@ -789,32 +761,11 @@ mod tests {
                     println!("found expected error {:?}", e);
                     Ok(())
                 }
-            }?;
-            let expr = OwnedFlatExVal::<i32, f64>::from_str(s);
-            match expr {
-                Ok(exp) => {
-                    let v = exp.eval(&[])?;
-                    match v {
-                        Val::Error(e) => {
-                            println!("found expected error {:?}", e);
-                            Ok(())
-                        }
-                        _ => Err(format_exerr!("'{}' should fail but didn't", s)),
-                    }
-                }
-                Err(e) => {
-                    println!("found expected error {:?}", e);
-                    Ok(())
-                }
             }
+  
         }
         fn test_none(s: &str) -> ExResult<()> {
             let expr = FlatExVal::<i32, f64>::from_str(s)?;
-            match expr.eval(&[])? {
-                Val::None => Ok(()),
-                _ => Err(format_exerr!("'{}' should return none but didn't", s)),
-            }?;
-            let expr = OwnedFlatExVal::<i32, f64>::from_str(s)?;
             match expr.eval(&[])? {
                 Val::None => Ok(()),
                 _ => Err(format_exerr!("'{}' should return none but didn't", s)),

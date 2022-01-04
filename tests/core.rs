@@ -1,31 +1,20 @@
 mod utils;
 use std::ops::{BitAnd, BitOr};
 use std::str::FromStr;
-use std::{iter::once, ops::Range};
-
-use smallvec::{smallvec, SmallVec};
+use std::{iter::once};
 
 use exmex::{
-    eval_str, parse, ExResult, OwnedFlatEx, {BinOp, FloatOpsFactory, MakeOperators, Operator},
+    eval_str, parse, ExResult, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
 use exmex::{literal_matcher_from_pattern, ops_factory, prelude::*, ExError, MatchLiteral};
 
-use crate::utils::{assert_float_eq, assert_float_eq_f64};
-use rand::{thread_rng, Rng};
+use crate::utils::{assert_float_eq_f64};
 
 #[test]
 fn test_display() -> ExResult<()> {
-    let mut flatex = FlatEx::<f64>::from_str("sin(var)/5")?;
+    let flatex = FlatEx::<f64>::from_str("sin(var)/5")?;
     println!("{}", flatex);
     assert_eq!(format!("{}", flatex), "sin(var)/5");
-    flatex.reduce_memory();
-    assert_eq!(format!("{}", flatex), "sin(var)/5");
-
-    let flatex = FlatEx::<f64>::from_str("sin(var)/5")?;
-    let mut owned_flatex = OwnedFlatEx::from_flatex(flatex);
-    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
-    owned_flatex.reduce_memory();
-    assert_eq!(format!("{}", owned_flatex), "sin(var)/5");
     Ok(())
 }
 
@@ -34,10 +23,6 @@ fn test_flatex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64], reference: f64) -> ExResult<()> {
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::from_str(sut)?;
-        assert_float_eq_f64(flatex.eval(vars)?, reference);
-        let flatex = OwnedFlatEx::<f64>::from_flatex(flatex);
-        assert_float_eq_f64(flatex.eval(vars)?, reference);
-        let flatex = OwnedFlatEx::<f64>::from_str(sut)?;
         assert_float_eq_f64(flatex.eval(vars)?, reference);
         println!("...ok.");
         Ok(())
@@ -93,27 +78,6 @@ fn test_flatex() -> ExResult<()> {
 
 #[test]
 fn test_readme() {
-    fn readme_partial() -> ExResult<()> {
-        let mut expr = parse::<f64>("y*x^2")?;
-
-        // d_x
-        let mut dexpr_dx = expr.partial(0)?;
-        assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
-
-        // d_xy
-        let mut ddexpr_dxy = dexpr_dx.partial(1)?;
-        assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
-        let result = ddexpr_dxy.eval(&[2.0, f64::MAX])?;
-        assert!((result - 4.0).abs() < 1e-12);
-
-        // d_xyx
-        let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
-        assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
-        let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
-        assert!((result - 2.0).abs() < 1e-12);
-
-        Ok(())
-    }
     fn readme() -> ExResult<()> {
         let result = eval_str::<f64>("sin(73)")?;
         assert!((result - 73f64.sin()).abs() < 1e-12);
@@ -141,20 +105,19 @@ fn test_readme() {
         assert_eq!(result, u32::MAX - 1);
         Ok(())
     }
-    assert!(!readme_partial().is_err());
     assert!(!readme().is_err());
     assert!(!readme_int().is_err());
 }
 #[test]
 fn test_variables_curly_space_names() -> ExResult<()> {
     let sut = "{x } + { y }";
-    let expr = FlatEx::<f64>::from_str(sut)?;
-    utils::assert_float_eq_f64(expr.eval(&[1.0, 1.0])?, 2.0);
-    assert_eq!(expr.unparse()?, sut);
+    let expr = FlatEx::<f32>::from_str(sut)?;
+    utils::assert_float_eq_f32(expr.eval(&[1.0, 1.0])?, 2.0);
+    assert_eq!(expr.unparse(), sut);
     let sut = "2*(4*{ xasd sa } + { y z}^2)";
-    let expr = FlatEx::<f64>::from_str(sut)?;
-    utils::assert_float_eq_f64(expr.eval(&[2.0, 3.0])?, 34.0);
-    assert_eq!(expr.unparse()?, sut);
+    let expr = FlatEx::<f32>::from_str(sut)?;
+    utils::assert_float_eq_f32(expr.eval(&[2.0, 3.0])?, 34.0);
+    assert_eq!(expr.unparse(), sut);
     Ok(())
 }
 #[test]
@@ -269,7 +232,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
 fn test_variables() -> ExResult<()> {
     let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*log(cos({y})))*cos({z}))";
     let expr = FlatEx::<f64>::from_str(sut)?;
-    assert_eq!(expr.n_vars(), 3usize);
+    assert_eq!(expr.var_names().len(), 3usize);
     let reference =
         |x: f64, y: f64, z: f64| x.sin() + y.cos().powf(z.sin()) * y.cos().ln() * z.cos();
 
@@ -280,7 +243,7 @@ fn test_variables() -> ExResult<()> {
     );
 
     let sut = "sin(sin(x - 1 / sin(y * 5)) + (5.0 - 1/z))";
-    let expr = OwnedFlatEx::<f64>::from_str(sut)?;
+    let expr = FlatEx::<f64>::from_str(sut)?;
     let reference =
         |x: f64, y: f64, z: f64| ((x - 1.0 / (y * 5.0).sin()).sin() + (5.0 - 1.0 / z)).sin();
     utils::assert_float_eq_f64(
@@ -294,13 +257,13 @@ fn test_variables() -> ExResult<()> {
     utils::assert_float_eq_f64(expr.eval(&[4.0]).unwrap(), reference(4.0));
 
     let sut = "y + 1 + 0.5 * x";
-    let expr = OwnedFlatEx::<f64>::from_str(sut)?;
-    assert_eq!(expr.n_vars(), 2usize);
+    let expr = FlatEx::<f64>::from_str(sut)?;
+    assert_eq!(expr.var_names().len(), 2usize);
     utils::assert_float_eq_f64(expr.eval(&[3.0, 1.0]).unwrap(), 3.5);
 
     let sut = " -(-(1+x))";
-    let expr = OwnedFlatEx::<f64>::from_str(sut)?;
-    assert_eq!(expr.n_vars(), 1usize);
+    let expr = FlatEx::<f64>::from_str(sut)?;
+    assert_eq!(expr.var_names().len(), 1usize);
     utils::assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 2.0);
 
     let sut = " sin(cos(-3.14159265358979*x))";
@@ -308,7 +271,7 @@ fn test_variables() -> ExResult<()> {
     utils::assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), -0.841470984807896);
 
     let sut = "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)";
-    let expr = OwnedFlatEx::<f64>::from_str(sut)?;
+    let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[1.5, 0.2532]).unwrap(), -3.1164569260604176);
 
     let sut = "5*x + 4*y + 3*x";
@@ -316,7 +279,7 @@ fn test_variables() -> ExResult<()> {
     utils::assert_float_eq_f64(expr.eval(&[1.0, 0.0]).unwrap(), 8.0);
 
     let sut = "5*x + 4*y";
-    let expr = OwnedFlatEx::<f64>::from_str(sut)?;
+    let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[0.0, 1.0]).unwrap(), 4.0);
 
     let sut = "5*x + 4*y + x^2";
@@ -386,7 +349,7 @@ fn test_custom_ops_invert() -> ExResult<()> {
             ]
         }
     }
-    let expr = OwnedFlatEx::<f32, SomeF32Operators>::from_str("sqrt(invert(a))")?;
+    let expr = FlatEx::<f32, SomeF32Operators>::from_str("sqrt(invert(a))")?;
     utils::assert_float_eq_f32(expr.eval(&[0.25]).unwrap(), 2.0);
     Ok(())
 }
@@ -418,7 +381,7 @@ fn test_custom_ops() -> ExResult<()> {
             ]
         }
     }
-    let expr = OwnedFlatEx::<f32, SomeF32Operators>::from_str("2**2*invert(3)")?;
+    let expr = FlatEx::<f32, SomeF32Operators>::from_str("2**2*invert(3)")?;
     let val = expr.eval(&[])?;
     utils::assert_float_eq_f32(val, 4.0 / 3.0);
 
@@ -448,175 +411,6 @@ fn test_custom_ops() -> ExResult<()> {
     Ok(())
 }
 
-#[test]
-fn test_partial() -> ExResult<()> {
-    fn test(
-        var_idx: usize,
-        n_vars: usize,
-        random_range: Range<f64>,
-        flatex: FlatEx<f64>,
-        reference: fn(f64) -> f64,
-    ) -> ExResult<()> {
-        let mut rng = rand::thread_rng();
-
-        assert!(flatex.clone().partial(flatex.n_vars()).is_err());
-
-        // test owned flatex without buffer
-        let mut owned_flatex_wo_buff = OwnedFlatEx::from_flatex(flatex.clone());
-        let owned_deri = owned_flatex_wo_buff.partial(var_idx)?;
-        for _ in 0..3 {
-            let vut = rng.gen_range(random_range.clone());
-            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
-            vars[var_idx] = vut;
-            println!("value under test {}.", vut);
-            utils::assert_float_eq_f64(owned_deri.eval(&vars).unwrap(), reference(vut));
-        }
-
-        // test flatex
-        let deri = flatex.clone().partial(var_idx)?;
-        println!("flatex {}", flatex);
-        println!("partial {}", deri);
-        for _ in 0..3 {
-            let vut = rng.gen_range(random_range.clone());
-            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
-            vars[var_idx] = vut;
-            println!("value under test {}.", vut);
-            utils::assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
-        }
-
-        // test owned flatex with buffer
-        let mut owned_flatex_w_buff = OwnedFlatEx::from_flatex(flatex.clone());
-        println!("flatex owned {}", owned_flatex_w_buff);
-        let owned_deri = owned_flatex_w_buff.partial(var_idx)?;
-        println!("partial owned {}", owned_deri);
-        for _ in 0..3 {
-            let vut = rng.gen_range(random_range.clone());
-            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
-            vars[var_idx] = vut;
-            println!("value under test {}.", vut);
-            utils::assert_float_eq_f64(owned_deri.eval(&vars).unwrap(), reference(vut));
-        }
-        Ok(())
-    }
-
-    let sut = "+x";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |_: f64| 1.0;
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "++x";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |_: f64| 1.0;
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "+-+x";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |_: f64| -1.0;
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "-x";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |_: f64| -1.0;
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "--x";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |_: f64| 1.0;
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "sin(sin(x))";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| x.sin().cos() * x.cos();
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "sin(x)-cos(x)+a";
-    println!("{}", sut);
-    let var_idx = 1;
-    let n_vars = 2;
-    let mut flatex_1 = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| x.cos() + x.sin();
-    test(
-        var_idx,
-        n_vars,
-        -10000.0..10000.0,
-        flatex_1.clone(),
-        reference,
-    )?;
-    let mut deri = flatex_1.partial(var_idx)?;
-    let reference = |x: f64| -x.sin() + x.cos();
-    test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference)?;
-    let mut deri = deri.partial(var_idx)?;
-    let reference = |x: f64| -x.cos() - x.sin();
-    test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference)?;
-    let deri = deri.partial(var_idx)?;
-    let reference = |x: f64| x.sin() - x.cos();
-    test(var_idx, n_vars, -10000.0..10000.0, deri.clone(), reference)?;
-
-    let sut = "sin(x)-cos(x)+tan(x)+a";
-    println!("{}", sut);
-    let var_idx = 1;
-    let n_vars = 2;
-    let flatex_1 = FlatEx::<f64>::from_str("sin(x)-cos(x)+tan(x)+a")?;
-    let reference = |x: f64| x.cos() + x.sin() + 1.0 / (x.cos().powf(2.0));
-    test(var_idx, n_vars, -10000.0..10000.0, flatex_1, reference)?;
-
-    let sut = "log(v)*exp(v)+cos(x)+tan(x)+a";
-    println!("{}", sut);
-    let var_idx = 1;
-    let n_vars = 3;
-    let flatex = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
-    test(var_idx, n_vars, 0.01..100.0, flatex, reference)?;
-
-    let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
-    println!("{}", sut);
-    let var_idx = 2;
-    let n_vars = 4;
-    let flatex = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| {
-        (x.cosh() * x.cosh() - x.sinh() * x.sinh()) / x.cosh().powf(2.0)
-            + 1.0 / (x.cosh().powf(2.0))
-    };
-    test(var_idx, n_vars, -100.0..100.0, flatex, reference)?;
-
-    let sut = "w+z+acos(v)+asin(v)+b+atan({v})";
-    println!("{}", sut);
-    let var_idx = 1;
-    let n_vars = 4;
-    let flatex = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| {
-        1.0 / (1.0 - x.powf(2.0)).sqrt() - 1.0 / (1.0 - x.powf(2.0)).sqrt()
-            + 1.0 / (1.0 + x.powf(2.0))
-    };
-    test(var_idx, n_vars, -1.0..1.0, flatex, reference)?;
-
-    let sut = "sqrt(var)*var^1.57";
-    println!("{}", sut);
-    let var_idx = 0;
-    let n_vars = 1;
-    let flatex = FlatEx::<f64>::from_str(sut)?;
-    let reference = |x: f64| 1.0 / (2.0 * x.sqrt()) * x.powf(1.57) + x.sqrt() * 1.57 * x.powf(0.57);
-    test(var_idx, n_vars, 0.0..100.0, flatex, reference)?;
-    Ok(())
-}
 
 #[test]
 fn test_eval_str() -> ExResult<()> {
@@ -703,14 +497,6 @@ fn test_serde_public_interface() -> ExResult<()> {
     let serialized = serde_json::to_string(&flatex).unwrap();
     let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
     assert_eq!(s, format!("{}", deserialized));
-    let flatex = OwnedFlatEx::<f64>::from_flatex(flatex);
-    let serialized = serde_json::to_string(&flatex).unwrap();
-    let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
-    assert_eq!(s, format!("{}", deserialized));
-    let flatex = OwnedFlatEx::<f64>::from_str(s)?;
-    let serialized = serde_json::to_string(&flatex).unwrap();
-    let deserialized = serde_json::from_str::<FlatEx<f64>>(serialized.as_str()).unwrap();
-    assert_eq!(s, format!("{}", deserialized));
     Ok(())
 }
 #[test]
@@ -724,7 +510,7 @@ fn test_constants() -> ExResult<()> {
     utils::assert_float_eq_f32(expr.eval(&[5.0])?, 1f32.exp().powf(5.0));
 
     let expr = parse::<f32>("E ^ Erwin");
-    assert_eq!(expr?.unparse()?, "E ^ Erwin");
+    assert_eq!(expr?.unparse(), "E ^ Erwin");
     Ok(())
 }
 
@@ -734,62 +520,3 @@ fn test_fuzz() {
     assert!(FlatEx::<f64>::from_str("\n").is_err());
 }
 
-#[test]
-fn test_partial_finite() -> ExResult<()> {
-    fn test<'a>(sut: &str, range: Range<f64>) -> ExResult<()> {
-        let flatex = exmex::parse::<f64>(sut)?;
-        let n_vars = flatex.n_vars();
-        let step = 1e-5;
-        let mut rng = thread_rng();
-
-        let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
-        println!(
-            "test_partial_finite - checking derivatives at {:?} for {}",
-            x0s, sut
-        );
-        for var_idx in 0..flatex.n_vars() {
-            let x1s: Vec<f64> = x0s
-                .iter()
-                .enumerate()
-                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
-                .collect();
-
-            let f0 = flatex.eval(&x0s)?;
-            let f1 = flatex.eval(&x1s)?;
-            let finite_diff = (f1 - f0) / step;
-            let deri = flatex.clone().partial(var_idx)?;
-            let deri = deri.eval(&x0s)?;
-            println!(
-                "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
-                deri, finite_diff
-            );
-            let msg = format!("sut {}, d_{} is {}", sut, var_idx, deri);
-            println!("test_partial_finite - {}", msg);
-            assert_float_eq::<f64>(deri, finite_diff, 1e-5, 1e-3, msg.as_str());
-        }
-        Ok(())
-    }
-    test("sqrt(x)", 0.0..10000.0)?;
-    test("asin(x)", -1.0..1.0)?;
-    test("acos(x)", -1.0..1.0)?;
-    test("atan(x)", -1.0..1.0)?;
-    test("1/x", -10.0..10.0)?;
-    test("x^x", 0.01..2.0)?;
-    test("x^y", 4.036286084344371..4.036286084344372)?;
-    test("z+sin(x)+cos(y)", -1.0..1.0)?;
-    test("sin(cos(sin(z)))", -10.0..10.0)?;
-    test("sin(x+z)", -10.0..10.0)?;
-    test("sin(x-z)", -10.0..10.0)?;
-    test("y-sin(x-z)", -10.0..10.0)?;
-    test("(sin(x)^2)/x/4", -10.0..10.0)?;
-    test("sin(y+x)/((x*2)/y)*(2*x)", -1.0..1.0)?;
-    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.01..1.0)?;
-    test("log(x^2)", 0.1..10.0)?;
-    test("tan(x)", -1.0..1.0)?;
-    test("tan(exp(x))", -1000.0..0.0)?;
-    test("exp(y-x)", -1.0..1.0)?;
-    test("sqrt(exp(y-x))", -1000.0..0.0)?;
-    test("sin(sin(x+z))", -10.0..10.0)?;
-    test("asin(sqrt(x+y))", 0.0..0.5)?;
-    Ok(())
-}

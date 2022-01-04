@@ -1,6 +1,6 @@
 use crate::{
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
-    expression::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, ExprIdxVec, UnaryOpWithReprs},
+    expression::{flat::ExprIdxVec, deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs}},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
     parser::{Paren, ParsedToken, self},
     ExError, ExResult,
@@ -8,6 +8,8 @@ use crate::{
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
+
+use super::flat_details::{FlatOpVec, FlatNodeVec, FlatNodeKind, FlatNode, FlatOp};
 
 /// Handles the case that a token is a unary operator and returns a tuple.
 /// The first element is a node that is either an expression with a unary operator or a
@@ -186,45 +188,66 @@ pub struct BinOpsWithReprsBuf<T: Clone> {
     pub reprs: SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
 }
-impl<T: Clone> BinOpsWithReprsBuf<T> {
-    pub fn from_deepex(bin_ops_in: &BinOpsWithReprs<T>) -> Self {
-        BinOpsWithReprsBuf {
-            reprs: bin_ops_in
-                .reprs
-                .iter()
-                .map(|repr| repr.to_string())
-                .collect(),
-            ops: bin_ops_in.ops.clone(),
-        }
-    }
-    pub fn to_deepex(&self) -> BinOpsWithReprs<T> {
-        BinOpsWithReprs {
-            reprs: self.reprs.iter().map(|repr| repr.as_str()).collect(),
-            ops: self.ops.clone(),
-        }
-    }
-}
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprsBuf<T> {
     pub reprs: SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     pub op: UnaryOp<T>,
 }
-impl<T: Clone> UnaryOpWithReprsBuf<T> {
-    pub fn from_deepex(unary_op_in: &UnaryOpWithReprs<T>) -> Self {
-        UnaryOpWithReprsBuf {
-            reprs: unary_op_in
-                .reprs
-                .iter()
-                .map(|repr| repr.to_string())
-                .collect(),
-            op: unary_op_in.op.clone(),
+
+
+pub fn flatten_vecs<T: Clone + Debug>(
+    deep_expr: &DeepEx<T>,
+    prio_offset: i64,
+) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+    let mut flat_nodes = FlatNodeVec::<T>::new();
+    let mut flat_ops = FlatOpVec::<T>::new();
+
+    for (node_idx, node) in deep_expr.nodes().iter().enumerate() {
+        match node {
+            DeepNode::Num(num) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(num.clone()));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Var((idx, _)) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Var(*idx));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Expr(e) => {
+                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i64);
+                flat_nodes.append(&mut sub_nodes);
+                flat_ops.append(&mut sub_ops);
+            }
+        };
+        if node_idx < deep_expr.bin_ops().ops.len() {
+            let prio_adapted_bin_op = BinOp {
+                apply: deep_expr.bin_ops().ops[node_idx].apply,
+                prio: deep_expr.bin_ops().ops[node_idx].prio + prio_offset,
+                is_commutative: deep_expr.bin_ops().ops[node_idx].is_commutative,
+            };
+            flat_ops.push(FlatOp {
+                bin_op: prio_adapted_bin_op,
+                unary_op: UnaryOp::new(),
+            });
         }
     }
-    pub fn to_deepex(&self) -> UnaryOpWithReprs<T> {
-        UnaryOpWithReprs {
-            reprs: self.reprs.iter().map(|repr| repr.as_str()).collect(),
-            op: self.op.clone(),
+
+    if deep_expr.unary_op().op.len() > 0 {
+        if !flat_ops.is_empty() {
+            // find the last binary operator with the lowest priority of this expression,
+            // since this will be executed as the last one
+            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
+                None => panic!("cannot have more than one flat node but no binary ops"),
+                Some(x) => x,
+            };
+            low_prio_op
+                .unary_op
+                .append_after(&deep_expr.unary_op().op.clone());
+        } else {
+            flat_nodes[0]
+                .unary_op
+                .append_after(&deep_expr.unary_op().op.clone());
         }
     }
+    (flat_nodes, flat_ops)
 }

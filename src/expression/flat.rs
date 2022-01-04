@@ -1,17 +1,16 @@
 use crate::data_type::DataType;
-use crate::definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK};
+use crate::definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK};
 use crate::expression::flat_details::{
     self, FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec,
 };
 
-use crate::expression::{
-    deep::{DeepBuf, DeepEx, ExprIdxVec},
-    partial_derivatives, Express,
-};
+use crate::expression::{Express};
 use crate::operators::UnaryOp;
 use crate::parser::{Paren, ParsedToken};
-use crate::{parser, ExError, ExResult, FloatOpsFactory, MakeOperators, Operator};
-use num::Float;
+use crate::{
+    parser, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+    Operator,
+};
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -20,6 +19,7 @@ use std::str::FromStr;
 type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
 const DEPTH_PRIO_STEP: i64 = 1000;
+pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
 
 /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
 /// relevant depth operators will be returned and the open operator will be removed.
@@ -64,11 +64,11 @@ where
     }
 }
 
-pub fn make_expression<'a, T, OF, LMF>(
-    text: &'a str,
-    parsed_tokens: &[ParsedToken<'a, T>],
-    parsed_vars: &[&'a str],
-) -> ExResult<FlatEx<'a, T, OF, LMF>>
+pub fn make_expression<T, OF, LMF>(
+    text: &str,
+    parsed_tokens: &[ParsedToken<T>],
+    parsed_vars: &[&str],
+) -> ExResult<FlatEx<T, OF, LMF>>
 where
     T: Clone + FromStr + Debug,
     OF: MakeOperators<T>,
@@ -197,15 +197,14 @@ where
         nodes: flat_nodes,
         ops: flat_ops,
         prio_indices: indices,
-        n_unique_vars: parsed_vars.len(),
-        deepex: None,
-        text: Some(text),
+        var_names: parsed_vars.iter().map(|s|s.to_string()).collect(),
+        text: text.to_string(),
         dummy_ops_factory: PhantomData,
         dummy_literal_matcher_factory: PhantomData,
     })
 }
 
-fn parse<'a, T, OF, LMF>(text: &'a str, ops: &[Operator<'a, T>]) -> ExResult<FlatEx<'a, T, OF, LMF>>
+fn parse<T, OF, LMF>(text: &str, ops: &[Operator<T>]) -> ExResult<FlatEx<T, OF, LMF>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
@@ -217,10 +216,7 @@ where
     Ok(expr)
 }
 
-fn parse_wo_compile<'a, T, OF, LMF>(
-    text: &'a str,
-    ops: &[Operator<'a, T>],
-) -> ExResult<FlatEx<'a, T, OF, LMF>>
+fn parse_wo_compile<T, OF, LMF>(text: &str, ops: &[Operator<T>]) -> ExResult<FlatEx<T, OF, LMF>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
@@ -260,39 +256,40 @@ where
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<'a, T, OF = FloatOpsFactory<T>, LMF = NumberMatcher>
+pub struct FlatEx<T, OF = FloatOpsFactory<T>, LMF = NumberMatcher>
 where
-    T: Clone + Debug,
+    T: Debug + Clone,
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
 {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
-    n_unique_vars: usize,
-    deepex: Option<DeepEx<'a, T>>,
-    text: Option<&'a str>,
+    var_names: SmallVec<[String; N_VARS_ON_STACK]>,
+    text: String,
     dummy_ops_factory: PhantomData<OF>,
     dummy_literal_matcher_factory: PhantomData<LMF>,
 }
 
-impl<'a, T, OF, LMF> FlatEx<'a, T, OF, LMF>
+impl<T, OF, LMF> FlatEx<T, OF, LMF>
 where
-    T: Clone + Debug,
+    T: DataType,
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
 {
-    fn flatten(deepex: DeepEx<'a, T>) -> Self {
-        let (nodes, ops) = flat_details::flatten_vecs(&deepex, 0);
-        let indices = flat_details::prioritized_indices_flat(&ops, &nodes);
-        let n_unique_vars = deepex.n_vars();
+    pub fn new(
+        nodes: FlatNodeVec<T>,
+        ops: FlatOpVec<T>,
+        prio_indices: ExprIdxVec,
+        var_names: SmallVec<[String; N_VARS_ON_STACK]>,
+        text: String,
+    ) -> Self {
         Self {
             nodes,
             ops,
-            prio_indices: indices,
-            n_unique_vars,
-            deepex: Some(deepex),
-            text: None,
+            prio_indices,
+            var_names,
+            text,
             dummy_ops_factory: PhantomData,
             dummy_literal_matcher_factory: PhantomData,
         }
@@ -356,7 +353,7 @@ where
     }
 
     /// Parses into an expression without compilation. Allow slightly faster direct evaluation of strings.
-    pub fn from_str_wo_compile(text: &'a str) -> ExResult<Self>
+    pub fn from_str_wo_compile(text: &str) -> ExResult<Self>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
@@ -366,13 +363,13 @@ where
     }
 }
 
-impl<'a, T, OF, LMF> Express<'a, T> for FlatEx<'a, T, OF, LMF>
+impl<T, OF, LMF> Express<T> for FlatEx<T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
 {
-    fn from_str(text: &'a str) -> ExResult<Self>
+    fn from_str(text: &str) -> ExResult<Self>
     where
         <T as std::str::FromStr>::Err: Debug,
         T: DataType,
@@ -387,58 +384,20 @@ where
             &self.nodes,
             &self.ops,
             &self.prio_indices,
-            self.n_unique_vars,
+            self.var_names.len(),
         )
     }
-    fn partial(&mut self, var_idx: usize) -> ExResult<Self>
-    where
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        flat_details::check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
-        let ops = FloatOpsFactory::make();
 
-        if self.deepex.is_none() {
-            self.deepex = match self.text {
-                Some(t) => Some(DeepEx::from_ops(t, &OF::make())?),
-                None => {
-                    return Err(ExError::new(
-                        "Need either text or deep expression. Did you call `reduce_memory`?",
-                    ));
-                }
-            }
-        }
-
-        let d_i = partial_derivatives::partial_deepex(
-            var_idx,
-            self.deepex.clone()
-                .expect("This is a bug. deepex cannot be None here."),
-            &ops,
-        )?;
-        Ok(Self::flatten(d_i))
+    fn unparse(&self) -> String {
+        self.text.clone()
     }
-    fn unparse(&self) -> ExResult<String> {
-        match self.text {
-            Some(t) => Ok(t.to_string()),
-            None => match &self.deepex {
-                Some(deepex) => Ok(deepex.unparse_raw()),
-                None => Err(ExError {
-                    msg: "unparse impossible, since deep expression optimized away".to_string(),
-                }),
-            },
-        }
-    }
-    fn reduce_memory(&mut self) {
-        self.deepex = None;
-    }
-
-    fn n_vars(&self) -> usize {
-        self.n_unique_vars
+    fn var_names<'a>(&'a self) -> &[String] {
+        &self.var_names
     }
 }
 
 /// The expression is displayed as a string created by [`unparse`](FlatEx::unparse).
-impl<'a, T, OF, LMF> Display for FlatEx<'a, T, OF, LMF>
+impl<T, OF, LMF> Display for FlatEx<T, OF, LMF>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -446,192 +405,18 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
-        match unparsed {
-            Err(e) => write!(f, "{}", e.msg),
-            Ok(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-/// This is another representation of a flattened expression besides [`FlatEx`](FlatEx).
-/// The difference is that [`OwnedFlatEx`](OwnedFlatEx) can be used without
-/// a lifetime parameter. All the data that [`FlatEx`](FlatEx) borrowed is kept in a
-/// buffer by [`OwnedFlatEx`](OwnedFlatEx). The drawback is that parsing takes longer, since
-/// additional allocations are necessary. Evaluation time should be about the same for
-/// [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
-///
-/// ```rust
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-/// #
-/// use exmex::{Express, OwnedFlatEx};
-/// let to_be_parsed = "log(z) + 2* (-z^(x-2) + sin(4*y))";
-/// let expr_owned = OwnedFlatEx::<f64>::from_str(to_be_parsed)?;
-/// assert!((expr_owned.eval(&[4.0, 3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
-/// #
-/// #     Ok(())
-/// # }
-/// ```
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct OwnedFlatEx<T, OF = FloatOpsFactory<T>, LMF = NumberMatcher>
-where
-    T: Clone + Debug,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-{
-    deepex_buf: Option<DeepBuf<T>>,
-    nodes: FlatNodeVec<T>,
-    ops: FlatOpVec<T>,
-    prio_indices: ExprIdxVec,
-    n_unique_vars: usize,
-    text: Option<String>,
-    dummy_ops_factory: PhantomData<OF>,
-    dummy_literal_matcher_factory: PhantomData<LMF>,
-}
-impl<T, OF, LMF> OwnedFlatEx<T, OF, LMF>
-where
-    T: Clone + Debug,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-{
-    /// Creates an `OwnedFlatEx` instance from an instance of `FlatEx`.
-    pub fn from_flatex(flatex: FlatEx<T, OF, LMF>) -> Self {
-        Self {
-            deepex_buf: flatex.deepex.map(|d| DeepBuf::from_deepex(&d)),
-            nodes: flatex.nodes,
-            ops: flatex.ops,
-            prio_indices: flatex.prio_indices,
-            n_unique_vars: flatex.n_unique_vars,
-            text: flatex.text.map(|s| s.to_string()),
-            dummy_ops_factory: PhantomData,
-            dummy_literal_matcher_factory: PhantomData,
-        }
-    }
-}
-impl<'a, T, OF, LMF> Express<'a, T> for OwnedFlatEx<T, OF, LMF>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-{
-    fn from_str(text: &'a str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: Clone + FromStr,
-    {
-        Ok(Self::from_flatex(FlatEx::from_str(text)?))
-    }
-
-    fn eval(&self, vars: &[T]) -> ExResult<T> {
-        flat_details::eval_flatex(
-            vars,
-            &self.nodes,
-            &self.ops,
-            &self.prio_indices,
-            self.n_unique_vars,
-        )
-    }
-
-    fn partial(&mut self, var_idx: usize) -> ExResult<Self>
-    where
-        T: Float,
-        <T as FromStr>::Err: Debug,
-    {
-        flat_details::check_partial_index(var_idx, self.n_vars(), self.unparse()?.as_str())?;
-
-        let ops = FloatOpsFactory::make();
-
-        if self.deepex_buf.is_none() {
-            self.deepex_buf = match &self.text {
-                Some(t) => {
-                    let deepex = DeepEx::from_ops(t.as_str(), &OF::make())?;
-                    Some(DeepBuf::from_deepex(&deepex))
-                }
-                None => {
-                    return Err(ExError::new(
-                        "Need either text or deep expression. Did you call `reduce_memory`?",
-                    ));
-                }
-            };
-        }
-
-        let deep_buf = self
-            .deepex_buf.clone()
-            .expect("This is a bug. deepex buffer cannot be None here.");
-        let deepex = deep_buf.to_deepex(&ops)?;
-        let d_i = partial_derivatives::partial_deepex(var_idx, deepex, &ops)?;
-        Ok(Self::from_flatex(FlatEx::flatten(d_i)))
-    }
-    fn unparse(&self) -> ExResult<String> {
-        match &self.text {
-            Some(t) => Ok(t.clone()),
-            None => match &self.deepex_buf {
-                Some(deepex) => Ok(deepex.unparsed.clone()),
-                None => Err(ExError {
-                    msg: "unparse impossible, since deep expression optimized away".to_string(),
-                }),
-            },
-        }
-    }
-
-    fn reduce_memory(&mut self) {
-        self.deepex_buf = None;
-    }
-
-    fn n_vars(&self) -> usize {
-        self.n_unique_vars
-    }
-}
-/// The expression is displayed as a string created by [`unparse`](OwnedFlatEx::unparse).
-impl<T, OF, LMF> Display for OwnedFlatEx<T, OF, LMF>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let unparsed = self.unparse();
-        match unparsed {
-            Err(e) => write!(f, "{}", e.msg),
-            Ok(s) => write!(f, "{}", s),
-        }
+        write!(f, "{}", unparsed)
     }
 }
 
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
 
-use super::{MatchLiteral, NumberMatcher};
-
-#[test]
-fn test_flat_clear() -> ExResult<()> {
-    let mut flatex = FlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
-    assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    let mut deri = flatex.partial(0)?;
-    assert!(deri.deepex.is_some());
-    deri.reduce_memory();
-    assert!(deri.deepex.is_none());
-
-    let mut flatex = OwnedFlatEx::<f64>::from_str("x*(2*(2*(2*4*8)))")?;
-    assert_float_eq_f64(flatex.eval(&[1.0])?, 2.0 * 2.0 * 2.0 * 4.0 * 8.0);
-    let mut deri = flatex.partial(0)?;
-    assert!(deri.deepex_buf.is_some());
-    deri.reduce_memory();
-    assert!(deri.deepex_buf.is_none());
-    Ok(())
-}
-
 #[test]
 fn test_flat_compile() -> ExResult<()> {
     fn test(text: &str, vars: &[f64], ref_val: f64, ref_len: usize) -> ExResult<()> {
         println!("testing {}...", text);
         let flatex = FlatEx::<f64>::from_str(text)?;
-        assert_float_eq_f64(flatex.eval(vars)?, ref_val);
-        assert_eq!(flatex.nodes.len(), ref_len);
-        let flatex = OwnedFlatEx::<f64>::from_flatex(flatex);
-        assert_float_eq_f64(flatex.eval(vars)?, ref_val);
-        assert_eq!(flatex.nodes.len(), ref_len);
-        let flatex = OwnedFlatEx::<f64>::from_str(text)?;
         assert_float_eq_f64(flatex.eval(vars)?, ref_val);
         assert_eq!(flatex.nodes.len(), ref_len);
         println!("...ok.");
@@ -668,7 +453,7 @@ fn test_flat_compile() -> ExResult<()> {
         _ => unreachable!(),
     }
 
-    let flatex = OwnedFlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
+    let flatex = FlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),
@@ -685,40 +470,3 @@ fn test_flat_compile() -> ExResult<()> {
     Ok(())
 }
 
-#[test]
-fn test_unparse() -> ExResult<()> {
-    fn test(text: &str, text_ref: &str) -> ExResult<()> {
-        let mut flatex = FlatEx::<f64>::from_str(text)?;
-        assert_eq!(flatex.unparse()?, text);
-        flatex.reduce_memory();
-        assert!(flatex.unparse().is_ok());
-
-        let mut flatex = OwnedFlatEx::<f64>::from_str(text)?;
-        assert_eq!(flatex.unparse()?, text);
-        flatex.reduce_memory();
-        assert!(flatex.unparse().is_ok());
-
-        let deepex = DeepEx::<f64>::from_ops(text, &FloatOpsFactory::make())?;
-        assert_eq!(deepex.unparse_raw(), text_ref);
-        Ok(())
-    }
-    let text = "5+x";
-    let text_ref = "5.0+{x}";
-    test(text, text_ref)?;
-    let text = "sin(5+var)^(1/{y})+{var}";
-    let text_ref = "sin(5.0+{var})^(1.0/{y})+{var}";
-    test(text, text_ref)?;
-    let text = "-(5+var)^(1/{y})+{var}";
-    let text_ref = "-(5.0+{var})^(1.0/{y})+{var}";
-    test(text, text_ref)?;
-    let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
-    let text_ref = "cos(sin(-(5.0+{var})^(1.0/{y})))+{var}";
-    test(text, text_ref)?;
-    let text = "cos(sin(-5+var^(1/{y})))-{var}";
-    let text_ref = "cos(sin(-5.0+{var}^(1.0/{y})))-{var}";
-    test(text, text_ref)?;
-    let text = "cos(sin(-z+var*(1/{y})))+{var}";
-    let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
-    test(text, text_ref)?;
-    Ok(())
-}
