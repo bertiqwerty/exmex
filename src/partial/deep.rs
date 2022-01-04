@@ -4,11 +4,12 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    partial::deep_details,
+    expression::flat::{self, ExprIdxVec},
     format_exerr,
     operators::{BinOp, UnaryOp},
-    parser, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
-    expression::{flat::{ExprIdxVec, self}}
+    parser,
+    partial::deep_details,
+    ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
 };
 use num::Float;
 use smallvec::{smallvec, SmallVec};
@@ -18,7 +19,6 @@ use std::{
     iter,
     str::FromStr,
 };
-
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
@@ -176,7 +176,10 @@ where
             nodes,
             ops,
             indices,
-            self.var_names.iter().map(|s|s.to_string()).collect::<SmallVec<_>>(),
+            self.var_names
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<SmallVec<_>>(),
             self.unparse_raw(),
         )
     }
@@ -355,11 +358,7 @@ where
         self.is_num(T::from(0.0).unwrap())
     }
 
-
-    pub fn reset_vars(
-        &mut self,
-        new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
-    ) {
+    pub fn reset_vars(&mut self, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
         for node in &mut self.nodes {
             match node {
                 DeepNode::Expr(e) => e.reset_vars(new_var_names.clone()),
@@ -483,9 +482,9 @@ impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
 
 #[cfg(test)]
 use crate::{
+    operators::{FloatOpsFactory, VecOfUnaryFuncs},
     partial::deep_details::prioritized_indices,
     partial::partial_derivatives::partial_deepex,
-    operators::{FloatOpsFactory, VecOfUnaryFuncs},
     util::assert_float_eq_f64,
     Express,
 };

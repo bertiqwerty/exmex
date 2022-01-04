@@ -4,11 +4,8 @@ use num::Float;
 
 use crate::{data_type::DataType, ExResult, Express};
 
-#[cfg(feature = "partial")]
 pub mod deep;
-#[cfg(feature = "partial")]
 mod deep_details;
-#[cfg(feature = "partial")]
 pub mod partial_derivatives;
 
 pub trait Differentiate<T, Ex> {
