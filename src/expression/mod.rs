@@ -2,14 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 use crate::{parser, ExResult};
 
-#[cfg(feature = "partial")]
-pub mod deep;
-#[cfg(feature = "partial")]
-mod deep_details;
 pub mod flat;
-mod flat_details;
-#[cfg(feature = "partial")]
-pub mod partial_derivatives;
 #[cfg(feature = "serde")]
 mod serde;
 

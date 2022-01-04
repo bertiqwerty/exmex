@@ -1,8 +1,12 @@
 #[cfg(feature = "partial")]
 use exmex::{parse, Differentiate, ExResult, Express, FlatEx};
+#[cfg(feature = "partial")]
 mod utils;
+#[cfg(feature = "partial")]
 use rand::{thread_rng, Rng};
+#[cfg(feature = "partial")]
 use smallvec::{smallvec, SmallVec};
+#[cfg(feature = "partial")]
 use std::ops::Range;
 #[cfg(feature = "partial")]
 #[test]

@@ -1,15 +1,15 @@
 use crate::{
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
-    expression::{flat::ExprIdxVec, deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs}},
+    expression::{flat::{ExprIdxVec, FlatOpVec, FlatNodeKind, FlatNode, FlatNodeVec, FlatOp}},
     operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
     parser::{Paren, ParsedToken, self},
     ExError, ExResult,
+    partial::deep::{BinOpVec, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs}
 };
 use std::{fmt::Debug, iter, str::FromStr};
 
 use smallvec::SmallVec;
 
-use super::flat_details::{FlatOpVec, FlatNodeVec, FlatNodeKind, FlatNode, FlatOp};
 
 /// Handles the case that a token is a unary operator and returns a tuple.
 /// The first element is a node that is either an expression with a unary operator or a

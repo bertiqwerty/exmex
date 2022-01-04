@@ -4,10 +4,11 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::deep_details,
+    partial::deep_details,
     format_exerr,
     operators::{BinOp, UnaryOp},
     parser, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
+    expression::{flat::{ExprIdxVec, self}}
 };
 use num::Float;
 use smallvec::{smallvec, SmallVec};
@@ -18,7 +19,6 @@ use std::{
     str::FromStr,
 };
 
-use super::{flat::ExprIdxVec, flat_details};
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
@@ -171,7 +171,7 @@ where
         LMF: MatchLiteral,
     {
         let (nodes, ops) = deep_details::flatten_vecs(&self, 0);
-        let indices = flat_details::prioritized_indices_flat(&ops, &nodes);
+        let indices = flat::prioritized_indices_flat(&ops, &nodes);
         FlatEx::new(
             nodes,
             ops,
@@ -483,8 +483,8 @@ impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
 
 #[cfg(test)]
 use crate::{
-    expression::deep_details::prioritized_indices,
-    expression::partial_derivatives::partial_deepex,
+    partial::deep_details::prioritized_indices,
+    partial::partial_derivatives::partial_deepex,
     operators::{FloatOpsFactory, VecOfUnaryFuncs},
     util::assert_float_eq_f64,
     Express,

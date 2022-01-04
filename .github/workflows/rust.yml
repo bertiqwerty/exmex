@@ -14,6 +14,8 @@ jobs:
     - name: Build with serde and value
       run: cargo build --verbose --all-features
     - name: Clippy
+      run: cargo clippy -- -D warnings
+    - name: Clippy all features
       run: cargo clippy --all-features -- -D warnings
     - name: Run tests
       run: cargo test --verbose --all-features

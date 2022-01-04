@@ -83,50 +83,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//!
-//! ## Owned Expression
-//! You cannot return all expression types from a function without a lifetime parameter.
-//! For instance, expressions that are instances of [`FlatEx`](FlatEx) keep `&str`s instead of
-//! `String`s of variable or operator names to make faster parsing possible.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::prelude::*;
-//! use exmex::ExResult;
-//! fn create_expr<'a>() -> ExResult<FlatEx::<'a, f64>> {
-//! //              |                          |
-//! //              lifetime parameter necessary
-//!
-//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//!     exmex::parse::<f64>(to_be_parsed)
-//! }
-//! let expr = create_expr()?;
-//! assert!((expr.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//! If you are willing to pay the price of higher parsing times, you can
-//! obtain an expression that is an instance of [`OwnedFlatEx`](OwnedFlatEx) and owns
-//! its strings. Evaluation times should be comparable. However, a lifetime parameter is
-//! not needed anymore as shown in the following.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::{ExResult, Express, OwnedFlatEx};
-//! fn create_expr() -> ExResult<OwnedFlatEx::<f64>> {
-//!     let to_be_parsed = "log(z) + 2* (-z^2 + sin(4*y))";
-//!     OwnedFlatEx::<f64>::from_str(to_be_parsed)
-//! }
-//! let expr_owned = create_expr()?;
-//! assert!((expr_owned.eval(&[3.7, 2.5])? - 14.992794866624788 as f64).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//!
+//! 
 //! ## Extendability
 //!
 //! How to use custom operators as well as custom data types of the operands even with
@@ -258,7 +215,7 @@
 //! );
 //! literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
-//! type FlatExBool<'a> = FlatEx::<'a, bool, BooleanOpsFactory, BooleanMatcher>;
+//! type FlatExBool = FlatEx::<bool, BooleanOpsFactory, BooleanMatcher>;
 //! let expr = FlatExBool::from_str(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
@@ -357,12 +314,17 @@ pub use value::{
     ValOpsFactory,
 };
 #[cfg(feature = "partial")]
-pub use expression::partial_derivatives::Differentiate;
+mod partial;
+#[cfg(feature = "partial")]
+pub use partial::Differentiate;
 
 /// To use the expression trait [`Express`](Express) and its implementation [`FlatEx`](FlatEx)
 /// one can `use exmex::prelude::*;`.
 pub mod prelude {
-    pub use super::expression::{flat::FlatEx, Express};
+    pub use crate::expression::{flat::FlatEx, Express};
+    #[cfg(feature = "partial")]
+    pub use crate::Differentiate;
+
 }
 
 /// Parses a string, evaluates the expression, and returns the resulting number.
@@ -377,7 +339,7 @@ where
     <T as FromStr>::Err: Debug,
 {
     let flatex = FlatEx::<T>::from_str_wo_compile(text)?;
-    if flatex.var_names().len() > 0 {
+    if !flatex.var_names().is_empty() {
         return Err(ExError {
             msg: format!("input string contains variables, '{}' ", text),
         });

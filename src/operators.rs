@@ -191,6 +191,12 @@ where
     }
 }
 
+impl<T: Clone> Default for UnaryOp<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A binary operator that consists of a function pointer, a priority, and a commutativity-flag.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOp<T: Clone> {

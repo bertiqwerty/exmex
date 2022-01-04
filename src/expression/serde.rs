@@ -6,7 +6,7 @@ use crate::data_type::DataType;
 
 use crate::{prelude::*, MatchLiteral, MakeOperators};
 
-fn serialize<'a, T: Clone, S: Serializer, Ex: Express<T>>(
+fn serialize<T: Clone, S: Serializer, Ex: Express<T>>(
     serializer: S,
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {
@@ -74,7 +74,7 @@ where
 #[cfg(test)]
 use {
     crate::operators::{BinOp, Operator},
-    crate::expression::partial_derivatives::Differentiate,
+    crate::partial::Differentiate,
     serde_test::Token,
 };
 
