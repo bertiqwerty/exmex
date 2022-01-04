@@ -63,17 +63,17 @@ assert_eq!(result, u32::MAX - 1);
 ```
 More involved examples of data types are
 * operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
-* the type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
+* the type [`Val`](https://docs.rs/exmex/0.13.1/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
 ## Partial Differentiation
 
-To compute partial derivatives of expressions with floating point numbers, you can use the method `partial` after actiating the Exmex-feature `partial` in the `Cargo.toml` via
+To compute partial derivatives of expressions with floating point numbers, you can use the method `partial` after activating the Exmex-feature `partial` in the `Cargo.toml` via
 ```
 [dependencies]
 exmex = { ..., features = ["partial"] }
 ```
 
-The result of `partial` is again an expression.
+The result of the method `partial` is again an expression.
 
 ```rust
 use exmex::prelude::*;
@@ -98,7 +98,7 @@ assert!((result - 2.0).abs() < 1e-12);
 
 ## Mixing Data Types in one Expression with the Feature `value`
 
-After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.12.0/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
+After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.13.1/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.13.1/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
 ```rust
 use exmex::{Express, Val};
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
