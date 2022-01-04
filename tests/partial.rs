@@ -1,0 +1,218 @@
+#[cfg(feature = "partial")]
+use exmex::{parse, Differentiate, ExResult, Express, FlatEx};
+mod utils;
+use rand::{thread_rng, Rng};
+use smallvec::{smallvec, SmallVec};
+use std::ops::Range;
+#[cfg(feature = "partial")]
+#[test]
+fn test_readme_partial() -> ExResult<()> {
+    let expr = parse::<f64>("y*x^2")?;
+
+    // d_x
+    let dexpr_dx = expr.partial(0)?;
+    assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
+
+    // d_xy
+    let ddexpr_dxy = dexpr_dx.partial(1)?;
+    assert_eq!(format!("{}", ddexpr_dxy), "{x}*2.0");
+    let result = ddexpr_dxy.eval(&[2.0, f64::MAX])?;
+    assert!((result - 4.0).abs() < 1e-12);
+
+    // d_xyx
+    let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
+    assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
+    let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
+    assert!((result - 2.0).abs() < 1e-12);
+
+    Ok(())
+}
+
+#[cfg(feature = "partial")]
+#[test]
+fn test_partial() -> ExResult<()> {
+    fn test_flatex(
+        flatex: &FlatEx<f64>,
+        var_idx: usize,
+        n_vars: usize,
+        random_range: Range<f64>,
+        reference: fn(f64) -> f64,
+    ) -> ExResult<()> {
+        let mut rng = rand::thread_rng();
+        assert!(flatex.partial(flatex.var_names().len()).is_err());
+
+        // test flatex
+        let deri = flatex.partial(var_idx)?;
+        println!("flatex {}", flatex);
+        println!("partial {}", deri);
+        for _ in 0..3 {
+            let vut = rng.gen_range(random_range.clone());
+            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
+            vars[var_idx] = vut;
+            println!("value under test {}.", vut);
+            utils::assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
+        }
+        Ok(())
+    }
+    fn test(
+        sut: &str,
+        var_idx: usize,
+        n_vars: usize,
+        random_range: Range<f64>,
+        reference: fn(f64) -> f64,
+    ) -> ExResult<()> {
+        println!("testing {}...", sut);
+        let flatex = FlatEx::<f64>::from_str(sut)?;
+        test_flatex(&flatex, var_idx, n_vars, random_range, reference)
+    }
+
+    let sut = "+x";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |_: f64| 1.0;
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "++x";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |_: f64| 1.0;
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "+-+x";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |_: f64| -1.0;
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "-x";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |_: f64| -1.0;
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "--x";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |_: f64| 1.0;
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "sin(sin(x))";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |x: f64| x.sin().cos() * x.cos();
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "sin(x)-cos(x)+a";
+    let var_idx = 1;
+    let n_vars = 2;
+    let reference = |x: f64| x.cos() + x.sin();
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
+    let deri = flatex_1.partial(var_idx)?;
+    let reference = |x: f64| -x.sin() + x.cos();
+    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    let deri = deri.partial(var_idx)?;
+    let reference = |x: f64| -x.cos() - x.sin();
+    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    let deri = deri.partial(var_idx)?;
+    let reference = |x: f64| x.sin() - x.cos();
+    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "sin(x)-cos(x)+tan(x)+a";
+    let var_idx = 1;
+    let n_vars = 2;
+    let reference = |x: f64| x.cos() + x.sin() + 1.0 / (x.cos().powf(2.0));
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "log(v)*exp(v)+cos(x)+tan(x)+a";
+    let var_idx = 1;
+    let n_vars = 3;
+    let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
+    let var_idx = 2;
+    let n_vars = 4;
+    let reference = |x: f64| {
+        (x.cosh() * x.cosh() - x.sinh() * x.sinh()) / x.cosh().powf(2.0)
+            + 1.0 / (x.cosh().powf(2.0))
+    };
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+
+    let sut = "w+z+acos(v)+asin(v)+b+atan({v})";
+    let var_idx = 1;
+    let n_vars = 4;
+    let reference = |x: f64| {
+        1.0 / (1.0 - x.powf(2.0)).sqrt() - 1.0 / (1.0 - x.powf(2.0)).sqrt()
+            + 1.0 / (1.0 + x.powf(2.0))
+    };
+    test(sut, var_idx, n_vars, -1.0..1.0, reference)?;
+
+    let sut = "sqrt(var)*var^1.57";
+    let var_idx = 0;
+    let n_vars = 1;
+    let reference = |x: f64| 1.0 / (2.0 * x.sqrt()) * x.powf(1.57) + x.sqrt() * 1.57 * x.powf(0.57);
+    test(sut, var_idx, n_vars, 0.0..100.0, reference)?;
+    Ok(())
+}
+
+#[cfg(feature = "partial")]
+#[test]
+fn test_partial_finite() -> ExResult<()> {
+    fn test<'a>(sut: &str, range: Range<f64>) -> ExResult<()> {
+        let flatex = exmex::parse::<f64>(sut)?;
+        let n_vars = flatex.var_names().len();
+        let step = 1e-5;
+        let mut rng = thread_rng();
+
+        let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
+        println!(
+            "test_partial_finite - checking derivatives at {:?} for {}",
+            x0s, sut
+        );
+        for var_idx in 0..flatex.var_names().len() {
+            let x1s: Vec<f64> = x0s
+                .iter()
+                .enumerate()
+                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
+                .collect();
+
+            let f0 = flatex.eval(&x0s)?;
+            let f1 = flatex.eval(&x1s)?;
+            let finite_diff = (f1 - f0) / step;
+            let deri = flatex.clone().partial(var_idx)?;
+            let deri = deri.eval(&x0s)?;
+            println!(
+                "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
+                deri, finite_diff
+            );
+            let msg = format!("sut {}, d_{} is {}", sut, var_idx, deri);
+            println!("test_partial_finite - {}", msg);
+            utils::assert_float_eq::<f64>(deri, finite_diff, 1e-5, 1e-3, msg.as_str());
+        }
+        Ok(())
+    }
+    test("sqrt(x)", 0.0..10000.0)?;
+    test("asin(x)", -1.0..1.0)?;
+    test("acos(x)", -1.0..1.0)?;
+    test("atan(x)", -1.0..1.0)?;
+    test("1/x", -10.0..10.0)?;
+    test("x^x", 0.01..2.0)?;
+    test("x^y", 4.036286084344371..4.036286084344372)?;
+    test("z+sin(x)+cos(y)", -1.0..1.0)?;
+    test("sin(cos(sin(z)))", -10.0..10.0)?;
+    test("sin(x+z)", -10.0..10.0)?;
+    test("sin(x-z)", -10.0..10.0)?;
+    test("y-sin(x-z)", -10.0..10.0)?;
+    test("(sin(x)^2)/x/4", -10.0..10.0)?;
+    test("sin(y+x)/((x*2)/y)*(2*x)", -1.0..1.0)?;
+    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.01..1.0)?;
+    test("log(x^2)", 0.1..10.0)?;
+    test("tan(x)", -1.0..1.0)?;
+    test("tan(exp(x))", -1000.0..0.0)?;
+    test("exp(y-x)", -1.0..1.0)?;
+    test("sqrt(exp(y-x))", -1000.0..0.0)?;
+    test("sin(sin(x+z))", -10.0..10.0)?;
+    test("asin(sqrt(x+y))", 0.0..0.5)?;
+    Ok(())
+}
