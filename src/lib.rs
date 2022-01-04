@@ -65,25 +65,35 @@
 //! [`Express`](Express) are the only items made accessible by the wildcard import from
 //! [`prelude`](prelude).
 //!
-//! ## Partial Derivatives
-//!
-//! For default operators, expressions can be transformed into their partial derivatives
-//! again represented by expressions. To this end, there exists the method [`partial`](Express::partial).
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::prelude::*;
-//! let mut expr = exmex::parse::<f64>("x^2 + y^2")?;
-//! let dexpr_dx = expr.partial(0)?;
-//! let dexpr_dy = expr.partial(1)?;
-//! assert!((dexpr_dx.eval(&[3.0, 2.0])? - 6.0).abs() < 1e-12);
-//! assert!((dexpr_dy.eval(&[3.0, 2.0])? - 4.0).abs() < 1e-12);
-//! #
-//! #     Ok(())
-//! # }
+//! //! ## Features
+//! Exmex comes with three features that can be activated in the `Cargo.toml` via
+//! ```text
+//! [dependencies]
+//! exmex = { ..., features = ["partial", "serde", "value"] }
 //! ```
 //! 
+//! `partial` allows the computation of partal derivatives, `serde` enables serialization and 
+//! deserialization and `value` a more general value type.
+//! 
+//! ### Partial Derivatives
+//!
+//! Expressions with floating point data types can be transformed into their 
+//! partial derivatives again represented by expressions after activating the feature `partial`.
+//! 
+//! ### Serialization and Deserialization
+//!
+//! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
+//! The implementation un-parses and re-parses the whole expression.
+//! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
+//! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
+//! [`FlatEx`](FlatEx).
+//!
+//! ### A more General Value Type
+//!
+//! To use different data types within an expression, one can activate the feature `value` and
+//! use the more general type `Val`. The additional flexibility comes with higher parsing
+//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120).
+//!
 //! ## Extendability
 //!
 //! How to use custom operators as well as custom data types of the operands even with
@@ -246,7 +256,7 @@
 //!
 //! ## Display
 //!
-//! Instances of [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx) can be displayed as string. This
+//! Expression can be displayed as string. This
 //! [`unparse`](Express::unparse)d string coincides with the original
 //! string.
 //!
@@ -261,27 +271,6 @@
 //! #     Ok(())
 //! # }
 //! ```
-//!
-//! ## Features
-//! Exmex comes with two features that can be activated in the `Cargo.toml` via
-//! ```text
-//! [dependencies]
-//! exmex = { ..., features = ["serde", "value"] }
-//! ```
-//! `serde` enables serialization and deserialization and `value` a more general value type.
-//! ### Serialization and Deserialization
-//!
-//! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
-//! The implementation un-parses and re-parses the whole expression.
-//! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
-//! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
-//! both, [`FlatEx`](FlatEx) and [`OwnedFlatEx`](OwnedFlatEx).
-//!
-//! ### A more General Value Type
-//!
-//! To use different data types within an expression, one can activate the feature `value` and
-//! use the more general type `Val`. The additional flexibility comes with higher parsing
-//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0120).
 //!
 
 use std::{fmt::Debug, str::FromStr};

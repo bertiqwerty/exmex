@@ -65,10 +65,15 @@ More involved examples of data types are
 * operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
 * the type [`Val`](https://docs.rs/exmex/0.12.0/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
-Expressions of type `FlatEx` have a lifetime parameter since they avoid string copies. There is also the type `OwnedFlatEx` that does not need a lifetime parameter, see the [docs](https://docs.rs/exmex/#owned-expression).
 ## Partial Differentiation
 
-To compute partial derivatives of expressions with floating point numbers, you can use the method `partial`. The result is again an expression.
+To compute partial derivatives of expressions with floating point numbers, you can use the method `partial` after actiating the Exmex-feature `partial` in the `Cargo.toml` via
+```
+[dependencies]
+exmex = { ..., features = ["partial"] }
+```
+
+The result of `partial` is again an expression.
 
 ```rust
 use exmex::prelude::*;
@@ -109,7 +114,7 @@ To use [`serde`](https://serde.rs/) activate the feature `serde`.
 ## Documentation
 More documentation and examples including integer data types and boolean literals can be found for the latest release under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
 ```
-cargo doc
+cargo doc --all-features
 ```
 
 ## Benchmarks `v0.13.0`

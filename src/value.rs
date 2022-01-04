@@ -24,10 +24,9 @@ macro_rules! to_type {
 
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
-/// To use the value type, there are the separate parse functions [`parse_val`](`parse_val`) and
-/// [`parse_val_owned`](`parse_val_owned`). In the following example,
-/// the ternary Python-style `a if condition else b` is used. This is equivalent to `if condition {a} else {b}` in Rust
-/// or `condition ? a : b` in C.
+/// To use the value type, there are the is a parse function [`parse_val`](`parse_val`). 
+/// In the following example, the ternary Python-style `a if condition else b` is used. 
+/// This is equivalent to `if condition {a} else {b}` in Rust or `condition ? a : b` in C.
 /// ```rust
 /// # use std::error::Error;
 /// # fn main() -> Result<(), Box<dyn Error>> {
