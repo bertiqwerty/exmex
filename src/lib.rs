@@ -73,7 +73,7 @@
 //! ```
 //! 
 //! `partial` allows the computation of partal derivatives, `serde` enables serialization and 
-//! deserialization and `value` a more general value type.
+//! deserialization, and `value` makes a more general value type accessible.
 //! 
 //! ### Partial Derivatives
 //!
