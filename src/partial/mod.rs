@@ -9,20 +9,22 @@ use smallvec::SmallVec;
 use crate::{
     data_type::DataType,
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_VARS_ON_STACK},
-    expression::flat::{self, ExprIdxVec},
+    expression::flat::ExprIdxVec,
     format_exerr,
     operators::UnaryOp,
-    parser, BinOp, ExError, ExResult, Express, FlatEx, FloatOpsFactory, MakeOperators,
-    MatchLiteral, Operator,
+    parser, BinOp, ExError, ExResult, Express, MakeOperators, Operator,
 };
 use details::{BinOpsWithReprs, UnaryOpWithReprs};
 
 mod details;
-
+pub mod differentiate_flat;
 /// *`feature = "partial"`* - Trait for partial differentiation.  
-pub trait Differentiate<T, Ex> {
+pub trait Differentiate<T: Clone>
+where
+    Self: Sized + Express<T>,
+{
     /// *`feature = "partial"`* - This method computes a new expression
-    /// that is expected to be a partial derivative of`self` with default operators.
+    /// that is the partial derivative of `self` with default operators.
     ///
     /// # Example
     ///
@@ -56,19 +58,34 @@ pub trait Differentiate<T, Ex> {
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(&self, var_idx: usize) -> ExResult<Ex>
+    fn partial(&self, var_idx: usize) -> ExResult<Self>
     where
-        Self: Sized,
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
-        Ex: Express<T>;
+    {
+        let ops = Self::OperatorFactory::make();
+        let deepex = self.to_deepex(&ops)?;
+        let unparsed = deepex.unparse();
+        details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
+        let d_i = partial_deepex(var_idx, deepex, &ops)?;
+        Self::from_deepex(d_i, &ops)
+    }
 
+    /// Every trait implementation needs to implement the conversion to a deep expression to be
+    /// able to use the default implementation of [`partial`](Differentiate::partial).
     fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         Self: Sized,
         T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-        Ex: Express<T>;
+        <T as FromStr>::Err: Debug;
+
+    /// Every trait implementation needs to implement the conversion from a deep expression to be
+    /// able to use the default implementation of [`partial`](Differentiate::partial).
+    fn from_deepex(deepex: DeepEx<T>, ops: &[Operator<T>]) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug;
 }
 
 /// Container of binary operators of one expression.
@@ -174,25 +191,6 @@ impl<'a, T> DeepEx<'a, T>
 where
     T: Clone + Debug,
 {
-    fn flatten<OF, LMF>(self) -> FlatEx<T, OF, LMF>
-    where
-        T: DataType,
-        OF: MakeOperators<T>,
-        LMF: MatchLiteral,
-    {
-        let (nodes, ops) = details::flatten_vecs(&self, 0);
-        let indices = flat::prioritized_indices_flat(&ops, &nodes);
-        FlatEx::new(
-            nodes,
-            ops,
-            indices,
-            self.var_names
-                .iter()
-                .map(|s| s.to_string())
-                .collect::<SmallVec<_>>(),
-            self.unparse(),
-        )
-    }
     /// Compiles expression, needed for partial differentation.
     pub fn compile(&mut self) {
         lift_nodes(self);
@@ -380,6 +378,10 @@ where
         self.var_names = new_var_names;
     }
 
+    pub fn var_names(&self) -> &[&str] {
+        &self.var_names
+    }
+
     pub fn var_names_union(self, other: Self) -> (Self, Self) {
         let mut all_var_names = self.var_names.iter().copied().collect::<SmallVec<_>>();
         for name in other.var_names.clone() {
@@ -420,45 +422,6 @@ where
 impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse())
-    }
-}
-
-impl<T, OF, LMF> Differentiate<T, FlatEx<T, OF, LMF>> for FlatEx<T, OF, LMF>
-where
-    T: Clone + Debug,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-{
-    fn partial(&self, var_idx: usize) -> ExResult<Self>
-    where
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        let ops = FloatOpsFactory::<T>::make();
-        let deepex = self.to_deepex(&ops)?;
-        let unparsed = deepex.unparse();
-        details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
-        let d_i = partial_deepex(var_idx, deepex, &ops)?;
-        Ok(d_i.flatten())
-    }
-
-    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
-    where
-        Self: Sized,
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-        FlatEx<T, OF, LMF>: Express<T>,
-    {
-        
-        let var_names = self
-            .var_names()
-            .iter()
-            .map(AsRef::as_ref)
-            .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
-
-        let mut deepex = parse(self.unparse(), ops, parser::is_numeric_text)?;
-        deepex.reset_vars(var_names);
-        Ok(deepex)
     }
 }
 
@@ -1064,6 +1027,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 #[cfg(test)]
 use crate::{
     operators::VecOfUnaryFuncs, partial::details::prioritized_indices, util::assert_float_eq_f64,
+    FlatEx, FloatOpsFactory,
 };
 
 #[cfg(test)]

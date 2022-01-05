@@ -357,11 +357,11 @@ pub fn prioritized_indices_flat<T: Clone + Debug>(
 /// In this example, we want to evaluate the expression for the varibale values `x=2.0` and `y=1.5`.
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FlatEx<T, OF = FloatOpsFactory<T>, LMF = NumberMatcher>
+pub struct FlatEx<T, OF = FloatOpsFactory<T>, LM = NumberMatcher>
 where
     T: Debug + Clone,
     OF: MakeOperators<T>,
-    LMF: MatchLiteral,
+    LM: MatchLiteral,
 {
     nodes: FlatNodeVec<T>,
     ops: FlatOpVec<T>,
@@ -369,7 +369,7 @@ where
     var_names: SmallVec<[String; N_VARS_ON_STACK]>,
     text: String,
     dummy_ops_factory: PhantomData<OF>,
-    dummy_literal_matcher_factory: PhantomData<LMF>,
+    dummy_literal_matcher_factory: PhantomData<LM>,
 }
 
 impl<T, OF, LMF> FlatEx<T, OF, LMF>
@@ -464,12 +464,15 @@ where
     }
 }
 
-impl<T, OF, LMF> Express<T> for FlatEx<T, OF, LMF>
+impl<T, OF, LM> Express<T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
-    LMF: MatchLiteral,
+    LM: MatchLiteral,
 {
+    type LiteralMatcher = LM;
+    type OperatorFactory = OF;
+
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         eval_flatex(
             vars,

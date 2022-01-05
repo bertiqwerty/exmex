@@ -1,15 +1,21 @@
 use std::fmt::Debug;
 
-use crate::{parser, ExResult};
+use crate::{parser, ExResult, MakeOperators};
 
 pub mod flat;
 #[cfg(feature = "serde")]
 mod serde;
 
-/// Expressions implementing this trait can be parsed from stings, 
-/// evaluated for specific variable values, and unparsed, i.e., 
+/// Expressions implementing this trait can be parsed from stings,
+/// evaluated for specific variable values, and unparsed, i.e.,
 /// transformed into a string representation.  
-pub trait Express<T> {
+pub trait Express<T>
+where
+    T: Clone,
+{
+    type OperatorFactory: MakeOperators<T>;
+    type LiteralMatcher: MatchLiteral;
+
     /// Evaluates an expression with the given variable values and returns the computed
     /// result.
     ///
@@ -76,7 +82,7 @@ impl MatchLiteral for NumberMatcher {
 #[macro_export]
 macro_rules! literal_matcher_from_pattern {
     ($matcher_name:ident, $regex_pattern:expr) => {
-        /// Literal matcher type that was created with the macro 
+        /// Literal matcher type that was created with the macro
         /// [`literal_matcher_from_pattern`](literal_matcher_from_pattern).
         #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
         pub struct $matcher_name;
