@@ -23,7 +23,6 @@ where
         Self: Sized,
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
-        FlatEx<T, OF, LM>: Express<T>,
     {
         let var_names = self
             .var_names()
