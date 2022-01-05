@@ -6,12 +6,11 @@ use smallvec::SmallVec;
 use crate::{
     data_type::DataType,
     definitions::N_VARS_ON_STACK,
+    expression::flat,
     parser,
-    partial::{parse, DeepEx, Differentiate},
-    ExResult, Express, FlatEx, MakeOperators, MatchLiteral, Operator, expression::flat,
+    partial::{details, parse, DeepEx, Differentiate},
+    ExResult, Express, FlatEx, MakeOperators, MatchLiteral, Operator,
 };
-
-use super::details;
 
 impl<T, OF, LM> Differentiate<T> for FlatEx<T, OF, LM>
 where
@@ -50,7 +49,8 @@ where
                 nodes,
                 ops,
                 indices,
-                deepex.var_names()
+                deepex
+                    .var_names()
                     .iter()
                     .map(|s| s.to_string())
                     .collect::<SmallVec<_>>(),

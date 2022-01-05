@@ -71,16 +71,16 @@ where
         Self::from_deepex(d_i, &ops)
     }
 
-    /// Every trait implementation needs to implement the conversion to a deep expression to be
-    /// able to use the default implementation of [`partial`](Differentiate::partial).
+    /// *`feature = "partial"`* - Every trait implementation needs to implement the conversion to a deep 
+    /// expression to be able to use the default implementation of [`partial`](Differentiate::partial).
     fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
     where
         Self: Sized,
         T: DataType + Float,
         <T as FromStr>::Err: Debug;
 
-    /// Every trait implementation needs to implement the conversion from a deep expression to be
-    /// able to use the default implementation of [`partial`](Differentiate::partial).
+    /// *`feature = "partial"`* - Every trait implementation needs to implement the conversion from
+    /// a deep expression to be able to use the default implementation of [`partial`](Differentiate::partial).
     fn from_deepex(deepex: DeepEx<T>, ops: &[Operator<T>]) -> ExResult<Self>
     where
         Self: Sized,
