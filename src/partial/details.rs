@@ -24,6 +24,11 @@ impl<'a, T: Clone> BinOpsWithReprs<'a, T> {
         }
     }
 }
+impl<'a, T: Clone> Default for BinOpsWithReprs<'a, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct UnaryOpWithReprs<'a, T> {
@@ -49,6 +54,11 @@ where
             .chain(self.reprs.iter())
             .copied()
             .collect();
+    }
+}
+impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -353,7 +363,7 @@ pub fn operate_bin<'a, T: Clone + Debug>(
     resex
 }
 
-pub fn is_num<'a, T: Clone + Debug>(deepex: &DeepEx<'a, T>, num: T) -> bool
+pub fn is_num<T: Clone + Debug>(deepex: &DeepEx<T>, num: T) -> bool
 where
     T: Float,
 {
