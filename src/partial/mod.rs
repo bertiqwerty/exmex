@@ -17,7 +17,6 @@ use crate::{
 use details::{BinOpsWithReprs, UnaryOpWithReprs};
 
 mod details;
-pub mod differentiate_flat;
 /// *`feature = "partial"`* - Trait for partial differentiation.  
 pub trait Differentiate<T: Clone>
 where
@@ -361,7 +360,7 @@ where
         self.is_num(T::from(0.0).unwrap())
     }
 
-    fn reset_vars(&mut self, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
+    pub fn reset_vars(&mut self, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
         for node in &mut self.nodes {
             match node {
                 DeepNode::Expr(e) => e.reset_vars(new_var_names.clone()),

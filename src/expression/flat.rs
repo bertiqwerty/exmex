@@ -523,6 +523,113 @@ where
     }
 }
 
+#[cfg(feature="partial")]
+use {num::Float, crate::partial::{self, DeepEx, DeepNode, Differentiate}};
+#[cfg(feature="partial")]
+pub fn flatten_vecs<T: Clone + Debug>(
+    deep_expr: &DeepEx<T>,
+    prio_offset: i64,
+) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+    let mut flat_nodes = FlatNodeVec::<T>::new();
+    let mut flat_ops = FlatOpVec::<T>::new();
+
+    for (node_idx, node) in deep_expr.nodes().iter().enumerate() {
+        match node {
+            DeepNode::Num(num) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Num(num.clone()));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Var((idx, _)) => {
+                let flat_node = FlatNode::from_kind(FlatNodeKind::Var(*idx));
+                flat_nodes.push(flat_node);
+            }
+            DeepNode::Expr(e) => {
+                let (mut sub_nodes, mut sub_ops) = flatten_vecs(e, prio_offset + 100i64);
+                flat_nodes.append(&mut sub_nodes);
+                flat_ops.append(&mut sub_ops);
+            }
+        };
+        if node_idx < deep_expr.bin_ops().ops.len() {
+            let prio_adapted_bin_op = BinOp {
+                apply: deep_expr.bin_ops().ops[node_idx].apply,
+                prio: deep_expr.bin_ops().ops[node_idx].prio + prio_offset,
+                is_commutative: deep_expr.bin_ops().ops[node_idx].is_commutative,
+            };
+            flat_ops.push(FlatOp {
+                bin_op: prio_adapted_bin_op,
+                unary_op: UnaryOp::new(),
+            });
+        }
+    }
+
+    if deep_expr.unary_op().op.len() > 0 {
+        if !flat_ops.is_empty() {
+            // find the last binary operator with the lowest priority of this expression,
+            // since this will be executed as the last one
+            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
+                None => panic!("cannot have more than one flat node but no binary ops"),
+                Some(x) => x,
+            };
+            low_prio_op
+                .unary_op
+                .append_after(&deep_expr.unary_op().op.clone());
+        } else {
+            flat_nodes[0]
+                .unary_op
+                .append_after(&deep_expr.unary_op().op.clone());
+        }
+    }
+    (flat_nodes, flat_ops)
+}
+#[cfg(feature="partial")]
+impl<T, OF, LM> Differentiate<T> for FlatEx<T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
+    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+    {
+        let var_names = self
+            .var_names()
+            .iter()
+            .map(AsRef::as_ref)
+            .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
+
+        let mut deepex = partial::parse(self.unparse(), ops, parser::is_numeric_text)?;
+        deepex.reset_vars(var_names);
+        Ok(deepex)
+    }
+
+    fn from_deepex(deepex: DeepEx<T>, _: &[Operator<T>]) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+    {
+        {
+            let (nodes, ops) = flatten_vecs(&deepex, 0);
+            let indices = prioritized_indices_flat(&ops, &nodes);
+            Ok(FlatEx::new(
+                nodes,
+                ops,
+                indices,
+                deepex
+                    .var_names()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<SmallVec<_>>(),
+                deepex.unparse(),
+            ))
+        }
+    }
+}
+
+
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
 
