@@ -480,8 +480,8 @@ where
         )
     }
 
-    fn unparse(&self) -> String {
-        self.text.clone()
+    fn unparse(&self) -> &str {
+        self.text.as_str()
     }
     fn var_names(&self) -> &[String] {
         &self.var_names

@@ -11,7 +11,7 @@ fn serialize<T: Clone, S: Serializer, Ex: Express<T>>(
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(
-        expr.unparse().as_str(),
+        expr.unparse(),
     )
 }
 

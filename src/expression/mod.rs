@@ -42,7 +42,7 @@ pub trait Express<T> {
     /// # }
     /// ```
     ///
-    fn unparse(&self) -> String;
+    fn unparse(&self) -> &str;
 
     /// Returns the variables of the expression
     fn var_names(&self) -> &[String];

@@ -62,6 +62,13 @@ pub trait Differentiate<T, Ex> {
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
         Ex: Express<T>;
+
+    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+        Ex: Express<T>;
 }
 
 /// Container of binary operators of one expression.
@@ -427,19 +434,31 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
     {
-        let unparsed = self.unparse();
+        let ops = FloatOpsFactory::<T>::make();
+        let deepex = self.to_deepex(&ops)?;
+        let unparsed = deepex.unparse();
         details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
-        let ops = FloatOpsFactory::make();
+        let d_i = partial_deepex(var_idx, deepex, &ops)?;
+        Ok(d_i.flatten())
+    }
+
+    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
+    where
+        Self: Sized,
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+        FlatEx<T, OF, LMF>: Express<T>,
+    {
+        
         let var_names = self
             .var_names()
             .iter()
             .map(AsRef::as_ref)
             .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
 
-        let mut deepex = parse(unparsed.as_str(), &OF::make(), parser::is_numeric_text)?;
+        let mut deepex = parse(self.unparse(), ops, parser::is_numeric_text)?;
         deepex.reset_vars(var_names);
-        let d_i = partial_deepex(var_idx, deepex, &ops)?;
-        Ok(d_i.flatten())
+        Ok(deepex)
     }
 }
 
