@@ -1,15 +1,23 @@
 use crate::{
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
-    expression::flat::{ExprIdxVec},
-    operators::{BinOp, UnaryOp, VecOfUnaryFuncs},
-    parser::{self, Paren, ParsedToken},
+    expression::flat::ExprIdxVec,
+    operators::{BinOp, UnaryOp},
     partial::{BinOpVec, DeepEx, DeepNode},
     ExError, ExResult,
 };
-use std::{fmt::Debug, iter, str::FromStr};
+use std::{fmt::Debug, iter};
 
 use num::Float;
 use smallvec::SmallVec;
+
+#[cfg(test)]
+use {
+    crate::{
+        operators::VecOfUnaryFuncs,
+        parser::{self, Paren, ParsedToken},
+    },
+    std::str::FromStr,
+};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprs<'a, T: Clone> {
@@ -77,6 +85,7 @@ impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
 /// number where the unary operator has been applied to. the second element is the number
 /// of tokens that are covered by the unary operator and its argument. Note that a unary
 /// operator can be a composition of multiple functions.
+#[cfg(test)]
 fn process_unary<'a, T: Clone + FromStr + Debug>(
     token_idx: usize,
     unary_op: fn(T) -> T,
@@ -158,6 +167,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
+#[cfg(test)]
 pub fn make_expression<'a, T>(
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
@@ -250,7 +260,6 @@ pub fn prioritized_indices<T: Clone + Debug>(
     });
     indices
 }
-
 
 pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
     let mut node_strings = deepex.nodes().iter().map(|n| match n {

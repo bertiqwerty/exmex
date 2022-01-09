@@ -4,8 +4,7 @@ use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::expression::Express;
 use crate::operators::UnaryOp;
 use crate::{
-    BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
-    NumberMatcher, Operator,
+    BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, Operator,
 };
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -606,7 +605,7 @@ pub fn flatten_vecs<T: Clone + Debug>(
 }
 #[cfg(feature = "partial")]
 mod detail_diff {
-    use std::fmt::Debug;
+    use std::{cmp::Ordering, fmt::Debug};
 
     use smallvec::SmallVec;
 
@@ -637,7 +636,7 @@ mod detail_diff {
                 Ok(ops
                     .iter()
                     .find(|op| predicate(op, func.clone()))
-                    .ok_or(ExError::new("could not find unary operator"))?
+                    .ok_or_else(|| ExError::new("could not find unary operator"))?
                     .repr())
             })
             .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
@@ -678,8 +677,7 @@ mod detail_diff {
         flat_ops: &[FlatOp<T>],
     ) -> ExResult<(Option<usize>, UnaryOpWithReprs<'a, T>)> {
         let unary_op_idx = (start..end)
-            .filter(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0)
-            .next();
+            .find(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0);
         Ok(match unary_op_idx {
             Some(idx) => (
                 Some(idx),
@@ -731,7 +729,6 @@ mod detail_diff {
         ops: &[Operator<'a, T>],
         consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     ) -> ExResult<(DeepNode<'a, T>, usize)> {
-        println!("starti_dx {}", start_idx);
         let mut bin_ops = BinOpsWithReprs::<T>::new();
         let mut nodes = Vec::<DeepNode<T>>::new();
         let mut i = start_idx;
@@ -742,68 +739,66 @@ mod detail_diff {
             } else {
                 prio_current
             };
-            if prio_current < prio_prev {
-                let (uop_idx, unary_op) =
-                    make_unary(start_idx, i, &consumed_op_inds, ops, flat_ops)?;
-                match uop_idx {
-                    Some(idx) => consumed_op_inds.push(idx),
-                    _ => (),
-                };
-                println!("  {} depth UP", i);
-                nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                if start_idx > 0 {
-                    return Ok((
-                        DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
+            match prio_current.cmp(&prio_prev) {
+                Ordering::Less => {
+                    let (uop_idx, unary_op) =
+                        make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
+                    if let Some(idx) = uop_idx {
+                        consumed_op_inds.push(idx);
+                    };
+                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
+                    if start_idx > 0 {
+                        return Ok((
+                            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
+                            i,
+                        ));
+                    } else {
+                        let node = DeepNode::Expr(Box::new(DeepEx::new(
+                            nodes.clone(),
+                            bin_ops.clone(),
+                            unary_op,
+                        )?));
+                        nodes.clear();
+                        bin_ops.ops.clear();
+                        bin_ops.reprs.clear();
+                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
+                        bin_ops.reprs.push(bin_reprs[i]);
+                        nodes.push(node);
+                        i += 1;
+                    }
+                }
+                Ordering::Greater => {
+                    let (node, i_tmp) = collect_deepex(
                         i,
-                    ));
-                } else {
-                    let node = DeepNode::Expr(Box::new(DeepEx::new(
-                        nodes.clone(),
-                        bin_ops.clone(),
-                        unary_op,
-                    )?));
-                    nodes.clear();
-                    bin_ops.ops.clear();
-                    bin_ops.reprs.clear();
-                    bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                    bin_ops.reprs.push(bin_reprs[i]);
+                        flat_nodes,
+                        flat_ops,
+                        var_names,
+                        bin_reprs,
+                        ops,
+                        consumed_op_inds,
+                    )?;
+                    i = i_tmp;
                     nodes.push(node);
-                    i += 1;
+                    if i < flat_ops.len() {
+                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
+                        bin_ops.reprs.push(bin_reprs[i]);
+                        i += 1;
+                    }
                 }
-            } else if prio_current > prio_prev {
-                println!("  {} depth DOWN", i);
-                let (node, i_tmp) = collect_deepex(
-                    i,
-                    flat_nodes,
-                    flat_ops,
-                    var_names,
-                    bin_reprs,
-                    ops,
-                    consumed_op_inds,
-                )?;
-                println!("  i tmp {}", i_tmp);
-                i = i_tmp;
-                nodes.push(node);
-                if i < flat_ops.len() {
+                Ordering::Equal => {
+                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
                     bin_ops.ops.push(flat_ops[i].bin_op.clone());
                     bin_ops.reprs.push(bin_reprs[i]);
                     i += 1;
                 }
-            } else {
-                println!("  {} depth CONSTANT", i);
-                nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                bin_ops.reprs.push(bin_reprs[i]);
-                i += 1;
             }
         }
         if nodes.len() == bin_ops.reprs.len() {
             nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
         }
-        let (uop_idx, unary_op) = make_unary(start_idx, i, &consumed_op_inds, &ops, &flat_ops)?;
-        match uop_idx {
-            Some(idx) => consumed_op_inds.push(idx),
-            _ => (),
+        let (uop_idx, unary_op) = make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
+        if let Some(idx) = uop_idx {
+            consumed_op_inds.push(idx);
         };
         Ok((
             DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
@@ -825,17 +820,6 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
     {
-        // let var_names = self
-        //     .var_names()
-        //     .iter()
-        //     .map(AsRef::as_ref)
-        //     .collect::<SmallVec<[&str; N_VARS_ON_STACK]>>();
-
-        // let mut deepex = partial::parse(self.unparse(), ops, parser::is_numeric_text)?;
-        // deepex.reset_vars(var_names);
-        // println!("{:#?}", deepex);
-        // Ok(deepex)
-
         let bin_reprs = detail_diff::collect_reprs::<&fn(T, T) -> T, _, _>(
             self.ops.iter().map(|op| &op.bin_op.apply),
             ops,
@@ -846,7 +830,7 @@ where
             0,
             &self.nodes,
             &self.ops,
-            &self.var_names(),
+            self.var_names(),
             &bin_reprs,
             ops,
             &mut consumed_op_inds_buffer,
@@ -856,7 +840,6 @@ where
         };
         let var_names = self.var_names().iter().map(|s| s.as_str()).collect();
         deepex.reset_vars(var_names);
-        println!("converted to {}", deepex);
         deepex.compile();
         Ok(*deepex)
     }

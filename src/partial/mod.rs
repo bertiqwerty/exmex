@@ -12,9 +12,12 @@ use crate::{
     expression::flat::ExprIdxVec,
     format_exerr,
     operators::UnaryOp,
-    parser, BinOp, ExError, ExResult, Express, MakeOperators, Operator,
+    BinOp, ExError, ExResult, Express, MakeOperators, Operator,
 };
 pub use details::{BinOpsWithReprs, UnaryOpWithReprs};
+
+#[cfg(test)]
+use crate::parser;
 
 mod details;
 /// *`feature = "partial"`* - Trait for partial differentiation.  
@@ -91,6 +94,7 @@ where
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
+#[cfg(test)]
 pub fn parse<'a, T, F>(
     text: &'a str,
     ops: &[Operator<'a, T>],
@@ -498,12 +502,9 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
             .ok_or_else(|| make_op_missing_err(repr))?;
         let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
         let mut new_deepex = deepex.clone();
-        println!("  idx {:#?}", idx);
-        println!("  newdeepex {}", new_deepex);
         for _ in 0..idx {
             new_deepex.unary_op.remove_latest();
         }
-        println!("  after newdeepex {}", new_deepex);
         unary_deri_op(new_deepex, ops)
         
     });
@@ -1046,23 +1047,12 @@ use crate::{
 
 #[test]
 fn test_pmp() -> ExResult<()> {
-    let fex = FlatEx::<f64>::from_str("-+x")?;
-    
-    let ops = FloatOpsFactory::<f64>::make();
-
-    let pdo = make_partial_derivative_ops::<f64>();
-    let minus = &pdo[2];
-
-    let deepex = fex.to_deepex(&ops)?;
-    println!("{:#?}", deepex);
-    (minus.unary_outer_op.unwrap())(deepex, &ops)?;
-
-    // let x = 1.5f64;
-    // let fex = FlatEx::<f64>::from_str("+-+x")?;
-    // let deri = fex.partial(0)?;
-    // println!("{}", deri);
-    // let reference = -1.0;
-    // assert_float_eq_f64(deri.eval(&[x])?, reference);
+    let x = 1.5f64;
+    let fex = FlatEx::<f64>::from_str("+-+x")?;
+    let deri = fex.partial(0)?;
+    println!("{}", deri);
+    let reference = -1.0;
+    assert_float_eq_f64(deri.eval(&[x])?, reference);
     Ok(())
 }
 
