@@ -1,10 +1,10 @@
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 
+use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::expression::Express;
-use crate::{
-    ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, 
-};
+use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher};
+
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
@@ -872,8 +872,6 @@ where
 
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
-
-use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 
 #[cfg(feature = "partial")]
 #[test]

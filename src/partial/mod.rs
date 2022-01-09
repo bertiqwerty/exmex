@@ -67,7 +67,7 @@ where
     {
         let ops = Self::OperatorFactory::make();
         let deepex = self.to_deepex(&ops)?;
-        
+
         let unparsed = deepex.unparse();
         details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
         let d_i = partial_deepex(var_idx, deepex, &ops)?;
@@ -94,25 +94,7 @@ where
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
-#[cfg(test)]
-pub fn parse<'a, T, F>(
-    text: &'a str,
-    ops: &[Operator<'a, T>],
-    is_numeric: F,
-) -> ExResult<DeepEx<'a, T>>
-where
-    T: DataType,
-    <T as FromStr>::Err: Debug,
-    F: Fn(&'a str) -> Option<&'a str>,
-{
-    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-    parser::check_parsed_token_preconditions(&parsed_tokens)?;
-    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let (expr, _) =
-        details::make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
-    Ok(expr)
-}
-
+/// Correction for cases where nodes are unnecessarily wrapped in expression-nodes.
 fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
     if deepex.nodes().len() == 1 && deepex.unary_op().op.len() == 0 {
         if let DeepNode::Expr(e) = &deepex.nodes()[0] {
@@ -328,6 +310,7 @@ where
         self.unary_op.append_after(&unary_op);
         self
     }
+
     fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.clear();
         self.unary_op.append_after(&unary_op);
@@ -495,19 +478,23 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
     partial_derivative_ops: &[PartialDerivative<'a, T>],
     ops: &[Operator<'a, T>],
 ) -> ExResult<DeepEx<'a, T>> {
-    let factorexes = deepex.unary_op().reprs.iter().enumerate().map(|(idx, repr)| {
-        let op = partial_derivative_ops
-            .iter()
-            .find(|pdo| pdo.repr == *repr)
-            .ok_or_else(|| make_op_missing_err(repr))?;
-        let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
-        let mut new_deepex = deepex.clone();
-        for _ in 0..idx {
-            new_deepex.unary_op.remove_latest();
-        }
-        unary_deri_op(new_deepex, ops)
-        
-    });
+    let factorexes = deepex
+        .unary_op()
+        .reprs
+        .iter()
+        .enumerate()
+        .map(|(idx, repr)| {
+            let op = partial_derivative_ops
+                .iter()
+                .find(|pdo| pdo.repr == *repr)
+                .ok_or_else(|| make_op_missing_err(repr))?;
+            let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
+            let mut new_deepex = deepex.clone();
+            for _ in 0..idx {
+                new_deepex.unary_op.remove_latest();
+            }
+            unary_deri_op(new_deepex, ops)
+        });
     let mul_op = mul_find(ops)?;
     factorexes.fold(Ok(DeepEx::one()), |dp1, dp2| -> ExResult<DeepEx<T>> {
         mul(dp1?, dp2?, mul_op.clone())
@@ -1044,6 +1031,24 @@ use crate::{
     FlatEx, FloatOpsFactory,
 };
 
+#[cfg(test)]
+pub fn parse<'a, T, F>(
+    text: &'a str,
+    ops: &[Operator<'a, T>],
+    is_numeric: F,
+) -> ExResult<DeepEx<'a, T>>
+where
+    T: DataType,
+    <T as FromStr>::Err: Debug,
+    F: Fn(&'a str) -> Option<&'a str>,
+{
+    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
+    parser::check_parsed_token_preconditions(&parsed_tokens)?;
+    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
+    let (expr, _) =
+        details::make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
+    Ok(expr)
+}
 
 #[test]
 fn test_pmp() -> ExResult<()> {

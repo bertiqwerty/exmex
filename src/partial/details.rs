@@ -10,15 +10,6 @@ use std::{fmt::Debug, iter};
 use num::Float;
 use smallvec::SmallVec;
 
-#[cfg(test)]
-use {
-    crate::{
-        operators::VecOfUnaryFuncs,
-        parser::{self, Paren, ParsedToken},
-    },
-    std::str::FromStr,
-};
-
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprs<'a, T: Clone> {
     pub reprs: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]>,
@@ -79,6 +70,127 @@ impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
         Self::new()
     }
 }
+
+pub fn prioritized_indices<T: Clone + Debug>(
+    bin_ops: &[BinOp<T>],
+    nodes: &[DeepNode<T>],
+) -> ExprIdxVec {
+    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
+        (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
+            let prio_inc = 5;
+            &bin_ops[bin_op_idx].prio * 10 + prio_inc
+        }
+        _ => &bin_ops[bin_op_idx].prio * 10,
+    };
+
+    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
+    indices.sort_by(|i1, i2| {
+        let prio_i1 = prio_increase(*i1);
+        let prio_i2 = prio_increase(*i2);
+        prio_i2.partial_cmp(&prio_i1).unwrap()
+    });
+    indices
+}
+
+pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
+    let mut node_strings = deepex.nodes().iter().map(|n| match n {
+        DeepNode::Num(n) => format!("{:?}", n),
+        DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
+        DeepNode::Expr(e) => {
+            if e.unary_op().op.len() == 0 {
+                format!("({})", e.unparse())
+            } else {
+                e.unparse()
+            }
+        }
+    });
+    let mut bin_op_strings = deepex.bin_ops().reprs.iter();
+    // a valid expression has at least one node
+    let first_node_str = node_strings.next().unwrap();
+    let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
+        let bin_op_str = bin_op_strings.next().unwrap();
+        res.push_str(bin_op_str);
+        res.push_str(node_str.as_str());
+        res
+    });
+    let unary_op_string = deepex
+        .unary_op()
+        .reprs
+        .iter()
+        .fold(String::new(), |mut res, uop_str| {
+            res.push_str(uop_str);
+            res.push('(');
+            res
+        });
+    let closings = iter::repeat(")").take(deepex.unary_op().op.len()).fold(
+        String::new(),
+        |mut res, closing| {
+            res.push_str(closing);
+            res
+        },
+    );
+    if deepex.unary_op().op.len() == 0 {
+        node_with_bin_ops_string
+    } else {
+        format!(
+            "{}{}{}",
+            unary_op_string, node_with_bin_ops_string, closings
+        )
+    }
+}
+
+pub fn operate_bin<'a, T: Clone + Debug>(
+    deepex1: DeepEx<'a, T>,
+    deepex2: DeepEx<'a, T>,
+    bin_op: BinOpsWithReprs<'a, T>,
+) -> DeepEx<'a, T> {
+    let (self_vars_updated, other_vars_updated) = deepex1.var_names_union(deepex2);
+    let mut resex = DeepEx::new(
+        vec![
+            DeepNode::Expr(Box::new(self_vars_updated)),
+            DeepNode::Expr(Box::new(other_vars_updated)),
+        ],
+        bin_op,
+        UnaryOpWithReprs::new(),
+    )
+    .unwrap();
+    resex.compile();
+    resex
+}
+
+pub fn is_num<T: Clone + Debug>(deepex: &DeepEx<T>, num: T) -> bool
+where
+    T: Float,
+{
+    deepex.nodes().len() == 1
+        && match &deepex.nodes()[0] {
+            DeepNode::Num(n) => deepex.unary_op().op.apply(*n) == num,
+            DeepNode::Expr(e) => is_num(e, num),
+            _ => false,
+        }
+}
+
+pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
+    if var_idx >= n_vars {
+        Err(ExError {
+            msg: format!(
+                "index {} is invalid since we have only {} vars in {}",
+                var_idx, n_vars, unparsed
+            ),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+use {
+    crate::{
+        operators::VecOfUnaryFuncs,
+        parser::{self, Paren, ParsedToken},
+    },
+    std::str::FromStr,
+};
 
 /// Handles the case that a token is a unary operator and returns a tuple.
 /// The first element is a node that is either an expression with a unary operator or a
@@ -238,116 +350,4 @@ where
         )?,
         idx_tkn,
     ))
-}
-
-pub fn prioritized_indices<T: Clone + Debug>(
-    bin_ops: &[BinOp<T>],
-    nodes: &[DeepNode<T>],
-) -> ExprIdxVec {
-    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
-        (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
-            let prio_inc = 5;
-            &bin_ops[bin_op_idx].prio * 10 + prio_inc
-        }
-        _ => &bin_ops[bin_op_idx].prio * 10,
-    };
-
-    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| {
-        let prio_i1 = prio_increase(*i1);
-        let prio_i2 = prio_increase(*i2);
-        prio_i2.partial_cmp(&prio_i1).unwrap()
-    });
-    indices
-}
-
-pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
-    let mut node_strings = deepex.nodes().iter().map(|n| match n {
-        DeepNode::Num(n) => format!("{:?}", n),
-        DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
-        DeepNode::Expr(e) => {
-            if e.unary_op().op.len() == 0 {
-                format!("({})", e.unparse())
-            } else {
-                e.unparse()
-            }
-        }
-    });
-    let mut bin_op_strings = deepex.bin_ops().reprs.iter();
-    // a valid expression has at least one node
-    let first_node_str = node_strings.next().unwrap();
-    let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
-        let bin_op_str = bin_op_strings.next().unwrap();
-        res.push_str(bin_op_str);
-        res.push_str(node_str.as_str());
-        res
-    });
-    let unary_op_string = deepex
-        .unary_op()
-        .reprs
-        .iter()
-        .fold(String::new(), |mut res, uop_str| {
-            res.push_str(uop_str);
-            res.push('(');
-            res
-        });
-    let closings = iter::repeat(")").take(deepex.unary_op().op.len()).fold(
-        String::new(),
-        |mut res, closing| {
-            res.push_str(closing);
-            res
-        },
-    );
-    if deepex.unary_op().op.len() == 0 {
-        node_with_bin_ops_string
-    } else {
-        format!(
-            "{}{}{}",
-            unary_op_string, node_with_bin_ops_string, closings
-        )
-    }
-}
-
-pub fn operate_bin<'a, T: Clone + Debug>(
-    deepex1: DeepEx<'a, T>,
-    deepex2: DeepEx<'a, T>,
-    bin_op: BinOpsWithReprs<'a, T>,
-) -> DeepEx<'a, T> {
-    let (self_vars_updated, other_vars_updated) = deepex1.var_names_union(deepex2);
-    let mut resex = DeepEx::new(
-        vec![
-            DeepNode::Expr(Box::new(self_vars_updated)),
-            DeepNode::Expr(Box::new(other_vars_updated)),
-        ],
-        bin_op,
-        UnaryOpWithReprs::new(),
-    )
-    .unwrap();
-    resex.compile();
-    resex
-}
-
-pub fn is_num<T: Clone + Debug>(deepex: &DeepEx<T>, num: T) -> bool
-where
-    T: Float,
-{
-    deepex.nodes().len() == 1
-        && match &deepex.nodes()[0] {
-            DeepNode::Num(n) => deepex.unary_op().op.apply(*n) == num,
-            DeepNode::Expr(e) => is_num(e, num),
-            _ => false,
-        }
-}
-
-pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
-    if var_idx >= n_vars {
-        Err(ExError {
-            msg: format!(
-                "index {} is invalid since we have only {} vars in {}",
-                var_idx, n_vars, unparsed
-            ),
-        })
-    } else {
-        Ok(())
-    }
 }
