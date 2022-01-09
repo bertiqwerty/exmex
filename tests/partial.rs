@@ -173,7 +173,7 @@ fn test_partial_finite() -> ExResult<()> {
 
         let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
         println!(
-            "test_partial_finite - checking derivatives at {:?} for {}",
+            "\n\n ---- test_partial_finite -\n checking derivatives at {:?} for {}",
             x0s, sut
         );
         for var_idx in 0..flatex.var_names().len() {
@@ -187,14 +187,14 @@ fn test_partial_finite() -> ExResult<()> {
             let f1 = flatex.eval(&x1s)?;
             let finite_diff = (f1 - f0) / step;
             let deri = flatex.clone().partial(var_idx)?;
-            let deri = deri.eval(&x0s)?;
+            let deri_val = deri.eval(&x0s)?;
             println!(
                 "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
-                deri, finite_diff
+                deri_val, finite_diff
             );
             let msg = format!("sut {}, d_{} is {}", sut, var_idx, deri);
             println!("test_partial_finite - {}", msg);
-            utils::assert_float_eq::<f64>(deri, finite_diff, 1e-5, 1e-3, msg.as_str());
+            utils::assert_float_eq::<f64>(deri_val, finite_diff, 1e-5, 1e-3, msg.as_str());
         }
         Ok(())
     }

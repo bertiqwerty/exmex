@@ -150,6 +150,12 @@ where
         self.append_after_iter(other.funcs_to_be_composed.iter().copied());
     }
 
+    
+    /// Removes the operator that will be applied latest, i.e., the first element of the array.
+    pub fn remove_latest(&mut self) {
+        self.funcs_to_be_composed.remove(0);
+    }
+
     /// Appends an iterator of unary functions to the beginning of the array of unary functions of `self`.
     /// Accordingly, the newly added unary functions will be applied after all other unary functions in the
     /// list, i.e., as latest.
@@ -185,6 +191,10 @@ where
         Self {
             funcs_to_be_composed: iter.collect(),
         }
+    }
+    
+    pub fn funcs_to_be_composed(&self) -> &VecOfUnaryFuncs<T> {
+        &self.funcs_to_be_composed
     }
 
     pub fn clear(&mut self) {

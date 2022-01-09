@@ -46,7 +46,7 @@ where
         }
     }
 
-    pub fn append_front(&mut self, other: &UnaryOpWithReprs<'a, T>) {
+    pub fn append_after(&mut self, other: &UnaryOpWithReprs<'a, T>) {
         self.op.append_after(&other.op);
         self.reprs = other
             .reprs
@@ -54,6 +54,16 @@ where
             .chain(self.reprs.iter())
             .copied()
             .collect();
+    }
+
+    pub fn remove_latest(&mut self) {
+        self.op.remove_latest();
+        self.reprs.remove(0);
+    }
+
+    pub fn clear(&mut self) {
+        self.op.clear();
+        self.reprs.clear();
     }
 }
 impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
