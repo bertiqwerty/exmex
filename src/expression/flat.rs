@@ -2,14 +2,16 @@ use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 
 use crate::expression::Express;
-use crate::operators::UnaryOp;
 use crate::{
-    BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, Operator,
+    ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, 
 };
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
+
+#[cfg(feature = "partial")]
+use crate::{operators::UnaryOp, BinOp, Operator};
 
 const DEPTH_PRIO_STEP: i64 = 1000;
 pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;

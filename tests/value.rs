@@ -1,6 +1,5 @@
-use exmex::{format_exerr, FlatExVal};
 #[cfg(feature = "value")]
-use exmex::{ExError, ExResult, Express, Val};
+use exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val};
 
 #[cfg(feature = "serde")]
 #[cfg(feature = "value")]
@@ -80,7 +79,7 @@ fn test_serde_public() -> ExResult<()> {
     assert_eq!(s, format!("{}", deserialized));
     Ok(())
 }
-
+#[cfg(feature = "value")]
 #[test]
 fn test_to() -> ExResult<()> {
     utils::assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
@@ -92,7 +91,7 @@ fn test_to() -> ExResult<()> {
     assert!(!Val::<i32, f64>::Bool(false).to_bool()?);
     Ok(())
 }
-
+#[cfg(feature = "value")]
 #[test]
 fn test_no_vars() -> ExResult<()> {
     fn test_int(s: &str, reference: i32) -> ExResult<()> {
