@@ -1,6 +1,7 @@
 use crate::{
     definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
     expression::flat::ExprIdxVec,
+    format_exerr,
     operators::{BinOp, UnaryOp},
     partial::{BinOpVec, DeepEx, DeepNode},
     ExError, ExResult,
@@ -172,12 +173,12 @@ where
 
 pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
     if var_idx >= n_vars {
-        Err(ExError {
-            msg: format!(
-                "index {} is invalid since we have only {} vars in {}",
-                var_idx, n_vars, unparsed
-            ),
-        })
+        Err(format_exerr!(
+            "index {} is invalid since we have only {} vars in {}",
+            var_idx,
+            n_vars,
+            unparsed
+        ))
     } else {
         Ok(())
     }
@@ -261,9 +262,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
             Ok((DeepNode::Expr(Box::new(expr)), n_uops + 1))
         }
         ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(n.clone())), n_uops + 1)),
-        _ => Err(ExError {
-            msg: "Invalid parsed token configuration".to_string(),
-        }),
+        _ => Err(ExError::new("Invalid parsed token configuration")),
     }
 }
 
