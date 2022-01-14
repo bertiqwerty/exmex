@@ -146,8 +146,8 @@ where
 
     /// Composes `self` with another unary operator.
     /// The other unary operator will be applied after self.
-    pub fn append_after(&mut self, other: &UnaryOp<T>) {
-        self.append_after_iter(other.funcs_to_be_composed.iter().copied());
+    pub fn append_after(&mut self, other: UnaryOp<T>) {
+        self.append_after_iter(other.funcs_to_be_composed.into_iter());
     }
 
     

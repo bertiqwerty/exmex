@@ -307,13 +307,13 @@ where
 
     fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.remove_latest();
-        self.unary_op.append_after(&unary_op);
+        self.unary_op.append_after(unary_op);
         self
     }
 
     fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.clear();
-        self.unary_op.append_after(&unary_op);
+        self.unary_op.append_after(unary_op);
         self
     }
 
@@ -398,7 +398,7 @@ where
 
     /// Applies a unary operator to self
     fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.append_after(&unary_op);
+        self.unary_op.append_after(unary_op);
         self.compile();
         self
     }
@@ -900,7 +900,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                 |f: DeepEx<T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<T>> {
                     let mut sin = find_as_unary_op_with_reprs("sin", ops)?;
                     let minus = minus_find_unary(ops)?;
-                    sin.append_after(&minus);
+                    sin.append_after(minus);
                     Ok(f.with_new_latest_unary_op(sin))
                 },
             ),

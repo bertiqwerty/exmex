@@ -596,11 +596,11 @@ pub fn flatten_vecs<T: Clone + Debug>(
             };
             low_prio_op
                 .unary_op
-                .append_after(&deep_expr.unary_op().op.clone());
+                .append_after(deep_expr.unary_op().op.clone());
         } else {
             flat_nodes[0]
                 .unary_op
-                .append_after(&deep_expr.unary_op().op.clone());
+                .append_after(deep_expr.unary_op().op.clone());
         }
     }
     (flat_nodes, flat_ops)

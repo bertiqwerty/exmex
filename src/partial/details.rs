@@ -46,8 +46,8 @@ where
         }
     }
 
-    pub fn append_after(&mut self, other: &UnaryOpWithReprs<'a, T>) {
-        self.op.append_after(&other.op);
+    pub fn append_after(&mut self, other: UnaryOpWithReprs<'a, T>) {
+        self.op.append_after(other.op);
         self.reprs = other
             .reprs
             .iter()
