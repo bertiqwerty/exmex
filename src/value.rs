@@ -109,9 +109,7 @@ where
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
-    ExError {
-        msg: format!("{:?}", e),
-    }
+    format_exerr!("{:?}", e)
 }
 
 impl<I, F> FromStr for Val<I, F>
@@ -133,9 +131,7 @@ where
         });
         match res {
             Result::Ok(_) => res,
-            Result::Err(e) => Err(ExError {
-                msg: format!("could not parse {}, {:?}", s, e),
-            }),
+            Result::Err(e) => Err(format_exerr!("could not parse {}, {:?}", s, e)),
         }
     }
 }
@@ -691,4 +687,3 @@ where
 {
     FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>::from_str(text)
 }
-

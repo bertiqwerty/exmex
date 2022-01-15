@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod utils;
+use exmex::format_exerr;
 #[cfg(test)]
 use exmex::{
     eval_str, literal_matcher_from_pattern, ops_factory, parse,
@@ -186,9 +187,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
             } else if s == "👎" {
                 Ok(Self { val: false })
             } else {
-                Err(Self::Err {
-                    msg: format!("cannot parse {} to `Thumbs`", s),
-                })
+                Err(format_exerr!("cannot parse {} to `Thumbs`", s))
             }
         }
     }
@@ -386,7 +385,7 @@ fn test_custom_ops() -> ExResult<()> {
     }
     let expr = FlatEx::<f32, SomeF32Operators>::from_str("2**2*invert(3)")?;
     let val = expr.eval(&[])?;
-    utils::assert_float_eq::<f32>(val, 4.0 / 3.0,  1e-6, 0.0, "");
+    utils::assert_float_eq::<f32>(val, 4.0 / 3.0, 1e-6, 0.0, "");
 
     #[derive(Clone)]
     struct ExtendedF32Operators;
@@ -410,7 +409,7 @@ fn test_custom_ops() -> ExResult<()> {
     }
     let expr = FlatEx::<f32, ExtendedF32Operators>::from_str("2^2*1/(berti) + zer0(4)")?;
     let val = expr.eval(&[4.0])?;
-    utils::assert_float_eq::<f32>(val, 1.0,  1e-6, 0.0, "");
+    utils::assert_float_eq::<f32>(val, 1.0, 1e-6, 0.0, "");
     Ok(())
 }
 

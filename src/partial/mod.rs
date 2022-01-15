@@ -445,9 +445,7 @@ fn find_as_bin_op_with_reprs<'a, T: Copy + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<BinOpsWithReprs<'a, T>> {
-    let op = find_op(repr, ops).ok_or(ExError {
-        msg: format!("did not find operator {}", repr),
-    })?;
+    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
     Ok(BinOpsWithReprs {
         reprs: smallvec::smallvec![op.repr()],
         ops: smallvec::smallvec![op.bin()?],
@@ -458,9 +456,7 @@ fn find_as_unary_op_with_reprs<'a, T: Copy + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<UnaryOpWithReprs<'a, T>> {
-    let op = find_op(repr, ops).ok_or(ExError {
-        msg: format!("did not find operator {}", repr),
-    })?;
+    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
     Ok(UnaryOpWithReprs {
         reprs: smallvec::smallvec![op.repr()],
         op: UnaryOp::from_vec(smallvec::smallvec![op.unary()?]),
@@ -468,9 +464,7 @@ fn find_as_unary_op_with_reprs<'a, T: Copy + Debug>(
 }
 
 fn make_op_missing_err(repr: &str) -> ExError {
-    ExError {
-        msg: format!("operator {} needed for outer partial derivative", repr),
-    }
+    format_exerr!("operator {} needed for outer partial derivative", repr)
 }
 
 fn partial_derivative_outer<'a, T: Float + Debug>(
@@ -552,11 +546,11 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
             partial_derivative_ops
                 .iter()
                 .find(|pdo| &pdo.repr == repr)
-                .ok_or(ExError {
-                    msg: format!(
+                .ok_or_else(|| {
+                    format_exerr!(
                         "derivative operator of {} needed for partial derivative",
                         repr
-                    ),
+                    )
                 })
         })
         .collect::<ExResult<SmallVec<[&PartialDerivative<'a, T>; N_BINOPS_OF_DEEPEX_ON_STACK]>>>(
@@ -572,13 +566,14 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
 
         let pd_deepex = if let (Some(n1), Some(n2)) = (node_1, node_2) {
             let pdo = &partial_bin_ops_of_deepex[bin_op_idx];
-            pdo.bin_op.ok_or(ExError {
-                msg: format!("cannot find binary op for {}", pdo.repr),
-            })?(n1, n2, ops)
+            pdo.bin_op
+                .ok_or_else(|| format_exerr!("cannot find binary op for {}", pdo.repr))?(
+                n1, n2, ops,
+            )
         } else {
-            Err(ExError {
-                msg: "nodes do not contain values in partial derivative".to_string(),
-            })
+            Err(ExError::new(
+                "nodes do not contain values in partial derivative",
+            ))
         }?;
         nodes[num_idx] = Some(pd_deepex);
         nodes.remove(num_idx + 1);
@@ -592,8 +587,8 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
     }
     let res = nodes[0]
         .take()
-        .ok_or(ExError {
-            msg: "node 0 needs to contain valder at the end of partial derviative".to_string(),
+        .ok_or_else(|| {
+            ExError::new("node 0 needs to contain valder at the end of partial derviative")
         })?
         .der;
     let (res, _) = res.var_names_union(deepex);
@@ -686,9 +681,9 @@ fn pow<'a, T: Float + Debug>(
     let zero = zero.var_names_like_other(&base);
     let one = one.var_names_like_other(&base);
     Ok(if base.is_zero() && exponent.is_zero() {
-        return Err(ExError {
-            msg: "base and exponent both zero. help. fatal. ah. help.".to_string(),
-        });
+        return Err(ExError::new(
+            "base and exponent both zero. help. fatal. ah. help.",
+        ));
     } else if base.is_zero() {
         zero
     } else if exponent.is_zero() {

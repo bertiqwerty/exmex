@@ -11,8 +11,20 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build without features
       run: cargo build --verbose
-    - name: Build with serde and value
+    - name: Build with serde, value, and partial
       run: cargo build --verbose --all-features
+    - name: Build with serde
+      run: cargo build --verbose --features serde
+    - name: Build with value
+      run: cargo build --verbose --features value
+    - name: Build with partial
+      run: cargo build --verbose --features partial
+    - name: Build with serde and partial
+      run: cargo build --verbose --features "serde, partial"
+    - name: Build with value and serde
+      run: cargo build --verbose --features "value, serde"
+    - name: Build with partial and value
+      run: cargo build --verbose --features "partial, value"
     - name: Clippy
       run: cargo clippy -- -D warnings
     - name: Clippy all features

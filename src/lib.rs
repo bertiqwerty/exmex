@@ -71,16 +71,16 @@
 //! [dependencies]
 //! exmex = { ..., features = ["partial", "serde", "value"] }
 //! ```
-//! 
-//! `partial` allows the computation of partal derivatives, `serde` enables serialization and 
+//!
+//! `partial` allows the computation of partal derivatives, `serde` enables serialization and
 //! deserialization, and `value` makes a more general value type accessible.
-//! 
+//!
 //! ### Partial Derivatives
 //!
-//! Expressions with floating point data types can be transformed into their 
+//! Expressions with floating point data types can be transformed into their
 //! partial derivatives again represented by expressions after activating the feature `partial`.
 //! See the [readme](https://github.com/bertiqwerty/exmex#partial-differentiation) for examples.
-//! 
+//!
 //! ### Serialization and Deserialization
 //!
 //! To use [`serde`](https://serde.rs/) you can activate the feature `serde`.
@@ -288,10 +288,7 @@ mod result;
 mod util;
 
 pub use {
-    expression::{
-        flat::FlatEx,
-        Express, MatchLiteral, NumberMatcher,
-    },
+    expression::{flat::FlatEx, Express, MatchLiteral, NumberMatcher},
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
 };
@@ -299,27 +296,24 @@ pub use {
 #[cfg(feature = "value")]
 mod value;
 #[cfg(feature = "value")]
-pub use value::{
-    parse_val, FlatExVal, Val, ValMatcher,
-    ValOpsFactory,
-};
+pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 #[cfg(feature = "partial")]
 mod partial;
 #[cfg(feature = "partial")]
 pub use partial::Differentiate;
 
 /// Exmex' prelude can be imported via can `use exmex::prelude::*;`.
-/// 
+///
 /// The prelude contains
-/// * expression trait [`Express`](Express), 
+/// * expression trait [`Express`](Express),
 /// * its implementation [`FlatEx`](FlatEx),
-/// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active. 
-/// 
+/// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active.
+///
 pub mod prelude {
     pub use crate::expression::{flat::FlatEx, Express};
-    pub use std::str::FromStr;
     #[cfg(feature = "partial")]
     pub use crate::Differentiate;
+    pub use std::str::FromStr;
 }
 
 /// Parses a string, evaluates the expression, and returns the resulting number.
@@ -335,9 +329,10 @@ where
 {
     let flatex = FlatEx::<T>::from_str_wo_compile(text)?;
     if !flatex.var_names().is_empty() {
-        return Err(ExError {
-            msg: format!("input string contains variables, '{}' ", text),
-        });
+        return Err(format_exerr!(
+            "input string contains variables, '{}' ",
+            text
+        ));
     }
     flatex.eval(&[])
 }

@@ -7,13 +7,16 @@ use std::{
 /// exception, so thrown needs to be understood figuratively.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct ExError {
-    pub msg: String,
+    msg: String,
 }
 impl ExError {
     pub fn new(msg: &str) -> ExError {
         ExError {
             msg: msg.to_string(),
         }
+    }
+    pub fn msg(&self) -> &str {
+        self.msg.as_str()
     }
 }
 impl Display for ExError {
@@ -31,13 +34,13 @@ pub type ExResult<U> = Result<U, ExError>;
 /// # use std::error::Error;
 /// use exmex::{format_exerr, ExError};
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// assert_eq!(format_exerr!("some error {}", 1), ExError{msg: format!("some error {}", 1)});
+/// assert_eq!(format_exerr!("some error {}", 1), ExError::new(format!("some error {}", 1).as_str()));
 /// #     Ok(())
 /// # }
 /// ```
 #[macro_export]
 macro_rules! format_exerr {
     ($s:literal, $( $exps:expr ),*) => {
-        ExError{msg: format!($s, $($exps,)*)}
+        ExError::new(format!($s, $($exps,)*).as_str())
     }
 }

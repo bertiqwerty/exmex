@@ -23,6 +23,7 @@ mod detail {
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
+        format_exerr,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
@@ -74,13 +75,11 @@ mod detail {
         n_unique_vars: usize,
     ) -> ExResult<T> {
         if n_unique_vars != vars.len() {
-            return Err(ExError {
-                msg: format!(
-                    "parsed expression contains {} vars but passed slice has {} elements",
-                    n_unique_vars,
-                    vars.len()
-                ),
-            });
+            return Err(format_exerr!(
+                "parsed expression contains {} vars but passed slice has {} elements",
+                n_unique_vars,
+                vars.len()
+            ));
         }
         let mut numbers = nodes
             .iter()

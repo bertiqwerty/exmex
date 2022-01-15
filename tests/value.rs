@@ -1,9 +1,9 @@
 #[cfg(feature = "value")]
-use exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val};
+use {
+    exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val},
+    std::str::FromStr,
+};
 
-#[cfg(feature = "serde")]
-#[cfg(feature = "value")]
-use std::str::FromStr;
 #[cfg(feature = "value")]
 mod utils;
 #[test]

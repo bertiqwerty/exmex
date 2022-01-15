@@ -174,9 +174,9 @@ where
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| ExError {
-                    msg: format!("could not parse '{}', {:?}", num_str, e),
-                })?)
+                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| format_exerr!(
+                    "could not parse '{}', {:?}", num_str, e)
+                )?)
             } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
@@ -190,8 +190,7 @@ where
                 cur_byte_offset += n_bytes;
                 ParsedToken::<T>::Var(var_str)
             } else {
-                let msg = format!("don't know how to parse {}", text_rest);
-                return Err(ExError { msg });
+                return Err(format_exerr!("don't know how to parse {}", text_rest));
             };
             res.push(next_parsed_token);
         }
@@ -336,9 +335,7 @@ where
     T: DataType,
 {
     if parsed_tokens.is_empty() {
-        return Err(ExError {
-            msg: "cannot parse empty string".to_string(),
-        });
+        return Err(ExError::new("cannot parse empty string"));
     };
 
     let pair_pre_conditions = make_pair_pre_conditions::<T>();
@@ -367,9 +364,7 @@ where
                         Paren::Open => 1,
                     };
                     if open_paren_cnt < 0 {
-                        return Err(ExError {
-                            msg: format!("too many closing parentheses until position {}", i),
-                        });
+                        return Err(format_exerr!("too many closing parentheses until position {}", i));
                     }
                     Ok(())
                 }
@@ -378,13 +373,9 @@ where
         })
         .collect::<ExResult<Vec<_>>>()?;
     if open_paren_cnt != 0 {
-        Err(ExError {
-            msg: "parentheses mismatch".to_string(),
-        })
+        Err(ExError::new("parentheses mismatch"))
     } else if let ParsedToken::Op(_) = parsed_tokens[parsed_tokens.len() - 1] {
-        Err(ExError {
-            msg: "the last element cannot be an operator".to_string(),
-        })
+        Err(ExError::new("the last element cannot be an operator"))
     } else {
         Ok(())
     }
@@ -414,8 +405,8 @@ fn test_preconditions() {
                     unreachable!();
                 }
                 Err(e) => {
-                    println!("msg '{}' should contain '{}'", e.msg, msg_part);
-                    assert!(e.msg.contains(msg_part));
+                    println!("msg '{}' should contain '{}'", e.msg(), msg_part);
+                    assert!(e.msg().contains(msg_part));
                 }
             }
         }

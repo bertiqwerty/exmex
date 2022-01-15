@@ -66,18 +66,21 @@ where
         E: de::Error,
     {
         let flatex = Self::Value::from_str(unparsed);
-        flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg)))
+        flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg())))
     }
 }
 
 
 #[cfg(test)]
 use {
-    crate::operators::{BinOp, Operator},
-    crate::partial::Differentiate,
-    serde_test::Token,
+    crate::operators::{BinOp, Operator}
 };
 
+#[cfg(feature="partial")]
+#[cfg(test)]
+use {crate::partial::Differentiate, serde_test::Token};
+
+#[cfg(feature="partial")]
 #[test]
 fn test_ser_de() {
     let test_inner = |exp, s| {
