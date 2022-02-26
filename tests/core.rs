@@ -83,9 +83,9 @@ fn test_flatex() -> ExResult<()> {
 #[test]
 fn test_readme() -> ExResult<()> {
     fn readme() -> ExResult<()> {
-        let result = eval_str::<f64>("sin(73)")?;
-        assert!((result - 73f64.sin()).abs() < 1e-12);
-        let expr = parse::<f64>("2*β^3-4/γ")?;
+        let result = eval_str::<f64>("E^(2*π-τ)")?;
+        assert!((result - 1.0).abs() < 1e-12);
+        let expr = parse::<f64>("2*x^3-4/y")?;
         let result = expr.eval(&[5.3, 0.5])?;
         assert!((result - 289.75399999999996).abs() < 1e-12);
         Ok(())

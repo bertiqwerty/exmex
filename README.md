@@ -26,8 +26,10 @@ to your `Cargo.toml`.
 To simply evaluate a string there is
 ```rust
 use exmex;
-let result = exmex::eval_str("sin(73)")?;
+let result = eval_str::<f64>("E^(2*π-τ)")?;
+assert!((result - 1.0).abs() < 1e-12);
 ```
+where `π`/`PI`, `τ`/`TAU`, and Euler's number `E` are available as constants.
 To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*"` as in
 ```rust
 use exmex::prelude::*;
