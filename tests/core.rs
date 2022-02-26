@@ -81,11 +81,11 @@ fn test_flatex() -> ExResult<()> {
 }
 
 #[test]
-fn test_readme() {
+fn test_readme() -> ExResult<()> {
     fn readme() -> ExResult<()> {
         let result = eval_str::<f64>("sin(73)")?;
         assert!((result - 73f64.sin()).abs() < 1e-12);
-        let expr = parse::<f64>("2*β^3-4/τ")?;
+        let expr = parse::<f64>("2*β^3-4/γ")?;
         let result = expr.eval(&[5.3, 0.5])?;
         assert!((result - 289.75399999999996).abs() < 1e-12);
         Ok(())
@@ -109,8 +109,9 @@ fn test_readme() {
         assert_eq!(result, u32::MAX - 1);
         Ok(())
     }
-    assert!(!readme().is_err());
-    assert!(!readme_int().is_err());
+    readme()?;
+    readme_int()?;
+    Ok(())
 }
 #[test]
 fn test_variables_curly_space_names() -> ExResult<()> {
@@ -427,6 +428,14 @@ fn test_eval_str() -> ExResult<()> {
     test("signum(-22/2)", -1.0)?;
     test("cbrt(8)", 2.0)?;
     test("2*3^2", 18.0)?;
+    test("PI", std::f64::consts::PI)?;
+    test("π", std::f64::consts::PI)?;
+    test("TAU", std::f64::consts::TAU)?;
+    test("τ", std::f64::consts::TAU)?;
+    test("τ", std::f64::consts::PI * 2.0)?;
+    test("E", std::f64::consts::E)?;
+    test("cos(TAU)", 1.0)?;
+    test("sin(τ)", 0.0)?;
     test("cos(PI/2)", 0.0)?;
     test("cos(π/2)", 0.0)?;
     test("-3^2", 9.0)?;

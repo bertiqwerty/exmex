@@ -17,8 +17,8 @@
 //! # }
 //! ```
 //! For floats, we have a list of predifined operators containing
-//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π
-//! and Euler's number can be used via `π`/`PI` and `E`, respectively. The full list is
+//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π, τ,
+//! and Euler's number are refered to via `π`/`PI`, `τ/TAU`, and `E`, respectively. The full list is
 //! defined in [`FloatOpsFactory`](FloatOpsFactory). Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
 //!

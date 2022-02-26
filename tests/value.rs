@@ -82,7 +82,7 @@ fn test_serde_public() -> ExResult<()> {
 #[cfg(feature = "value")]
 #[test]
 fn test_to() -> ExResult<()> {
-    utils::assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
+    utils::assert_float_eq_f64(Val::<i32, f64>::Float(std::f64::consts::TAU).to_float()?, std::f64::consts::TAU);
     assert_eq!(Val::<i32, f64>::Int(123).to_int()?, 123);
     assert!(Val::<i32, f64>::Bool(true).to_bool()?);
     assert!(Val::<i32, f64>::Bool(false).to_int().is_err());
@@ -159,6 +159,7 @@ fn test_no_vars() -> ExResult<()> {
     test_int("2+4", 6)?;
     test_int("9+4", 13)?;
     test_int("9+4^2", 25)?;
+    test_float("τ/TAU", 1.0)?;
     test_int("9/4", 2)?;
     test_int("9%4", 1)?;
     test_float("2.5+4.0^2", 18.5)?;
@@ -169,8 +170,12 @@ fn test_no_vars() -> ExResult<()> {
     test_float("cos(91.0)", 91.0f64.cos())?;
     test_float("tan(913.0)", 913.0f64.tan())?;
     test_float("sin(-π)", 0.0)?;
+    test_float("sin(π)", 0.0)?;
+    test_float("τ", std::f64::consts::PI * 2.0)?;
+    test_float("sin(-τ)", 0.0)?;
     test_float("round(π)", 3.0)?;
     test_float("cos(π)", -1.0)?;
+    test_float("cos(TAU)", 1.0)?;
     test_float("sin (1 if false else 2.0)", 2.0f64.sin())?;
     test_float("cbrt(27.0)", 3.0)?;
     test_int("1 if true else 2.0", 1)?;

@@ -654,6 +654,8 @@ where
             Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
+            Operator::make_constant("TAU", Val::Float(F::from(std::f64::consts::TAU).unwrap())),
+            Operator::make_constant("τ", Val::Float(F::from(std::f64::consts::TAU).unwrap())),
         ]
     }
 }

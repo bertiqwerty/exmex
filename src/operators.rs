@@ -364,6 +364,9 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
+            Operator::make_constant("TAU", T::from(std::f64::consts::TAU).unwrap()),
+            Operator::make_constant("τ", T::from(std::f64::consts::TAU).unwrap()),
+            
         ]
     }
 }
