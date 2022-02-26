@@ -110,7 +110,7 @@
 //! * binary as well as unary such as `-`, or
 //! * constant such as `PI`.
 //!
-//! An operator's representation is defined in the field
+//! An operator's representation can be accessed via the method
 //! [`repr`](Operator::repr). A token of the string-to-be-parsed is identified as operator if it matches the operator's
 //! representation exactly. For instance, `PI` will be parsed as the constant π while `PI5` will be parsed as a variable with name `PI5`.
 //! When an operator's representation is used in a string-to-be-parsed, the following applies:
