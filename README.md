@@ -69,13 +69,13 @@ More involved examples of data types are
 
 ## Partial Differentiation
 
-To compute partial derivatives of expressions with floating point numbers, you can use the method `partial` after activating the Exmex-feature `partial` in the `Cargo.toml` via
+To compute partial derivatives of expressions with floating point numbers, you can use the method [`partial`](https://docs.rs/exmex/latest/exmex/trait.Differentiate.html#method.partial) after activating the Exmex-feature `partial` in the `Cargo.toml` via
 ```
 [dependencies]
 exmex = { ..., features = ["partial"] }
 ```
 
-The result of the method `partial` is again an expression.
+The result of the method [`partial`](https://docs.rs/exmex/latest/exmex/trait.Differentiate.html#method.partial) is again an expression.
 
 ```rust
 use exmex::prelude::*;
