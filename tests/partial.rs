@@ -31,6 +31,12 @@ fn test_readme_partial() -> ExResult<()> {
     let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
     assert!((result - 2.0).abs() < 1e-12);
 
+    // all in one
+    let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter().copied())?;
+    assert_eq!(format!("{}", dddexpr_dxyx_iter), "2.0");
+    let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
+    assert!((result - 2.0).abs() < 1e-12);
+
     Ok(())
 }
 
@@ -220,5 +226,38 @@ fn test_partial_finite() -> ExResult<()> {
     test("sqrt(exp(y-x))", -1000.0..0.0)?;
     test("sin(sin(x+z))", -10.0..10.0)?;
     test("asin(sqrt(x+y))", 0.0..0.5)?;
+    Ok(())
+}
+
+#[cfg(feature = "partial")]
+#[test]
+fn test_partial_iter() -> ExResult<()> {
+    let sut = "a^2+b^2+c^2+x^2+y^2+z^2";
+    let expr = exmex::parse::<f64>(sut)?;
+    let deri = expr.partial_iter(0usize..5usize)?;
+    utils::assert_float_eq::<f64>(
+        0.0,
+        deri.eval(&[7.0, 7.0, 7.0, 7.0, 7.0, 7.0])?,
+        1e-12,
+        1e-12,
+        sut,
+    );
+
+    fn test3(sut: &str) -> ExResult<()>{
+        let expr = exmex::parse::<f64>(sut)?;
+        let deri = expr.partial_iter(0usize..3usize)?;
+        let mut deri_seq = expr;
+        for i in 0..3 {
+            deri_seq = deri_seq.partial(i)?;
+        }
+        let vals = [7.3, 4.2, 423.9];
+        utils::assert_float_eq_f64(deri_seq.eval(&vals)?, deri.eval(&vals)?);
+        Ok(())
+    }
+
+    test3("a^2*b^2*c^2")?;
+    test3("a^2+b^2*c^2")?;
+    test3("a^2-cos(sin(b^2))*c^3")?;
+    test3("a^2*b^2/sin(c^2)")?;
     Ok(())
 }

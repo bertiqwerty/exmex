@@ -96,6 +96,12 @@ let dddexpr_dxyx = ddexpr_dxy.partial(0)?;
 assert_eq!(format!("{}", dddexpr_dxyx), "2.0");
 let result = dddexpr_dxyx.eval(&[f64::MAX, f64::MAX])?;
 assert!((result - 2.0).abs() < 1e-12);
+
+// all in one
+let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter().copied())?;
+assert_eq!(format!("{}", dddexpr_dxyx_iter), "2.0");
+let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
+assert!((result - 2.0).abs() < 1e-12);
 ```
 
 ## Mixing Data Types in one Expression with the Feature `value`
