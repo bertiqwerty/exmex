@@ -32,7 +32,7 @@ fn test_readme_partial() -> ExResult<()> {
     assert!((result - 2.0).abs() < 1e-12);
 
     // all in one
-    let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter().copied())?;
+    let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter())?;
     assert_eq!(format!("{}", dddexpr_dxyx_iter), "2.0");
     let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
     assert!((result - 2.0).abs() < 1e-12);
@@ -234,7 +234,7 @@ fn test_partial_finite() -> ExResult<()> {
 fn test_partial_iter() -> ExResult<()> {
     let sut = "a^2+b^2+c^2+x^2+y^2+z^2";
     let expr = exmex::parse::<f64>(sut)?;
-    let deri = expr.partial_iter(0usize..5usize)?;
+    let deri = expr.partial_iter([0, 1, 2, 3, 4, 5].iter())?;
     utils::assert_float_eq::<f64>(
         0.0,
         deri.eval(&[7.0, 7.0, 7.0, 7.0, 7.0, 7.0])?,
@@ -245,7 +245,7 @@ fn test_partial_iter() -> ExResult<()> {
 
     fn test3(sut: &str) -> ExResult<()>{
         let expr = exmex::parse::<f64>(sut)?;
-        let deri = expr.partial_iter(0usize..3usize)?;
+        let deri = expr.partial_iter([0, 1, 2].iter())?;
         let mut deri_seq = expr;
         for i in 0..3 {
             deri_seq = deri_seq.partial(i)?;

@@ -103,7 +103,7 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
     {
-        self.partial_iter(iter::repeat(var_idx).take(n))
+        self.partial_iter(iter::repeat(&var_idx).take(n))
     }
 
     /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator
@@ -117,7 +117,7 @@ where
     ///
     /// let mut expr = FlatEx::<f64>::from_str("x^4+y^4")?;
     ///
-    /// let dexpr_dxy_iter = expr.partial_iter(0..2)?;
+    /// let dexpr_dxy_iter = expr.partial_iter([0, 1].iter())?;
     ///
     /// let dexpr_dx = expr.partial(0)?;
     /// let dexpr_dxy_2step = dexpr_dx.partial(1)?;
@@ -137,21 +137,21 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_iter<I>(&self, var_idxs: I) -> ExResult<Self>
+    fn partial_iter<'a, I>(&self, var_idxs: I) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
-        I: Iterator<Item = usize> + Clone
+        I: Iterator<Item = &'a usize> + Clone
     {
         let ops = Self::OperatorFactory::make();
         let mut deepex = self.to_deepex(&ops)?;
 
         let unparsed = deepex.unparse();
         for var_idx in var_idxs.clone() {
-            details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
+            details::check_partial_index(*var_idx, self.var_names().len(), unparsed.as_str())?;
         }
         for var_idx in var_idxs {
-            deepex = partial_deepex(var_idx, deepex, &ops)?;
+            deepex = partial_deepex(*var_idx, deepex, &ops)?;
         }
         Self::from_deepex(deepex, &ops)
     }
