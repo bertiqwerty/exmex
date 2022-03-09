@@ -1,6 +1,6 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    str::FromStr,
+    str::FromStr, iter
 };
 
 use num::Float;
@@ -65,13 +65,95 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
     {
+        self.partial_nth(var_idx, 1)
+    }
+
+    /// *`feature = "partial"`* - Computes the nth partial derivative with respect to one variable
+    /// # Example
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::prelude::*;
+    ///
+    /// let mut expr = FlatEx::<f64>::from_str("x^4+y^4")?;
+    ///
+    /// let dexpr_dxx_nth = expr.partial_nth(0, 2)?;
+    ///
+    /// let dexpr_dx = expr.partial(0)?;
+    /// let dexpr_dxx_2step = dexpr_dx.partial(0)?;
+    ///
+    /// assert!((dexpr_dxx_2step.eval(&[4.3, 2.1])? - dexpr_dxx_nth.eval(&[4.3, 2.1])?).abs() < 1e-12);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// # Arguments
+    ///
+    /// * `var_idx` - variable with respect to which the partial derivative is computed
+    /// * `n` - order of derivation
+    ///
+    /// # Errors
+    ///
+    /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
+    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
+    ///
+    fn partial_nth(&self, var_idx: usize, n: usize) -> ExResult<Self>
+    where
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+    {
+        self.partial_iter(iter::repeat(&var_idx).take(n))
+    }
+
+    /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator
+    /// 
+    /// # Example
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use exmex::prelude::*;
+    ///
+    /// let mut expr = FlatEx::<f64>::from_str("x^4+y^4")?;
+    ///
+    /// let dexpr_dxy_iter = expr.partial_iter([0, 1].iter())?;
+    ///
+    /// let dexpr_dx = expr.partial(0)?;
+    /// let dexpr_dxy_2step = dexpr_dx.partial(1)?;
+    ///
+    /// assert!((dexpr_dxy_2step.eval(&[4.3, 2.1])? - dexpr_dxy_iter.eval(&[4.3, 2.1])?).abs() < 1e-12);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    /// # Arguments
+    ///
+    /// * `var_idxs` - variables with respect to which the partial derivative is computed
+    /// * `n` - order of derivation
+    ///
+    /// # Errors
+    ///
+    /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
+    ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
+    ///
+    fn partial_iter<'a, I>(&self, var_idxs: I) -> ExResult<Self>
+    where
+        T: DataType + Float,
+        <T as FromStr>::Err: Debug,
+        I: Iterator<Item = &'a usize> + Clone
+    {
         let ops = Self::OperatorFactory::make();
-        let deepex = self.to_deepex(&ops)?;
+        let mut deepex = self.to_deepex(&ops)?;
 
         let unparsed = deepex.unparse();
-        details::check_partial_index(var_idx, self.var_names().len(), unparsed.as_str())?;
-        let d_i = partial_deepex(var_idx, deepex, &ops)?;
-        Self::from_deepex(d_i, &ops)
+        for var_idx in var_idxs.clone() {
+            details::check_partial_index(*var_idx, self.var_names().len(), unparsed.as_str())?;
+        }
+        for var_idx in var_idxs {
+            deepex = partial_deepex(*var_idx, deepex, &ops)?;
+        }
+        Self::from_deepex(deepex, &ops)
     }
 
     /// *`feature = "partial"`* - Every trait implementation needs to implement the conversion to a deep

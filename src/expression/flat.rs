@@ -189,7 +189,7 @@ mod detail {
                 unpack(start_idx - 1)?;
             }
 
-            Ok((start_idx..end_idx + 1).map(unpack).flatten().flatten())
+            Ok((start_idx..end_idx + 1).flat_map(unpack).flatten())
         };
 
         let create_node = |idx_node, kind| {
