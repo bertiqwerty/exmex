@@ -137,7 +137,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_iter<'a, I>(&self, var_idxs: I) -> ExResult<Self>
+    fn partial_iter<I>(&self, var_idxs: I) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
