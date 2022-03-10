@@ -35,7 +35,7 @@ To create an expression with variables that represents a mathematical function y
 use exmex::prelude::*;
 let expr = exmex::parse::<f64>("2*x^3-4/y")?;
 ```
-The wildcard-import from `prelude` makes only the expression-trait `Express` and its implementation `FlatEx`, a flattened expression, accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `β=5.3` and `τ=0.5` you can use
+The wildcard-import from `prelude` makes only the expression-trait `Express` and its implementation `FlatEx`, a flattened expression, accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `y=0.5` you can use
 ```rust
 let result = expr.eval(&[5.3, 0.5])?;
 assert!((result - 289.75399999999996).abs() < 1e-12);
