@@ -1,6 +1,7 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    str::FromStr, iter
+    iter,
+    str::FromStr,
 };
 
 use num::Float;
@@ -107,7 +108,7 @@ where
     }
 
     /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// # use std::error::Error;
@@ -141,7 +142,7 @@ where
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
-        I: Iterator<Item = &'a usize> + Clone
+        I: Iterator<Item = &'a usize> + Clone,
     {
         let ops = Self::OperatorFactory::make();
         let mut deepex = self.to_deepex(&ops)?;
@@ -798,6 +799,29 @@ fn minus_find_unary<'a, T: Copy + Debug>(
     find_as_unary_op_with_reprs("-", ops)
 }
 
+enum Base {
+    Two,
+    Ten,
+    Euler,
+}
+fn log_deri<'a, T: Float + Debug>(
+    f: DeepEx<'a, T>,
+    base: Base,
+    ops: &[Operator<'a, T>],
+) -> ExResult<DeepEx<'a, T>> {
+    let div_op = div_find(ops)?;
+    let mul_op = mul_find(ops)?;
+    let ln_base = |base_float: f64| DeepEx::from_num(T::from(base_float).unwrap().ln());
+    let x = f.with_new_latest_unary_op(UnaryOpWithReprs::new());
+    let denominator = match base {
+        Base::Ten => mul(x, ln_base(10.0), mul_op)?,
+        Base::Two => mul(x, ln_base(2.0), mul_op)?,
+        Base::Euler => x,
+    };
+
+    div(DeepEx::one(), denominator, div_op)
+}
+
 pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivative<'a, T>> {
     vec![
         PartialDerivative {
@@ -808,7 +832,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                  ops: &[Operator<'a, T>]|
                  -> ExResult<ValueDerivative<T>> {
                     let pow_op = pow_find(ops)?;
-                    let log_op = find_as_unary_op_with_reprs("ln", ops)?;
+                    let ln_op = find_as_unary_op_with_reprs("ln", ops)?;
                     let mul_op = mul_find(ops)?;
                     let add_op = add_find(ops)?;
                     let sub_op = sub_find(ops)?;
@@ -827,7 +851,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     )?;
 
                     let der_2 = mul(
-                        mul(val.clone(), f.val.operate_unary(log_op), mul_op.clone())?,
+                        mul(val.clone(), f.val.operate_unary(ln_op), mul_op.clone())?,
                         g.der.clone(),
                         mul_op,
                     )?;
@@ -934,7 +958,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let mul_op = mul_find(ops)?;
                     let div_op = div_find(ops)?;
                     let one = DeepEx::one();
-                    let two = DeepEx::from_num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0f64).unwrap());
                     div(one, mul(two, f, mul_op)?, div_op)
                 },
             ),
@@ -944,12 +968,25 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<'a, T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<'a, T>> {
-                    let div_op = div_find(ops)?;
-                    div(
-                        DeepEx::one(),
-                        f.with_new_latest_unary_op(UnaryOpWithReprs::new()),
-                        div_op,
-                    )
+                    log_deri(f, Base::Euler, ops)
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "log10",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<'a, T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<'a, T>> {
+                    log_deri(f, Base::Ten, ops)
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "log2",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<'a, T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<'a, T>> {
+                    log_deri(f, Base::Two, ops)
                 },
             ),
         },

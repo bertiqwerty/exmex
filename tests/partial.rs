@@ -220,6 +220,8 @@ fn test_partial_finite() -> ExResult<()> {
     test("sin(y+x)/((x*2)/y)*(2*x)", -1.0..1.0)?;
     test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.01..1.0)?;
     test("ln(x^2)", 0.1..10.0)?;
+    test("log2(x^2)", 0.1..10.0)?;
+    test("log10(x^2)", 0.1..10.0)?;
     test("tan(x)", -1.0..1.0)?;
     test("tan(exp(x))", -1000.0..0.0)?;
     test("exp(y-x)", -1.0..1.0)?;
@@ -243,7 +245,7 @@ fn test_partial_iter() -> ExResult<()> {
         sut,
     );
 
-    fn test3(sut: &str) -> ExResult<()>{
+    fn test3(sut: &str) -> ExResult<()> {
         let expr = exmex::parse::<f64>(sut)?;
         let deri = expr.partial_iter([0, 1, 2].iter())?;
         let mut deri_seq = expr;
@@ -259,5 +261,25 @@ fn test_partial_iter() -> ExResult<()> {
     test3("a^2+b^2*c^2")?;
     test3("a^2-cos(sin(b^2))*c^3")?;
     test3("a^2*b^2/sin(c^2)")?;
+    Ok(())
+}
+
+#[cfg(feature = "partial")]
+#[test]
+fn test_log() -> ExResult<()> {
+    let test_vals = [0.001, 5.0, 10.0, 1000.0, 12341.2345];
+    let deri_ln = exmex::parse::<f64>("ln(x)")?.partial(0)?;
+
+    let expr = exmex::parse::<f64>("log10(x)")?;
+    let deri = expr.partial(0)?;
+    for v in test_vals {
+        utils::assert_float_eq_f64(deri_ln.eval(&[v])? * 1.0 / 10.0f64.ln(), deri.eval(&[v])?);
+    }
+
+    let expr = exmex::parse::<f64>("log2(x)")?;
+    let deri = expr.partial(0)?;
+    for v in test_vals {
+        utils::assert_float_eq_f64(deri_ln.eval(&[v])? * 1.0 / 2.0f64.ln(), deri.eval(&[v])?);
+    }
     Ok(())
 }
