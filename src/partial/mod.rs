@@ -808,7 +808,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                  ops: &[Operator<'a, T>]|
                  -> ExResult<ValueDerivative<T>> {
                     let pow_op = pow_find(ops)?;
-                    let log_op = find_as_unary_op_with_reprs("log", ops)?;
+                    let log_op = find_as_unary_op_with_reprs("ln", ops)?;
                     let mul_op = mul_find(ops)?;
                     let add_op = add_find(ops)?;
                     let sub_op = sub_find(ops)?;
@@ -940,7 +940,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
             ),
         },
         PartialDerivative {
-            repr: "log",
+            repr: "ln",
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<'a, T>, ops: &[Operator<'a, T>]| -> ExResult<DeepEx<'a, T>> {

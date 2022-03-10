@@ -136,7 +136,7 @@ fn test_partial() -> ExResult<()> {
     let reference = |x: f64| x.cos() + x.sin() + 1.0 / (x.cos().powf(2.0));
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
 
-    let sut = "log(v)*exp(v)+cos(x)+tan(x)+a";
+    let sut = "ln(v)*exp(v)+cos(x)+tan(x)+a";
     let var_idx = 1;
     let n_vars = 3;
     let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
@@ -219,7 +219,7 @@ fn test_partial_finite() -> ExResult<()> {
     test("(sin(x)^2)/x/4", -10.0..10.0)?;
     test("sin(y+x)/((x*2)/y)*(2*x)", -1.0..1.0)?;
     test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.01..1.0)?;
-    test("log(x^2)", 0.1..10.0)?;
+    test("ln(x^2)", 0.1..10.0)?;
     test("tan(x)", -1.0..1.0)?;
     test("tan(exp(x))", -1000.0..0.0)?;
     test("exp(y-x)", -1.0..1.0)?;

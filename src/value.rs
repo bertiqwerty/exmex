@@ -332,6 +332,7 @@ unary_name!(sqrt, Float);
 unary_name!(cbrt, Float);
 unary_name!(ln, Float);
 unary_name!(log2, Float);
+unary_name!(log10, Float); 
 unary_name!(swap_bytes, Int);
 unary_name!(to_le, Int);
 unary_name!(to_be, Int);
@@ -643,7 +644,8 @@ where
             Operator::make_unary("sqrt", sqrt),
             Operator::make_unary("cbrt", cbrt),
             Operator::make_unary("round", round),
-            Operator::make_unary("log", ln),
+            Operator::make_unary("ln", ln),
+            Operator::make_unary("log10", log10),
             Operator::make_unary("log2", log2),
             Operator::make_unary("swap_bytes", swap_bytes),
             Operator::make_unary("to_le", to_le),

@@ -61,7 +61,7 @@ fn test_flatex() -> ExResult<()> {
     test("sin(-x)", &[0.7], (-0.7f64).sin())?;
     test("1.3+(-0.7)", &[], 0.6)?;
     test("2-1/2", &[], 2.0 - 1.0 / 2.0)?;
-    test("log(log2(2))*tan(2)+exp(1.5)", &[], 4.4816890703380645)?;
+    test("ln(log2(2))*tan(2)+exp(1.5)", &[], 4.4816890703380645)?;
     test("sin(0)", &[], 0f64.sin())?;
     test("1-(1-2)", &[], 2.0)?;
     test("1-(1-x)", &[2.0], 2.0)?;
@@ -78,7 +78,7 @@ fn test_flatex() -> ExResult<()> {
     )?;
     test("sin(cos(x+1))", &[5.0], 0.819289219220601)?;
     test(
-        "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}",
+        "5*{χ} +  4*log2(ln(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}",
         &[1.2, 1.0],
         8.040556934857268,
     )?;
@@ -149,7 +149,7 @@ fn test_variables_curly_space_names() -> ExResult<()> {
 }
 #[test]
 fn test_variables_curly() -> ExResult<()> {
-    let sut = "5*{x} +  4*log2(log(1.5+{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
+    let sut = "5*{x} +  4*log2(ln(1.5+{gamma}))*({x}*-(tan(cos(sin(652.2-{gamma}))))) + 3*{x}";
     let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[1.2, 1.0]).unwrap(), 8.040556934857268);
 
@@ -169,7 +169,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
     let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[1.2]).unwrap(), 6.0);
 
-    let sut = "5*{χ} +  4*log2(log(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}";
+    let sut = "5*{χ} +  4*log2(ln(1.5+γ))*({χ}*-(tan(cos(sin(652.2-{γ}))))) + 3*{χ}";
     let expr = FlatEx::<f64>::from_str(sut)?;
     println!("{}", expr);
     utils::assert_float_eq_f64(expr.eval(&[1.2, 1.0]).unwrap(), 8.040556934857268);
@@ -255,7 +255,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
 
 #[test]
 fn test_variables() -> ExResult<()> {
-    let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*log(cos({y})))*cos({z}))";
+    let sut = "sin  ({x})+(((cos({y})   ^  (sin({z})))*ln(cos({y})))*cos({z}))";
     let expr = FlatEx::<f64>::from_str(sut)?;
     assert_eq!(expr.var_names().len(), 3usize);
     let reference =
@@ -336,7 +336,7 @@ fn test_variables() -> ExResult<()> {
     let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[1.0]).unwrap(), 1.0);
 
-    let sut = "log(x) + 2* (-x^2 + sin(4*y))";
+    let sut = "ln(x) + 2* (-x^2 + sin(4*y))";
     let expr = FlatEx::<f64>::from_str(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[2.5, 3.7]).unwrap(), 14.992794866624788);
 
@@ -502,8 +502,8 @@ fn test_eval_str() -> ExResult<()> {
     test("----1", 1.0)?;
     test("---1", -1.0)?;
     test("3-(4-2/3+(1-2*2))", 2.666666666666666)?;
-    test("log(log(2))*tan(2)+exp(1.5)", 5.2825344122094045)?;
-    test("log(log2(2))*tan(2)+exp(1.5)", 4.4816890703380645)?;
+    test("ln(ln(2))*tan(2)+exp(1.5)", 5.2825344122094045)?;
+    test("ln(log2(2))*tan(2)+exp(1.5)", 4.4816890703380645)?;
     test("log2(2)", 1.0)?;
     test("2^log2(2)", 2.0)?;
     test("2^(cos(0)+2)", 8.0)?;

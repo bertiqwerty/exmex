@@ -17,7 +17,7 @@
 //! # }
 //! ```
 //! For floats, we have a list of predifined operators containing
-//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log`, and `log2`. Further, the constants π, τ,
+//! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log10`, `ln`, and `log2`. Further, the constants π, τ,
 //! and Euler's number are refered to via `π`/`PI`, `τ/TAU`, and `E`, respectively. The full list is
 //! defined in [`FloatOpsFactory`](FloatOpsFactory). Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
@@ -34,7 +34,7 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::prelude::*;
-//! let to_be_parsed = "α * log(z) + 2* (-z^2 + sin(4*y))";
+//! let to_be_parsed = "α * ln(z) + 2* (-z^2 + sin(4*y))";
 //! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[3.7, 2.5, 1.0])? - 14.992794866624788 as f64).abs() < 1e-12);
 //! #
@@ -53,7 +53,7 @@
 //! use exmex::prelude::*;
 //! let x = 2.1f64;
 //! let y = 0.1f64;
-//! let to_be_parsed = "log({👍+👎})";  // {👍+👎} is the name of one variable 😕.
+//! let to_be_parsed = "ln({👍+👎})";  // {👍+👎} is the name of one variable 😕.
 //! let expr = exmex::parse::<f64>(to_be_parsed)?;
 //! assert!((expr.eval(&[x+y])? - 2.2f64.ln()).abs() < 1e-12);
 //! #
