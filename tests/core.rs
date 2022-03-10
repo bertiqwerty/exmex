@@ -7,6 +7,7 @@ use exmex::{
     prelude::*,
     ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
+use std::iter::repeat;
 #[cfg(test)]
 use std::{
     iter::once,
@@ -28,6 +29,27 @@ fn test_flatex() -> ExResult<()> {
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::from_str(sut)?;
         utils::assert_float_eq_f64(flatex.eval(vars)?, reference);
+        utils::assert_float_eq_f64(flatex.eval_relaxed(vars)?, reference);
+
+        let n_vars = vars.len();
+        if n_vars > 0 {
+            assert!(flatex.eval(&vars[0..n_vars - 1]).is_err());
+        }
+
+        for n_additional_vars in 1..11 {
+            let more_vars = vars
+                .iter()
+                .copied()
+                .chain(
+                    repeat(10)
+                        .map(|exp| (rand::random::<f64>() * n_additional_vars as f64).powi(exp))
+                        .take(n_additional_vars),
+                )
+                .collect::<Vec<_>>();
+            assert!(flatex.eval(&more_vars).is_err());
+            utils::assert_float_eq_f64(flatex.eval_relaxed(&more_vars)?, reference);
+        }
+
         println!("...ok.");
         Ok(())
     }

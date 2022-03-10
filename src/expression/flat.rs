@@ -3,7 +3,7 @@ use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 
 use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::expression::Express;
-use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher};
+use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, format_exerr};
 
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
@@ -23,7 +23,6 @@ mod detail {
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
-        format_exerr,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
@@ -72,15 +71,7 @@ mod detail {
         nodes: &FlatNodeVec<T>,
         ops: &FlatOpVec<T>,
         prio_indices: &ExprIdxVec,
-        n_unique_vars: usize,
     ) -> ExResult<T> {
-        if n_unique_vars != vars.len() {
-            return Err(format_exerr!(
-                "parsed expression contains {} vars but passed slice has {} elements",
-                n_unique_vars,
-                vars.len()
-            ));
-        }
         let mut numbers = nodes
             .iter()
             .map(|node| {
@@ -492,12 +483,34 @@ where
     type OperatorFactory = OF;
 
     fn eval(&self, vars: &[T]) -> ExResult<T> {
+        if self.var_names.len() != vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is different to the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
+        detail::eval_flatex(
+            vars,
+            &self.nodes,
+            &self.ops,
+            &self.prio_indices
+        )
+    }
+
+    fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
+        if self.var_names.len() > vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is higher than the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
         detail::eval_flatex(
             vars,
             &self.nodes,
             &self.ops,
             &self.prio_indices,
-            self.var_names.len(),
         )
     }
 
