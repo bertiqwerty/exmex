@@ -332,6 +332,7 @@ unary_name!(sqrt, Float);
 unary_name!(cbrt, Float);
 unary_name!(ln, Float);
 unary_name!(log2, Float);
+unary_name!(log10, Float); 
 unary_name!(swap_bytes, Int);
 unary_name!(to_le, Int);
 unary_name!(to_be, Int);
