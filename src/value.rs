@@ -644,7 +644,6 @@ where
             Operator::make_unary("cbrt", cbrt),
             Operator::make_unary("round", round),
             Operator::make_unary("ln", ln),
-            Operator::make_unary("log", log10),
             Operator::make_unary("log10", log10),
             Operator::make_unary("log2", log2),
             Operator::make_unary("swap_bytes", swap_bytes),
