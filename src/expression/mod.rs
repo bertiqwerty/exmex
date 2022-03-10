@@ -35,6 +35,25 @@ where
     ///
     fn eval(&self, vars: &[T]) -> ExResult<T>;
 
+    /// Evaluates an expression with the given variable values and returns the computed
+    /// result. If more variables are passed than necessary the unnecessary ones are ignored.
+    ///
+    /// # Arguments
+    ///
+    /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
+    ///            the n-th variable in alphabetical order.
+    ///            Thereby, only the first occurrence of the variable in the string is relevant.
+    ///            If an expression has been created by partial derivation, the variables always
+    ///            coincide with those of the antiderivatives even in cases where variables are
+    ///            irrelevant such as `(x)'=1`. 
+    ///
+    /// # Errors
+    ///
+    /// If the number of variables in the parsed expression is larger than the length of
+    /// the variable slice, we return an [`ExError`](super::result::ExError).
+    ///
+    fn eval_relaxed(&self, vars: &[T]) -> ExResult<T>;
+
     /// Creates an expression string that corresponds to the `FlatEx` instance.
     /// ```rust
     /// # use std::error::Error;
