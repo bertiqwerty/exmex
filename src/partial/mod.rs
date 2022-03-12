@@ -810,15 +810,14 @@ fn log_deri<'a, T: Float + Debug>(
     ops: &[Operator<'a, T>],
 ) -> ExResult<DeepEx<'a, T>> {
     let div_op = div_find(ops)?;
-    let mul_op = mul_find(ops)?;
+    let lazy_mul_op = || mul_find(ops);
     let ln_base = |base_float: f64| DeepEx::from_num(T::from(base_float).unwrap().ln());
     let x = f.with_new_latest_unary_op(UnaryOpWithReprs::new());
     let denominator = match base {
-        Base::Ten => mul(x, ln_base(10.0), mul_op)?,
-        Base::Two => mul(x, ln_base(2.0), mul_op)?,
+        Base::Ten => mul(x, ln_base(10.0), lazy_mul_op()?)?,
+        Base::Two => mul(x, ln_base(2.0), lazy_mul_op()?)?,
         Base::Euler => x,
     };
-
     div(DeepEx::one(), denominator, div_op)
 }
 
@@ -958,7 +957,7 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
                     let mul_op = mul_find(ops)?;
                     let div_op = div_find(ops)?;
                     let one = DeepEx::one();
-                    let two = DeepEx::from_num(T::from(2.0f64).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0).unwrap());
                     div(one, mul(two, f, mul_op)?, div_op)
                 },
             ),
