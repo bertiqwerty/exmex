@@ -37,8 +37,8 @@ let expr = exmex::parse::<f64>("2*x^3-4/y")?;
 ```
 The wildcard-import from `prelude` makes only the expression-trait `Express` and its implementation `FlatEx`, a flattened expression, accessible. To use variables, you do not need to use a context or tell the parser explicitly what variables are. To evaluate the function at, e.g., `x=5.3` and `y=0.5` you can use
 ```rust
-let result = expr.eval(&[5.3, 0.5])?;
-assert!((result - 289.75399999999996).abs() < 1e-12);
+let result = expr.eval(&[2.0, 4.0])?;
+assert!((result - 15.0).abs() < 1e-12);
 ```
 The order of the variables' values passed for evaluation has to match the alphabetical order of the variable names. 
 
