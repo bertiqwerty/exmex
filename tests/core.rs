@@ -108,8 +108,8 @@ fn test_readme() -> ExResult<()> {
         let result = eval_str::<f64>("E^(2*π-τ)")?;
         assert!((result - 1.0).abs() < 1e-12);
         let expr = parse::<f64>("2*x^3-4/y")?;
-        let result = expr.eval(&[5.3, 0.5])?;
-        assert!((result - 289.75399999999996).abs() < 1e-12);
+        let result = expr.eval(&[2.0, 1.0])?;
+        assert!((result - 15.0).abs() < 1e-12);
         Ok(())
     }
     fn readme_int() -> ExResult<()> {
