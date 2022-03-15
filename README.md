@@ -138,7 +138,7 @@ compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
 ```
 The following table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Win10 machine with an i7-10850H 2.7 GHz processor in micro-seconds, i.e., smaller means better. [Criterion](https://docs.rs/criterion/0.3.4/criterion/)-based benchmarks can be executed via
 ```
-cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 20
+cargo bench --bench benchmark -- --noplot --sample-size 10 --nresamples 10
 ```
 to compute the results. Reported is the best result over multiple invocations. More about taking the minimum run-time for benchmarking can be found below.
 
