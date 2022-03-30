@@ -282,11 +282,14 @@ pub trait MakeOperators<T: Clone>: Clone {
 /// |`exp`| exponential functionn |
 /// |`sqrt`| square root |
 /// |`cbrt`| cube root |
-/// |`log`| natural logarithm  |
-/// |`log2`| logarithm with basis 2  |
-/// |`PI`| constant π  |
-/// |`π`| second representations of constant π  |
+/// |`log`| natural logarithm |
+/// |`log2`| logarithm with basis 2 |
+/// |`PI`| constant π |
+/// |`π`| second representation of constant π |
 /// |`E`| Euler's number |
+/// |`TAU`| constant τ=2π |
+/// |`τ`| second representation of constant τ |
+/// |`e`| second representation of Euler's number |
 ///
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -365,6 +368,7 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
+            Operator::make_constant("e", T::from(std::f64::consts::E).unwrap()),
             Operator::make_constant("TAU", T::from(std::f64::consts::TAU).unwrap()),
             Operator::make_constant("τ", T::from(std::f64::consts::TAU).unwrap()),
             
