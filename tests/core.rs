@@ -456,6 +456,7 @@ fn test_eval_str() -> ExResult<()> {
     test("τ", std::f64::consts::TAU)?;
     test("τ", std::f64::consts::PI * 2.0)?;
     test("E", std::f64::consts::E)?;
+    test("e", std::f64::consts::E)?;
     test("cos(TAU)", 1.0)?;
     test("sin(τ)", 0.0)?;
     test("cos(PI/2)", 0.0)?;
