@@ -282,7 +282,8 @@ pub trait MakeOperators<T: Clone>: Clone {
 /// |`exp`| exponential functionn |
 /// |`sqrt`| square root |
 /// |`cbrt`| cube root |
-/// |`log`| natural logarithm |
+/// |`ln`| natural logarithm |
+/// |`log10`| logarithm with basis 10 |
 /// |`log2`| logarithm with basis 2 |
 /// |`PI`| constant π |
 /// |`π`| second representation of constant π |
