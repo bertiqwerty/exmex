@@ -30,7 +30,7 @@ let result = eval_str::<f64>("e^(2*π-τ)")?;
 assert!((result - 1.0).abs() < 1e-12);
 ```
 where `π`/`PI`, `τ`/`TAU`, and Euler's number `E`/`e` are available as constants.
-To create an expression with variables that represents a mathematical function you can use any string that does not define an operator and matches `r"[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*"` as in
+To create an expression with variables that represents a mathematical function you can use any string that does not define an operator or constant and matches `r"[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*"` as in
 ```rust
 use exmex::prelude::*;
 let expr = exmex::parse::<f64>("2*x^3-4/y")?;
