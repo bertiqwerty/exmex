@@ -257,7 +257,7 @@
 //!
 //! ## Display
 //!
-//! Expression can be displayed as string. This
+//! Expressions can be displayed as string. This
 //! [`unparse`](Express::unparse)d string coincides with the original
 //! string.
 //!
