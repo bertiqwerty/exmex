@@ -302,7 +302,7 @@ mod partial;
 #[cfg(feature = "partial")]
 pub use partial::Differentiate;
 
-/// Exmex' prelude can be imported via can `use exmex::prelude::*;`.
+/// Exmex' prelude can be imported via `use exmex::prelude::*;`.
 ///
 /// The prelude contains
 /// * expression trait [`Express`](Express),
