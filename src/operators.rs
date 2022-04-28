@@ -282,8 +282,10 @@ pub trait MakeOperators<T: Clone>: Clone {
 /// |`exp`| exponential functionn |
 /// |`sqrt`| square root |
 /// |`cbrt`| cube root |
-/// |`log`| natural logarithm |
+/// |`ln`| natural logarithm |
 /// |`log2`| logarithm with basis 2 |
+/// |`log10`| logarithm with basis 10 |
+/// |`log`| natural logarithm |
 /// |`PI`| constant π |
 /// |`π`| second representation of constant π |
 /// |`E`| Euler's number |
@@ -365,6 +367,7 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_unary("ln", |a| a.ln()),
             Operator::make_unary("log2", |a| a.log2()),
             Operator::make_unary("log10", |a| a.log10()),
+            Operator::make_unary("log", |a| a.ln()),
             Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
             Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),

@@ -168,6 +168,8 @@ fn test_no_vars() -> ExResult<()> {
     test_float("9.0/4.0", 9.0 / 4.0)?;
     test_float("sin(9.0)", 9.0f64.sin())?;
     test_float("cos(91.0)", 91.0f64.cos())?;
+    test_float("ln(91.0)", 91.0f64.ln())?;
+    test_float("log(91.0)", 91.0f64.ln())?;
     test_float("tan(913.0)", 913.0f64.tan())?;
     test_float("sin(-π)", 0.0)?;
     test_float("sin(π)", 0.0)?;
