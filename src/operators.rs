@@ -288,9 +288,9 @@ pub trait MakeOperators<T: Clone>: Clone {
 /// |`log`| natural logarithm |
 /// |`PI`| constant π |
 /// |`π`| second representation of constant π |
-/// |`E`| Euler's number |
 /// |`TAU`| constant τ=2π |
 /// |`τ`| second representation of constant τ |
+/// |`E`| Euler's number |
 /// |`e`| second representation of Euler's number |
 ///
 ///
