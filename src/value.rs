@@ -647,6 +647,7 @@ where
             Operator::make_unary("ln", ln),
             Operator::make_unary("log10", log10),
             Operator::make_unary("log2", log2),
+            Operator::make_unary("log", ln),
             Operator::make_unary("swap_bytes", swap_bytes),
             Operator::make_unary("to_le", to_le),
             Operator::make_unary("to_be", to_be),
