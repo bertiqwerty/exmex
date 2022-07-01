@@ -25,8 +25,7 @@ to your `Cargo.toml`.
 ## Basic Usage
 To simply evaluate a string there is
 ```rust
-use exmex;
-let result = eval_str::<f64>("e^(2*π-τ)")?;
+let result = exmex::eval_str::<f64>("e^(2*π-τ)")?;
 assert!((result - 1.0).abs() < 1e-12);
 ```
 where `π`/`PI`, `τ`/`TAU`, and Euler's number `E`/`e` are available as constants.

@@ -3,7 +3,7 @@ mod utils;
 use exmex::format_exerr;
 #[cfg(test)]
 use exmex::{
-    eval_str, literal_matcher_from_pattern, ops_factory, parse,
+    literal_matcher_from_pattern, ops_factory, parse,
     prelude::*,
     ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
@@ -105,7 +105,7 @@ fn test_flatex() -> ExResult<()> {
 #[test]
 fn test_readme() -> ExResult<()> {
     fn readme() -> ExResult<()> {
-        let result = eval_str::<f64>("E^(2*π-τ)")?;
+        let result = exmex::eval_str::<f64>("E^(2*π-τ)")?;
         assert!((result - 1.0).abs() < 1e-12);
         let expr = parse::<f64>("2*x^3-4/y")?;
         let result = expr.eval(&[2.0, 4.0])?;
@@ -440,7 +440,7 @@ fn test_custom_ops() -> ExResult<()> {
 fn test_eval_str() -> ExResult<()> {
     fn test(sut: &str, reference: f64) -> ExResult<()> {
         println!(" === testing {}", sut);
-        utils::assert_float_eq_f64(eval_str(sut)?, reference);
+        utils::assert_float_eq_f64(exmex::eval_str(sut)?, reference);
         let expr = FlatEx::<f64>::from_str(sut)?;
         utils::assert_float_eq_f64(expr.eval(&[])?, reference);
         Ok(())
@@ -517,10 +517,10 @@ fn test_eval_str() -> ExResult<()> {
 fn test_error_handling() {
     assert!(exmex::parse::<f64>("z+/Q").is_err());
     assert!(exmex::parse::<f64>("6-^6").is_err());
-    assert!(eval_str::<f64>("").is_err());
-    assert!(eval_str::<f64>("5+5-(").is_err());
-    assert!(eval_str::<f64>(")2*(5+5)*3-2)*2").is_err());
-    assert!(eval_str::<f64>("2*(5+5))").is_err());
+    assert!(exmex::eval_str::<f64>("").is_err());
+    assert!(exmex::eval_str::<f64>("5+5-(").is_err());
+    assert!(exmex::eval_str::<f64>(")2*(5+5)*3-2)*2").is_err());
+    assert!(exmex::eval_str::<f64>("2*(5+5))").is_err());
 }
 
 #[cfg(feature = "serde")]
@@ -535,8 +535,8 @@ fn test_serde_public_interface() -> ExResult<()> {
 }
 #[test]
 fn test_constants() -> ExResult<()> {
-    utils::assert_float_eq_f64(eval_str::<f64>("PI")?, std::f64::consts::PI);
-    utils::assert_float_eq_f64(eval_str::<f64>("E")?, std::f64::consts::E);
+    utils::assert_float_eq_f64(exmex::eval_str::<f64>("PI")?, std::f64::consts::PI);
+    utils::assert_float_eq_f64(exmex::eval_str::<f64>("E")?, std::f64::consts::E);
     let expr = parse::<f64>("x / PI * 180")?;
     utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2])?, 90.0);
 
@@ -550,6 +550,6 @@ fn test_constants() -> ExResult<()> {
 
 #[test]
 fn test_fuzz() {
-    assert!(eval_str::<f64>("an").is_err());
+    assert!(exmex::eval_str::<f64>("an").is_err());
     assert!(FlatEx::<f64>::from_str("\n").is_err());
 }
