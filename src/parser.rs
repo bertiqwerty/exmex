@@ -81,7 +81,7 @@ pub fn is_numeric_text(text: &str) -> Option<&str> {
             if is_dot {
                 n_dots += 1;
             }
-            c.is_digit(10) || is_dot
+            c.is_ascii_digit() || is_dot
         })
         .count();
     if (n_num_chars > 1 && n_dots < 2) || (n_num_chars == 1 && n_dots == 0) {
