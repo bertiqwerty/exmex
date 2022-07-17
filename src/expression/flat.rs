@@ -66,11 +66,72 @@ mod detail {
         }
     }
 
+    const MAX_IGNORE_U64: usize = 64;
+
+    fn eval_flatex_u64<T: Clone + Debug>(
+        numbers: &mut [T],
+        ops: &[FlatOp<T>],
+        prio_indices: &[usize],
+    ) {
+        let mut ignore = 0_u64;
+
+        for &idx in prio_indices {
+            let rotated = ignore.rotate_right(idx as u32 + 1);
+            let shift_right = rotated.trailing_ones() as usize + 1;
+            let shift_left = rotated.leading_ones() as usize;
+
+            let num_1 = numbers[idx - shift_left].clone();
+            let num_2 = numbers[idx + shift_right].clone();
+            numbers[idx - shift_left] = {
+                let bop_res = (ops[idx].bin_op.apply)(num_1, num_2);
+                ops[idx].unary_op.apply(bop_res)
+            };
+            ignore |= 1 << (idx + shift_right);
+        }
+    }
+
+    fn eval_flatex_bool<T: Clone + Debug>(
+        numbers: &mut [T],
+        ops: &[FlatOp<T>],
+        prio_indices: &[usize],
+    ) {
+        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; numbers.len()];
+        for &idx in prio_indices {
+            // point of panic of a malformed index
+            assert!(idx + 1 < ignore.len() && idx + 1 < numbers.len() && idx < ops.len());
+
+            let (left_ign, right_ign) = ignore.split_at_mut(idx + 1);
+            let (left_num, right_num) = numbers.split_at_mut(idx + 1);
+
+            let num_1 = left_num.iter_mut().rev().zip(left_ign.iter().rev())
+                .find_map(|(num, ign)|
+                    if *ign {
+                        None
+                    } else {
+                        Some(num)
+                    }
+                );
+            let num_2 = right_num.iter().zip(right_ign).find_map(|(num, ign)|
+                if *ign {
+                    None
+                } else {
+                    *ign = true;
+                    Some(num)
+                }
+            );
+            // point of panic of a logic error
+            let (num_1, num_2) = num_1.zip(num_2).unwrap();
+
+            let bop_res = (ops[idx].bin_op.apply)(num_1.clone(), num_2.clone());
+            *num_1 = ops[idx].unary_op.apply(bop_res);
+        }
+    }
+
     pub fn eval_flatex<T: Clone + Debug>(
         vars: &[T],
-        nodes: &FlatNodeVec<T>,
-        ops: &FlatOpVec<T>,
-        prio_indices: &ExprIdxVec,
+        nodes: &[FlatNode<T>],
+        ops: &[FlatOp<T>],
+        prio_indices: &[usize],
     ) -> ExResult<T> {
         let mut numbers = nodes
             .iter()
@@ -81,26 +142,14 @@ mod detail {
                 })
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
-        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; nodes.len()];
-        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
-            let num_idx = prio_indices[i];
-            let mut shift_left = 0usize;
-            while ignore[num_idx - shift_left] {
-                shift_left += 1usize;
-            }
-            let mut shift_right = 1usize;
-            while ignore[num_idx + shift_right] {
-                shift_right += 1usize;
-            }
-            let num_1 = numbers[num_idx - shift_left].clone();
-            let num_2 = numbers[num_idx + shift_right].clone();
-            numbers[num_idx - shift_left] = {
-                let bop_res = (ops[bin_op_idx].bin_op.apply)(num_1, num_2);
-                ops[bin_op_idx].unary_op.apply(bop_res)
-            };
-            ignore[num_idx + shift_right] = true;
+
+        if numbers.len() < MAX_IGNORE_U64 {
+            eval_flatex_u64(numbers.as_mut_slice(), ops, prio_indices)
+        } else {
+            eval_flatex_bool(numbers.as_mut_slice(), ops, prio_indices);
         }
-        Ok(numbers[0].clone())
+
+        Ok(numbers.into_iter().next().unwrap())
     }
 
     /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
