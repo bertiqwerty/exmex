@@ -15,7 +15,7 @@ fn serialize<T: Clone, S: Serializer, Ex: Express<T>>(
     )
 }
 
-impl<'de, T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
+impl<T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
     for FlatEx<T, OF, LMF>
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
