@@ -66,7 +66,7 @@ mod detail {
         }
     }
 
-    const MAX_IGNORE_U64: usize = 64;
+    const N_IGNORE_BITS: usize = 64;
 
     fn eval_flatex_u64<T: Clone + Debug>(
         numbers: &mut [T],
@@ -90,7 +90,7 @@ mod detail {
         }
     }
 
-    fn eval_flatex_bool<T: Clone + Debug>(
+    fn eval_flatex_vecbool<T: Clone + Debug>(
         numbers: &mut [T],
         ops: &[FlatOp<T>],
         prio_indices: &[usize],
@@ -143,10 +143,10 @@ mod detail {
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
 
-        if numbers.len() < MAX_IGNORE_U64 {
+        if numbers.len() < N_IGNORE_BITS {
             eval_flatex_u64(numbers.as_mut_slice(), ops, prio_indices)
         } else {
-            eval_flatex_bool(numbers.as_mut_slice(), ops, prio_indices);
+            eval_flatex_vecbool(numbers.as_mut_slice(), ops, prio_indices);
         }
 
         Ok(numbers.into_iter().next().unwrap())

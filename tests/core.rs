@@ -99,6 +99,13 @@ fn test_flatex() -> ExResult<()> {
         &[1.0, 2.0, 3.0],
         0.01661860154948708,
     )?;
+
+    let n_vars = 65;
+    let s = (0..n_vars)
+        .map(|i| format!("{{{}}}", i.to_string()))
+        .collect::<Vec<_>>()
+        .join("+");
+    test(s.as_str(), &vec![1.0; n_vars], n_vars as f64)?;
     Ok(())
 }
 
