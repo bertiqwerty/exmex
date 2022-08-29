@@ -1,6 +1,6 @@
 [package]
 name = "exmex"
-version = "0.16.0"  # check html document root in lib.rs and the Readme.md
+version = "0.16.1"  # check html document root in lib.rs and the Readme.md
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -17,11 +17,11 @@ include = ["**/*.rs", "Cargo.toml"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-regex = "1"
-num = "0.4"
-smallvec = "1.6.1"
+regex = "1.6.0"
+num = "0.4.0"
+smallvec = "1.9.0"
 lazy_static = "1.4.0"
-serde = { version="1", optional = true }
+serde = { version="1.0.144", optional = true }
 
 [profile.test]
 opt-level = 3
@@ -37,15 +37,15 @@ partial = []
 all-features = true
 
 [dev-dependencies]
-rand = "0.8.4"
-itertools = "0.10.1"
-criterion = "0.3.4"
+rand = "0.8.5"
+itertools = "0.10.3"
+criterion = "0.3.6"
 meval = "0.2.0"
 fasteval = "0.2.4"
 rsc = "2.0.0"
-evalexpr = "6.4.0"
-serde_test = "1"
-serde_json = "1"
+evalexpr = "8.1.0"
+serde_test = "1.0.144"
+serde_json = "1.0.85"
 
 [[bench]]
 name = "benchmark"

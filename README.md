@@ -13,7 +13,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.16.0"
+exmex = "0.16.1"
 ```
 to your `Cargo.toml` for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
 ```
@@ -64,7 +64,7 @@ assert_eq!(result, u32::MAX - 1);
 ```
 More involved examples of data types are
 * operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
-* the type [`Val`](https://docs.rs/exmex/0.16.0/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
+* the type [`Val`](https://docs.rs/exmex/0.16.1/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
 ## Partial Differentiation
 
@@ -105,7 +105,7 @@ assert!((result - 2.0).abs() < 1e-12);
 
 ## Mixing Data Types in one Expression with the Feature `value`
 
-After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.16.0/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.16.0/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
+After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.16.1/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.16.1/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
 ```rust
 use exmex::{Express, Val};
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
@@ -125,6 +125,8 @@ cargo doc --all-features
 ```
 
 ## Benchmarks `v0.13.0`
+
+The benchmarks were run for Exmex `v0.13.0`. However, do not expect a significant change for Exmex `v0.16.1` and the dependencies pinned in `v0.16.1`.
 
 Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
 
