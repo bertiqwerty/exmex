@@ -84,7 +84,7 @@ fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut C
     }
 }
 
-fn exmex_bench_flatex_val_parseval(_: &mut Criterion) {
+fn exmex_bench_flatex_val_parseval(c: &mut Criterion) {
     #[cfg(feature = "value")]
     {
         fn func(s: &str) -> f64 {
@@ -218,7 +218,7 @@ fn exmex_bench_parse_optimized(c: &mut Criterion) {
     run_benchmark_parse(exmex_parse_optimized, "exmex_parse_optimized", c);
 }
 
-fn exmex_bench_eval_val(_: &mut Criterion) {
+fn exmex_bench_eval_val(c: &mut Criterion) {
     #[cfg(feature = "value")]
     {
         let parsed_exprs = exmex_parse_val(&BENCH_EXPRESSIONS_STRS);
@@ -442,7 +442,7 @@ fn run_benchmark_partial<F: FnMut(usize) -> ()>(funcs: Vec<F>, eval_name: &str, 
     }
 }
 
-fn exmex_bench_partial(_: &mut Criterion) {
+fn exmex_bench_partial(c: &mut Criterion) {
     #[cfg(feature = "partial")]
     {
         let mut parsed_exprs = exmex_parse(&BENCH_EXPRESSIONS_STRS);
