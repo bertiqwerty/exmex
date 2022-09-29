@@ -1,6 +1,7 @@
 
-    /// This tracks which numbers have already been consumed and are to be ignored for future
-    /// operations. It is basically a vector of bools.
+    /// This tracks which numbers have already been consumed during the evaluation of a [`FlatEx`] 
+    /// and are to be ignored for future operations. It is basically a vector of 
+    /// bools.
     pub trait NumberTracker {
         /// Return the absolute distance to the closest unignored number in 0..=idx
         fn get_previous(&self, idx: usize) -> usize;
