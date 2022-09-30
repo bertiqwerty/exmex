@@ -1,5 +1,5 @@
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{Debug, Display},
     iter,
     str::FromStr,
 };
@@ -9,18 +9,31 @@ use smallvec::SmallVec;
 
 use crate::{
     data_type::DataType,
-    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_VARS_ON_STACK},
-    expression::flat::ExprIdxVec,
+    definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
+    expression::{
+        deep::{prioritized_indices, BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs},
+        flat::ExprIdxVec,
+    },
     format_exerr,
     operators::UnaryOp,
-    BinOp, ExError, ExResult, Express, MakeOperators, Operator,
+    ExError, ExResult, Express, MakeOperators, Operator,
 };
-pub use details::{BinOpsWithReprs, UnaryOpWithReprs};
 
 #[cfg(test)]
 use crate::parser;
 
-mod details;
+fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
+    if var_idx >= n_vars {
+        Err(format_exerr!(
+            "index {} is invalid since we have only {} vars in {}",
+            var_idx,
+            n_vars,
+            unparsed
+        ))
+    } else {
+        Ok(())
+    }
+}
 /// *`feature = "partial"`* - Trait for partial differentiation.  
 pub trait Differentiate<T: Clone>
 where
@@ -149,7 +162,7 @@ where
 
         let unparsed = deepex.unparse();
         for var_idx in var_idxs.clone() {
-            details::check_partial_index(*var_idx, self.var_names().len(), unparsed.as_str())?;
+            check_partial_index(*var_idx, self.var_names().len(), unparsed.as_str())?;
         }
         for var_idx in var_idxs {
             deepex = partial_deepex(*var_idx, deepex, &ops)?;
@@ -173,330 +186,6 @@ where
         T: DataType + Float,
         <T as FromStr>::Err: Debug;
 }
-
-/// Container of binary operators of one expression.
-pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
-
-/// Correction for cases where nodes are unnecessarily wrapped in expression-nodes.
-fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
-    if deepex.nodes().len() == 1 && deepex.unary_op().op.len() == 0 {
-        if let DeepNode::Expr(e) = &deepex.nodes()[0] {
-            *deepex = (**e).clone();
-        }
-    } else {
-        for node in &mut deepex.nodes {
-            if let DeepNode::Expr(e) = node {
-                if e.nodes.len() == 1 && e.unary_op.op.len() == 0 {
-                    match &mut e.nodes[0] {
-                        DeepNode::Num(n) => *node = DeepNode::Num(n.clone()),
-                        DeepNode::Var(v) => {
-                            *node = DeepNode::Var(*v);
-                        }
-                        DeepNode::Expr(e_deeper) => {
-                            lift_nodes(e_deeper);
-                            if e_deeper.nodes.len() == 1 && e_deeper.unary_op.op.len() == 0 {
-                                *node = DeepNode::Expr(e_deeper.clone());
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// A deep node can be an expression, a number, or
-/// a variable.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum DeepNode<'a, T: Clone + Debug> {
-    /// Boxing this due to <https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant>
-    Expr(Box<DeepEx<'a, T>>),
-    Num(T),
-    /// The contained integer points to the index of the variable.
-    Var((usize, &'a str)),
-}
-impl<'a, T: Debug> DeepNode<'a, T>
-where
-    T: Clone + Debug + Float,
-{
-    fn zero() -> Self {
-        DeepNode::Num(T::from(0.0).unwrap())
-    }
-    fn one() -> Self {
-        DeepNode::Num(T::from(1.0).unwrap())
-    }
-    fn num(n: T) -> Self {
-        DeepNode::Num(n)
-    }
-}
-impl<'a, T: Clone + Debug> Debug for DeepNode<'a, T>
-where
-    T: Clone + Debug,
-{
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            DeepNode::Expr(e) => write!(f, "{}", e),
-            DeepNode::Num(n) => write!(f, "{:?}", n),
-            DeepNode::Var((_, var_name)) => write!(f, "{}", var_name),
-        }
-    }
-}
-
-/// A deep expression evaluates co-recursively since its nodes can contain other deep
-/// expressions.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DeepEx<'a, T: Clone + Debug> {
-    /// Nodes can be numbers, variables, or other expressions.
-    nodes: Vec<DeepNode<'a, T>>,
-    /// Binary operators applied to the nodes according to their priority.
-    bin_ops: BinOpsWithReprs<'a, T>,
-    /// Unary operators are applied to the result of evaluating all nodes with all
-    /// binary operators.
-    unary_op: UnaryOpWithReprs<'a, T>,
-    var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
-}
-
-impl<'a, T> DeepEx<'a, T>
-where
-    T: Clone + Debug,
-{
-    /// Compiles expression, needed for partial differentation.
-    pub fn compile(&mut self) {
-        lift_nodes(self);
-
-        let prio_indices = details::prioritized_indices(&self.bin_ops.ops, &self.nodes);
-        let mut num_inds = prio_indices.clone();
-        let mut used_prio_indices = ExprIdxVec::new();
-
-        let mut already_declined: SmallVec<[bool; N_NODES_ON_STACK]> =
-            smallvec::smallvec![false; self.nodes.len()];
-
-        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
-            let num_idx = num_inds[i];
-            let node_1 = &self.nodes[num_idx];
-            let node_2 = &self.nodes[num_idx + 1];
-            if let (DeepNode::Num(num_1), DeepNode::Num(num_2)) = (node_1, node_2) {
-                if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
-                    let bin_op_result =
-                        (self.bin_ops.ops[bin_op_idx].apply)(num_1.clone(), num_2.clone());
-                    self.nodes[num_idx] = DeepNode::Num(bin_op_result);
-                    self.nodes.remove(num_idx + 1);
-                    already_declined.remove(num_idx + 1);
-                    // reduce indices after removed position
-                    for num_idx_after in num_inds.iter_mut() {
-                        if *num_idx_after > num_idx {
-                            *num_idx_after -= 1;
-                        }
-                    }
-                    used_prio_indices.push(bin_op_idx);
-                }
-            } else {
-                already_declined[num_idx] = true;
-                already_declined[num_idx + 1] = true;
-            }
-        }
-
-        let mut resulting_reprs = smallvec::smallvec![];
-        self.bin_ops.ops = self
-            .bin_ops
-            .ops
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| !used_prio_indices.contains(i))
-            .map(|(i, bin_op)| {
-                resulting_reprs.push(self.bin_ops.reprs[i]);
-                bin_op.clone()
-            })
-            .collect();
-        self.bin_ops.reprs = resulting_reprs;
-
-        if self.nodes.len() == 1 {
-            if let DeepNode::Num(n) = self.nodes[0].clone() {
-                self.nodes[0] = DeepNode::Num(self.unary_op.op.apply(n));
-                self.unary_op.op.clear();
-                self.unary_op.reprs.clear();
-            }
-        }
-    }
-
-    pub fn new(
-        nodes: Vec<DeepNode<'a, T>>,
-        bin_ops: BinOpsWithReprs<'a, T>,
-        unary_op: UnaryOpWithReprs<'a, T>,
-    ) -> ExResult<DeepEx<'a, T>> {
-        if nodes.len() != bin_ops.ops.len() + 1 {
-            Err(format_exerr!(
-                "mismatch between number of nodes {:?} and binary operators {:?} ({} vs {})",
-                nodes,
-                bin_ops.ops,
-                nodes.len(),
-                bin_ops.ops.len()
-            ))
-        } else {
-            let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
-            for node in &nodes {
-                match node {
-                    DeepNode::Num(_) => (),
-                    DeepNode::Var((_, name)) => {
-                        if !found_vars.contains(name) {
-                            found_vars.push(name);
-                        }
-                    }
-                    DeepNode::Expr(e) => {
-                        for name in &e.var_names {
-                            if !found_vars.contains(name) {
-                                found_vars.push(name);
-                            }
-                        }
-                    }
-                }
-            }
-            found_vars.sort_unstable();
-            let mut expr = DeepEx {
-                nodes,
-                bin_ops,
-                unary_op,
-                var_names: found_vars,
-            };
-            expr.compile();
-            Ok(expr)
-        }
-    }
-
-    fn from_node(node: DeepNode<'a, T>) -> DeepEx<'a, T> {
-        DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
-    }
-
-    fn one() -> DeepEx<'a, T>
-    where
-        T: Float,
-    {
-        DeepEx::from_node(DeepNode::one())
-    }
-
-    fn zero() -> DeepEx<'a, T>
-    where
-        T: Float,
-    {
-        DeepEx::from_node(DeepNode::zero())
-    }
-
-    fn from_num(x: T) -> DeepEx<'a, T>
-    where
-        T: Float,
-    {
-        DeepEx::from_node(DeepNode::num(x))
-    }
-
-    fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.remove_latest();
-        self.unary_op.append_after(unary_op);
-        self
-    }
-
-    fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.clear();
-        self.unary_op.append_after(unary_op);
-        self
-    }
-
-    pub fn bin_ops(&self) -> &BinOpsWithReprs<'a, T> {
-        &self.bin_ops
-    }
-
-    pub fn unary_op(&self) -> &UnaryOpWithReprs<'a, T> {
-        &self.unary_op
-    }
-
-    pub fn nodes(&self) -> &Vec<DeepNode<'a, T>> {
-        &self.nodes
-    }
-
-    fn is_num(&self, num: T) -> bool
-    where
-        T: Float,
-    {
-        details::is_num(self, num)
-    }
-
-    fn is_one(&self) -> bool
-    where
-        T: Float,
-    {
-        self.is_num(T::from(1.0).unwrap())
-    }
-
-    fn is_zero(&self) -> bool
-    where
-        T: Float,
-    {
-        self.is_num(T::from(0.0).unwrap())
-    }
-
-    pub fn reset_vars(&mut self, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
-        for node in &mut self.nodes {
-            match node {
-                DeepNode::Expr(e) => e.reset_vars(new_var_names.clone()),
-                DeepNode::Var((i, var_name)) => {
-                    for (new_idx, new_name) in new_var_names.iter().enumerate() {
-                        if var_name == new_name {
-                            *i = new_idx;
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-        self.var_names = new_var_names;
-    }
-
-    pub fn var_names(&self) -> &[&str] {
-        &self.var_names
-    }
-
-    pub fn var_names_union(self, other: Self) -> (Self, Self) {
-        let mut all_var_names = self.var_names.iter().copied().collect::<SmallVec<_>>();
-        for name in other.var_names.clone() {
-            if !all_var_names.contains(&name) {
-                all_var_names.push(name);
-            }
-        }
-        all_var_names.sort_unstable();
-        let mut self_vars_updated = self;
-        let mut other_vars_updated = other;
-        self_vars_updated.reset_vars(all_var_names.clone());
-        other_vars_updated.reset_vars(all_var_names);
-        (self_vars_updated, other_vars_updated)
-    }
-
-    fn var_names_like_other(mut self, other: &Self) -> Self {
-        self.var_names = other.var_names.clone();
-        self
-    }
-
-    /// Applies a binary operator to self and other
-    fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
-        details::operate_bin(self, other, bin_op)
-    }
-
-    /// Applies a unary operator to self
-    fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.append_after(unary_op);
-        self.compile();
-        self
-    }
-
-    pub fn unparse(&self) -> String {
-        details::unparse_raw::<T>(self)
-    }
-}
-
-impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.unparse())
-    }
-}
-
 #[derive(Clone)]
 struct ValueDerivative<'a, T: Copy + Debug> {
     val: DeepEx<'a, T>,
@@ -568,7 +257,7 @@ fn partial_derivative_outer<'a, T: Float + Debug>(
             let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
             let mut new_deepex = deepex.clone();
             for _ in 0..idx {
-                new_deepex.unary_op.remove_latest();
+                new_deepex = new_deepex.without_latest_unary_op();
             }
             unary_deri_op(new_deepex, ops)
         });
@@ -601,7 +290,7 @@ fn partial_derivative_inner<'a, T: Float + Debug>(
         return Ok(res);
     }
 
-    let prio_indices = details::prioritized_indices(&deepex.bin_ops().ops, deepex.nodes());
+    let prio_indices = prioritized_indices(&deepex.bin_ops().ops, deepex.nodes());
 
     let make_deepex = |node: DeepNode<'a, T>| match node {
         DeepNode::Expr(e) => e,
@@ -1140,8 +829,8 @@ pub fn make_partial_derivative_ops<'a, T: Float + Debug>() -> Vec<PartialDerivat
 
 #[cfg(test)]
 use crate::{
-    operators::VecOfUnaryFuncs, partial::details::prioritized_indices, util::assert_float_eq_f64,
-    FlatEx, FloatOpsFactory,
+    expression::deep::make_expression, operators::VecOfUnaryFuncs, util::assert_float_eq_f64,
+    FlatEx, FloatOpsFactory, definitions::N_NODES_ON_STACK
 };
 
 #[cfg(test)]
@@ -1158,8 +847,7 @@ where
     let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let (expr, _) =
-        details::make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
+    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
     Ok(expr)
 }
 
@@ -1196,18 +884,18 @@ fn test_reset_vars() {
     let deepex = from_str("2*z+x+y * .5").unwrap();
     let ref_vars = ["x", "y", "z"];
     for (i, rv) in ref_vars.iter().enumerate() {
-        assert_eq!(deepex.var_names[i], *rv);
+        assert_eq!(deepex.var_names()[i], *rv);
     }
     let deepex2 = from_str("a*c*b").unwrap();
     let ref_vars = ["a", "b", "c"];
     for (i, rv) in ref_vars.iter().enumerate() {
-        assert_eq!(deepex2.var_names[i], *rv);
+        assert_eq!(deepex2.var_names()[i], *rv);
     }
     let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
     let all_vars = ["a", "b", "c", "x", "y", "z"];
     for (i, av) in all_vars.iter().enumerate() {
-        assert_eq!(deepex_.var_names[i], *av);
-        assert_eq!(deepex2_.var_names[i], *av);
+        assert_eq!(deepex_.var_names()[i], *av);
+        assert_eq!(deepex2_.var_names()[i], *av);
     }
     assert_eq!(deepex.unparse(), deepex_.unparse());
     assert_eq!(deepex2.unparse(), deepex2_.unparse());
@@ -1220,12 +908,12 @@ fn test_var_name_union() -> ExResult<()> {
         let second = from_str(str_2)?;
         let (first, second) = first.var_names_union(second);
 
-        assert_eq!(first.var_names.len(), var_names.len());
-        assert_eq!(second.var_names.len(), var_names.len());
-        for vn in first.var_names {
+        assert_eq!(first.var_names().len(), var_names.len());
+        assert_eq!(second.var_names().len(), var_names.len());
+        for vn in first.var_names() {
             assert!(var_names.contains(&vn));
         }
-        for vn in second.var_names {
+        for vn in second.var_names() {
             assert!(var_names.contains(&vn));
         }
         Ok(())
@@ -1242,7 +930,7 @@ where
     T: Clone + Debug,
 {
     let mut numbers = deepex
-        .nodes
+        .nodes()
         .iter()
         .map(|node| -> ExResult<T> {
             match node {
@@ -1253,8 +941,8 @@ where
         })
         .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
     let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> =
-        smallvec::smallvec![false; deepex.nodes.len()];
-    let prio_indices = prioritized_indices(&deepex.bin_ops.ops, &deepex.nodes);
+        smallvec::smallvec![false; deepex.nodes().len()];
+    let prio_indices = prioritized_indices(&deepex.bin_ops().ops, &deepex.nodes());
     for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
         let num_idx = prio_indices[i];
         let mut shift_left = 0usize;
@@ -1267,17 +955,18 @@ where
         }
         let num_1 = numbers[num_idx - shift_left].clone();
         let num_2 = numbers[num_idx + shift_right].clone();
-        numbers[num_idx - shift_left] = (deepex.bin_ops.ops[bin_op_idx].apply)(num_1, num_2);
+        numbers[num_idx - shift_left] = (deepex.bin_ops().ops[bin_op_idx].apply)(num_1, num_2);
         ignore[num_idx + shift_right] = true;
     }
-    Ok(deepex.unary_op.op.apply(numbers[0].clone()))
+    Ok(deepex.unary_op().op.apply(numbers[0].clone()))
 }
 
 #[test]
 fn test_var_names() {
     let deepex = from_str("x+y+{x}+z*(-y)").unwrap();
-    let reference: SmallVec<[&str; N_VARS_ON_STACK]> = smallvec::smallvec!["x", "y", "z"];
-    assert_eq!(deepex.var_names, reference);
+    assert_eq!(deepex.var_names()[0], "x");
+    assert_eq!(deepex.var_names()[1], "y");
+    assert_eq!(deepex.var_names()[2], "z");
 }
 
 #[test]
@@ -1308,9 +997,9 @@ fn test_deep_compile() {
         DeepNode::Expr(Box::new(deep_ex)),
     ];
     let deepex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
-    assert_eq!(deepex.nodes.len(), 1);
-    match deepex.nodes[0] {
-        DeepNode::Num(n) => assert_float_eq_f64(deepex.unary_op.op.apply(n), n),
+    assert_eq!(deepex.nodes().len(), 1);
+    match deepex.nodes()[0] {
+        DeepNode::Num(n) => assert_float_eq_f64(deepex.unary_op().op.apply(n), n),
         _ => {
             unreachable!();
         }
@@ -1485,8 +1174,8 @@ fn test_num_ops() {
     }
     fn check_shape(deepex: &DeepEx<f64>, n_nodes: usize) {
         assert_eq!(deepex.nodes().len(), n_nodes);
-        assert_eq!(deepex.bin_ops.ops.len(), n_nodes - 1);
-        assert_eq!(deepex.bin_ops.reprs.len(), n_nodes - 1);
+        assert_eq!(deepex.bin_ops().ops.len(), n_nodes - 1);
+        assert_eq!(deepex.bin_ops().reprs.len(), n_nodes - 1);
     }
 
     let minus_one = from_str("-1").unwrap();

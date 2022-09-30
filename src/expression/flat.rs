@@ -2,7 +2,7 @@ use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 
 use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
-use crate::expression::Express;
+use crate::expression::{deep::{DeepEx, DeepNode}, Express};
 use crate::{
     format_exerr, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
 };
@@ -568,7 +568,7 @@ where
 
 #[cfg(feature = "partial")]
 use {
-    crate::partial::{DeepEx, DeepNode, Differentiate},
+    crate::partial::{Differentiate},
     num::Float,
 };
 #[cfg(feature = "partial")]
@@ -638,8 +638,7 @@ mod detail_diff {
     use crate::{
         definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK,
         operators::UnaryOp,
-        partial::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs},
-        ExError, ExResult, Operator,
+        ExError, ExResult, Operator, expression::deep::{DeepEx, DeepNode, BinOpsWithReprs, UnaryOpWithReprs},
     };
 
     use super::{

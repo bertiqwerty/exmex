@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use crate::{parser, ExResult, MakeOperators};
+pub mod deep;
 pub mod flat;
 mod number_tracker;
 #[cfg(feature = "serde")]
