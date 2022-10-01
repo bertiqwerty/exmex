@@ -1,19 +1,21 @@
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
+use crate::operators::UnaryOp;
 
 use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
-use crate::expression::{deep::{DeepEx, DeepNode}, Express};
+use crate::expression::{
+    deep::{DeepEx, DeepNode},
+    Express,
+};
 use crate::{
-    format_exerr, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+    format_exerr, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
+    NumberMatcher,
 };
 
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
-
-#[cfg(feature = "partial")]
-use crate::{operators::UnaryOp, BinOp, Operator};
 
 const DEPTH_PRIO_STEP: i64 = 1000;
 pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
@@ -25,9 +27,10 @@ mod detail {
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
+        expression::number_tracker::NumberTracker,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
-        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator, expression::number_tracker::NumberTracker,
+        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
 
     use super::{ExprIdxVec, DEPTH_PRIO_STEP};
@@ -74,6 +77,201 @@ mod detail {
         }
     }
 
+    use std::cmp::Ordering;
+
+    use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
+
+    pub fn collect_reprs<'a, F, T, I>(
+        funcs: I,
+        ops: &[Operator<'a, T>],
+        predicate: fn(&Operator<T>, F) -> bool,
+    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
+    where
+        T: Clone,
+        I: Iterator<Item = F>,
+        F: Clone,
+    {
+        funcs
+            .map(|func| {
+                Ok(ops
+                    .iter()
+                    .find(|op| predicate(op, func.clone()))
+                    .ok_or_else(|| ExError::new("could not find unary operator"))?
+                    .repr())
+            })
+            .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
+    }
+
+    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
+        if op.has_unary() {
+            op.unary().unwrap() == *func
+        } else {
+            false
+        }
+    }
+
+    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
+        if op.has_bin() {
+            op.bin().unwrap().apply == *func
+        } else {
+            false
+        }
+    }
+
+    pub fn collect_unary_reprs<'a, T: Clone>(
+        ops: &[Operator<'a, T>],
+        unary_op: &UnaryOp<T>,
+    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
+        collect_reprs::<&fn(T) -> T, _, _>(
+            unary_op.funcs_to_be_composed().iter(),
+            ops,
+            unary_predicate,
+        )
+    }
+
+    pub fn make_unary<'a, T: Clone>(
+        start: usize,
+        end: usize,
+        consumed_op_inds: &[usize],
+        ops: &[Operator<'a, T>],
+        flat_ops: &[FlatOp<T>],
+    ) -> ExResult<(Option<usize>, UnaryOpWithReprs<'a, T>)> {
+        let unary_op_idx = (start..end)
+            .find(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0);
+        Ok(match unary_op_idx {
+            Some(idx) => (
+                Some(idx),
+                UnaryOpWithReprs {
+                    reprs: collect_unary_reprs(ops, &flat_ops[idx].unary_op)?,
+                    op: flat_ops[idx].unary_op.clone(),
+                },
+            ),
+            None => (None, UnaryOpWithReprs::new()),
+        })
+    }
+
+    pub fn convert_node<'a, T, OF, LM>(
+        node: &FlatNode<T>,
+        var_names: &'a [String],
+        ops: &[Operator<'a, T>],
+    ) -> ExResult<DeepNode<'a, T, OF, LM>>
+    where
+        T: Clone + Debug,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        let deepnode = match node.kind.clone() {
+            FlatNodeKind::Num(n) => DeepNode::Num(n),
+            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].as_str())),
+        };
+
+        let reprs = collect_unary_reprs(ops, &node.unary_op)?;
+        let n_reprs = reprs.len();
+        let unary_op = UnaryOpWithReprs {
+            reprs,
+            op: node.unary_op.clone(),
+        };
+        Ok(if n_reprs > 0 {
+            DeepNode::Expr(Box::new(DeepEx::new(
+                vec![deepnode],
+                BinOpsWithReprs::<T>::new(),
+                unary_op,
+            )?))
+        } else {
+            deepnode
+        })
+    }
+
+    pub fn collect_deepex<'a, T, OF, LM>(
+        start_idx: usize,
+        flat_nodes: &FlatNodeVec<T>,
+        flat_ops: &FlatOpVec<T>,
+        var_names: &'a [String],
+        bin_reprs: &[&'a str],
+        ops: &[Operator<'a, T>],
+        consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
+    ) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
+    where
+        T: Clone + Debug,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        let mut bin_ops = BinOpsWithReprs::<T>::new();
+        let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
+        let mut i = start_idx;
+        while i < flat_ops.len() {
+            let prio_current = flat_ops[i].bin_op.prio / DEPTH_PRIO_STEP;
+            let prio_prev = if i > start_idx {
+                flat_ops[i - 1].bin_op.prio / DEPTH_PRIO_STEP
+            } else {
+                prio_current
+            };
+            match prio_current.cmp(&prio_prev) {
+                Ordering::Less => {
+                    let (uop_idx, unary_op) =
+                        make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
+                    if let Some(idx) = uop_idx {
+                        consumed_op_inds.push(idx);
+                    };
+                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
+                    if start_idx > 0 {
+                        return Ok((
+                            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
+                            i,
+                        ));
+                    } else {
+                        let node = DeepNode::Expr(Box::new(DeepEx::new(
+                            nodes.clone(),
+                            bin_ops.clone(),
+                            unary_op,
+                        )?));
+                        nodes.clear();
+                        bin_ops.ops.clear();
+                        bin_ops.reprs.clear();
+                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
+                        bin_ops.reprs.push(bin_reprs[i]);
+                        nodes.push(node);
+                        i += 1;
+                    }
+                }
+                Ordering::Greater => {
+                    let (node, i_tmp) = collect_deepex(
+                        i,
+                        flat_nodes,
+                        flat_ops,
+                        var_names,
+                        bin_reprs,
+                        ops,
+                        consumed_op_inds,
+                    )?;
+                    i = i_tmp;
+                    nodes.push(node);
+                    if i < flat_ops.len() {
+                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
+                        bin_ops.reprs.push(bin_reprs[i]);
+                        i += 1;
+                    }
+                }
+                Ordering::Equal => {
+                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
+                    bin_ops.ops.push(flat_ops[i].bin_op.clone());
+                    bin_ops.reprs.push(bin_reprs[i]);
+                    i += 1;
+                }
+            }
+        }
+        if nodes.len() == bin_ops.reprs.len() {
+            nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
+        }
+        let (uop_idx, unary_op) = make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
+        if let Some(idx) = uop_idx {
+            consumed_op_inds.push(idx);
+        };
+        Ok((
+            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
+            i,
+        ))
+    }
     fn eval_flatex_tracker<T: Clone + Debug, N: NumberTracker + ?Sized>(
         numbers: &mut [T],
         ops: &[FlatOp<T>],
@@ -495,7 +693,7 @@ where
     }
 }
 
-impl<T, OF, LM> Express<T> for FlatEx<T, OF, LM>
+impl<'a, T, OF, LM> Express<'a, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -532,8 +730,58 @@ where
     fn var_names(&self) -> &[String] {
         &self.var_names
     }
+    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        let ops = OF::make();
+        let bin_reprs = detail::collect_reprs::<&fn(T, T) -> T, _, _>(
+            self.ops.iter().map(|op| &op.bin_op.apply),
+            &ops,
+            detail::binary_predicate,
+        )?;
+        let mut consumed_op_inds_buffer = SmallVec::new();
+        let mut deepex = match detail::collect_deepex::<T, OF, LM>(
+            0,
+            &self.nodes,
+            &self.ops,
+            self.var_names(),
+            &bin_reprs,
+            &ops,
+            &mut consumed_op_inds_buffer,
+        )? {
+            (DeepNode::Expr(e), _) => e,
+            _ => return Err(ExError::new("final node has to be an expression node")),
+        };
+        deepex.reset_vars(self.var_names.clone());
+        deepex.compile();
+        Ok(*deepex)
+    }
+    fn from_deepex(deepex: DeepEx<T, OF, LM>) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        {
+            let (nodes, ops) = flatten_vecs(&deepex, 0);
+            let indices = detail::prioritized_indices_flat(&ops, &nodes);
+            Ok(FlatEx::new(
+                nodes,
+                ops,
+                indices,
+                deepex
+                    .var_names()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<SmallVec<_>>(),
+                deepex.unparse().to_string(),
+            ))
+        }
+    }
 }
-
 impl<T, OF, LMF> FromStr for FlatEx<T, OF, LMF>
 where
     T: DataType,
@@ -567,15 +815,17 @@ where
 }
 
 #[cfg(feature = "partial")]
-use {
-    crate::partial::{Differentiate},
-    num::Float,
-};
-#[cfg(feature = "partial")]
-pub fn flatten_vecs<T: Clone + Debug>(
-    deep_expr: &DeepEx<T>,
+use crate::partial::Differentiate;
+
+pub fn flatten_vecs<T, OF, LM>(
+    deep_expr: &DeepEx<T, OF, LM>,
     prio_offset: i64,
-) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+) -> (FlatNodeVec<T>, FlatOpVec<T>)
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     use self::detail::FlatOp;
 
     let mut flat_nodes = FlatNodeVec::<T>::new();
@@ -630,283 +880,27 @@ pub fn flatten_vecs<T: Clone + Debug>(
     (flat_nodes, flat_ops)
 }
 #[cfg(feature = "partial")]
-mod detail_diff {
-    use std::{cmp::Ordering, fmt::Debug};
-
-    use smallvec::SmallVec;
-
-    use crate::{
-        definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK,
-        operators::UnaryOp,
-        ExError, ExResult, Operator, expression::deep::{DeepEx, DeepNode, BinOpsWithReprs, UnaryOpWithReprs},
-    };
-
-    use super::{
-        detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec},
-        DEPTH_PRIO_STEP,
-    };
-
-    pub fn collect_reprs<'a, F, T, I>(
-        funcs: I,
-        ops: &[Operator<'a, T>],
-        predicate: fn(&Operator<T>, F) -> bool,
-    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
-    where
-        T: Clone,
-        I: Iterator<Item = F>,
-        F: Clone,
-    {
-        funcs
-            .map(|func| {
-                Ok(ops
-                    .iter()
-                    .find(|op| predicate(op, func.clone()))
-                    .ok_or_else(|| ExError::new("could not find unary operator"))?
-                    .repr())
-            })
-            .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
-    }
-
-    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
-        if op.has_unary() {
-            op.unary().unwrap() == *func
-        } else {
-            false
-        }
-    }
-
-    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
-        if op.has_bin() {
-            op.bin().unwrap().apply == *func
-        } else {
-            false
-        }
-    }
-
-    pub fn collect_unary_reprs<'a, T: Clone>(
-        ops: &[Operator<'a, T>],
-        unary_op: &UnaryOp<T>,
-    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
-        collect_reprs::<&fn(T) -> T, _, _>(
-            unary_op.funcs_to_be_composed().iter(),
-            ops,
-            unary_predicate,
-        )
-    }
-
-    pub fn make_unary<'a, T: Clone>(
-        start: usize,
-        end: usize,
-        consumed_op_inds: &[usize],
-        ops: &[Operator<'a, T>],
-        flat_ops: &[FlatOp<T>],
-    ) -> ExResult<(Option<usize>, UnaryOpWithReprs<'a, T>)> {
-        let unary_op_idx = (start..end)
-            .find(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0);
-        Ok(match unary_op_idx {
-            Some(idx) => (
-                Some(idx),
-                UnaryOpWithReprs {
-                    reprs: collect_unary_reprs(ops, &flat_ops[idx].unary_op)?,
-                    op: flat_ops[idx].unary_op.clone(),
-                },
-            ),
-            None => (None, UnaryOpWithReprs::new()),
-        })
-    }
-
-    pub fn convert_node<'a, T>(
-        node: &FlatNode<T>,
-        var_names: &'a [String],
-        ops: &[Operator<'a, T>],
-    ) -> ExResult<DeepNode<'a, T>>
-    where
-        T: Clone + Debug,
-    {
-        let deepnode = match node.kind.clone() {
-            FlatNodeKind::Num(n) => DeepNode::Num(n),
-            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].as_str())),
-        };
-
-        let reprs = collect_unary_reprs(ops, &node.unary_op)?;
-        let n_reprs = reprs.len();
-        let unary_op = UnaryOpWithReprs {
-            reprs,
-            op: node.unary_op.clone(),
-        };
-        Ok(if n_reprs > 0 {
-            DeepNode::Expr(Box::new(DeepEx::new(
-                vec![deepnode],
-                BinOpsWithReprs::<T>::new(),
-                unary_op,
-            )?))
-        } else {
-            deepnode
-        })
-    }
-
-    pub fn collect_deepex<'a, T: Clone + Debug>(
-        start_idx: usize,
-        flat_nodes: &FlatNodeVec<T>,
-        flat_ops: &FlatOpVec<T>,
-        var_names: &'a [String],
-        bin_reprs: &[&'a str],
-        ops: &[Operator<'a, T>],
-        consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
-    ) -> ExResult<(DeepNode<'a, T>, usize)> {
-        let mut bin_ops = BinOpsWithReprs::<T>::new();
-        let mut nodes = Vec::<DeepNode<T>>::new();
-        let mut i = start_idx;
-        while i < flat_ops.len() {
-            let prio_current = flat_ops[i].bin_op.prio / DEPTH_PRIO_STEP;
-            let prio_prev = if i > start_idx {
-                flat_ops[i - 1].bin_op.prio / DEPTH_PRIO_STEP
-            } else {
-                prio_current
-            };
-            match prio_current.cmp(&prio_prev) {
-                Ordering::Less => {
-                    let (uop_idx, unary_op) =
-                        make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-                    if let Some(idx) = uop_idx {
-                        consumed_op_inds.push(idx);
-                    };
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    if start_idx > 0 {
-                        return Ok((
-                            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-                            i,
-                        ));
-                    } else {
-                        let node = DeepNode::Expr(Box::new(DeepEx::new(
-                            nodes.clone(),
-                            bin_ops.clone(),
-                            unary_op,
-                        )?));
-                        nodes.clear();
-                        bin_ops.ops.clear();
-                        bin_ops.reprs.clear();
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        nodes.push(node);
-                        i += 1;
-                    }
-                }
-                Ordering::Greater => {
-                    let (node, i_tmp) = collect_deepex(
-                        i,
-                        flat_nodes,
-                        flat_ops,
-                        var_names,
-                        bin_reprs,
-                        ops,
-                        consumed_op_inds,
-                    )?;
-                    i = i_tmp;
-                    nodes.push(node);
-                    if i < flat_ops.len() {
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        i += 1;
-                    }
-                }
-                Ordering::Equal => {
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                    bin_ops.reprs.push(bin_reprs[i]);
-                    i += 1;
-                }
-            }
-        }
-        if nodes.len() == bin_ops.reprs.len() {
-            nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-        }
-        let (uop_idx, unary_op) = make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-        if let Some(idx) = uop_idx {
-            consumed_op_inds.push(idx);
-        };
-        Ok((
-            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-            i,
-        ))
-    }
-}
+mod detail_diff {}
 
 #[cfg(feature = "partial")]
-impl<T, OF, LM> Differentiate<T> for FlatEx<T, OF, LM>
+impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
 {
-    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
-    where
-        Self: Sized,
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        let bin_reprs = detail_diff::collect_reprs::<&fn(T, T) -> T, _, _>(
-            self.ops.iter().map(|op| &op.bin_op.apply),
-            ops,
-            detail_diff::binary_predicate,
-        )?;
-        let mut consumed_op_inds_buffer = SmallVec::new();
-        let mut deepex = match detail_diff::collect_deepex::<T>(
-            0,
-            &self.nodes,
-            &self.ops,
-            self.var_names(),
-            &bin_reprs,
-            ops,
-            &mut consumed_op_inds_buffer,
-        )? {
-            (DeepNode::Expr(e), _) => e,
-            _ => return Err(ExError::new("final node has to be an expression node")),
-        };
-        let var_names = self.var_names().iter().map(|s| s.as_str()).collect();
-        deepex.reset_vars(var_names);
-        deepex.compile();
-        Ok(*deepex)
-    }
-
-    fn from_deepex(deepex: DeepEx<T>, _: &[Operator<T>]) -> ExResult<Self>
-    where
-        Self: Sized,
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        {
-            let (nodes, ops) = flatten_vecs(&deepex, 0);
-            let indices = detail::prioritized_indices_flat(&ops, &nodes);
-            Ok(FlatEx::new(
-                nodes,
-                ops,
-                indices,
-                deepex
-                    .var_names()
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<SmallVec<_>>(),
-                deepex.unparse(),
-            ))
-        }
-    }
 }
 
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
 
-#[cfg(feature = "partial")]
 #[test]
 fn test_to_deepex() -> ExResult<()> {
-    use crate::partial::eval;
-
     fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
         println!(" --- sut - {}", sut);
         let fex = FlatEx::<f64>::from_str(sut)?;
-        let ops = FloatOpsFactory::<f64>::make();
-        let dex = fex.to_deepex(&ops)?;
-        assert_float_eq_f64(fex.eval(vars)?, eval(&dex, vars)?);
+        let dex = fex.to_deepex()?;
+        assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
         Ok(())
     }
     test("{x}+2.0*{y}", &[1.0, 0.5])?;

@@ -6,7 +6,7 @@ use crate::data_type::DataType;
 
 use crate::{prelude::*, MatchLiteral, MakeOperators};
 
-fn serialize<T: Clone, S: Serializer, Ex: Express<T>>(
+fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     serializer: S,
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {

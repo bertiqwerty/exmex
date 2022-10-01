@@ -1,15 +1,22 @@
-use std::{iter, fmt::{self, Debug, Formatter, Display}};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    iter,
+    marker::PhantomData,
+    str::FromStr,
+};
 
 use num::Float;
 use smallvec::SmallVec;
 
 use crate::{
+    data_type::DataType,
     definitions::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
+    format_exerr,
     operators::UnaryOp,
-    BinOp, ExResult, ExError, format_exerr,
+    BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
 };
 
 use super::flat::ExprIdxVec;
@@ -17,11 +24,16 @@ use super::flat::ExprIdxVec;
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
-pub fn operate_bin<'a, T: Clone + Debug>(
-    deepex1: DeepEx<'a, T>,
-    deepex2: DeepEx<'a, T>,
+pub fn operate_bin<'a, T, OF, LM>(
+    deepex1: DeepEx<'a, T, OF, LM>,
+    deepex2: DeepEx<'a, T, OF, LM>,
     bin_op: BinOpsWithReprs<'a, T>,
-) -> DeepEx<'a, T> {
+) -> DeepEx<'a, T, OF, LM>
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     let (self_vars_updated, other_vars_updated) = deepex1.var_names_union(deepex2);
     let mut resex = DeepEx::new(
         vec![
@@ -36,9 +48,11 @@ pub fn operate_bin<'a, T: Clone + Debug>(
     resex
 }
 
-fn is_num<T: Clone + Debug>(deepex: &DeepEx<T>, num: T) -> bool
+fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
 where
-    T: Float,
+    T: Clone + Debug + Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
 {
     deepex.nodes().len() == 1
         && match &deepex.nodes()[0] {
@@ -48,10 +62,15 @@ where
         }
 }
 
-pub fn prioritized_indices<T: Clone + Debug>(
+pub fn prioritized_indices<T, OF, LM>(
     bin_ops: &[BinOp<T>],
-    nodes: &[DeepNode<T>],
-) -> ExprIdxVec {
+    nodes: &[DeepNode<T, OF, LM>],
+) -> ExprIdxVec
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
         (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
             let prio_inc = 5;
@@ -69,19 +88,28 @@ pub fn prioritized_indices<T: Clone + Debug>(
     indices
 }
 
-pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
-    let mut node_strings = deepex.nodes().iter().map(|n| match n {
+pub fn unparse_raw<T, OF, LM>(
+    nodes: &[DeepNode<T, OF, LM>],
+    bin_ops: &BinOpsWithReprs<T>,
+    unary_op: &UnaryOpWithReprs<T>,
+) -> String
+where
+    T: Debug + Clone,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
+    let mut node_strings = nodes.iter().map(|n| match n {
         DeepNode::Num(n) => format!("{:?}", n),
         DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
         DeepNode::Expr(e) => {
             if e.unary_op().op.len() == 0 {
-                format!("({})", e.unparse())
+                format!("({})", e.unparse().to_string())
             } else {
-                e.unparse()
+                e.unparse().to_string()
             }
         }
     });
-    let mut bin_op_strings = deepex.bin_ops().reprs.iter();
+    let mut bin_op_strings = bin_ops.reprs.iter();
     // a valid expression has at least one node
     let first_node_str = node_strings.next().unwrap();
     let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
@@ -90,8 +118,7 @@ pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
         res.push_str(node_str.as_str());
         res
     });
-    let unary_op_string = deepex
-        .unary_op()
+    let unary_op_string = unary_op
         .reprs
         .iter()
         .fold(String::new(), |mut res, uop_str| {
@@ -99,14 +126,14 @@ pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
             res.push('(');
             res
         });
-    let closings = iter::repeat(")").take(deepex.unary_op().op.len()).fold(
-        String::new(),
-        |mut res, closing| {
-            res.push_str(closing);
-            res
-        },
-    );
-    if deepex.unary_op().op.len() == 0 {
+    let closings =
+        iter::repeat(")")
+            .take(unary_op.op.len())
+            .fold(String::new(), |mut res, closing| {
+                res.push_str(closing);
+                res
+            });
+    if unary_op.op.len() == 0 {
         node_with_bin_ops_string
     } else {
         format!(
@@ -116,7 +143,12 @@ pub fn unparse_raw<T: Clone + Debug>(deepex: &DeepEx<T>) -> String {
     }
 }
 /// Correction for cases where nodes are unnecessarily wrapped in expression-nodes.
-fn lift_nodes<T: Clone + Debug>(deepex: &mut DeepEx<T>) {
+fn lift_nodes<T, OF, LM>(deepex: &mut DeepEx<T, OF, LM>)
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     if deepex.nodes().len() == 1 && deepex.unary_op().op.len() == 0 {
         if let DeepNode::Expr(e) = &deepex.nodes()[0] {
             *deepex = (**e).clone();
@@ -205,16 +237,23 @@ impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
 /// A deep node can be an expression, a number, or
 /// a variable.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum DeepNode<'a, T: Clone + Debug> {
+pub enum DeepNode<'a, T, OF = FloatOpsFactory<T>, LM = NumberMatcher>
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     /// Boxing this due to <https://rust-lang.github.io/rust-clippy/master/index.html#large_enum_variant>
-    Expr(Box<DeepEx<'a, T>>),
+    Expr(Box<DeepEx<'a, T, OF, LM>>),
     Num(T),
     /// The contained integer points to the index of the variable.
     Var((usize, &'a str)),
 }
-impl<'a, T: Debug> DeepNode<'a, T>
+impl<'a, T, OF, LM> DeepNode<'a, T, OF, LM>
 where
     T: Clone + Debug + Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
 {
     fn zero() -> Self {
         DeepNode::Num(T::from(0.0).unwrap())
@@ -226,9 +265,11 @@ where
         DeepNode::Num(n)
     }
 }
-impl<'a, T: Clone + Debug> Debug for DeepNode<'a, T>
+impl<'a, T, OF, LM> Debug for DeepNode<'a, T, OF, LM>
 where
     T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -242,20 +283,31 @@ where
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct DeepEx<'a, T: Clone + Debug> {
+pub struct DeepEx<'a, T, OF, LM>
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     /// Nodes can be numbers, variables, or other expressions.
-    nodes: Vec<DeepNode<'a, T>>,
+    nodes: Vec<DeepNode<'a, T, OF, LM>>,
     /// Binary operators applied to the nodes according to their priority.
     bin_ops: BinOpsWithReprs<'a, T>,
     /// Unary operators are applied to the result of evaluating all nodes with all
     /// binary operators.
     unary_op: UnaryOpWithReprs<'a, T>,
-    var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>,
+    var_names: SmallVec<[String; N_VARS_ON_STACK]>,
+
+    text: String,
+    dummy_ops_factory: PhantomData<OF>,
+    dummy_literal_matcher_factory: PhantomData<LM>,
 }
 
-impl<'a, T> DeepEx<'a, T>
+impl<'a, T, OF, LM> DeepEx<'a, T, OF, LM>
 where
-    T: Clone + Debug,
+    T: Debug + Clone,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
 {
     /// Compiles expression, needed for partial differentation.
     pub fn compile(&mut self) {
@@ -314,13 +366,14 @@ where
                 self.unary_op.reprs.clear();
             }
         }
+        self.text = unparse_raw(self.nodes(), self.bin_ops(), self.unary_op());
     }
 
     pub fn new(
-        nodes: Vec<DeepNode<'a, T>>,
+        nodes: Vec<DeepNode<'a, T, OF, LM>>,
         bin_ops: BinOpsWithReprs<'a, T>,
         unary_op: UnaryOpWithReprs<'a, T>,
-    ) -> ExResult<DeepEx<'a, T>> {
+    ) -> ExResult<DeepEx<'a, T, OF, LM>> {
         if nodes.len() != bin_ops.ops.len() + 1 {
             Err(format_exerr!(
                 "mismatch between number of nodes {:?} and binary operators {:?} ({} vs {})",
@@ -330,55 +383,64 @@ where
                 bin_ops.ops.len()
             ))
         } else {
-            let mut found_vars = SmallVec::<[&str; N_VARS_ON_STACK]>::new();
+            let mut found_vars = SmallVec::<[String; N_VARS_ON_STACK]>::new();
             for node in &nodes {
                 match node {
                     DeepNode::Num(_) => (),
                     DeepNode::Var((_, name)) => {
-                        if !found_vars.contains(name) {
-                            found_vars.push(name);
+                        // see https://github.com/rust-lang/rust/issues/42671
+                        // and https://doc.rust-lang.org/std/vec/struct.Vec.html#method.contains
+                        // on why Iterator::any instead of Vec::contains
+                        if !found_vars.iter().any(|v| v == name) {
+                            found_vars.push(name.to_string());
                         }
                     }
                     DeepNode::Expr(e) => {
                         for name in &e.var_names {
-                            if !found_vars.contains(name) {
-                                found_vars.push(name);
+                            if !found_vars.iter().any(|v| v == name) {
+                                found_vars.push(name.to_string());
                             }
                         }
                     }
                 }
             }
             found_vars.sort_unstable();
+            let var_names = found_vars.iter().map(|s| s.to_string()).collect();
+            let text = "not yet compiled".to_string();
             let mut expr = DeepEx {
                 nodes,
                 bin_ops,
                 unary_op,
-                var_names: found_vars,
+                var_names,
+                text,
+                dummy_ops_factory: PhantomData,
+                dummy_literal_matcher_factory: PhantomData,
             };
             expr.compile();
+            expr.text = unparse_raw(expr.nodes(), expr.bin_ops(), expr.unary_op());
             Ok(expr)
         }
     }
 
-    pub fn from_node(node: DeepNode<'a, T>) -> DeepEx<'a, T> {
+    pub fn from_node(node: DeepNode<'a, T, OF, LM>) -> DeepEx<'a, T, OF, LM> {
         DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
     }
 
-    pub fn one() -> DeepEx<'a, T>
+    pub fn one() -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
         DeepEx::from_node(DeepNode::one())
     }
 
-    pub fn zero() -> DeepEx<'a, T>
+    pub fn zero() -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
         DeepEx::from_node(DeepNode::zero())
     }
 
-    pub fn from_num(x: T) -> DeepEx<'a, T>
+    pub fn from_num(x: T) -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
@@ -409,7 +471,7 @@ where
         &self.unary_op
     }
 
-    pub fn nodes(&self) -> &Vec<DeepNode<'a, T>> {
+    pub fn nodes(&self) -> &Vec<DeepNode<'a, T, OF, LM>> {
         &self.nodes
     }
 
@@ -434,7 +496,7 @@ where
         self.is_num(T::from(0.0).unwrap())
     }
 
-    pub fn reset_vars(&mut self, new_var_names: SmallVec<[&'a str; N_VARS_ON_STACK]>) {
+    pub fn reset_vars(&mut self, new_var_names: SmallVec<[String; N_VARS_ON_STACK]>) {
         for node in &mut self.nodes {
             match node {
                 DeepNode::Expr(e) => e.reset_vars(new_var_names.clone()),
@@ -451,12 +513,12 @@ where
         self.var_names = new_var_names;
     }
 
-    pub fn var_names(&self) -> &[&str] {
+    pub fn var_names(&self) -> &[String] {
         &self.var_names
     }
 
     pub fn var_names_union(self, other: Self) -> (Self, Self) {
-        let mut all_var_names = self.var_names.iter().copied().collect::<SmallVec<_>>();
+        let mut all_var_names = self.var_names.iter().cloned().collect::<SmallVec<_>>();
         for name in other.var_names.clone() {
             if !all_var_names.contains(&name) {
                 all_var_names.push(name);
@@ -486,25 +548,91 @@ where
         self.compile();
         self
     }
+}
 
-    pub fn unparse(&self) -> String {
-        unparse_raw::<T>(self)
+impl<'a, T, OF, LM> Express<'a, T> for DeepEx<'a, T, OF, LM>
+where
+    T: Debug + Clone,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
+    type LiteralMatcher = LM;
+    type OperatorFactory = OF;
+    fn eval(&self, vars: &[T]) -> ExResult<T> {
+        let mut numbers = self
+            .nodes()
+            .iter()
+            .map(|node| -> ExResult<T> {
+                match node {
+                    DeepNode::Num(n) => Ok(n.clone()),
+                    DeepNode::Var((idx, _)) => Ok(vars[*idx].clone()),
+                    DeepNode::Expr(e) => e.eval(vars),
+                }
+            })
+            .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
+        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> =
+            smallvec::smallvec![false; self.nodes().len()];
+        let prio_indices = prioritized_indices(&self.bin_ops().ops, &self.nodes());
+        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
+            let num_idx = prio_indices[i];
+            let mut shift_left = 0usize;
+            while ignore[num_idx - shift_left] {
+                shift_left += 1usize;
+            }
+            let mut shift_right = 1usize;
+            while ignore[num_idx + shift_right] {
+                shift_right += 1usize;
+            }
+            let num_1 = numbers[num_idx - shift_left].clone();
+            let num_2 = numbers[num_idx + shift_right].clone();
+            numbers[num_idx - shift_left] = (self.bin_ops().ops[bin_op_idx].apply)(num_1, num_2);
+            ignore[num_idx + shift_right] = true;
+        }
+        Ok(self.unary_op().op.apply(numbers[0].clone()))
+    }
+    fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
+        self.eval(vars)
+    }
+    fn from_deepex(deepex: DeepEx<'a, T, OF, LM>) -> ExResult<DeepEx<'a, T, OF, LM>>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        Ok(deepex)
+    }
+    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        Ok(self.clone())
+    }
+    fn unparse(&self) -> &str {
+        self.text.as_str()
+    }
+    fn var_names(&self) -> &[String] {
+        &self.var_names
     }
 }
 
-impl<'a, T: Clone + Debug> Display for DeepEx<'a, T> {
+impl<'a, T, OF, LM> Display for DeepEx<'a, T, OF, LM>
+where
+    T: Clone + Debug,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse())
     }
 }
 
 #[cfg(test)]
-use {
-    crate::{
-        operators::VecOfUnaryFuncs,
-        parser::{self, Paren, ParsedToken},
-    },
-    std::str::FromStr,
+#[cfg(feature = "partial")]
+use crate::{
+    operators::VecOfUnaryFuncs,
+    parser::{self, Paren, ParsedToken},
 };
 
 /// Handles the case that a token is a unary operator and returns a tuple.
@@ -513,13 +641,19 @@ use {
 /// of tokens that are covered by the unary operator and its argument. Note that a unary
 /// operator can be a composition of multiple functions.
 #[cfg(test)]
-fn process_unary<'a, T: Clone + FromStr + Debug>(
+#[cfg(feature = "partial")]
+fn process_unary<'a, T, OF, LM>(
     token_idx: usize,
     unary_op: fn(T) -> T,
     repr: &'a str,
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
-) -> ExResult<(DeepNode<'a, T>, usize)> {
+) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+{
     // gather subsequent unary operators from the beginning
     let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
         (token_idx + 1..parsed_tokens.len())
@@ -551,7 +685,7 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
     let uop = UnaryOp::from_vec(vec_of_uops);
     match &parsed_tokens[token_idx + n_uops] {
         ParsedToken::Paren(_) => {
-            let (expr, i_forward) = make_expression::<T>(
+            let (expr, i_forward) = make_expression::<T, OF, LM>(
                 &parsed_tokens[token_idx + n_uops + 1..],
                 parsed_vars,
                 UnaryOpWithReprs {
@@ -593,17 +727,20 @@ fn process_unary<'a, T: Clone + FromStr + Debug>(
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
 #[cfg(test)]
-pub fn make_expression<'a, T>(
+#[cfg(feature = "partial")]
+pub fn make_expression<'a, T, OF, LM>(
     parsed_tokens: &[ParsedToken<'a, T>],
     parsed_vars: &[&'a str],
     unary_ops: UnaryOpWithReprs<'a, T>,
-) -> ExResult<(DeepEx<'a, T>, usize)>
+) -> ExResult<(DeepEx<'a, T, OF, LM>, usize)>
 where
-    T: Clone + FromStr + Debug,
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
 {
     let mut bin_ops = BinOpVec::new();
     let mut reprs_bin_ops: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
-    let mut nodes = Vec::<DeepNode<T>>::new();
+    let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
     nodes.reserve(parsed_tokens.len() / 2);
     // The main loop checks one token after the next whereby sub-expressions are
     // handled recursively. Thereby, the token-position-index idx_tkn is increased
@@ -637,7 +774,7 @@ where
             ParsedToken::Paren(p) => match p {
                 Paren::Open => {
                     idx_tkn += 1;
-                    let (expr, i_forward) = make_expression::<T>(
+                    let (expr, i_forward) = make_expression::<T, OF, LM>(
                         &parsed_tokens[idx_tkn..],
                         parsed_vars,
                         UnaryOpWithReprs::new(),
