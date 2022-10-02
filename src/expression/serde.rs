@@ -99,10 +99,10 @@ fn test_ser_de() {
         test_inner(dflatex_dy.clone(), s_1);
     };
 
-    // test("{x}+{y}*2.0", "2.0");
+    test("{x}+{y}*2.0", "2.0");
     test("{x}+sin(2.0*{y})", "2.0*cos(2.0*{y})");
-    // test("1.0/{x}+cos({y})*2.0", "2.0*-(sin({y}))");
-    // test("{y}*{x}*2.0", "2.0*{x}");
+    test("1.0/{x}+cos({y})*2.0", "2.0*-(sin({y}))");
+    test("{y}*{x}*2.0", "2.0*{x}");
 }
 
 #[test]
