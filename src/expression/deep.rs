@@ -529,7 +529,7 @@ where
     <T as FromStr>::Err: Debug,
 {
     pub fn make_ops(&self) -> Vec<Operator<'a, T>> {
-        return OF::make();
+        OF::make()
     }
 
     /// Compiles expression, needed for partial differentation.
