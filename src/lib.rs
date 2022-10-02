@@ -168,7 +168,7 @@
 //! #
 //! use exmex::prelude::*;
 //! use exmex::{FloatOpsFactory, MakeOperators, Operator};
-//! #[derive(Clone)]
+//! #[derive(Clone, Debug)]
 //! struct ExtendedOpsFactory;
 //! impl MakeOperators<f32> for ExtendedOpsFactory {
 //!     fn make<'a>() -> Vec<Operator<'a, f32>> {

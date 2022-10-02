@@ -572,7 +572,7 @@ where
             .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
         let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> =
             smallvec::smallvec![false; self.nodes().len()];
-        let prio_indices = prioritized_indices(&self.bin_ops().ops, &self.nodes());
+        let prio_indices = prioritized_indices(&self.bin_ops().ops, self.nodes());
         for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
             let num_idx = prio_indices[i];
             let mut shift_left = 0usize;

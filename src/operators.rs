@@ -231,7 +231,7 @@ pub struct BinOp<T: Clone> {
 ///
 /// ```rust
 /// use exmex::{BinOp, MakeOperators, Operator};
-/// #[derive(Clone)]
+/// #[derive(Clone, Debug)]
 /// struct SomeOpsFactory;
 /// impl MakeOperators<f32> for SomeOpsFactory {
 ///     fn make<'a>() -> Vec<Operator<'a, f32>> {    
