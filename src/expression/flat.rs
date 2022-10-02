@@ -641,7 +641,7 @@ where
         let mut deep_nodes = self
             .nodes
             .iter()
-            .map(|dn| convert_node::<T, OF, LM>(&dn, &self.var_names, &operators))
+            .map(|dn| convert_node::<T, OF, LM>(dn, &self.var_names, &operators))
             .collect::<ExResult<Vec<DeepNode<T, OF, LM>>>>()?;
 
         let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
@@ -679,8 +679,7 @@ where
             deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex.clone()));
         }
         let final_node = deep_nodes
-            .iter()
-            .next()
+            .first()
             .ok_or_else(|| format_exerr!("prio indices cannot be empty but is {:?}", prio_inds))?
             .clone();
 
