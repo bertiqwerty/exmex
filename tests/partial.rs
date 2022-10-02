@@ -113,6 +113,12 @@ fn test_partial() -> ExResult<()> {
     let n_vars = 1;
     let reference = |x: f64| x.sin().cos() * x.cos();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    
+    let sut = "{x}+sin(2.0*{y})";
+    let var_idx = 1;
+    let n_vars = 2;
+    let reference = |y: f64| 2.0 * (2.0*y).cos();
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
 
     let sut = "sin(x)-cos(x)+a";
     let var_idx = 1;

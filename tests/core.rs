@@ -371,7 +371,7 @@ fn test_variables() -> ExResult<()> {
 
 #[test]
 fn test_custom_ops_invert() -> ExResult<()> {
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct SomeF32Operators;
     impl MakeOperators<f32> for SomeF32Operators {
         fn make<'a>() -> Vec<Operator<'a, f32>> {
@@ -388,7 +388,7 @@ fn test_custom_ops_invert() -> ExResult<()> {
 
 #[test]
 fn test_custom_ops() -> ExResult<()> {
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct SomeF32Operators;
     impl MakeOperators<f32> for SomeF32Operators {
         fn make<'a>() -> Vec<Operator<'a, f32>> {
@@ -417,7 +417,7 @@ fn test_custom_ops() -> ExResult<()> {
     let val = expr.eval(&[])?;
     utils::assert_float_eq::<f32>(val, 4.0 / 3.0, 1e-6, 0.0, "");
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct ExtendedF32Operators;
     impl MakeOperators<f32> for ExtendedF32Operators {
         fn make<'a>() -> Vec<Operator<'a, f32>> {

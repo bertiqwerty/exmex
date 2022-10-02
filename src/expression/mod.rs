@@ -94,7 +94,7 @@ where
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.
-pub trait MatchLiteral: Clone {
+pub trait MatchLiteral: Clone + Debug {
     /// This method is expected to return `Some(matching_str)` in case of a match of
     /// a literal at the beginning of the input and `None` otherwise.
     fn is_literal(text: &str) -> Option<&str>;

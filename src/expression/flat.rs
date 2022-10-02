@@ -879,8 +879,6 @@ where
     }
     (flat_nodes, flat_ops)
 }
-#[cfg(feature = "partial")]
-mod detail_diff {}
 
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>

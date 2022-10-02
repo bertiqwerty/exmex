@@ -108,7 +108,7 @@ fn test_ser_de() {
 #[test]
 fn test_ser_de_non_float() {
     fn test(to_be_parsed: &str, ref_val: i32) {
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         struct IntegerOps;
         impl MakeOperators<i32> for IntegerOps {
             fn make<'a>() -> Vec<Operator<'a, i32>> {

@@ -103,9 +103,9 @@ where
         DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
         DeepNode::Expr(e) => {
             if e.unary_op().op.len() == 0 {
-                format!("({})", e.unparse().to_string())
+                format!("({})", unparse_raw(e.nodes(), e.bin_ops(), e.unary_op()))
             } else {
-                e.unparse().to_string()
+                unparse_raw(e.nodes(), e.bin_ops(), e.unary_op())
             }
         }
     });

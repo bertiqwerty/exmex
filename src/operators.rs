@@ -250,7 +250,7 @@ pub struct BinOp<T: Clone> {
 ///     }
 /// }
 /// ```
-pub trait MakeOperators<T: Clone>: Clone {
+pub trait MakeOperators<T: Clone>: Clone + Debug {
     /// Function that creates a vector of operators.
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }
@@ -299,7 +299,7 @@ pub struct FloatOpsFactory<T: Float> {
     dummy: PhantomData<T>,
 }
 
-impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
+impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
     /// Returns the default operators.
     fn make<'a>() -> Vec<Operator<'a, T>> {
         vec![
@@ -399,7 +399,7 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
 #[macro_export]
 macro_rules! ops_factory {
     ($name:ident, $T:ty, $( $ops:expr ),*) => {
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         struct $name;
         impl MakeOperators<$T> for $name {
             fn make<'a>() -> Vec<Operator<'a, $T>> {
