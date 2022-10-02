@@ -490,7 +490,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DeepNode::Expr(e) => write!(f, "{}", e),
+            DeepNode::Expr(e) => write!(f, "{:#?}", e),
             DeepNode::Num(n) => write!(f, "{:?}", n),
             DeepNode::Var((_, var_name)) => write!(f, "{}", var_name),
         }
@@ -797,7 +797,14 @@ where
 {
     type LiteralMatcher = LM;
     type OperatorFactory = OF;
-    fn eval(&self, vars: &[T]) -> ExResult<T> {
+    fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
+        if self.var_names().len() > vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is different to the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
         let mut numbers = self
             .nodes()
             .iter()
@@ -805,7 +812,7 @@ where
                 match node {
                     DeepNode::Num(n) => Ok(n.clone()),
                     DeepNode::Var((idx, _)) => Ok(vars[*idx].clone()),
-                    DeepNode::Expr(e) => e.eval(vars),
+                    DeepNode::Expr(e) => e.eval_relaxed(vars),
                 }
             })
             .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
@@ -829,8 +836,15 @@ where
         }
         Ok(self.unary_op().op.apply(numbers[0].clone()))
     }
-    fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
-        self.eval(vars)
+    fn eval(&self, vars: &[T]) -> ExResult<T> {
+        if self.var_names().len() != vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is different to the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
+        self.eval_relaxed(vars)
     }
     fn from_deepex(deepex: DeepEx<'a, T, OF, LM>) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
