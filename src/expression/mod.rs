@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-use crate::{data_type::DataType, parser, ExResult, MakeOperators };
+use crate::{data_type::DataType, parser, ExResult, MakeOperators};
 
 use self::deep::DeepEx;
 pub mod deep;
@@ -63,7 +63,7 @@ where
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
     /// use exmex::prelude::*;
-    /// let flatex = FlatEx::<f64>::from_str("--sin ( z) +  {another var} + 1 + 2")?;
+    /// let flatex = FlatEx::<f64>::parse("--sin ( z) +  {another var} + 1 + 2")?;
     /// assert_eq!(format!("{}", flatex), "--sin ( z) +  {another var} + 1 + 2");
     /// #
     /// #     Ok(())
@@ -76,9 +76,7 @@ where
     fn var_names(&self) -> &[String];
 
     /// Conversion to a deep expression necessary for computations with expressions
-    fn to_deepex(
-        &'a self,
-    ) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
+    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
     where
         Self: Sized,
         T: DataType,
@@ -91,6 +89,10 @@ where
         Self: Sized,
         T: DataType,
         <T as FromStr>::Err: Debug;
+
+    fn parse(text: &'a str) -> ExResult<Self>
+    where
+        Self: Sized;
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.

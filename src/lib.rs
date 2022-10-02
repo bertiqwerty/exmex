@@ -152,7 +152,7 @@
 //!     Operator::make_constant("TWO", 2)
 //! );
 //! let to_be_parsed = "19 % 5 / TWO / a";
-//! let expr = FlatEx::<_, IntegerOpsFactory>::from_str(to_be_parsed)?;
+//! let expr = FlatEx::<_, IntegerOpsFactory>::parse(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[1])?, 2);
 //! #
 //! #     Ok(())
@@ -180,7 +180,7 @@
 //!     }
 //! }
 //! let to_be_parsed = "1 / a + invert(a)";
-//! let expr = FlatEx::<_, ExtendedOpsFactory>::from_str(to_be_parsed)?;
+//! let expr = FlatEx::<_, ExtendedOpsFactory>::parse(to_be_parsed)?;
 //! assert!((expr.eval(&[3.0])? - 2.0/3.0).abs() < 1e-12);
 //! #
 //! #     Ok(())
@@ -227,7 +227,7 @@
 //! literal_matcher_from_pattern!(BooleanMatcher, "^(true|false)");
 //! let to_be_parsed = "!(true && false) || (!false || (true && false))";
 //! type FlatExBool = FlatEx::<bool, BooleanOpsFactory, BooleanMatcher>;
-//! let expr = FlatExBool::from_str(to_be_parsed)?;
+//! let expr = FlatExBool::parse(to_be_parsed)?;
 //! assert_eq!(expr.eval(&[])?, true);
 //! #
 //! #     Ok(())
@@ -330,7 +330,7 @@ pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
 where
     <T as FromStr>::Err: Debug,
 {
-    let flatex = FlatEx::<T>::from_str_wo_compile(text)?;
+    let flatex = FlatEx::<T>::parse_wo_compile(text)?;
     if !flatex.var_names().is_empty() {
         return Err(format_exerr!(
             "input string contains variables, '{}' ",
@@ -351,5 +351,5 @@ pub fn parse<T: Float + DataType>(text: &str) -> ExResult<FlatEx<T>>
 where
     <T as FromStr>::Err: Debug,
 {
-    FlatEx::<T>::from_str(text)
+    FlatEx::<T>::parse(text)
 }

@@ -9,8 +9,6 @@ use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
 use std::ops::Range;
 #[cfg(feature = "partial")]
-use std::str::FromStr;
-#[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
     let expr = parse::<f64>("y*x^2")?;
@@ -74,7 +72,7 @@ fn test_partial() -> ExResult<()> {
         reference: fn(f64) -> f64,
     ) -> ExResult<()> {
         println!("testing {}...", sut);
-        let flatex = FlatEx::<f64>::from_str(sut)?;
+        let flatex = FlatEx::<f64>::parse(sut)?;
         test_flatex(&flatex, var_idx, n_vars, random_range, reference)
     }
 
@@ -125,7 +123,7 @@ fn test_partial() -> ExResult<()> {
     let n_vars = 2;
     let reference = |x: f64| x.cos() + x.sin();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
+    let flatex_1 = FlatEx::<f64>::parse(sut)?;
     let deri = flatex_1.partial(var_idx)?;
     let reference = |x: f64| -x.sin() + x.cos();
     test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;

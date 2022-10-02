@@ -4,19 +4,18 @@ use serde::{de, de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::data_type::DataType;
 
-use crate::{prelude::*, MatchLiteral, MakeOperators};
+use crate::{prelude::*, MakeOperators, MatchLiteral};
 
 fn serialize<'a, T: Clone, S: Serializer, Ex: Express<'a, T>>(
     serializer: S,
     expr: &Ex,
 ) -> Result<S::Ok, S::Error> {
-    serializer.serialize_str(
-        expr.unparse(),
-    )
+    serializer.serialize_str(expr.unparse())
 }
 
-impl<T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize
-    for FlatEx<T, OF, LMF>
+impl<T: DataType, OF: MakeOperators<T>, LMF: MatchLiteral> Serialize for FlatEx<T, OF, LMF>
+where
+    <T as FromStr>::Err: Debug,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -65,22 +64,19 @@ where
     where
         E: de::Error,
     {
-        let flatex = Self::Value::from_str(unparsed);
+        let flatex = Self::Value::parse(unparsed);
         flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg())))
     }
 }
 
-
 #[cfg(test)]
-use {
-    crate::operators::{BinOp, Operator}
-};
+use crate::operators::{BinOp, Operator};
 
-#[cfg(feature="partial")]
+#[cfg(feature = "partial")]
 #[cfg(test)]
-use {crate::partial::Differentiate, serde_test::Token};
+use {serde_test::Token};
 
-#[cfg(feature="partial")]
+#[cfg(feature = "partial")]
 #[test]
 fn test_ser_de() {
     let test_inner = |exp, s| {
@@ -91,7 +87,7 @@ fn test_ser_de() {
     };
 
     let test = |s, s_1| {
-        let flatex = FlatEx::<f64>::from_str(s).unwrap();
+        let flatex = FlatEx::<f64>::parse(s).unwrap();
         test_inner(flatex.clone(), s);
 
         let dflatex_dy = flatex.clone().partial(1).unwrap();
@@ -132,7 +128,7 @@ fn test_ser_de_non_float() {
                 ]
             }
         }
-        let expr = FlatEx::<i32, IntegerOps>::from_str(to_be_parsed).unwrap();
+        let expr = FlatEx::<i32, IntegerOps>::parse(to_be_parsed).unwrap();
         let serialized = serde_json::to_string(&expr).unwrap();
         let deserialized =
             serde_json::from_str::<FlatEx<i32, IntegerOps>>(serialized.as_str()).unwrap();

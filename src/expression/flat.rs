@@ -156,9 +156,10 @@ mod detail {
         ops: &[Operator<'a, T>],
     ) -> ExResult<DeepNode<'a, T, OF, LM>>
     where
-        T: Clone + Debug,
+        T: DataType,
         OF: MakeOperators<T>,
         LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
     {
         let deepnode = match node.kind.clone() {
             FlatNodeKind::Num(n) => DeepNode::Num(n),
@@ -192,9 +193,10 @@ mod detail {
         consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
     ) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
     where
-        T: Clone + Debug,
+        T: DataType,
         OF: MakeOperators<T>,
         LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
     {
         let mut bin_ops = BinOpsWithReprs::<T>::new();
         let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
@@ -566,7 +568,7 @@ mod detail {
 /// to the nodes in an order following operator priorities.
 ///
 /// Creation of expressions is possible with the function [`parse`](crate::parse) which is equivalent to
-/// [`FlatEx::from_str`](FlatEx::from_str).
+/// [`FlatEx::parse`](FlatEx::parse).
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -575,7 +577,7 @@ mod detail {
 /// use exmex::prelude::*;
 ///
 /// // create an expression by parsing a string
-/// let expr = FlatEx::<f32>::from_str("sin(1+y)*x")?;
+/// let expr = FlatEx::<f32>::parse("sin(1+y)*x")?;
 /// assert!((expr.eval(&[1.5, 2.0])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
@@ -683,7 +685,7 @@ where
     }
 
     /// Parses into an expression without compilation. Allow slightly faster direct evaluation of strings.
-    pub fn from_str_wo_compile(text: &str) -> ExResult<Self>
+    pub fn parse_wo_compile(text: &str) -> ExResult<Self>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
@@ -698,6 +700,7 @@ where
     T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
 {
     type LiteralMatcher = LM;
     type OperatorFactory = OF;
@@ -781,21 +784,10 @@ where
             ))
         }
     }
-}
-impl<T, OF, LMF> FromStr for FlatEx<T, OF, LMF>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    type Err = ExError;
-
-    fn from_str(text: &str) -> ExResult<Self>
-    where
-        <T as std::str::FromStr>::Err: Debug,
-        T: DataType,
-    {
+    fn parse(text: &'a str) -> ExResult<Self>
+        where
+            Self: Sized {
+        
         let ops = OF::make();
         detail::parse(text, &ops)
     }
@@ -807,6 +799,7 @@ where
     T: DataType,
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
+    <T as FromStr>::Err: Debug,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
@@ -822,9 +815,10 @@ pub fn flatten_vecs<T, OF, LM>(
     prio_offset: i64,
 ) -> (FlatNodeVec<T>, FlatOpVec<T>)
 where
-    T: Clone + Debug,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     use self::detail::FlatOp;
 
@@ -886,6 +880,7 @@ where
     T: DataType,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
+    <T as FromStr>::Err: Debug,
 {
 }
 
@@ -896,7 +891,7 @@ use crate::util::assert_float_eq_f64;
 fn test_to_deepex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
         println!(" --- sut - {}", sut);
-        let fex = FlatEx::<f64>::from_str(sut)?;
+        let fex = FlatEx::<f64>::parse(sut)?;
         let dex = fex.to_deepex()?;
         assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
         Ok(())
@@ -925,7 +920,7 @@ fn test_to_deepex() -> ExResult<()> {
 fn test_flat_compile() -> ExResult<()> {
     fn test(text: &str, vars: &[f64], ref_val: f64, ref_len: usize) -> ExResult<()> {
         println!("testing {}...", text);
-        let flatex = FlatEx::<f64>::from_str(text)?;
+        let flatex = FlatEx::<f64>::parse(text)?;
         assert_float_eq_f64(flatex.eval(vars)?, ref_val);
         assert_eq!(flatex.nodes.len(), ref_len);
         println!("...ok.");
@@ -952,7 +947,7 @@ fn test_flat_compile() -> ExResult<()> {
     )?;
     test("(((a+x^2*x^2)))", &[3.0, 2.21], 26.854432810000002, 5)?;
 
-    let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x")?;
+    let flatex = FlatEx::<f64>::parse("1*sin(2-0.1) + x")?;
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
         _ => unreachable!(),
@@ -962,7 +957,7 @@ fn test_flat_compile() -> ExResult<()> {
         _ => unreachable!(),
     }
 
-    let flatex = FlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
+    let flatex = FlatEx::<f64>::parse("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),

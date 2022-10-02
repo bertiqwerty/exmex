@@ -19,9 +19,6 @@ use crate::{
     ExError, ExResult, Express, MakeOperators, MatchLiteral, Operator,
 };
 
-#[cfg(test)]
-use crate::parser;
-
 fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
     if var_idx >= n_vars {
         Err(format_exerr!(
@@ -50,7 +47,7 @@ where
     /// #
     /// use exmex::prelude::*;
     ///
-    /// let mut expr = FlatEx::<f64>::from_str("sin(1+y^2)*x")?;
+    /// let mut expr = FlatEx::<f64>::parse("sin(1+y^2)*x")?;
     /// let dexpr_dx = expr.partial(0)?;
     /// let dexpr_dy = expr.partial(1)?;
     ///
@@ -90,7 +87,7 @@ where
     /// #
     /// use exmex::prelude::*;
     ///
-    /// let mut expr = FlatEx::<f64>::from_str("x^4+y^4")?;
+    /// let mut expr = FlatEx::<f64>::parse("x^4+y^4")?;
     ///
     /// let dexpr_dxx_nth = expr.partial_nth(0, 2)?;
     ///
@@ -129,7 +126,7 @@ where
     /// #
     /// use exmex::prelude::*;
     ///
-    /// let mut expr = FlatEx::<f64>::from_str("x^4+y^4")?;
+    /// let mut expr = FlatEx::<f64>::parse("x^4+y^4")?;
     ///
     /// let dexpr_dxy_iter = expr.partial_iter([0, 1].iter().copied())?;
     ///
@@ -174,9 +171,10 @@ where
 #[derive(Clone)]
 struct ValueDerivative<'a, T, OF, LM>
 where
-    T: Copy + Debug,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     val: DeepEx<'a, T, OF, LM>,
     der: DeepEx<'a, T, OF, LM>,
@@ -198,10 +196,11 @@ type BinOpPartial<'a, T, OF, LM> = fn(
 type UnaryOpOuter<'a, T, OF, LM> =
     fn(DeepEx<'a, T, OF, LM>, &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T, OF, LM>>;
 
-pub struct PartialDerivative<'a, T: Copy + Debug, OF, LM>
+pub struct PartialDerivative<'a, T: DataType, OF, LM>
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     repr: &'a str,
     bin_op: Option<BinOpPartial<'a, T, OF, LM>>,
@@ -234,7 +233,7 @@ fn make_op_missing_err(repr: &str) -> ExError {
     format_exerr!("operator {} needed for outer partial derivative", repr)
 }
 
-fn partial_derivative_outer<'a, T: Float + Debug, OF, LM>(
+fn partial_derivative_outer<'a, T: Float + DataType, OF, LM>(
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
     ops: &[Operator<'a, T>],
@@ -242,6 +241,7 @@ fn partial_derivative_outer<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let factorexes = deepex
         .unary_op()
@@ -266,7 +266,7 @@ where
     })
 }
 
-fn partial_derivative_inner<'a, T: Float + Debug, OF, LM>(
+fn partial_derivative_inner<'a, T: Float + DataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
@@ -275,6 +275,7 @@ fn partial_derivative_inner<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     // special case, partial derivative of only 1 node
     if deepex.nodes().len() == 1 {
@@ -370,7 +371,7 @@ where
     Ok(res)
 }
 
-pub fn partial_deepex<'a, T: Float + Debug, OF, LM>(
+pub fn partial_deepex<'a, T: Float + DataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     ops: &[Operator<'a, T>],
@@ -378,6 +379,7 @@ pub fn partial_deepex<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let partial_derivative_ops = make_partial_derivative_ops::<T, OF, LM>();
     let inner = partial_derivative_inner(var_idx, deepex.clone(), &partial_derivative_ops, ops)?;
@@ -385,7 +387,7 @@ where
     mul(inner, outer, mul_find(ops)?)
 }
 
-fn add<'a, T: Float + Debug, OF, LM>(
+fn add<'a, T: Float + DataType, OF, LM>(
     summand_1: DeepEx<'a, T, OF, LM>,
     summand_2: DeepEx<'a, T, OF, LM>,
     add_op: BinOpsWithReprs<'a, T>,
@@ -393,6 +395,7 @@ fn add<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let (summand_1, summand_2) = summand_1.var_names_union(summand_2);
     Ok(if summand_1.is_zero() {
@@ -404,7 +407,7 @@ where
     })
 }
 
-fn sub<'a, T: Float + Debug, OF, LM>(
+fn sub<'a, T: Float + DataType, OF, LM>(
     sub_1: DeepEx<'a, T, OF, LM>,
     sub_2: DeepEx<'a, T, OF, LM>,
     sub_op: BinOpsWithReprs<'a, T>,
@@ -412,6 +415,7 @@ fn sub<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let (sub_1, sub_2) = sub_1.var_names_union(sub_2);
     Ok(if sub_2.is_zero() {
@@ -421,7 +425,7 @@ where
     })
 }
 
-fn mul<'a, T: Float + Debug, OF, LM>(
+fn mul<'a, T: Float + DataType, OF, LM>(
     factor_1: DeepEx<'a, T, OF, LM>,
     factor_2: DeepEx<'a, T, OF, LM>,
     mul_op: BinOpsWithReprs<'a, T>,
@@ -429,6 +433,7 @@ fn mul<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let zero = DeepEx::zero();
     let (factor_1, factor_2) = factor_1.var_names_union(factor_2);
@@ -444,7 +449,7 @@ where
     })
 }
 
-fn div<'a, T: Float + Debug, OF, LM>(
+fn div<'a, T: Float + DataType, OF, LM>(
     numerator: DeepEx<'a, T, OF, LM>,
     denominator: DeepEx<'a, T, OF, LM>,
     div_op: BinOpsWithReprs<'a, T>,
@@ -452,6 +457,7 @@ fn div<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let zero = DeepEx::zero();
     let (numerator, denominator) = numerator.var_names_union(denominator);
@@ -465,7 +471,7 @@ where
     }
 }
 
-fn pow<'a, T: Float + Debug, OF, LM>(
+fn pow<'a, T: Float + DataType, OF, LM>(
     base: DeepEx<'a, T, OF, LM>,
     exponent: DeepEx<'a, T, OF, LM>,
     power_op: BinOpsWithReprs<'a, T>,
@@ -473,6 +479,7 @@ fn pow<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let zero = DeepEx::zero();
     let one = DeepEx::one();
@@ -520,7 +527,7 @@ enum Base {
     Ten,
     Euler,
 }
-fn log_deri<'a, T: Float + Debug, OF, LM>(
+fn log_deri<'a, T: Float + DataType, OF, LM>(
     f: DeepEx<'a, T, OF, LM>,
     base: Base,
     ops: &[Operator<'a, T>],
@@ -528,6 +535,7 @@ fn log_deri<'a, T: Float + Debug, OF, LM>(
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     let div_op = div_find(ops)?;
     let lazy_mul_op = || mul_find(ops);
@@ -541,11 +549,12 @@ where
     div(DeepEx::one(), denominator, div_op)
 }
 
-pub fn make_partial_derivative_ops<'a, T: Float + Debug, OF, LM>(
+pub fn make_partial_derivative_ops<'a, T: Float + DataType, OF, LM>(
 ) -> Vec<PartialDerivative<'a, T, OF, LM>> 
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug
 {
     vec![
         PartialDerivative {
@@ -865,34 +874,15 @@ where
 
 #[cfg(test)]
 use crate::{
-    expression::deep::make_expression, operators::VecOfUnaryFuncs, util::assert_float_eq_f64,
+    operators::VecOfUnaryFuncs, util::assert_float_eq_f64,
     FlatEx, FloatOpsFactory, NumberMatcher,
 };
 
-#[cfg(test)]
-pub fn parse<'a, T, F, OF, LM>(
-    text: &'a str,
-    ops: &[Operator<'a, T>],
-    is_numeric: F,
-) -> ExResult<DeepEx<'a, T, OF, LM>>
-where
-    T: DataType,
-    <T as FromStr>::Err: Debug,
-    F: Fn(&'a str) -> Option<&'a str>,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-{
-    let parsed_tokens = parser::tokenize_and_analyze(text, ops, is_numeric)?;
-    parser::check_parsed_token_preconditions(&parsed_tokens)?;
-    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let (expr, _) = make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
-    Ok(expr)
-}
 
 #[test]
 fn test_pmp() -> ExResult<()> {
     let x = 1.5f64;
-    let fex = FlatEx::<f64>::from_str("+-+x")?;
+    let fex = FlatEx::<f64>::parse("+-+x")?;
     let deri = fex.partial(0)?;
     println!("{}", deri);
     let reference = -1.0;
@@ -903,28 +893,23 @@ fn test_pmp() -> ExResult<()> {
 #[test]
 fn test_sincosin() -> ExResult<()> {
     let x = 1.5f64;
-    let fex = FlatEx::<f64>::from_str("sin(cos(sin(x)))")?;
+    let fex = FlatEx::<f64>::parse("sin(cos(sin(x)))")?;
     let deri = fex.partial(0)?;
     println!("{}", deri);
     let reference = x.cos() * (-x.sin().sin()) * x.sin().cos().cos();
     assert_float_eq_f64(deri.eval(&[x])?, reference);
     Ok(())
 }
-#[cfg(test)]
-#[cfg(test)]
-pub fn from_str(text: &str) -> ExResult<DeepEx<f64, FloatOpsFactory<f64>, NumberMatcher>> {
-    let ops = FloatOpsFactory::<f64>::make();
-    parse::<f64, _, FloatOpsFactory<f64>, NumberMatcher>(text, &ops, parser::is_numeric_text)
-}
+
 
 #[test]
 fn test_reset_vars() {
-    let deepex = from_str("2*z+x+y * .5").unwrap();
+    let deepex = DeepEx::<f64>::parse("2*z+x+y * .5").unwrap();
     let ref_vars = ["x", "y", "z"];
     for (i, rv) in ref_vars.iter().enumerate() {
         assert_eq!(deepex.var_names()[i], *rv);
     }
-    let deepex2 = from_str("a*c*b").unwrap();
+    let deepex2 = DeepEx::parse("a*c*b").unwrap();
     let ref_vars = ["a", "b", "c"];
     for (i, rv) in ref_vars.iter().enumerate() {
         assert_eq!(deepex2.var_names()[i], *rv);
@@ -942,8 +927,8 @@ fn test_reset_vars() {
 #[test]
 fn test_var_name_union() -> ExResult<()> {
     fn test(str_1: &str, str_2: &str, var_names: &[&str]) -> ExResult<()> {
-        let first = from_str(str_1)?;
-        let second = from_str(str_2)?;
+        let first = DeepEx::<f64>::parse(str_1)?;
+        let second = DeepEx::<f64>::parse(str_2)?;
         let (first, second) = first.var_names_union(second);
 
         assert_eq!(first.var_names().len(), var_names.len());
@@ -964,7 +949,7 @@ fn test_var_name_union() -> ExResult<()> {
 
 #[test]
 fn test_var_names() {
-    let deepex = from_str("x+y+{x}+z*(-y)").unwrap();
+    let deepex = DeepEx::<f64>::parse("x+y+{x}+z*(-y)").unwrap();
     assert_eq!(deepex.var_names()[0], "x");
     assert_eq!(deepex.var_names()[1], "y");
     assert_eq!(deepex.var_names()[2], "z");
@@ -1009,18 +994,18 @@ fn test_deep_compile() {
 
 #[test]
 fn test_deep_lift_node() {
-    let deepex = from_str("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
+    let deepex = DeepEx::<f64>::parse("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
     println!("{}", deepex);
     assert_eq!(
         format!("{}", deepex),
         "(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))"
     );
 
-    let deepex = from_str("(((a+x^2*x^2)))").unwrap();
+    let deepex = DeepEx::<f64>::parse("(((a+x^2*x^2)))").unwrap();
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "{a}+{x}^2.0*{x}^2.0");
 
-    let deepex = from_str("1+(((a+x^2*x^2)))").unwrap();
+    let deepex = DeepEx::<f64>::parse("1+(((a+x^2*x^2)))").unwrap();
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "1.0+({a}+{x}^2.0*{x}^2.0)");
     let mut ddeepex = partial_deepex(1, deepex, &FloatOpsFactory::make()).unwrap();
@@ -1034,28 +1019,28 @@ fn test_deep_lift_node() {
 
 #[test]
 fn test_deep_compile_2() {
-    let expr = from_str("1.0 * 3 * 2 * x / 2 / 3").unwrap();
+    let expr = DeepEx::<f64>::parse("1.0 * 3 * 2 * x / 2 / 3").unwrap();
     assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
-    let expr = from_str("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))")
+    let expr = DeepEx::<f64>::parse("x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))")
         .unwrap();
     assert_eq!(
         "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
         expr.unparse()
     );
-    let expr = from_str("x + 1 - 2").unwrap();
+    let expr = DeepEx::<f64>::parse("x + 1 - 2").unwrap();
     assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
-    let expr = from_str("x - 1 + 2").unwrap();
+    let expr = DeepEx::<f64>::parse("x - 1 + 2").unwrap();
     assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
-    let expr = from_str("x * 2 / 3").unwrap();
+    let expr = DeepEx::<f64>::parse("x * 2 / 3").unwrap();
     assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
-    let expr = from_str("x / 2 / 3").unwrap();
+    let expr = DeepEx::<f64>::parse("x / 2 / 3").unwrap();
     assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
 }
 
 #[test]
 fn test_operate_unary() -> ExResult<()> {
     let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
-    let deepex = from_str(lstr)?;
+    let deepex = DeepEx::<f64>::parse(lstr)?;
     let mut funcs = VecOfUnaryFuncs::new();
     funcs.push(|x: f64| x * 1.23456);
     let deepex = deepex.operate_unary(UnaryOpWithReprs {
@@ -1069,9 +1054,9 @@ fn test_operate_unary() -> ExResult<()> {
 #[test]
 fn test_unparse() -> ExResult<()> {
     fn test(text: &str, text_ref: &str) -> ExResult<()> {
-        let flatex = FlatEx::<f64>::from_str(text)?;
+        let flatex = FlatEx::<f64>::parse(text)?;
         assert_eq!(flatex.unparse(), text);
-        let deepex = parse::<f64, _, FloatOpsFactory<f64>, NumberMatcher>(text, &FloatOpsFactory::make(), parser::is_numeric_text)?;
+        let deepex = DeepEx::<f64>::parse(text)?;
         assert_eq!(deepex.unparse(), text_ref);
         Ok(())
     }
@@ -1096,21 +1081,21 @@ fn test_unparse() -> ExResult<()> {
 #[test]
 fn test_partial() {
     let ops = FloatOpsFactory::<f64>::make();
-    let dut = from_str("z*sin(x)+cos(y)^(sin(z))").unwrap();
+    let dut = DeepEx::<f64>::parse("z*sin(x)+cos(y)^(sin(z))").unwrap();
     let d_z = partial_deepex(2, dut.clone(), &ops).unwrap();
     assert_float_eq_f64(
         d_z.eval(&[-0.18961918881278095, -6.383306547710852, 3.1742139703464503])
             .unwrap(),
         -0.18346624475117082,
     );
-    let dut = from_str("sin(x)/x^2").unwrap();
+    let dut = DeepEx::<f64>::parse("sin(x)/x^2").unwrap();
     let d_x = partial_deepex(0, dut, &ops).unwrap();
     assert_float_eq_f64(
         d_x.eval(&[-0.18961918881278095]).unwrap(),
         -27.977974668662565,
     );
 
-    let dut = from_str("x^y").unwrap();
+    let dut = DeepEx::<f64>::parse("x^y").unwrap();
     let d_x = partial_deepex(0, dut, &ops).unwrap();
     assert_float_eq_f64(d_x.eval(&[7.5, 3.5]).unwrap(), 539.164392544148);
 }
@@ -1122,7 +1107,7 @@ fn test_partial_3_vars() {
     }
     fn assert(s: &str, vars: &[f64], ref_vals: &[f64]) {
         let ops = FloatOpsFactory::<f64>::make();
-        let dut = from_str(s).unwrap();
+        let dut = DeepEx::<f64>::parse(s).unwrap();
         let d_x = partial_deepex(0, dut.clone(), &ops).unwrap();
         assert_float_eq_f64(eval_(&d_x, vars), ref_vals[0]);
         let d_y = partial_deepex(1, dut.clone(), &ops).unwrap();
@@ -1141,7 +1126,7 @@ fn test_partial_3_vars() {
 #[test]
 fn test_partial_x2x() {
     let ops = FloatOpsFactory::<f64>::make();
-    let deepex = from_str("x * 2 * x").unwrap();
+    let deepex = DeepEx::<f64>::parse("x * 2 * x").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
@@ -1152,7 +1137,7 @@ fn test_partial_x2x() {
 #[test]
 fn test_partial_cos_squared() {
     let ops = FloatOpsFactory::<f64>::make();
-    let deepex = from_str("cos(y) ^ 2").unwrap();
+    let deepex = DeepEx::<f64>::parse("cos(y) ^ 2").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
@@ -1177,7 +1162,7 @@ fn test_num_ops() {
         assert_eq!(deepex.bin_ops().reprs.len(), n_nodes - 1);
     }
 
-    let minus_one = from_str("-1").unwrap();
+    let minus_one = DeepEx::<f64>::parse("-1").unwrap();
     let one = mul(minus_one.clone(), minus_one.clone(), mul_op).unwrap();
     check_shape(&one, 1);
     eval_(&one, &[], 1.0);
@@ -1186,7 +1171,7 @@ fn test_num_ops() {
 #[test]
 fn test_partial_combined() {
     let ops = FloatOpsFactory::<f64>::make();
-    let deepex = from_str("sin(x) + cos(y) ^ 2").unwrap();
+    let deepex = DeepEx::<f64>::parse("sin(x) + cos(y) ^ 2").unwrap();
     let d_y = partial_deepex(1, deepex.clone(), &ops).unwrap();
     let result = d_y.eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
@@ -1202,7 +1187,7 @@ fn test_partial_combined() {
 #[test]
 fn test_partial_derivative_second_var() {
     let ops = FloatOpsFactory::<f64>::make();
-    let deepex = from_str("sin(x) + cos(y)").unwrap();
+    let deepex = DeepEx::<f64>::parse("sin(x) + cos(y)").unwrap();
     let derivative = partial_deepex(1, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
@@ -1214,7 +1199,7 @@ fn test_partial_derivative_second_var() {
 fn test_partial_derivative_first_var() {
     let ops = FloatOpsFactory::<f64>::make();
 
-    let deepex = from_str("sin(x) + cos(y)").unwrap();
+    let deepex = DeepEx::<f64>::parse("sin(x) + cos(y)").unwrap();
     let derivative = partial_deepex(0, deepex.clone(), &ops).unwrap();
     let result = derivative.eval(&[0.0, 2345.03]).unwrap();
     assert_float_eq_f64(result, 1.0);
@@ -1227,7 +1212,7 @@ fn test_partial_inner() {
     fn test(text: &str, vals: &[f64], ref_vals: &[f64], var_idx: usize) {
         let partial_derivative_ops = make_partial_derivative_ops::<f64, FloatOpsFactory<f64>, NumberMatcher>();
         let ops = FloatOpsFactory::<f64>::make();
-        let deepex_1 = from_str(text).unwrap();
+        let deepex_1 = DeepEx::<f64>::parse(text).unwrap();
         let deri =
             partial_derivative_inner(var_idx, deepex_1, &partial_derivative_ops, &ops).unwrap();
         for i in 0..vals.len() {
@@ -1243,7 +1228,7 @@ fn test_partial_outer() {
     fn test(text: &str, vals: &[f64], ref_vals: &[f64]) {
         let partial_derivative_ops = make_partial_derivative_ops::<f64, FloatOpsFactory<f64>, NumberMatcher>();
         let ops = FloatOpsFactory::<f64>::make();
-        let deepex_1 = from_str(text).unwrap();
+        let deepex_1 = DeepEx::<f64>::parse(text).unwrap();
         let deepex = deepex_1.nodes()[0].clone();
 
         if let DeepNode::Expr(e) = deepex {
@@ -1265,7 +1250,7 @@ fn test_partial_outer() {
 fn test_partial_derivative_simple() -> ExResult<()> {
     let ops = FloatOpsFactory::<f64>::make();
 
-    let deepex = from_str("1")?;
+    let deepex = DeepEx::<f64>::parse("1")?;
     let derivative = partial_deepex(0, deepex, &ops)?;
 
     assert_eq!(derivative.nodes().len(), 1);
@@ -1274,7 +1259,7 @@ fn test_partial_derivative_simple() -> ExResult<()> {
         DeepNode::Num(n) => assert_float_eq_f64(n, 0.0),
         _ => unreachable!(),
     }
-    let deepex = from_str("x")?;
+    let deepex = DeepEx::<f64>::parse("x")?;
     let derivative = partial_deepex(0, deepex, &ops)?;
     assert_eq!(derivative.nodes().len(), 1);
     assert_eq!(derivative.bin_ops().ops.len(), 0);
@@ -1282,12 +1267,12 @@ fn test_partial_derivative_simple() -> ExResult<()> {
         DeepNode::Num(n) => assert_float_eq_f64(n, 1.0),
         _ => unreachable!(),
     }
-    let deepex = from_str("x^2")?;
+    let deepex = DeepEx::<f64>::parse("x^2")?;
     let derivative = partial_deepex(0, deepex, &ops)?;
     let result = derivative.eval(&[4.5])?;
     assert_float_eq_f64(result, 9.0);
 
-    let deepex = from_str("sin(x)")?;
+    let deepex = DeepEx::<f64>::parse("sin(x)")?;
     let derivative = partial_deepex(0, deepex.clone(), &ops)?;
     let result = derivative.eval(&[0.0])?;
     assert_float_eq_f64(result, 1.0);

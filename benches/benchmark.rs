@@ -88,7 +88,7 @@ fn exmex_bench_flatex_val_parseval(c: &mut Criterion) {
     #[cfg(feature = "value")]
     {
         fn func(s: &str) -> f64 {
-            let flatex = FlatExVal::<i32, f64>::from_str_wo_compile(s).unwrap();
+            let flatex = FlatExVal::<i32, f64>::parse_wo_compile(s).unwrap();
             flatex.eval(&[]).unwrap().to_float().unwrap()
         }
         run_benchmark_parseval(func, "exmex_val", c);
@@ -127,7 +127,7 @@ fn run_benchmark_parse<'a, T, F: Fn(&'a [&str]) -> Vec<T>>(
 fn exmex_parse_uncompiled(strings: &[&str]) -> Vec<FlatEx<f64>> {
     strings
         .iter()
-        .map(|expr_str| FlatEx::<f64>::from_str_wo_compile(expr_str).unwrap())
+        .map(|expr_str| FlatEx::<f64>::parse_wo_compile(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -138,7 +138,7 @@ fn exmex_bench_parse_uncompiled(c: &mut Criterion) {
 fn exmex_parse(strings: &[&str]) -> Vec<FlatEx<f64>> {
     strings
         .iter()
-        .map(|expr_str| FlatEx::<f64>::from_str(expr_str).unwrap())
+        .map(|expr_str| FlatEx::<f64>::parse(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -210,7 +210,7 @@ ops_factory!(
 fn exmex_parse_optimized(strings: &[&str]) -> Vec<FlatEx<f64, OnlyNeededOperators>> {
     strings
         .iter()
-        .map(|expr_str| FlatEx::<f64, OnlyNeededOperators>::from_str(expr_str).unwrap())
+        .map(|expr_str| FlatEx::<f64, OnlyNeededOperators>::parse(expr_str).unwrap())
         .collect::<Vec<_>>()
 }
 
@@ -421,7 +421,7 @@ fn exmex_bench_serde(_c: &mut Criterion) {
         #[cfg(feature = "serde")]
         {
             let expr_str_de = format!("\"{}\"", _expr_str);
-            let flatex = FlatEx::<f64>::from_str(_expr_str).unwrap();
+            let flatex = FlatEx::<f64>::parse(_expr_str).unwrap();
             let expr_name_ = format!("flatex {}", _expr_name);
             run_benchmark_serialize(&flatex, &expr_name_, _c);
             run_benchmark_deserialize::<FlatEx<f64>>(&expr_str_de, &expr_name_, _c);
