@@ -273,6 +273,65 @@
 //! # }
 //! ```
 //!
+//! ## Calculating with Expression
+//!
+//! One cannot calculate with flattened expression of type [`FlatEx`](`FlatEx`) directly. However,
+//! one can apply all defined operators to nested expressions of type [`DeepEx`](`DeepEx`).
+//!
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{DeepEx, prelude::*};
+//! let deepex_1 = DeepEx::one();
+//! let deepex_2px = DeepEx::<f64>::parse("2 + x")?;
+//! let deepex_3px = deepex_1.operate_bin_repr(deepex_2px, "+")?;
+//! assert_eq!(format!("{}", deepex_3px), "1.0+(2.0+{x})");
+//! assert!(deepex_3px.eval(&[-3.0])? < 1e-12);
+//! #
+//! #     Ok(())
+//! # }
+//!```
+//! The method [`operate_bin_repr`](`DeepEx::operate_bin_repr`) traverses all operators to find the
+//! right one. It is possible to do this separately as shown in the following with a unary operator
+//! as example.
+//!
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{DeepEx, prelude::*};
+//! let deepex = DeepEx::<f64>::parse("x")?;
+//! let ops = deepex.make_ops();
+//! let sin_op = exmex::find_unary_op("sin", &ops)?;
+//! let deep_sin_x = deepex.operate_unary(sin_op);
+//! assert!((deep_sin_x.eval(&[1.0])? - (1.0f64).sin()).abs() < 1e-12);
+//! 
+//! // for faster repeated evaluation, we can flatten the expression
+//! let flat_sin_x = FlatEx::from_deepex(deep_sin_x.clone())?;
+//! for i in 0..1000 {
+//!     assert!((deep_sin_x.eval(&[i as f64])? - flat_sin_x.eval(&[i as f64])?).abs() < 1e-12);
+//! }
+//! 
+//! #
+//! #     Ok(())
+//! # }
+//! ```
+//!
+//! If we start by parsing a flat expression, we can deepen the expression to do calculations.
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::prelude::*;
+//! let flat_cos_x = FlatEx::<f64>::parse("cos(x)")?;
+//! let deep_cos_x = flat_cos_x.to_deepex()?;
+//! let deep_identity = deep_cos_x.operate_unary_repr("acos")?;
+//! assert!((deep_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
+//! #
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{fmt::Debug, str::FromStr};
 
@@ -288,12 +347,15 @@ mod result;
 mod util;
 
 pub use {
-    expression::{flat::FlatEx, Express, MatchLiteral, NumberMatcher},
+    expression::{
+        deep::find_bin_op, deep::find_unary_op, deep::DeepEx, flat::FlatEx, Express, MatchLiteral,
+        NumberMatcher,
+    },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
 };
 
-// Re-exported since used in macro literal_matcher_from_pattern 
+// Re-exported since used in macro literal_matcher_from_pattern
 pub use {lazy_static, regex};
 
 #[cfg(feature = "value")]

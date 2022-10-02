@@ -18,6 +18,7 @@ use crate::{
     operators::{UnaryOp, VecOfUnaryFuncs},
     parser::{self, Paren, ParsedToken},
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+    Operator,
 };
 
 use super::flat::ExprIdxVec;
@@ -360,6 +361,34 @@ where
     }
 }
 
+fn find_op<'a, T: Clone + Debug>(
+    repr: &'a str,
+    ops: &[Operator<'a, T>],
+) -> Option<Operator<'a, T>> {
+    ops.iter().cloned().find(|op| op.repr() == repr)
+}
+
+pub fn find_bin_op<'a, T: Clone + Debug>(
+    repr: &'a str,
+    ops: &[Operator<'a, T>],
+) -> ExResult<BinOpsWithReprs<'a, T>> {
+    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
+    Ok(BinOpsWithReprs {
+        reprs: smallvec::smallvec![op.repr()],
+        ops: smallvec::smallvec![op.bin()?],
+    })
+}
+
+pub fn find_unary_op<'a, T: Clone + Debug>(
+    repr: &'a str,
+    ops: &[Operator<'a, T>],
+) -> ExResult<UnaryOpWithReprs<'a, T>> {
+    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
+    Ok(UnaryOpWithReprs {
+        reprs: smallvec::smallvec![op.repr()],
+        op: UnaryOp::from_vec(smallvec::smallvec![op.unary()?]),
+    })
+}
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprs<'a, T: Clone> {
     pub reprs: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]>,
@@ -499,6 +528,10 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
+    pub fn make_ops(&self) -> Vec<Operator<'a, T>> {
+        return OF::make();
+    }
+
     /// Compiles expression, needed for partial differentation.
     pub fn compile(&mut self) {
         lift_nodes(self);
@@ -728,10 +761,25 @@ where
     }
 
     /// Applies a binary operator to self and other
+    pub fn operate_bin_repr(self, other: Self, bin_op_repr: &'a str) -> ExResult<Self> {
+        let ops = OF::make();
+        let bin_op = find_bin_op(bin_op_repr, &ops)?;
+        Ok(operate_bin(self, other, bin_op))
+    }
+
+    /// Applies a binary operator to self and other
     pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
         operate_bin(self, other, bin_op)
     }
 
+    /// Applies a unary operator to self
+    pub fn operate_unary_repr(mut self, unary_op_repr: &'a str) -> ExResult<Self> {
+        let ops = OF::make();
+        let unary_op = find_unary_op(unary_op_repr, &ops)?;
+        self.unary_op.append_after(unary_op);
+        self.compile();
+        Ok(self)
+    }
     /// Applies a unary operator to self
     pub fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
