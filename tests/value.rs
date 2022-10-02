@@ -1,7 +1,6 @@
 #[cfg(feature = "value")]
 use {
     exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val},
-    std::str::FromStr,
 };
 
 #[cfg(feature = "value")]
@@ -68,7 +67,7 @@ fn test_serde_public() -> ExResult<()> {
     let s = "{x}^3.0 if z < 0 else y";
 
     // flatex
-    let flatex = FlatExVal::<i32, f64>::from_str(s)?;
+    let flatex = FlatExVal::<i32, f64>::parse(s)?;
     let serialized = serde_json::to_string(&flatex).unwrap();
     let deserialized = serde_json::from_str::<FlatExVal<i32, f64>>(serialized.as_str()).unwrap();
     assert_eq!(deserialized.var_names().len(), 3);
@@ -110,18 +109,18 @@ fn test_no_vars() -> ExResult<()> {
     }
     fn test_float(s: &str, reference: f64) -> ExResult<()> {
         println!("=== testing\n{}", s);
-        let expr = FlatExVal::<i32, f64>::from_str(s)?;
+        let expr = FlatExVal::<i32, f64>::parse(s)?;
         utils::assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
         Ok(())
     }
     fn test_bool(s: &str, reference: bool) -> ExResult<()> {
         println!("=== testing\n{}", s);
-        let expr = FlatExVal::<i32, f64>::from_str(s)?;
+        let expr = FlatExVal::<i32, f64>::parse(s)?;
         assert_eq!(reference, expr.eval(&[])?.to_bool()?);
         Ok(())
     }
     fn test_error(s: &str) -> ExResult<()> {
-        let expr = FlatExVal::<i32, f64>::from_str(s);
+        let expr = FlatExVal::<i32, f64>::parse(s);
         match expr {
             Ok(exp) => {
                 let v = exp.eval(&[])?;
@@ -140,7 +139,7 @@ fn test_no_vars() -> ExResult<()> {
         }
     }
     fn test_none(s: &str) -> ExResult<()> {
-        let expr = FlatExVal::<i32, f64>::from_str(s)?;
+        let expr = FlatExVal::<i32, f64>::parse(s)?;
         match expr.eval(&[])? {
             Val::None => Ok(()),
             _ => Err(format_exerr!("'{}' should return none but didn't", s)),

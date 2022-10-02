@@ -4,7 +4,7 @@ use num::{Float, PrimInt, Signed};
 
 use crate::{
     data_type::DataType, expression::MatchLiteral, format_exerr, literal_matcher_from_pattern,
-    BinOp, ExError, ExResult, FlatEx, MakeOperators, Operator,
+    BinOp, ExError, ExResult, FlatEx, MakeOperators, Operator, Express
 };
 
 macro_rules! to_type {
@@ -690,5 +690,5 @@ where
     <I as FromStr>::Err: Debug,
     <F as FromStr>::Err: Debug,
 {
-    FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>::from_str(text)
+    FlatEx::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>::parse(text)
 }
