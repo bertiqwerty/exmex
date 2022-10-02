@@ -2,9 +2,13 @@ use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::operators::UnaryOp;
 
-use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
+use self::detail::{
+    collect_unary_reprs, convert_node, prioritized_indices_flat, FlatNode, FlatNodeKind,
+    FlatNodeVec, FlatOpVec,
+};
 use crate::expression::{
     deep::{DeepEx, DeepNode},
+    number_tracker::NumberTracker,
     Express,
 };
 use crate::{
@@ -12,7 +16,7 @@ use crate::{
     NumberMatcher,
 };
 
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
@@ -77,8 +81,6 @@ mod detail {
         }
     }
 
-    use std::cmp::Ordering;
-
     use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
 
     pub fn collect_reprs<'a, F, T, I>(
@@ -129,27 +131,6 @@ mod detail {
         )
     }
 
-    pub fn make_unary<'a, T: Clone>(
-        start: usize,
-        end: usize,
-        consumed_op_inds: &[usize],
-        ops: &[Operator<'a, T>],
-        flat_ops: &[FlatOp<T>],
-    ) -> ExResult<(Option<usize>, UnaryOpWithReprs<'a, T>)> {
-        let unary_op_idx = (start..end)
-            .find(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0);
-        Ok(match unary_op_idx {
-            Some(idx) => (
-                Some(idx),
-                UnaryOpWithReprs {
-                    reprs: collect_unary_reprs(ops, &flat_ops[idx].unary_op)?,
-                    op: flat_ops[idx].unary_op.clone(),
-                },
-            ),
-            None => (None, UnaryOpWithReprs::new()),
-        })
-    }
-
     pub fn convert_node<'a, T, OF, LM>(
         node: &FlatNode<T>,
         var_names: &'a [String],
@@ -183,97 +164,6 @@ mod detail {
         })
     }
 
-    pub fn collect_deepex<'a, T, OF, LM>(
-        start_idx: usize,
-        flat_nodes: &FlatNodeVec<T>,
-        flat_ops: &FlatOpVec<T>,
-        var_names: &'a [String],
-        bin_reprs: &[&'a str],
-        ops: &[Operator<'a, T>],
-        consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
-    ) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
-    where
-        T: DataType,
-        OF: MakeOperators<T>,
-        LM: MatchLiteral,
-        <T as FromStr>::Err: Debug,
-    {
-        let mut bin_ops = BinOpsWithReprs::<T>::new();
-        let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
-        let mut i = start_idx;
-        while i < flat_ops.len() {
-            let prio_current = flat_ops[i].bin_op.prio / DEPTH_PRIO_STEP;
-            let prio_prev = if i > start_idx {
-                flat_ops[i - 1].bin_op.prio / DEPTH_PRIO_STEP
-            } else {
-                prio_current
-            };
-            match prio_current.cmp(&prio_prev) {
-                Ordering::Less => {
-                    let (uop_idx, unary_op) =
-                        make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-                    if let Some(idx) = uop_idx {
-                        consumed_op_inds.push(idx);
-                    };
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    if start_idx > 0 {
-                        return Ok((
-                            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-                            i,
-                        ));
-                    } else {
-                        let node = DeepNode::Expr(Box::new(DeepEx::new(
-                            nodes.clone(),
-                            bin_ops.clone(),
-                            unary_op,
-                        )?));
-                        nodes.clear();
-                        bin_ops.ops.clear();
-                        bin_ops.reprs.clear();
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        nodes.push(node);
-                        i += 1;
-                    }
-                }
-                Ordering::Greater => {
-                    let (node, i_tmp) = collect_deepex(
-                        i,
-                        flat_nodes,
-                        flat_ops,
-                        var_names,
-                        bin_reprs,
-                        ops,
-                        consumed_op_inds,
-                    )?;
-                    i = i_tmp;
-                    nodes.push(node);
-                    if i < flat_ops.len() {
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        i += 1;
-                    }
-                }
-                Ordering::Equal => {
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                    bin_ops.reprs.push(bin_reprs[i]);
-                    i += 1;
-                }
-            }
-        }
-        if nodes.len() == bin_ops.reprs.len() {
-            nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-        }
-        let (uop_idx, unary_op) = make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-        if let Some(idx) = uop_idx {
-            consumed_op_inds.push(idx);
-        };
-        Ok((
-            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-            i,
-        ))
-    }
     fn eval_flatex_tracker<T: Clone + Debug, N: NumberTracker + ?Sized>(
         numbers: &mut [T],
         ops: &[FlatOp<T>],
@@ -501,7 +391,7 @@ mod detail {
         let indices = prioritized_indices_flat(&flat_ops, &flat_nodes);
         Ok(FlatEx {
             nodes: flat_nodes,
-            ops: flat_ops,
+            flat_ops,
             prio_indices: indices,
             var_names: parsed_vars.iter().map(|s| s.to_string()).collect(),
             text: text.to_string(),
@@ -595,7 +485,7 @@ where
     LM: MatchLiteral,
 {
     nodes: FlatNodeVec<T>,
-    ops: FlatOpVec<T>,
+    flat_ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
     var_names: SmallVec<[String; N_VARS_ON_STACK]>,
     text: String,
@@ -618,7 +508,7 @@ where
     ) -> Self {
         Self {
             nodes,
-            ops,
+            flat_ops: ops,
             prio_indices,
             var_names,
             text,
@@ -650,9 +540,9 @@ where
             {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
                     let op_result =
-                        self.ops[bin_op_idx]
+                        self.flat_ops[bin_op_idx]
                             .unary_op
-                            .apply((self.ops[bin_op_idx].bin_op.apply)(num_1, num_2));
+                            .apply((self.flat_ops[bin_op_idx].bin_op.apply)(num_1, num_2));
                     self.nodes[num_idx] = FlatNode::from_kind(FlatNodeKind::Num(op_result));
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);
@@ -673,15 +563,15 @@ where
             }
         }
 
-        self.ops = self
-            .ops
+        self.flat_ops = self
+            .flat_ops
             .iter()
             .enumerate()
             .filter(|(i, _)| !used_prio_indices.contains(i))
             .map(|(_, op)| op.clone())
             .collect();
 
-        self.prio_indices = detail::prioritized_indices_flat(&self.ops, &self.nodes);
+        self.prio_indices = detail::prioritized_indices_flat(&self.flat_ops, &self.nodes);
     }
 
     /// Parses into an expression without compilation. Allow slightly faster direct evaluation of strings.
@@ -713,7 +603,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(vars, &self.nodes, &self.ops, &self.prio_indices)
+        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
@@ -724,7 +614,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(vars, &self.nodes, &self.ops, &self.prio_indices)
+        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn unparse(&self) -> &str {
@@ -739,28 +629,69 @@ where
         T: DataType,
         <T as FromStr>::Err: Debug,
     {
-        let ops = OF::make();
+        let operators = OF::make();
+
         let bin_reprs = detail::collect_reprs::<&fn(T, T) -> T, _, _>(
-            self.ops.iter().map(|op| &op.bin_op.apply),
-            &ops,
+            self.flat_ops.iter().map(|op| &op.bin_op.apply),
+            &operators,
             detail::binary_predicate,
         )?;
-        let mut consumed_op_inds_buffer = SmallVec::new();
-        let mut deepex = match detail::collect_deepex::<T, OF, LM>(
-            0,
-            &self.nodes,
-            &self.ops,
-            self.var_names(),
-            &bin_reprs,
-            &ops,
-            &mut consumed_op_inds_buffer,
-        )? {
-            (DeepNode::Expr(e), _) => e,
-            _ => return Err(ExError::new("final node has to be an expression node")),
-        };
+
+        let prio_inds = prioritized_indices_flat(&self.flat_ops, &self.nodes);
+        let mut deep_nodes = self
+            .nodes
+            .iter()
+            .map(|dn| convert_node::<T, OF, LM>(&dn, &self.var_names, &operators))
+            .collect::<ExResult<Vec<DeepNode<T, OF, LM>>>>()?;
+
+        let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
+            smallvec![0; 1 + deep_nodes.len() / usize::BITS as usize];
+
+        debug_assert!(deep_nodes.len() <= tracker.max_len());
+        for &idx in &prio_inds {
+            let shift_left = tracker.get_previous(idx);
+            let shift_right = tracker.consume_next(idx);
+
+            let num_1_idx = idx - shift_left;
+            let num_2_idx = idx + shift_right;
+
+            // point of panic for invalid input
+            assert!(
+                num_1_idx < deep_nodes.len() && num_2_idx < deep_nodes.len() && idx < self.flat_ops.len()
+            );
+
+            let flat_op = &self.flat_ops[idx];
+            let bin_op = BinOpsWithReprs {
+                reprs: smallvec![bin_reprs[idx]],
+                ops: smallvec![flat_op.bin_op.clone()],
+            };
+            let unary_reprs = collect_unary_reprs(&operators, &flat_op.unary_op)?;
+            let unary_op = UnaryOpWithReprs {
+                reprs: unary_reprs,
+                op: flat_op.unary_op.clone(),
+            };
+
+            let deepex = DeepEx::new(
+                vec![deep_nodes[num_1_idx].clone(), deep_nodes[num_2_idx].clone()],
+                bin_op,
+                unary_op,
+            )?;
+            deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex.clone()));
+        }
+        let final_node = deep_nodes
+            .iter()
+            .next()
+            .ok_or_else(|| format_exerr!("prio indices cannot be empty but is {:?}", prio_inds))?
+            .clone();
+
+        let mut deepex = DeepEx::new(
+            vec![final_node],
+            BinOpsWithReprs::new(),
+            UnaryOpWithReprs::new(),
+        )?;
         deepex.reset_vars(self.var_names.clone());
         deepex.compile();
-        Ok(*deepex)
+        Ok(deepex)
     }
     fn from_deepex(deepex: DeepEx<T, OF, LM>) -> ExResult<Self>
     where
@@ -785,9 +716,9 @@ where
         }
     }
     fn parse(text: &'a str) -> ExResult<Self>
-        where
-            Self: Sized {
-        
+    where
+        Self: Sized,
+    {
         let ops = OF::make();
         detail::parse(text, &ops)
     }
@@ -818,7 +749,7 @@ where
     T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
-    <T as FromStr>::Err: Debug
+    <T as FromStr>::Err: Debug,
 {
     use self::detail::FlatOp;
 
@@ -887,12 +818,15 @@ where
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
 
+use super::deep::{BinOpsWithReprs, UnaryOpWithReprs};
+
 #[test]
 fn test_to_deepex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
         println!(" --- sut - {}", sut);
         let fex = FlatEx::<f64>::parse(sut)?;
         let dex = fex.to_deepex()?;
+        println!("{:#?}", dex);
         assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
         Ok(())
     }
@@ -913,6 +847,7 @@ fn test_to_deepex() -> ExResult<()> {
     test("sin(cos(sin(z)))", &[2.53])?;
     test("1/(x/y)*(2*x)", &[1.3, 0.5])?;
     test("+-+x", &[12341.234])?;
+    test("-y*(x*(-(1-y))) + 1.7", &[1.2, 1.0])?;
     Ok(())
 }
 
