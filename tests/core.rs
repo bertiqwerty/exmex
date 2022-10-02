@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod utils;
-use exmex::format_exerr;
+use exmex::{format_exerr, DeepEx};
 #[cfg(test)]
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
@@ -26,32 +26,39 @@ fn test_display() -> ExResult<()> {
 #[test]
 fn test_flatex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64], reference: f64) -> ExResult<()> {
+
+        fn inner_test<'a, E: Express::<'a, f64>>(expr: &E, vars: &[f64], reference: f64) -> ExResult<()> {
+            utils::assert_float_eq_f64(expr.eval(vars)?, reference);
+            utils::assert_float_eq_f64(expr.eval_relaxed(vars)?, reference);
+
+            let n_vars = vars.len();
+            if n_vars > 0 {
+                assert!(expr.eval(&vars[0..n_vars - 1]).is_err());
+            }
+
+            for n_additional_vars in 1..11 {
+                let more_vars = vars
+                    .iter()
+                    .copied()
+                    .chain(
+                        repeat(10)
+                            .map(|exp| (rand::random::<f64>() * n_additional_vars as f64).powi(exp))
+                            .take(n_additional_vars),
+                    )
+                    .collect::<Vec<_>>();
+                assert!(expr.eval(&more_vars).is_err());
+                utils::assert_float_eq_f64(expr.eval_relaxed(&more_vars)?, reference);
+            }
+            println!("...ok.");
+            Ok(())
+        }
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::parse(sut)?;
-        utils::assert_float_eq_f64(flatex.eval(vars)?, reference);
-        utils::assert_float_eq_f64(flatex.eval_relaxed(vars)?, reference);
-
-        let n_vars = vars.len();
-        if n_vars > 0 {
-            assert!(flatex.eval(&vars[0..n_vars - 1]).is_err());
-        }
-
-        for n_additional_vars in 1..11 {
-            let more_vars = vars
-                .iter()
-                .copied()
-                .chain(
-                    repeat(10)
-                        .map(|exp| (rand::random::<f64>() * n_additional_vars as f64).powi(exp))
-                        .take(n_additional_vars),
-                )
-                .collect::<Vec<_>>();
-            assert!(flatex.eval(&more_vars).is_err());
-            utils::assert_float_eq_f64(flatex.eval_relaxed(&more_vars)?, reference);
-        }
-
-        println!("...ok.");
-        Ok(())
+        inner_test(&flatex, vars, reference)?;
+        inner_test(&flatex.to_deepex()?, vars, reference)?;
+        let deepex = DeepEx::<f64>::parse(sut)?;
+        inner_test(&deepex, vars, reference)?;
+        inner_test(&FlatEx::from_deepex(deepex)?, vars, reference)
     }
     test("sin(1)", &[], 1.0f64.sin())?;
     test("2*3^2", &[], 2.0 * 3.0f64.powi(2))?;
@@ -333,6 +340,7 @@ fn test_variables() -> ExResult<()> {
 
     let sut = "(0 * myvar_25 + cos(x))";
     let expr = FlatEx::<f64>::parse(sut)?;
+    let expr = expr.to_deepex()?;
     utils::assert_float_eq_f64(
         expr.eval(&[std::f64::consts::FRAC_PI_2, std::f64::consts::PI])
             .unwrap(),
@@ -356,7 +364,7 @@ fn test_variables() -> ExResult<()> {
     );
 
     let sut = "asin(sin(x)) + acos(cos(x)) + atan(tan(x))";
-    let expr = FlatEx::<f64>::parse(sut)?;
+    let expr = DeepEx::<f64>::parse(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[0.5]).unwrap(), 1.5);
 
     let sut = "sqrt(alpha^ceil(centauri))";
@@ -364,7 +372,8 @@ fn test_variables() -> ExResult<()> {
     utils::assert_float_eq_f64(expr.eval(&[2.0, 3.1]).unwrap(), 4.0);
 
     let sut = "trunc(x) + fract(x)";
-    let expr = FlatEx::<f64>::parse(sut)?;
+    let expr = DeepEx::<f64>::parse(sut)?;
+    let expr = FlatEx::from_deepex(expr)?;
     utils::assert_float_eq_f64(expr.eval(&[23422.52345]).unwrap(), 23422.52345);
     Ok(())
 }
@@ -449,6 +458,12 @@ fn test_eval_str() -> ExResult<()> {
         println!(" === testing {}", sut);
         utils::assert_float_eq_f64(exmex::eval_str(sut)?, reference);
         let expr = FlatEx::<f64>::parse(sut)?;
+        utils::assert_float_eq_f64(expr.eval(&[])?, reference);
+        let expr = DeepEx::<f64>::parse(sut)?;
+        utils::assert_float_eq_f64(expr.eval(&[])?, reference);
+        let expr = FlatEx::from_deepex(expr)?;
+        utils::assert_float_eq_f64(expr.eval(&[])?, reference);
+        let expr = expr.to_deepex()?;
         utils::assert_float_eq_f64(expr.eval(&[])?, reference);
         Ok(())
     }
