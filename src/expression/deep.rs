@@ -787,9 +787,6 @@ where
         self.compile();
         self
     }
-    pub fn tmp(&self) -> ExResult<Self> {
-        Ok(self.clone())
-    }
 }
 
 impl<'a, T, OF, LM> Express<'a, T> for DeepEx<'a, T, OF, LM>
