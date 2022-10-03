@@ -22,6 +22,7 @@ num = "0.4.0"
 smallvec = "1.9.0"
 lazy_static = "1.4.0"
 serde = { version="1.0.144", optional = true }
+unicode-ident = { version = "1", optional = true }
 
 [profile.test]
 opt-level = 3
@@ -32,6 +33,7 @@ debug = true
 [features]
 value = []
 partial = []
+unicode = ["unicode-ident"]
 
 [package.metadata.docs.rs]
 all-features = true

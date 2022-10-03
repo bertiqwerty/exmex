@@ -97,6 +97,61 @@ fn next_char_boundary(text: &str, start_idx: usize) -> usize {
         .expect("there has to be a char boundary somewhere")
 }
 
+pub trait VarName {
+    fn is_start_character(c: char) -> bool;
+    fn is_continue_character(c: char) -> bool {
+        Self::is_start_character(c) || matches!(c,  '0'..='9')
+    }
+    fn try_parse(s: &str) -> Option<(&str, &str)> {
+        let mut first = true;
+        let (name, rest) = s.split_once(|c|
+            if first {
+                first = false;
+                !Self::is_start_character(c)
+            } else {
+                !Self::is_continue_character(c)
+            }
+        ).unwrap_or((s, ""));
+        if name.is_empty() {
+            None
+        } else {
+            Some((name, rest))
+        }
+    }
+    fn is_exact_variable_name(s: &str) -> bool {
+        s.starts_with(Self::is_start_character) && s.chars().skip(1).all(Self::is_continue_character)
+    }
+}
+
+pub struct ASCII;
+
+impl VarName for ASCII {
+    fn is_start_character(c: char) -> bool {
+        matches!(c, 'a'..='z' | 'A'..='Z' | '_')
+    }
+}
+
+pub struct LatinGreek;
+
+impl VarName for LatinGreek {
+    fn is_start_character(c: char) -> bool {
+        ASCII::is_start_character(c) || matches!(c, 'α'..='ω' | 'Α'..='Ω')
+    }
+}
+
+#[cfg(feature = "unicode")]
+pub struct Unicode;
+
+#[cfg(feature = "unicode")]
+impl VarName for LatinGreek {
+    fn is_start_character(c: char) -> bool {
+        unicode_ident::is_xid_start(c)
+    }
+    fn is_continue_character(c: char) -> bool {
+        unicode_ident::is_xid_continue(c)
+    }
+}
+
 /// Parses tokens of a text with regexes and returns them as a vector
 ///
 /// # Arguments
