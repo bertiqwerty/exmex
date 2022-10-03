@@ -1,14 +1,18 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 
-use crate::{parser, ExResult, MakeOperators};
+use crate::{data_type::DataType, parser, ExResult, MakeOperators};
+
+use self::deep::DeepEx;
+pub mod deep;
 pub mod flat;
+mod number_tracker;
 #[cfg(feature = "serde")]
 mod serde;
 
 /// Expressions implementing this trait can be parsed from stings,
 /// evaluated for specific variable values, and unparsed, i.e.,
 /// transformed into a string representation.  
-pub trait Express<T>
+pub trait Express<'a, T>
 where
     T: Clone,
 {
@@ -44,7 +48,7 @@ where
     ///            Thereby, only the first occurrence of the variable in the string is relevant.
     ///            If an expression has been created by partial derivation, the variables always
     ///            coincide with those of the antiderivatives even in cases where variables are
-    ///            irrelevant such as `(x)'=1`. 
+    ///            irrelevant such as `(x)'=1`.
     ///
     /// # Errors
     ///
@@ -59,7 +63,7 @@ where
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
     /// use exmex::prelude::*;
-    /// let flatex = FlatEx::<f64>::from_str("--sin ( z) +  {another var} + 1 + 2")?;
+    /// let flatex = FlatEx::<f64>::parse("--sin ( z) +  {another var} + 1 + 2")?;
     /// assert_eq!(format!("{}", flatex), "--sin ( z) +  {another var} + 1 + 2");
     /// #
     /// #     Ok(())
@@ -70,10 +74,29 @@ where
 
     /// Returns the variables of the expression
     fn var_names(&self) -> &[String];
+
+    /// Conversion to a deep expression necessary for computations with expressions
+    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug;
+
+    fn from_deepex(
+        deepex: DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>,
+    ) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug;
+
+    fn parse(text: &'a str) -> ExResult<Self>
+    where
+        Self: Sized;
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.
-pub trait MatchLiteral {
+pub trait MatchLiteral: Clone + Debug {
     /// This method is expected to return `Some(matching_str)` in case of a match of
     /// a literal at the beginning of the input and `None` otherwise.
     fn is_literal(text: &str) -> Option<&str>;

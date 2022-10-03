@@ -9,8 +9,6 @@ use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
 use std::ops::Range;
 #[cfg(feature = "partial")]
-use std::str::FromStr;
-#[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
     let expr = parse::<f64>("y*x^2")?;
@@ -32,7 +30,7 @@ fn test_readme_partial() -> ExResult<()> {
     assert!((result - 2.0).abs() < 1e-12);
 
     // all in one
-    let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter())?;
+    let dddexpr_dxyx_iter = expr.partial_iter([0, 1, 0].iter().copied())?;
     assert_eq!(format!("{}", dddexpr_dxyx_iter), "2.0");
     let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
     assert!((result - 2.0).abs() < 1e-12);
@@ -74,7 +72,7 @@ fn test_partial() -> ExResult<()> {
         reference: fn(f64) -> f64,
     ) -> ExResult<()> {
         println!("testing {}...", sut);
-        let flatex = FlatEx::<f64>::from_str(sut)?;
+        let flatex = FlatEx::<f64>::parse(sut)?;
         test_flatex(&flatex, var_idx, n_vars, random_range, reference)
     }
 
@@ -113,13 +111,19 @@ fn test_partial() -> ExResult<()> {
     let n_vars = 1;
     let reference = |x: f64| x.sin().cos() * x.cos();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    
+    let sut = "{x}+sin(2.0*{y})";
+    let var_idx = 1;
+    let n_vars = 2;
+    let reference = |y: f64| 2.0 * (2.0*y).cos();
+    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
 
     let sut = "sin(x)-cos(x)+a";
     let var_idx = 1;
     let n_vars = 2;
     let reference = |x: f64| x.cos() + x.sin();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
-    let flatex_1 = FlatEx::<f64>::from_str(sut)?;
+    let flatex_1 = FlatEx::<f64>::parse(sut)?;
     let deri = flatex_1.partial(var_idx)?;
     let reference = |x: f64| -x.sin() + x.cos();
     test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
@@ -208,6 +212,7 @@ fn test_partial_finite() -> ExResult<()> {
     test("asin(x)", -1.0..1.0)?;
     test("acos(x)", -1.0..1.0)?;
     test("atan(x)", -1.0..1.0)?;
+    test("-y*(x*(-(1-y))) + 1.7", 2.0..10.0)?;
     test("1/x", -10.0..10.0)?;
     test("x^x", 0.01..2.0)?;
     test("x^y", 4.036286084344371..4.036286084344372)?;
@@ -236,7 +241,7 @@ fn test_partial_finite() -> ExResult<()> {
 fn test_partial_iter() -> ExResult<()> {
     let sut = "a^2+b^2+c^2+x^2+y^2+z^2";
     let expr = exmex::parse::<f64>(sut)?;
-    let deri = expr.partial_iter([0, 1, 2, 3, 4, 5].iter())?;
+    let deri = expr.partial_iter([0, 1, 2, 3, 4, 5].iter().copied())?;
     utils::assert_float_eq::<f64>(
         0.0,
         deri.eval(&[7.0, 7.0, 7.0, 7.0, 7.0, 7.0])?,
@@ -247,7 +252,7 @@ fn test_partial_iter() -> ExResult<()> {
 
     fn test3(sut: &str) -> ExResult<()> {
         let expr = exmex::parse::<f64>(sut)?;
-        let deri = expr.partial_iter([0, 1, 2].iter())?;
+        let deri = expr.partial_iter([0, 1, 2].iter().copied())?;
         let mut deri_seq = expr;
         for i in 0..3 {
             deri_seq = deri_seq.partial(i)?;

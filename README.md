@@ -58,7 +58,7 @@ ops_factory!(
     ),
     Operator::make_unary("!", |a| !a)
 );
-let expr = FlatEx::<_, BitwiseOpsFactory>::from_str("!(a|b)")?;
+let expr = FlatEx::<_, BitwiseOpsFactory>::parse("!(a|b)")?;
 let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```

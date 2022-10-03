@@ -1,17 +1,21 @@
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
+use crate::operators::UnaryOp;
 
 use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
-use crate::expression::Express;
-use crate::{ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher, format_exerr};
+use crate::expression::{
+    deep::{DeepEx, DeepNode},
+    Express,
+};
+use crate::{
+    format_exerr, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
+    NumberMatcher,
+};
 
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
 use std::marker::PhantomData;
 use std::str::FromStr;
-
-#[cfg(feature = "partial")]
-use crate::{operators::UnaryOp, BinOp, Operator};
 
 const DEPTH_PRIO_STEP: i64 = 1000;
 pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
@@ -22,10 +26,11 @@ mod detail {
 
     use crate::{
         data_type::DataType,
-        definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
+        definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
+        expression::number_tracker::NumberTracker,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
-        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
+        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator, format_exerr,
     };
     use crate::parser::LatinGreek;
 
@@ -41,6 +46,12 @@ mod detail {
     pub struct FlatOp<T: Clone> {
         pub unary_op: UnaryOp<T>,
         pub bin_op: BinOp<T>,
+    }
+
+    impl<T: Clone> FlatOp<T> {
+        fn apply(&self, arg1: T, arg2: T) -> T {
+            self.unary_op.apply((self.bin_op.apply)(arg1, arg2))
+        }
     }
 
     #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -67,64 +78,179 @@ mod detail {
         }
     }
 
-    const N_IGNORE_BITS: usize = 64;
+    use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
 
-    fn eval_flatex_u64<T: Clone + Debug>(
-        numbers: &mut [T],
-        ops: &[FlatOp<T>],
-        prio_indices: &[usize],
-    ) {
-        let mut ignore = 0_u64;
+    pub fn collect_reprs<'a, F, T, I>(
+        funcs: I,
+        ops: &[Operator<'a, T>],
+        predicate: fn(&Operator<T>, F) -> bool,
+    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
+    where
+        T: Clone,
+        I: Iterator<Item = F>,
+        F: Clone,
+    {
+        funcs
+            .map(|func| {
+                Ok(ops
+                    .iter()
+                    .find(|op| predicate(op, func.clone()))
+                    .ok_or_else(|| ExError::new("could not find unary operator"))?
+                    .repr())
+            })
+            .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
+    }
 
-        for &idx in prio_indices {
-            let rotated = ignore.rotate_right(idx as u32 + 1);
-            let shift_right = rotated.trailing_ones() as usize + 1;
-            let shift_left = rotated.leading_ones() as usize;
-
-            let num_1 = numbers[idx - shift_left].clone();
-            let num_2 = numbers[idx + shift_right].clone();
-            numbers[idx - shift_left] = {
-                let bop_res = (ops[idx].bin_op.apply)(num_1, num_2);
-                ops[idx].unary_op.apply(bop_res)
-            };
-            ignore |= 1 << (idx + shift_right);
+    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
+        if op.has_unary() {
+            op.unary().unwrap() == *func
+        } else {
+            false
         }
     }
 
-    fn eval_flatex_vecbool<T: Clone + Debug>(
+    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
+        if op.has_bin() {
+            op.bin().unwrap().apply == *func
+        } else {
+            false
+        }
+    }
+
+    pub fn collect_unary_reprs<'a, T: Clone>(
+        ops: &[Operator<'a, T>],
+        unary_op: &UnaryOp<T>,
+    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
+        collect_reprs::<&fn(T) -> T, _, _>(
+            unary_op.funcs_to_be_composed().iter(),
+            ops,
+            unary_predicate,
+        )
+    }
+
+    pub fn convert_node<'a, T, OF, LM>(
+        node: &FlatNode<T>,
+        var_names: &'a [String],
+        ops: &[Operator<'a, T>],
+    ) -> ExResult<DeepNode<'a, T, OF, LM>>
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        let deepnode = match node.kind.clone() {
+            FlatNodeKind::Num(n) => DeepNode::Num(n),
+            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].as_str())),
+        };
+
+        let reprs = collect_unary_reprs(ops, &node.unary_op)?;
+        let n_reprs = reprs.len();
+        let unary_op = UnaryOpWithReprs {
+            reprs,
+            op: node.unary_op.clone(),
+        };
+        Ok(if n_reprs > 0 {
+            DeepNode::Expr(Box::new(DeepEx::new(
+                vec![deepnode],
+                BinOpsWithReprs::<T>::new(),
+                unary_op,
+            )?))
+        } else {
+            deepnode
+        })
+    }
+
+    pub fn flatex_to_deepex<'a, T, OF, LM>(
+        flat_ops: &[FlatOp<T>],
+        nodes: &[FlatNode<T>],
+        var_names: &'a SmallVec<[String; N_VARS_ON_STACK]>,
+    ) -> Result<DeepEx<'a, T, OF, LM>, ExError>
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        let operators = OF::make();
+        let bin_reprs = collect_reprs::<&fn(T, T) -> T, _, _>(
+            flat_ops.iter().map(|op| &op.bin_op.apply),
+            &operators,
+            binary_predicate,
+        )?;
+        let prio_inds = prioritized_indices_flat(flat_ops, nodes);
+        let mut deep_nodes = nodes
+            .iter()
+            .map(|dn| convert_node::<T, OF, LM>(dn, var_names, &operators))
+            .collect::<ExResult<Vec<DeepNode<T, OF, LM>>>>()?;
+        let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
+            smallvec![0; 1 + deep_nodes.len() / usize::BITS as usize];
+        debug_assert!(deep_nodes.len() <= tracker.max_len());
+        for &idx in &prio_inds {
+            let shift_left = tracker.get_previous(idx);
+            let shift_right = tracker.consume_next(idx);
+
+            let num_1_idx = idx - shift_left;
+            let num_2_idx = idx + shift_right;
+
+            // point of panic for invalid input
+            assert!(
+                num_1_idx < deep_nodes.len()
+                    && num_2_idx < deep_nodes.len()
+                    && idx < flat_ops.len()
+            );
+
+            let flat_op = &flat_ops[idx];
+            let bin_op = BinOpsWithReprs {
+                reprs: smallvec![bin_reprs[idx]],
+                ops: smallvec![flat_op.bin_op.clone()],
+            };
+            let unary_reprs = collect_unary_reprs(&operators, &flat_op.unary_op)?;
+            let unary_op = UnaryOpWithReprs {
+                reprs: unary_reprs,
+                op: flat_op.unary_op.clone(),
+            };
+
+            let deepex = DeepEx::new(
+                vec![deep_nodes[num_1_idx].clone(), deep_nodes[num_2_idx].clone()],
+                bin_op,
+                unary_op,
+            )?;
+            deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex.clone()));
+        }
+        let final_node = deep_nodes
+            .first()
+            .ok_or_else(|| format_exerr!("prio indices cannot be empty but is {:?}", prio_inds))?
+            .clone();
+        let mut deepex = DeepEx::new(
+            vec![final_node],
+            BinOpsWithReprs::new(),
+            UnaryOpWithReprs::new(),
+        )?;
+        deepex.reset_vars(var_names.clone());
+        deepex.compile();
+        Ok(deepex)
+    }
+    fn eval_flatex_tracker<T: Clone + Debug, N: NumberTracker + ?Sized>(
         numbers: &mut [T],
         ops: &[FlatOp<T>],
         prio_indices: &[usize],
+        tracker: &mut N,
     ) {
-        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; numbers.len()];
+        debug_assert!(numbers.len() <= tracker.max_len());
+
         for &idx in prio_indices {
-            // point of panic of a malformed index
-            assert!(idx + 1 < ignore.len() && idx + 1 < numbers.len() && idx < ops.len());
+            let shift_left = tracker.get_previous(idx);
+            let shift_right = tracker.consume_next(idx);
 
-            let (left_ign, right_ign) = ignore.split_at_mut(idx + 1);
-            let (left_num, right_num) = numbers.split_at_mut(idx + 1);
+            let num_1_idx = idx - shift_left;
+            let num_2_idx = idx + shift_right;
 
-            let num_1 = left_num.iter_mut().rev().zip(left_ign.iter().rev())
-                .find_map(|(num, ign)|
-                    if *ign {
-                        None
-                    } else {
-                        Some(num)
-                    }
-                );
-            let num_2 = right_num.iter().zip(right_ign).find_map(|(num, ign)|
-                if *ign {
-                    None
-                } else {
-                    *ign = true;
-                    Some(num)
-                }
-            );
-            // point of panic of a logic error
-            let (num_1, num_2) = num_1.zip(num_2).unwrap();
+            // point of panic for invalid input
+            assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < ops.len());
 
-            let bop_res = (ops[idx].bin_op.apply)(num_1.clone(), num_2.clone());
-            *num_1 = ops[idx].unary_op.apply(bop_res);
+            numbers[num_1_idx] =
+                ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
         }
     }
 
@@ -144,10 +270,13 @@ mod detail {
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
 
-        if numbers.len() < N_IGNORE_BITS {
-            eval_flatex_u64(numbers.as_mut_slice(), ops, prio_indices)
+        if numbers.len() <= usize::max_len(&0) {
+            let mut ignore = 0;
+            eval_flatex_tracker(numbers.as_mut_slice(), ops, prio_indices, &mut ignore);
         } else {
-            eval_flatex_vecbool(numbers.as_mut_slice(), ops, prio_indices);
+            let mut ignore: SmallVec<[usize; N_NODES_ON_STACK]> =
+                smallvec![0; 1 + numbers.len() / usize::BITS as usize];
+            eval_flatex_tracker(numbers.as_mut_slice(), ops, prio_indices, &mut ignore[..]);
         }
 
         Ok(numbers.into_iter().next().unwrap())
@@ -329,7 +458,7 @@ mod detail {
         let indices = prioritized_indices_flat(&flat_ops, &flat_nodes);
         Ok(FlatEx {
             nodes: flat_nodes,
-            ops: flat_ops,
+            flat_ops,
             prio_indices: indices,
             var_names: parsed_vars.iter().map(|s| s.to_string()).collect(),
             text: text.to_string(),
@@ -368,7 +497,7 @@ mod detail {
 
     pub fn prioritized_indices_flat<T: Clone + Debug>(
         ops: &[FlatOp<T>],
-        nodes: &FlatNodeVec<T>,
+        nodes: &[FlatNode<T>],
     ) -> ExprIdxVec {
         let prio_increase =
             |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
@@ -396,7 +525,7 @@ mod detail {
 /// to the nodes in an order following operator priorities.
 ///
 /// Creation of expressions is possible with the function [`parse`](crate::parse) which is equivalent to
-/// [`FlatEx::from_str`](FlatEx::from_str).
+/// [`FlatEx::parse`](FlatEx::parse).
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -405,7 +534,7 @@ mod detail {
 /// use exmex::prelude::*;
 ///
 /// // create an expression by parsing a string
-/// let expr = FlatEx::<f32>::from_str("sin(1+y)*x")?;
+/// let expr = FlatEx::<f32>::parse("sin(1+y)*x")?;
 /// assert!((expr.eval(&[1.5, 2.0])? - (1.0 + 2.0 as f32).sin() * 1.5).abs() < 1e-6);
 /// #
 /// #     Ok(())
@@ -423,7 +552,7 @@ where
     LM: MatchLiteral,
 {
     nodes: FlatNodeVec<T>,
-    ops: FlatOpVec<T>,
+    flat_ops: FlatOpVec<T>,
     prio_indices: ExprIdxVec,
     var_names: SmallVec<[String; N_VARS_ON_STACK]>,
     text: String,
@@ -446,7 +575,7 @@ where
     ) -> Self {
         Self {
             nodes,
-            ops,
+            flat_ops: ops,
             prio_indices,
             var_names,
             text,
@@ -478,9 +607,9 @@ where
             {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
                     let op_result =
-                        self.ops[bin_op_idx]
+                        self.flat_ops[bin_op_idx]
                             .unary_op
-                            .apply((self.ops[bin_op_idx].bin_op.apply)(num_1, num_2));
+                            .apply((self.flat_ops[bin_op_idx].bin_op.apply)(num_1, num_2));
                     self.nodes[num_idx] = FlatNode::from_kind(FlatNodeKind::Num(op_result));
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);
@@ -501,19 +630,19 @@ where
             }
         }
 
-        self.ops = self
-            .ops
+        self.flat_ops = self
+            .flat_ops
             .iter()
             .enumerate()
             .filter(|(i, _)| !used_prio_indices.contains(i))
             .map(|(_, op)| op.clone())
             .collect();
 
-        self.prio_indices = detail::prioritized_indices_flat(&self.ops, &self.nodes);
+        self.prio_indices = detail::prioritized_indices_flat(&self.flat_ops, &self.nodes);
     }
 
     /// Parses into an expression without compilation. Allow slightly faster direct evaluation of strings.
-    pub fn from_str_wo_compile(text: &str) -> ExResult<Self>
+    pub fn parse_wo_compile(text: &str) -> ExResult<Self>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
@@ -523,11 +652,12 @@ where
     }
 }
 
-impl<T, OF, LM> Express<T> for FlatEx<T, OF, LM>
+impl<'a, T, OF, LM> Express<'a, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
 {
     type LiteralMatcher = LM;
     type OperatorFactory = OF;
@@ -540,12 +670,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(
-            vars,
-            &self.nodes,
-            &self.ops,
-            &self.prio_indices
-        )
+        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
@@ -556,12 +681,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(
-            vars,
-            &self.nodes,
-            &self.ops,
-            &self.prio_indices,
-        )
+        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn unparse(&self) -> &str {
@@ -570,21 +690,39 @@ where
     fn var_names(&self) -> &[String] {
         &self.var_names
     }
-}
-
-impl<T, OF, LMF> FromStr for FlatEx<T, OF, LMF>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LMF: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    type Err = ExError;
-
-    fn from_str(text: &str) -> ExResult<Self>
+    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
-        <T as std::str::FromStr>::Err: Debug,
+        Self: Sized,
         T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        detail::flatex_to_deepex(&self.flat_ops, &self.nodes, &self.var_names)
+    }
+    fn from_deepex(deepex: DeepEx<T, OF, LM>) -> ExResult<Self>
+    where
+        Self: Sized,
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+    {
+        {
+            let (nodes, ops) = flatten_vecs(&deepex, 0);
+            let indices = detail::prioritized_indices_flat(&ops, &nodes);
+            Ok(FlatEx::new(
+                nodes,
+                ops,
+                indices,
+                deepex
+                    .var_names()
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<SmallVec<_>>(),
+                deepex.unparse().to_string(),
+            ))
+        }
+    }
+    fn parse(text: &'a str) -> ExResult<Self>
+    where
+        Self: Sized,
     {
         let ops = OF::make();
         detail::parse(text, &ops)
@@ -597,6 +735,7 @@ where
     T: DataType,
     OF: MakeOperators<T>,
     LMF: MatchLiteral,
+    <T as FromStr>::Err: Debug,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
@@ -605,15 +744,18 @@ where
 }
 
 #[cfg(feature = "partial")]
-use {
-    crate::partial::{DeepEx, DeepNode, Differentiate},
-    num::Float,
-};
-#[cfg(feature = "partial")]
-pub fn flatten_vecs<T: Clone + Debug>(
-    deep_expr: &DeepEx<T>,
+use crate::partial::Differentiate;
+
+pub fn flatten_vecs<T, OF, LM>(
+    deep_expr: &DeepEx<T, OF, LM>,
     prio_offset: i64,
-) -> (FlatNodeVec<T>, FlatOpVec<T>) {
+) -> (FlatNodeVec<T>, FlatOpVec<T>)
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
     use self::detail::FlatOp;
 
     let mut flat_nodes = FlatNodeVec::<T>::new();
@@ -667,285 +809,28 @@ pub fn flatten_vecs<T: Clone + Debug>(
     }
     (flat_nodes, flat_ops)
 }
-#[cfg(feature = "partial")]
-mod detail_diff {
-    use std::{cmp::Ordering, fmt::Debug};
-
-    use smallvec::SmallVec;
-
-    use crate::{
-        definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK,
-        operators::UnaryOp,
-        partial::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs},
-        ExError, ExResult, Operator,
-    };
-
-    use super::{
-        detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOp, FlatOpVec},
-        DEPTH_PRIO_STEP,
-    };
-
-    pub fn collect_reprs<'a, F, T, I>(
-        funcs: I,
-        ops: &[Operator<'a, T>],
-        predicate: fn(&Operator<T>, F) -> bool,
-    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
-    where
-        T: Clone,
-        I: Iterator<Item = F>,
-        F: Clone,
-    {
-        funcs
-            .map(|func| {
-                Ok(ops
-                    .iter()
-                    .find(|op| predicate(op, func.clone()))
-                    .ok_or_else(|| ExError::new("could not find unary operator"))?
-                    .repr())
-            })
-            .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
-    }
-
-    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
-        if op.has_unary() {
-            op.unary().unwrap() == *func
-        } else {
-            false
-        }
-    }
-
-    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
-        if op.has_bin() {
-            op.bin().unwrap().apply == *func
-        } else {
-            false
-        }
-    }
-
-    pub fn collect_unary_reprs<'a, T: Clone>(
-        ops: &[Operator<'a, T>],
-        unary_op: &UnaryOp<T>,
-    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
-        collect_reprs::<&fn(T) -> T, _, _>(
-            unary_op.funcs_to_be_composed().iter(),
-            ops,
-            unary_predicate,
-        )
-    }
-
-    pub fn make_unary<'a, T: Clone>(
-        start: usize,
-        end: usize,
-        consumed_op_inds: &[usize],
-        ops: &[Operator<'a, T>],
-        flat_ops: &[FlatOp<T>],
-    ) -> ExResult<(Option<usize>, UnaryOpWithReprs<'a, T>)> {
-        let unary_op_idx = (start..end)
-            .find(|idx| !consumed_op_inds.contains(idx) && flat_ops[*idx].unary_op.len() > 0);
-        Ok(match unary_op_idx {
-            Some(idx) => (
-                Some(idx),
-                UnaryOpWithReprs {
-                    reprs: collect_unary_reprs(ops, &flat_ops[idx].unary_op)?,
-                    op: flat_ops[idx].unary_op.clone(),
-                },
-            ),
-            None => (None, UnaryOpWithReprs::new()),
-        })
-    }
-
-    pub fn convert_node<'a, T>(
-        node: &FlatNode<T>,
-        var_names: &'a [String],
-        ops: &[Operator<'a, T>],
-    ) -> ExResult<DeepNode<'a, T>>
-    where
-        T: Clone + Debug,
-    {
-        let deepnode = match node.kind.clone() {
-            FlatNodeKind::Num(n) => DeepNode::Num(n),
-            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].as_str())),
-        };
-
-        let reprs = collect_unary_reprs(ops, &node.unary_op)?;
-        let n_reprs = reprs.len();
-        let unary_op = UnaryOpWithReprs {
-            reprs,
-            op: node.unary_op.clone(),
-        };
-        Ok(if n_reprs > 0 {
-            DeepNode::Expr(Box::new(DeepEx::new(
-                vec![deepnode],
-                BinOpsWithReprs::<T>::new(),
-                unary_op,
-            )?))
-        } else {
-            deepnode
-        })
-    }
-
-    pub fn collect_deepex<'a, T: Clone + Debug>(
-        start_idx: usize,
-        flat_nodes: &FlatNodeVec<T>,
-        flat_ops: &FlatOpVec<T>,
-        var_names: &'a [String],
-        bin_reprs: &[&'a str],
-        ops: &[Operator<'a, T>],
-        consumed_op_inds: &mut SmallVec<[usize; N_UNARYOPS_OF_DEEPEX_ON_STACK]>,
-    ) -> ExResult<(DeepNode<'a, T>, usize)> {
-        let mut bin_ops = BinOpsWithReprs::<T>::new();
-        let mut nodes = Vec::<DeepNode<T>>::new();
-        let mut i = start_idx;
-        while i < flat_ops.len() {
-            let prio_current = flat_ops[i].bin_op.prio / DEPTH_PRIO_STEP;
-            let prio_prev = if i > start_idx {
-                flat_ops[i - 1].bin_op.prio / DEPTH_PRIO_STEP
-            } else {
-                prio_current
-            };
-            match prio_current.cmp(&prio_prev) {
-                Ordering::Less => {
-                    let (uop_idx, unary_op) =
-                        make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-                    if let Some(idx) = uop_idx {
-                        consumed_op_inds.push(idx);
-                    };
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    if start_idx > 0 {
-                        return Ok((
-                            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-                            i,
-                        ));
-                    } else {
-                        let node = DeepNode::Expr(Box::new(DeepEx::new(
-                            nodes.clone(),
-                            bin_ops.clone(),
-                            unary_op,
-                        )?));
-                        nodes.clear();
-                        bin_ops.ops.clear();
-                        bin_ops.reprs.clear();
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        nodes.push(node);
-                        i += 1;
-                    }
-                }
-                Ordering::Greater => {
-                    let (node, i_tmp) = collect_deepex(
-                        i,
-                        flat_nodes,
-                        flat_ops,
-                        var_names,
-                        bin_reprs,
-                        ops,
-                        consumed_op_inds,
-                    )?;
-                    i = i_tmp;
-                    nodes.push(node);
-                    if i < flat_ops.len() {
-                        bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                        bin_ops.reprs.push(bin_reprs[i]);
-                        i += 1;
-                    }
-                }
-                Ordering::Equal => {
-                    nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-                    bin_ops.ops.push(flat_ops[i].bin_op.clone());
-                    bin_ops.reprs.push(bin_reprs[i]);
-                    i += 1;
-                }
-            }
-        }
-        if nodes.len() == bin_ops.reprs.len() {
-            nodes.push(convert_node(&flat_nodes[i], var_names, ops)?);
-        }
-        let (uop_idx, unary_op) = make_unary(start_idx, i, consumed_op_inds, ops, flat_ops)?;
-        if let Some(idx) = uop_idx {
-            consumed_op_inds.push(idx);
-        };
-        Ok((
-            DeepNode::Expr(Box::new(DeepEx::new(nodes, bin_ops, unary_op)?)),
-            i,
-        ))
-    }
-}
 
 #[cfg(feature = "partial")]
-impl<T, OF, LM> Differentiate<T> for FlatEx<T, OF, LM>
+impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
+    <T as FromStr>::Err: Debug,
 {
-    fn to_deepex<'a>(&'a self, ops: &[Operator<'a, T>]) -> ExResult<DeepEx<'a, T>>
-    where
-        Self: Sized,
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        let bin_reprs = detail_diff::collect_reprs::<&fn(T, T) -> T, _, _>(
-            self.ops.iter().map(|op| &op.bin_op.apply),
-            ops,
-            detail_diff::binary_predicate,
-        )?;
-        let mut consumed_op_inds_buffer = SmallVec::new();
-        let mut deepex = match detail_diff::collect_deepex::<T>(
-            0,
-            &self.nodes,
-            &self.ops,
-            self.var_names(),
-            &bin_reprs,
-            ops,
-            &mut consumed_op_inds_buffer,
-        )? {
-            (DeepNode::Expr(e), _) => e,
-            _ => return Err(ExError::new("final node has to be an expression node")),
-        };
-        let var_names = self.var_names().iter().map(|s| s.as_str()).collect();
-        deepex.reset_vars(var_names);
-        deepex.compile();
-        Ok(*deepex)
-    }
-
-    fn from_deepex(deepex: DeepEx<T>, _: &[Operator<T>]) -> ExResult<Self>
-    where
-        Self: Sized,
-        T: DataType + Float,
-        <T as FromStr>::Err: Debug,
-    {
-        {
-            let (nodes, ops) = flatten_vecs(&deepex, 0);
-            let indices = detail::prioritized_indices_flat(&ops, &nodes);
-            Ok(FlatEx::new(
-                nodes,
-                ops,
-                indices,
-                deepex
-                    .var_names()
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<SmallVec<_>>(),
-                deepex.unparse(),
-            ))
-        }
-    }
 }
 
 #[cfg(test)]
 use crate::util::assert_float_eq_f64;
 
-#[cfg(feature = "partial")]
 #[test]
 fn test_to_deepex() -> ExResult<()> {
-    use crate::partial::eval;
-
     fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
         println!(" --- sut - {}", sut);
-        let fex = FlatEx::<f64>::from_str(sut)?;
-        let ops = FloatOpsFactory::<f64>::make();
-        let dex = fex.to_deepex(&ops)?;
-        assert_float_eq_f64(fex.eval(vars)?, eval(&dex, vars)?);
+        let fex = FlatEx::<f64>::parse(sut)?;
+        let dex = fex.to_deepex()?;
+        println!("{:#?}", dex);
+        assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
         Ok(())
     }
     test("{x}+2.0*{y}", &[1.0, 0.5])?;
@@ -965,6 +850,7 @@ fn test_to_deepex() -> ExResult<()> {
     test("sin(cos(sin(z)))", &[2.53])?;
     test("1/(x/y)*(2*x)", &[1.3, 0.5])?;
     test("+-+x", &[12341.234])?;
+    test("-y*(x*(-(1-y))) + 1.7", &[1.2, 1.0])?;
     Ok(())
 }
 
@@ -972,7 +858,7 @@ fn test_to_deepex() -> ExResult<()> {
 fn test_flat_compile() -> ExResult<()> {
     fn test(text: &str, vars: &[f64], ref_val: f64, ref_len: usize) -> ExResult<()> {
         println!("testing {}...", text);
-        let flatex = FlatEx::<f64>::from_str(text)?;
+        let flatex = FlatEx::<f64>::parse(text)?;
         assert_float_eq_f64(flatex.eval(vars)?, ref_val);
         assert_eq!(flatex.nodes.len(), ref_len);
         println!("...ok.");
@@ -999,7 +885,7 @@ fn test_flat_compile() -> ExResult<()> {
     )?;
     test("(((a+x^2*x^2)))", &[3.0, 2.21], 26.854432810000002, 5)?;
 
-    let flatex = FlatEx::<f64>::from_str("1*sin(2-0.1) + x")?;
+    let flatex = FlatEx::<f64>::parse("1*sin(2-0.1) + x")?;
     match flatex.nodes[0].kind {
         FlatNodeKind::Num(n) => assert_float_eq_f64(n, 1.9f64.sin()),
         _ => unreachable!(),
@@ -1009,7 +895,7 @@ fn test_flat_compile() -> ExResult<()> {
         _ => unreachable!(),
     }
 
-    let flatex = FlatEx::<f64>::from_str("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
+    let flatex = FlatEx::<f64>::parse("y + 1 - cos(1/(1*sin(2-0.1))-2) + 2 + x")?;
     assert_eq!(flatex.nodes.len(), 3);
     match flatex.nodes[0].kind {
         FlatNodeKind::Var(idx) => assert_eq!(idx, 1),

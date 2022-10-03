@@ -17,7 +17,7 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
 }
 
 /// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`, 
-/// or constants such as `π`. To use custom operators, see also the macro [`ops_factory`](ops_factory).
+/// or constants such as `π`. To use custom operators, see also the macro [`ops_factory`](crate::ops_factory).
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Clone> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
@@ -231,7 +231,7 @@ pub struct BinOp<T: Clone> {
 ///
 /// ```rust
 /// use exmex::{BinOp, MakeOperators, Operator};
-/// #[derive(Clone)]
+/// #[derive(Clone, Debug)]
 /// struct SomeOpsFactory;
 /// impl MakeOperators<f32> for SomeOpsFactory {
 ///     fn make<'a>() -> Vec<Operator<'a, f32>> {    
@@ -250,7 +250,7 @@ pub struct BinOp<T: Clone> {
 ///     }
 /// }
 /// ```
-pub trait MakeOperators<T: Clone>: Clone {
+pub trait MakeOperators<T: Clone>: Clone + Debug {
     /// Function that creates a vector of operators.
     fn make<'a>() -> Vec<Operator<'a, T>>;
 }
@@ -299,7 +299,7 @@ pub struct FloatOpsFactory<T: Float> {
     dummy: PhantomData<T>,
 }
 
-impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
+impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
     /// Returns the default operators.
     fn make<'a>() -> Vec<Operator<'a, T>> {
         vec![
@@ -399,7 +399,7 @@ impl<T: Float> MakeOperators<T> for FloatOpsFactory<T> {
 #[macro_export]
 macro_rules! ops_factory {
     ($name:ident, $T:ty, $( $ops:expr ),*) => {
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         struct $name;
         impl MakeOperators<$T> for $name {
             fn make<'a>() -> Vec<Operator<'a, $T>> {
