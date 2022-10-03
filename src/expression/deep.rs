@@ -740,23 +740,6 @@ where
         self.is_num(T::from(0.0).unwrap())
     }
 
-    pub fn reset_vars(&mut self, new_var_names: SmallVec<[String; N_VARS_ON_STACK]>) {
-        for node in &mut self.nodes {
-            match node {
-                DeepNode::Expr(e) => e.reset_vars(new_var_names.clone()),
-                DeepNode::Var((i, var_name)) => {
-                    for (new_idx, new_name) in new_var_names.iter().enumerate() {
-                        if var_name == new_name {
-                            *i = new_idx;
-                        }
-                    }
-                }
-                _ => (),
-            }
-        }
-        self.var_names = new_var_names;
-    }
-
     pub fn var_names(&self) -> &[String] {
         &self.var_names
     }
@@ -804,6 +787,62 @@ where
     /// Applies a unary operator to self
     pub fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
+        self.compile();
+        self
+    }
+
+    pub fn reset_vars(&mut self, all_vars: SmallVec<[std::string::String; N_VARS_ON_STACK]>) {
+        for node in &mut self.nodes {
+            match node {
+                DeepNode::Var((_, v)) => {
+                    let new_idx = all_vars.iter().position(|av| av == v).unwrap();
+                    *node = DeepNode::Var((new_idx, v.clone()));
+                }
+                DeepNode::Expr(e) => {
+                    e.reset_vars(all_vars.clone());
+                }
+                DeepNode::Num(_) => (),
+            }
+        }
+        self.var_names = all_vars;
+    }
+
+    pub fn subs<F>(mut self, sub: &mut F) -> Self
+    where
+        F: FnMut(&str) -> Option<Self>,
+    {
+        let mut all_vars = SmallVec::<[String; N_VARS_ON_STACK]>::new();
+        let mut push = |v: String| {
+            if !all_vars.contains(&v) {
+                all_vars.push(v);
+            }
+        };
+        for node in self.nodes.iter_mut() {
+            match node {
+                DeepNode::Var((_, v)) => {
+                    let deepex = sub(v.as_str());
+                    if let Some(deepex) = deepex {
+                        for vn in deepex.var_names() {
+                            push(vn.clone());
+                        }
+                        *node = DeepNode::Expr(Box::new(deepex));
+                    } else {
+                        push(v.clone());
+                    }
+                }
+                DeepNode::Expr(e) => {
+                    let deepex = std::mem::take(&mut **e);
+                    let deepex = deepex.subs(sub);
+                    for vn in deepex.var_names() {
+                        push(vn.clone());
+                    }
+                    *node = DeepNode::Expr(Box::new(deepex));
+                }
+                _ => (),
+            }
+        }
+        all_vars.sort_unstable();
+        self.reset_vars(all_vars);
         self.compile();
         self
     }
@@ -906,6 +945,18 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse())
+    }
+}
+
+impl<'a, T, OF, LM> Default for DeepEx<'a, T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    fn default() -> Self {
+        Self::new(vec![], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
     }
 }
 
@@ -1090,5 +1141,45 @@ fn test_unparse() -> ExResult<()> {
     let text = "cos(sin(-z+var*(1/{y})))+{var}";
     let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
     test(text, text_ref)?;
+    Ok(())
+}
+
+#[test]
+fn test_subs() -> ExResult<()> {
+    let deepex = DeepEx::<f64>::parse("x+y")?;
+    fn sub1<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
+        match var {
+            "x" => Some(DeepEx::<f64>::one()),
+            "y" => Some(DeepEx::one()),
+            _ => None,
+        }
+    }
+    let one_plus_one = deepex.subs(&mut sub1);
+    assert!((one_plus_one.eval(&[])? - 2.0).abs() < 1e-12);
+    assert_eq!(one_plus_one.var_names().len(), 0);
+    
+    let deepex = DeepEx::<f64>::parse("x+y")?;
+    fn sub2<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
+        match var {
+            "x" => Some(DeepEx::<f64>::one()),
+            "y" => None,
+            _ => None,
+        }
+    }
+    let subst = deepex.subs(&mut sub2);
+    assert!((subst.eval(&[2.0])? - 3.0).abs() < 1e-12);
+    assert_eq!(subst.var_names().len(), 1);
+    
+    let deepex = DeepEx::<f64>::parse("x/y")?;
+    fn sub3<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
+        match var {
+            "x" => Some(DeepEx::<f64>::parse("1+z").unwrap()),
+            "y" => Some(DeepEx::parse("x+y").unwrap()),
+            _ => None,
+        }
+    }
+    let subst = deepex.subs(&mut sub3);
+    assert_eq!(subst.var_names().len(), 3);
+    assert!((subst.eval(&[6.0, 3.0, 2.0])? - 1.0 / 3.0).abs() < 1e-12);
     Ok(())
 }
