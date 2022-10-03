@@ -76,7 +76,7 @@ where
     fn var_names(&self) -> &[String];
 
     /// Conversion to a deep expression necessary for computations with expressions
-    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
+    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
     where
         Self: Sized,
         T: DataType,

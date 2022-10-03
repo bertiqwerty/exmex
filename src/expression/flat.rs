@@ -1,12 +1,11 @@
+use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
-use crate::operators::UnaryOp;
-
-use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::expression::{
     deep::{DeepEx, DeepNode},
     Express,
 };
+use crate::operators::UnaryOp;
 use crate::{
     format_exerr, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
     NumberMatcher,
@@ -23,14 +22,16 @@ mod detail {
     use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
     use smallvec::{smallvec, SmallVec};
+    use std::mem;
 
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
         expression::number_tracker::NumberTracker,
+        format_exerr,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
-        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator, format_exerr,
+        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator, 
     };
 
     use super::{ExprIdxVec, DEPTH_PRIO_STEP};
@@ -129,7 +130,7 @@ mod detail {
 
     pub fn convert_node<'a, T, OF, LM>(
         node: &FlatNode<T>,
-        var_names: &'a [String],
+        var_names: &[String],
         ops: &[Operator<'a, T>],
     ) -> ExResult<DeepNode<'a, T, OF, LM>>
     where
@@ -140,7 +141,7 @@ mod detail {
     {
         let deepnode = match node.kind.clone() {
             FlatNodeKind::Num(n) => DeepNode::Num(n),
-            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].as_str())),
+            FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].clone())),
         };
 
         let reprs = collect_unary_reprs(ops, &node.unary_op)?;
@@ -163,7 +164,7 @@ mod detail {
     pub fn flatex_to_deepex<'a, T, OF, LM>(
         flat_ops: &[FlatOp<T>],
         nodes: &[FlatNode<T>],
-        var_names: &'a SmallVec<[String; N_VARS_ON_STACK]>,
+        var_names: &SmallVec<[String; N_VARS_ON_STACK]>,
     ) -> Result<DeepEx<'a, T, OF, LM>, ExError>
     where
         T: DataType,
@@ -171,6 +172,7 @@ mod detail {
         LM: MatchLiteral,
         <T as FromStr>::Err: Debug,
     {
+        let dummy_node = DeepNode::Var((usize::MAX, "".to_string()));
         let operators = OF::make();
         let bin_reprs = collect_reprs::<&fn(T, T) -> T, _, _>(
             flat_ops.iter().map(|op| &op.bin_op.apply),
@@ -211,11 +213,14 @@ mod detail {
             };
 
             let deepex = DeepEx::new(
-                vec![deep_nodes[num_1_idx].clone(), deep_nodes[num_2_idx].clone()],
+                vec![
+                    mem::replace(&mut deep_nodes[num_1_idx], dummy_node.clone()),
+                    mem::replace(&mut deep_nodes[num_2_idx], dummy_node.clone()),
+                ],
                 bin_op,
                 unary_op,
             )?;
-            deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex.clone()));
+            deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex));
         }
         let final_node = deep_nodes
             .first()
@@ -230,6 +235,7 @@ mod detail {
         deepex.compile();
         Ok(deepex)
     }
+
     fn eval_flatex_tracker<T: Clone + Debug, N: NumberTracker + ?Sized>(
         numbers: &mut [T],
         ops: &[FlatOp<T>],
@@ -689,7 +695,7 @@ where
     fn var_names(&self) -> &[String] {
         &self.var_names
     }
-    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         Self: Sized,
         T: DataType,

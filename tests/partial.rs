@@ -37,12 +37,14 @@ fn test_readme_partial() -> ExResult<()> {
 
     Ok(())
 }
-
+#[cfg(feature = "partial")]
+#[cfg(test)]
+use exmex::DeepEx;
 #[cfg(feature = "partial")]
 #[test]
 fn test_partial() -> ExResult<()> {
-    fn test_flatex(
-        flatex: &FlatEx<f64>,
+    fn test_expr<'a, E: Differentiate<'a, f64>>(
+        flatex: &E,
         var_idx: usize,
         n_vars: usize,
         random_range: Range<f64>,
@@ -73,7 +75,9 @@ fn test_partial() -> ExResult<()> {
     ) -> ExResult<()> {
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::parse(sut)?;
-        test_flatex(&flatex, var_idx, n_vars, random_range, reference)
+        test_expr(&flatex, var_idx, n_vars, random_range.clone(), reference)?;
+        let deepex = DeepEx::<f64>::parse(sut)?;
+        test_expr(&deepex, var_idx, n_vars, random_range, reference)
     }
 
     let sut = "+x";
@@ -111,11 +115,11 @@ fn test_partial() -> ExResult<()> {
     let n_vars = 1;
     let reference = |x: f64| x.sin().cos() * x.cos();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
-    
+
     let sut = "{x}+sin(2.0*{y})";
     let var_idx = 1;
     let n_vars = 2;
-    let reference = |y: f64| 2.0 * (2.0*y).cos();
+    let reference = |y: f64| 2.0 * (2.0 * y).cos();
     test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
 
     let sut = "sin(x)-cos(x)+a";
@@ -126,13 +130,13 @@ fn test_partial() -> ExResult<()> {
     let flatex_1 = FlatEx::<f64>::parse(sut)?;
     let deri = flatex_1.partial(var_idx)?;
     let reference = |x: f64| -x.sin() + x.cos();
-    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
     let deri = deri.partial(var_idx)?;
     let reference = |x: f64| -x.cos() - x.sin();
-    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
     let deri = deri.partial(var_idx)?;
     let reference = |x: f64| x.sin() - x.cos();
-    test_flatex(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
 
     let sut = "sin(x)-cos(x)+tan(x)+a";
     let var_idx = 1;

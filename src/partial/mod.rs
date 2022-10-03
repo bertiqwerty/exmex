@@ -20,7 +20,7 @@ use crate::{
     format_exerr, ExError, ExResult, Express, MakeOperators, MatchLiteral, Operator,
 };
 
-fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
+pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
     if var_idx >= n_vars {
         Err(format_exerr!(
             "index {} is invalid since we have only {} vars in {}",
@@ -72,7 +72,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(&'a self, var_idx: usize) -> ExResult<Self>
+    fn partial(&self, var_idx: usize) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -110,7 +110,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_nth(&'a self, var_idx: usize, n: usize) -> ExResult<Self>
+    fn partial_nth(&self, var_idx: usize, n: usize) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -149,7 +149,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_iter<I>(&'a self, var_idxs: I) -> ExResult<Self>
+    fn partial_iter<I>(&self, var_idxs: I) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,

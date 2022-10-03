@@ -17,8 +17,8 @@ use crate::{
     format_exerr,
     operators::{UnaryOp, VecOfUnaryFuncs},
     parser::{self, Paren, ParsedToken},
-    BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
-    Operator,
+    BinOp, Differentiate, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral,
+    NumberMatcher, Operator,
 };
 
 use super::flat::ExprIdxVec;
@@ -227,7 +227,7 @@ where
             let expr = DeepEx::new(
                 vec![DeepNode::Var((
                     parser::find_var_index(name, parsed_vars),
-                    name,
+                    name.to_string(),
                 ))],
                 BinOpsWithReprs::new(),
                 UnaryOpWithReprs {
@@ -293,7 +293,7 @@ where
             ParsedToken::Var(name) => {
                 nodes.push(DeepNode::Var((
                     parser::find_var_index(name, parsed_vars),
-                    name,
+                    name.to_string(),
                 )));
                 idx_tkn += 1;
             }
@@ -346,7 +346,7 @@ where
                     match &mut e.nodes[0] {
                         DeepNode::Num(n) => *node = DeepNode::Num(n.clone()),
                         DeepNode::Var(v) => {
-                            *node = DeepNode::Var(*v);
+                            *node = DeepNode::Var(std::mem::take(v));
                         }
                         DeepNode::Expr(e_deeper) => {
                             lift_nodes(e_deeper);
@@ -462,7 +462,7 @@ where
     Expr(Box<DeepEx<'a, T, OF, LM>>),
     Num(T),
     /// The contained integer points to the index of the variable.
-    Var((usize, &'a str)),
+    Var((usize, String)),
 }
 impl<'a, T, OF, LM> DeepNode<'a, T, OF, LM>
 where
@@ -786,6 +786,9 @@ where
         self.compile();
         self
     }
+    pub fn tmp(&self) -> ExResult<Self> {
+        Ok(self.clone())
+    }
 }
 
 impl<'a, T, OF, LM> Express<'a, T> for DeepEx<'a, T, OF, LM>
@@ -854,7 +857,7 @@ where
     {
         Ok(deepex)
     }
-    fn to_deepex(&'a self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         Self: Sized,
         T: DataType,
@@ -886,4 +889,14 @@ where
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.unparse())
     }
+}
+
+#[cfg(feature = "partial")]
+impl<'a, T, OF, LM> Differentiate<'a, T> for DeepEx<'a, T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T> + Debug,
+    LM: MatchLiteral + Debug,
+    <T as FromStr>::Err: Debug,
+{
 }
