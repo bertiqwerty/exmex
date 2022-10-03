@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
-    iter,
     marker::PhantomData,
     str::FromStr,
 };
@@ -14,11 +13,11 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
+    expression::flat::ExprIdxVec,
     format_exerr,
-    operators::{UnaryOp, VecOfUnaryFuncs},
-    parser::{self, Paren, ParsedToken},
-    BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral,
-    NumberMatcher, Operator, expression::flat::ExprIdxVec
+    operators::UnaryOp,
+    BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+    Operator,
 };
 
 #[cfg(feature = "partial")]
@@ -26,333 +25,327 @@ use crate::Differentiate;
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
+mod detail {
+    use std::{fmt::Debug, iter, str::FromStr};
 
-fn operate_bin<'a, T, OF, LM>(
-    deepex1: DeepEx<'a, T, OF, LM>,
-    deepex2: DeepEx<'a, T, OF, LM>,
-    bin_op: BinOpsWithReprs<'a, T>,
-) -> DeepEx<'a, T, OF, LM>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    let (self_vars_updated, other_vars_updated) = deepex1.var_names_union(deepex2);
-    let mut resex = DeepEx::new(
-        vec![
-            DeepNode::Expr(Box::new(self_vars_updated)),
-            DeepNode::Expr(Box::new(other_vars_updated)),
-        ],
-        bin_op,
-        UnaryOpWithReprs::new(),
-    )
-    .unwrap();
-    resex.compile();
-    resex
-}
+    use num::Float;
+    use smallvec::SmallVec;
 
-fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
-where
-    T: DataType + Float,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    deepex.nodes().len() == 1
-        && match &deepex.nodes()[0] {
-            DeepNode::Num(n) => deepex.unary_op().op.apply(*n) == num,
-            DeepNode::Expr(e) => is_num(e, num),
-            _ => false,
-        }
-}
-
-pub fn prioritized_indices<T, OF, LM>(
-    bin_ops: &[BinOp<T>],
-    nodes: &[DeepNode<T, OF, LM>],
-) -> ExprIdxVec
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
-        (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
-            let prio_inc = 5;
-            &bin_ops[bin_op_idx].prio * 10 + prio_inc
-        }
-        _ => &bin_ops[bin_op_idx].prio * 10,
+    use crate::{
+        data_type::DataType,
+        definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
+        operators::{UnaryOp, VecOfUnaryFuncs},
+        parser::{self, Paren, ParsedToken},
+        DeepEx, ExError, ExResult, MakeOperators, MatchLiteral,
     };
 
-    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
-    indices.sort_by(|i1, i2| {
-        let prio_i1 = prio_increase(*i1);
-        let prio_i2 = prio_increase(*i2);
-        prio_i2.partial_cmp(&prio_i1).unwrap()
-    });
-    indices
-}
+    use super::{BinOpVec, BinOpsWithReprs, DeepNode, UnaryOpWithReprs};
 
-fn parse<'a, T, F, OF, LM>(text: &'a str, is_numeric: F) -> ExResult<DeepEx<'a, T, OF, LM>>
-where
-    T: DataType,
-    <T as FromStr>::Err: Debug,
-    F: Fn(&str) -> Option<&str>,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-{
-    let ops = OF::make();
-    let parsed_tokens = parser::tokenize_and_analyze(text, &ops, is_numeric)?;
-    parser::check_parsed_token_preconditions(&parsed_tokens)?;
-    let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
-    let (deepex, _): (DeepEx<'a, T, OF, LM>, usize) =
-        make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
-    Ok(deepex)
-}
-fn unparse_raw<T, OF, LM>(
-    nodes: &[DeepNode<T, OF, LM>],
-    bin_ops: &BinOpsWithReprs<T>,
-    unary_op: &UnaryOpWithReprs<T>,
-) -> String
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    let mut node_strings = nodes.iter().map(|n| match n {
-        DeepNode::Num(n) => format!("{:?}", n),
-        DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
-        DeepNode::Expr(e) => {
-            if e.unary_op().op.len() == 0 {
-                format!("({})", unparse_raw(e.nodes(), e.bin_ops(), e.unary_op()))
-            } else {
-                unparse_raw(e.nodes(), e.bin_ops(), e.unary_op())
+    pub fn operate_bin<'a, T, OF, LM>(
+        deepex1: DeepEx<'a, T, OF, LM>,
+        deepex2: DeepEx<'a, T, OF, LM>,
+        bin_op: BinOpsWithReprs<'a, T>,
+    ) -> DeepEx<'a, T, OF, LM>
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        let (self_vars_updated, other_vars_updated) = deepex1.var_names_union(deepex2);
+        let mut resex = DeepEx::new(
+            vec![
+                DeepNode::Expr(Box::new(self_vars_updated)),
+                DeepNode::Expr(Box::new(other_vars_updated)),
+            ],
+            bin_op,
+            super::UnaryOpWithReprs::new(),
+        )
+        .unwrap();
+        resex.compile();
+        resex
+    }
+
+    pub fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
+    where
+        T: DataType + Float,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        deepex.nodes().len() == 1
+            && match &deepex.nodes()[0] {
+                DeepNode::Num(n) => deepex.unary_op().op.apply(*n) == num,
+                DeepNode::Expr(e) => is_num(e, num),
+                _ => false,
             }
-        }
-    });
-    let mut bin_op_strings = bin_ops.reprs.iter();
-    // a valid expression has at least one node
-    let first_node_str = node_strings.next().unwrap();
-    let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
-        let bin_op_str = bin_op_strings.next().unwrap();
-        res.push_str(bin_op_str);
-        res.push_str(node_str.as_str());
-        res
-    });
-    let unary_op_string = unary_op
-        .reprs
-        .iter()
-        .fold(String::new(), |mut res, uop_str| {
-            res.push_str(uop_str);
-            res.push('(');
+    }
+
+    pub fn parse<'a, T, F, OF, LM>(text: &'a str, is_numeric: F) -> ExResult<DeepEx<'a, T, OF, LM>>
+    where
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+        F: Fn(&str) -> Option<&str>,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        let ops = OF::make();
+        let parsed_tokens = parser::tokenize_and_analyze(text, &ops, is_numeric)?;
+        parser::check_parsed_token_preconditions(&parsed_tokens)?;
+        let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
+        let (deepex, _): (DeepEx<'a, T, OF, LM>, usize) =
+            make_expression(&parsed_tokens[0..], &parsed_vars, UnaryOpWithReprs::new())?;
+        Ok(deepex)
+    }
+    pub fn unparse_raw<T, OF, LM>(
+        nodes: &[DeepNode<T, OF, LM>],
+        bin_ops: &BinOpsWithReprs<T>,
+        unary_op: &UnaryOpWithReprs<T>,
+    ) -> String
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        let mut node_strings = nodes.iter().map(|n| match n {
+            DeepNode::Num(n) => format!("{:?}", n),
+            DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
+            DeepNode::Expr(e) => {
+                if e.unary_op().op.len() == 0 {
+                    format!("({})", unparse_raw(e.nodes(), e.bin_ops(), e.unary_op()))
+                } else {
+                    unparse_raw(e.nodes(), e.bin_ops(), e.unary_op())
+                }
+            }
+        });
+        let mut bin_op_strings = bin_ops.reprs.iter();
+        // a valid expression has at least one node
+        let first_node_str = node_strings.next().unwrap();
+        let node_with_bin_ops_string = node_strings.fold(first_node_str, |mut res, node_str| {
+            let bin_op_str = bin_op_strings.next().unwrap();
+            res.push_str(bin_op_str);
+            res.push_str(node_str.as_str());
             res
         });
-    let closings =
-        iter::repeat(")")
-            .take(unary_op.op.len())
-            .fold(String::new(), |mut res, closing| {
-                res.push_str(closing);
+        let unary_op_string = unary_op
+            .reprs
+            .iter()
+            .fold(String::new(), |mut res, uop_str| {
+                res.push_str(uop_str);
+                res.push('(');
                 res
             });
-    if unary_op.op.len() == 0 {
-        node_with_bin_ops_string
-    } else {
-        format!(
-            "{}{}{}",
-            unary_op_string, node_with_bin_ops_string, closings
-        )
+        let closings =
+            iter::repeat(")")
+                .take(unary_op.op.len())
+                .fold(String::new(), |mut res, closing| {
+                    res.push_str(closing);
+                    res
+                });
+        if unary_op.op.len() == 0 {
+            node_with_bin_ops_string
+        } else {
+            format!(
+                "{}{}{}",
+                unary_op_string, node_with_bin_ops_string, closings
+            )
+        }
     }
-}
-/// Handles the case that a token is a unary operator and returns a tuple.
-/// The first element is a node that is either an expression with a unary operator or a
-/// number where the unary operator has been applied to. the second element is the number
-/// of tokens that are covered by the unary operator and its argument. Note that a unary
-/// operator can be a composition of multiple functions.
-fn process_unary<'a, T, OF, LM>(
-    token_idx: usize,
-    unary_op: fn(T) -> T,
-    repr: &'a str,
-    parsed_tokens: &[ParsedToken<'a, T>],
-    parsed_vars: &[&'a str],
-) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    // gather subsequent unary operators from the beginning
-    let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
-        (token_idx + 1..parsed_tokens.len())
-            .map(|j| match &parsed_tokens[j] {
-                ParsedToken::Op(op) => {
-                    if op.has_unary() {
-                        Some(op)
-                    } else {
-                        None
+    /// Handles the case that a token is a unary operator and returns a tuple.
+    /// The first element is a node that is either an expression with a unary operator or a
+    /// number where the unary operator has been applied to. the second element is the number
+    /// of tokens that are covered by the unary operator and its argument. Note that a unary
+    /// operator can be a composition of multiple functions.
+    pub fn process_unary<'a, T, OF, LM>(
+        token_idx: usize,
+        unary_op: fn(T) -> T,
+        repr: &'a str,
+        parsed_tokens: &[ParsedToken<'a, T>],
+        parsed_vars: &[&'a str],
+    ) -> ExResult<(DeepNode<'a, T, OF, LM>, usize)>
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        // gather subsequent unary operators from the beginning
+        let iter_of_uops = iter::once(Ok((repr, unary_op))).chain(
+            (token_idx + 1..parsed_tokens.len())
+                .map(|j| match &parsed_tokens[j] {
+                    ParsedToken::Op(op) => {
+                        if op.has_unary() {
+                            Some(op)
+                        } else {
+                            None
+                        }
                     }
-                }
-                _ => None,
-            })
-            .take_while(|op| op.is_some())
-            .map(|op| {
-                let op = op.unwrap();
-                Ok((op.repr(), op.unary()?))
-            }),
-    );
-    let vec_of_uops = iter_of_uops
-        .clone()
-        .map(|op| Ok(op?.1))
-        .collect::<ExResult<VecOfUnaryFuncs<_>>>()?;
-    let vec_of_uop_reprs = iter_of_uops
-        .clone()
-        .map(|op| Ok(op?.0))
-        .collect::<ExResult<SmallVec<_>>>()?;
-    let n_uops = vec_of_uops.len();
-    let uop = UnaryOp::from_vec(vec_of_uops);
-    match &parsed_tokens[token_idx + n_uops] {
-        ParsedToken::Paren(_) => {
-            let (expr, i_forward) = make_expression::<T, OF, LM>(
-                &parsed_tokens[token_idx + n_uops + 1..],
-                parsed_vars,
-                UnaryOpWithReprs {
-                    reprs: vec_of_uop_reprs,
-                    op: uop,
-                },
-            )?;
-            Ok((DeepNode::Expr(Box::new(expr)), i_forward + n_uops + 1))
-        }
-        ParsedToken::Var(name) => {
-            let expr = DeepEx::new(
-                vec![DeepNode::Var((
-                    parser::find_var_index(name, parsed_vars),
-                    name.to_string(),
-                ))],
-                BinOpsWithReprs::new(),
-                UnaryOpWithReprs {
-                    reprs: vec_of_uop_reprs,
-                    op: uop,
-                },
-            )?;
-            Ok((DeepNode::Expr(Box::new(expr)), n_uops + 1))
-        }
-        ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(n.clone())), n_uops + 1)),
-        _ => Err(ExError::new("Invalid parsed token configuration")),
-    }
-}
-/// Returns an expression that is created recursively and can be evaluated
-///
-/// # Arguments
-///
-/// * `parsed_tokens` - parsed tokens created with [`tokenize_and_analyze`](parse::tokenize_and_analyze)
-/// * `parsed_vars` - elements of `parsed_tokens` that are variables
-/// * `unary_ops` - unary operators of the expression to be build
-///
-/// # Errors
-///
-/// See [`parse_with_number_pattern`](parse_with_number_pattern)
-///
-fn make_expression<'a, T, OF, LM>(
-    parsed_tokens: &[ParsedToken<'a, T>],
-    parsed_vars: &[&'a str],
-    unary_ops: UnaryOpWithReprs<'a, T>,
-) -> ExResult<(DeepEx<'a, T, OF, LM>, usize)>
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    let mut bin_ops = BinOpVec::new();
-    let mut reprs_bin_ops: SmallVec<[&str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
-    let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
-    nodes.reserve(parsed_tokens.len() / 2);
-    // The main loop checks one token after the next whereby sub-expressions are
-    // handled recursively. Thereby, the token-position-index idx_tkn is increased
-    // according to the length of the sub-expression.
-    let mut idx_tkn: usize = 0;
-    while idx_tkn < parsed_tokens.len() {
-        match &parsed_tokens[idx_tkn] {
-            ParsedToken::Op(op) => {
-                if idx_tkn > 0 && parser::is_operator_binary(op, &parsed_tokens[idx_tkn - 1])? {
-                    bin_ops.push(op.bin()?);
-                    reprs_bin_ops.push(op.repr());
-                    idx_tkn += 1;
-                } else {
-                    let (node, idx_forward) =
-                        process_unary(idx_tkn, op.unary()?, op.repr(), parsed_tokens, parsed_vars)?;
-                    nodes.push(node);
-                    idx_tkn += idx_forward;
-                }
-            }
-            ParsedToken::Num(n) => {
-                nodes.push(DeepNode::Num(n.clone()));
-                idx_tkn += 1;
+                    _ => None,
+                })
+                .take_while(|op| op.is_some())
+                .map(|op| {
+                    let op = op.unwrap();
+                    Ok((op.repr(), op.unary()?))
+                }),
+        );
+        let vec_of_uops = iter_of_uops
+            .clone()
+            .map(|op| Ok(op?.1))
+            .collect::<ExResult<VecOfUnaryFuncs<_>>>()?;
+        let vec_of_uop_reprs = iter_of_uops
+            .clone()
+            .map(|op| Ok(op?.0))
+            .collect::<ExResult<SmallVec<_>>>()?;
+        let n_uops = vec_of_uops.len();
+        let uop = UnaryOp::from_vec(vec_of_uops);
+        match &parsed_tokens[token_idx + n_uops] {
+            ParsedToken::Paren(_) => {
+                let (expr, i_forward) = make_expression::<T, OF, LM>(
+                    &parsed_tokens[token_idx + n_uops + 1..],
+                    parsed_vars,
+                    UnaryOpWithReprs {
+                        reprs: vec_of_uop_reprs,
+                        op: uop,
+                    },
+                )?;
+                Ok((DeepNode::Expr(Box::new(expr)), i_forward + n_uops + 1))
             }
             ParsedToken::Var(name) => {
-                nodes.push(DeepNode::Var((
-                    parser::find_var_index(name, parsed_vars),
-                    name.to_string(),
-                )));
-                idx_tkn += 1;
+                let expr = DeepEx::new(
+                    vec![DeepNode::Var((
+                        parser::find_var_index(name, parsed_vars),
+                        name.to_string(),
+                    ))],
+                    BinOpsWithReprs::new(),
+                    UnaryOpWithReprs {
+                        reprs: vec_of_uop_reprs,
+                        op: uop,
+                    },
+                )?;
+                Ok((DeepNode::Expr(Box::new(expr)), n_uops + 1))
             }
-            ParsedToken::Paren(p) => match p {
-                Paren::Open => {
-                    idx_tkn += 1;
-                    let (expr, i_forward) = make_expression::<T, OF, LM>(
-                        &parsed_tokens[idx_tkn..],
-                        parsed_vars,
-                        UnaryOpWithReprs::new(),
-                    )?;
-                    nodes.push(DeepNode::Expr(Box::new(expr)));
-                    idx_tkn += i_forward;
-                }
-                Paren::Close => {
-                    idx_tkn += 1;
-                    break;
-                }
-            },
+            ParsedToken::Num(n) => Ok((DeepNode::Num(uop.apply(n.clone())), n_uops + 1)),
+            _ => Err(ExError::new("Invalid parsed token configuration")),
         }
     }
-    Ok((
-        DeepEx::new(
-            nodes,
-            BinOpsWithReprs {
-                reprs: reprs_bin_ops,
-                ops: bin_ops,
-            },
-            unary_ops,
-        )?,
-        idx_tkn,
-    ))
-}
-/// Correction for cases where nodes are unnecessarily wrapped in expression-nodes.
-fn lift_nodes<T, OF, LM>(deepex: &mut DeepEx<T, OF, LM>)
-where
-    T: DataType,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-{
-    if deepex.nodes().len() == 1 && deepex.unary_op().op.len() == 0 {
-        if let DeepNode::Expr(e) = &deepex.nodes()[0] {
-            *deepex = (**e).clone();
+    /// Returns an expression that is created recursively and can be evaluated
+    ///
+    /// # Arguments
+    ///
+    /// * `parsed_tokens` - parsed tokens created with [`tokenize_and_analyze`](parse::tokenize_and_analyze)
+    /// * `parsed_vars` - elements of `parsed_tokens` that are variables
+    /// * `unary_ops` - unary operators of the expression to be build
+    ///
+    /// # Errors
+    ///
+    /// See [`parse_with_number_pattern`](parse_with_number_pattern)
+    ///
+    pub fn make_expression<'a, T, OF, LM>(
+        parsed_tokens: &[ParsedToken<'a, T>],
+        parsed_vars: &[&'a str],
+        unary_ops: UnaryOpWithReprs<'a, T>,
+    ) -> ExResult<(DeepEx<'a, T, OF, LM>, usize)>
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        let mut bin_ops = BinOpVec::new();
+        let mut reprs_bin_ops: SmallVec<[&str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
+        let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
+        nodes.reserve(parsed_tokens.len() / 2);
+        // The main loop checks one token after the next whereby sub-expressions are
+        // handled recursively. Thereby, the token-position-index idx_tkn is increased
+        // according to the length of the sub-expression.
+        let mut idx_tkn: usize = 0;
+        while idx_tkn < parsed_tokens.len() {
+            match &parsed_tokens[idx_tkn] {
+                ParsedToken::Op(op) => {
+                    if idx_tkn > 0 && parser::is_operator_binary(op, &parsed_tokens[idx_tkn - 1])? {
+                        bin_ops.push(op.bin()?);
+                        reprs_bin_ops.push(op.repr());
+                        idx_tkn += 1;
+                    } else {
+                        let (node, idx_forward) = process_unary(
+                            idx_tkn,
+                            op.unary()?,
+                            op.repr(),
+                            parsed_tokens,
+                            parsed_vars,
+                        )?;
+                        nodes.push(node);
+                        idx_tkn += idx_forward;
+                    }
+                }
+                ParsedToken::Num(n) => {
+                    nodes.push(DeepNode::Num(n.clone()));
+                    idx_tkn += 1;
+                }
+                ParsedToken::Var(name) => {
+                    nodes.push(DeepNode::Var((
+                        parser::find_var_index(name, parsed_vars),
+                        name.to_string(),
+                    )));
+                    idx_tkn += 1;
+                }
+                ParsedToken::Paren(p) => match p {
+                    Paren::Open => {
+                        idx_tkn += 1;
+                        let (expr, i_forward) = make_expression::<T, OF, LM>(
+                            &parsed_tokens[idx_tkn..],
+                            parsed_vars,
+                            UnaryOpWithReprs::new(),
+                        )?;
+                        nodes.push(DeepNode::Expr(Box::new(expr)));
+                        idx_tkn += i_forward;
+                    }
+                    Paren::Close => {
+                        idx_tkn += 1;
+                        break;
+                    }
+                },
+            }
         }
-    } else {
-        for node in &mut deepex.nodes {
-            if let DeepNode::Expr(e) = node {
-                if e.nodes.len() == 1 && e.unary_op.op.len() == 0 {
-                    match &mut e.nodes[0] {
-                        DeepNode::Num(n) => *node = DeepNode::Num(n.clone()),
-                        DeepNode::Var(v) => {
-                            *node = DeepNode::Var(std::mem::take(v));
-                        }
-                        DeepNode::Expr(e_deeper) => {
-                            lift_nodes(e_deeper);
-                            if e_deeper.nodes.len() == 1 && e_deeper.unary_op.op.len() == 0 {
-                                *node = DeepNode::Expr(e_deeper.clone());
+        Ok((
+            DeepEx::new(
+                nodes,
+                BinOpsWithReprs {
+                    reprs: reprs_bin_ops,
+                    ops: bin_ops,
+                },
+                unary_ops,
+            )?,
+            idx_tkn,
+        ))
+    }
+    /// Correction for cases where nodes are unnecessarily wrapped in expression-nodes.
+    pub fn lift_nodes<T, OF, LM>(deepex: &mut DeepEx<T, OF, LM>)
+    where
+        T: DataType,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+    {
+        if deepex.nodes().len() == 1 && deepex.unary_op().op.len() == 0 {
+            if let DeepNode::Expr(e) = &deepex.nodes()[0] {
+                *deepex = (**e).clone();
+            }
+        } else {
+            for node in &mut deepex.nodes {
+                if let DeepNode::Expr(e) = node {
+                    if e.nodes.len() == 1 && e.unary_op.op.len() == 0 {
+                        match &mut e.nodes[0] {
+                            DeepNode::Num(n) => *node = DeepNode::Num(n.clone()),
+                            DeepNode::Var(v) => {
+                                *node = DeepNode::Var(std::mem::take(v));
+                            }
+                            DeepNode::Expr(e_deeper) => {
+                                lift_nodes(e_deeper);
+                                if e_deeper.nodes.len() == 1 && e_deeper.unary_op.op.len() == 0 {
+                                    *node = DeepNode::Expr(e_deeper.clone());
+                                }
                             }
                         }
                     }
@@ -389,6 +382,33 @@ pub fn find_unary_op<'a, T: Clone + Debug>(
         reprs: smallvec::smallvec![op.repr()],
         op: UnaryOp::from_vec(smallvec::smallvec![op.unary()?]),
     })
+}
+
+pub fn prioritized_indices<T, OF, LM>(
+    bin_ops: &[BinOp<T>],
+    nodes: &[DeepNode<T, OF, LM>],
+) -> ExprIdxVec
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    let prio_increase = |bin_op_idx: usize| match (&nodes[bin_op_idx], &nodes[bin_op_idx + 1]) {
+        (DeepNode::Num(_), DeepNode::Num(_)) if bin_ops[bin_op_idx].is_commutative => {
+            let prio_inc = 5;
+            &bin_ops[bin_op_idx].prio * 10 + prio_inc
+        }
+        _ => &bin_ops[bin_op_idx].prio * 10,
+    };
+
+    let mut indices: ExprIdxVec = (0..bin_ops.len()).collect();
+    indices.sort_by(|i1, i2| {
+        let prio_i1 = prio_increase(*i1);
+        let prio_i2 = prio_increase(*i2);
+        prio_i2.partial_cmp(&prio_i1).unwrap()
+    });
+    indices
 }
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct BinOpsWithReprs<'a, T: Clone> {
@@ -535,7 +555,7 @@ where
 
     /// Compiles expression, needed for partial differentation.
     pub fn compile(&mut self) {
-        lift_nodes(self);
+        detail::lift_nodes(self);
 
         let prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
         let mut num_inds = prio_indices.clone();
@@ -590,7 +610,7 @@ where
                 self.unary_op.reprs.clear();
             }
         }
-        self.text = unparse_raw(self.nodes(), self.bin_ops(), self.unary_op());
+        self.text = detail::unparse_raw(self.nodes(), self.bin_ops(), self.unary_op());
     }
 
     pub fn new(
@@ -641,7 +661,7 @@ where
                 dummy_literal_matcher_factory: PhantomData,
             };
             expr.compile();
-            expr.text = unparse_raw(expr.nodes(), expr.bin_ops(), expr.unary_op());
+            expr.text = detail::unparse_raw(expr.nodes(), expr.bin_ops(), expr.unary_op());
             Ok(expr)
         }
     }
@@ -703,7 +723,7 @@ where
     where
         T: Float,
     {
-        is_num(self, num)
+        detail::is_num(self, num)
     }
 
     pub fn is_one(&self) -> bool
@@ -765,12 +785,12 @@ where
     pub fn operate_bin_repr(self, other: Self, bin_op_repr: &'a str) -> ExResult<Self> {
         let ops = OF::make();
         let bin_op = find_bin_op(bin_op_repr, &ops)?;
-        Ok(operate_bin(self, other, bin_op))
+        Ok(detail::operate_bin(self, other, bin_op))
     }
 
     /// Applies a binary operator to self and other
     pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
-        operate_bin(self, other, bin_op)
+        detail::operate_bin(self, other, bin_op)
     }
 
     /// Applies a unary operator to self
@@ -873,7 +893,7 @@ where
     where
         Self: Sized,
     {
-        parse(text, LM::is_literal)
+        detail::parse(text, LM::is_literal)
     }
 }
 
