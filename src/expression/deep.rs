@@ -20,6 +20,7 @@ use crate::{
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
     Operator,
 };
+use crate::parser::LatinGreek;
 
 use super::flat::ExprIdxVec;
 
@@ -102,7 +103,7 @@ where
     LM: MatchLiteral,
 {
     let ops = OF::make();
-    let parsed_tokens = parser::tokenize_and_analyze(text, &ops, is_numeric)?;
+    let parsed_tokens = parser::tokenize_and_analyze::<_, _, LatinGreek>(text, &ops, is_numeric)?;
     parser::check_parsed_token_preconditions(&parsed_tokens)?;
     let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
     let (deepex, _): (DeepEx<'a, T, OF, LM>, usize) =
