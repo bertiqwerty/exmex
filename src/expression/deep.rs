@@ -17,11 +17,12 @@ use crate::{
     format_exerr,
     operators::{UnaryOp, VecOfUnaryFuncs},
     parser::{self, Paren, ParsedToken},
-    BinOp, Differentiate, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral,
-    NumberMatcher, Operator,
+    BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral,
+    NumberMatcher, Operator, expression::flat::ExprIdxVec
 };
 
-use super::flat::ExprIdxVec;
+#[cfg(feature = "partial")]
+use crate::Differentiate;
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
