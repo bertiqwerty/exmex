@@ -918,3 +918,177 @@ where
     <T as FromStr>::Err: Debug,
 {
 }
+
+#[cfg(test)]
+use crate::{operators::VecOfUnaryFuncs, util::assert_float_eq_f64, FlatEx};
+#[test]
+fn test_reset_vars() {
+    let deepex = DeepEx::<f64>::parse("2*z+x+y * .5").unwrap();
+    let ref_vars = ["x", "y", "z"];
+    for (i, rv) in ref_vars.iter().enumerate() {
+        assert_eq!(deepex.var_names()[i], *rv);
+    }
+    let deepex2 = DeepEx::parse("a*c*b").unwrap();
+    let ref_vars = ["a", "b", "c"];
+    for (i, rv) in ref_vars.iter().enumerate() {
+        assert_eq!(deepex2.var_names()[i], *rv);
+    }
+    let (deepex_, deepex2_) = deepex.clone().var_names_union(deepex2.clone());
+    let all_vars = ["a", "b", "c", "x", "y", "z"];
+    for (i, av) in all_vars.iter().enumerate() {
+        assert_eq!(deepex_.var_names()[i], *av);
+        assert_eq!(deepex2_.var_names()[i], *av);
+    }
+    assert_eq!(deepex.unparse(), deepex_.unparse());
+    assert_eq!(deepex2.unparse(), deepex2_.unparse());
+}
+
+#[test]
+fn test_var_name_union() -> ExResult<()> {
+    fn test(str_1: &str, str_2: &str, var_names: &[&str]) -> ExResult<()> {
+        let first = DeepEx::<f64>::parse(str_1)?;
+        let second = DeepEx::<f64>::parse(str_2)?;
+        let (first, second) = first.var_names_union(second);
+
+        assert_eq!(first.var_names().len(), var_names.len());
+        assert_eq!(second.var_names().len(), var_names.len());
+        for vn in first.var_names() {
+            assert!(var_names.contains(&vn.as_str()));
+        }
+        for vn in second.var_names() {
+            assert!(var_names.contains(&vn.as_str()));
+        }
+        Ok(())
+    }
+
+    test("x", "y", &["x", "y"])?;
+    test("x+y*z", "z+y", &["x", "y", "z"])?;
+    Ok(())
+}
+
+#[test]
+fn test_var_names() {
+    let deepex = DeepEx::<f64>::parse("x+y+{x}+z*(-y)").unwrap();
+    assert_eq!(deepex.var_names()[0], "x");
+    assert_eq!(deepex.var_names()[1], "y");
+    assert_eq!(deepex.var_names()[2], "z");
+}
+
+#[test]
+fn test_deep_compile() {
+    let ops = FloatOpsFactory::<f64>::make();
+    let nodes = vec![
+        DeepNode::<f64>::Num(4.5),
+        DeepNode::Num(0.5),
+        DeepNode::Num(1.4),
+    ];
+    let bin_ops = BinOpsWithReprs {
+        reprs: smallvec::smallvec![ops[1].repr(), ops[3].repr()],
+        ops: smallvec::smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
+    };
+    let unary_op = UnaryOpWithReprs {
+        reprs: smallvec::smallvec![ops[6].repr()],
+        op: UnaryOp::from_vec(smallvec::smallvec![ops[6].unary().unwrap()]),
+    };
+    let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
+
+    let bin_ops = BinOpsWithReprs {
+        reprs: smallvec::smallvec![ops[1].repr(), ops[3].repr()],
+        ops: smallvec::smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
+    };
+    let unary_op = UnaryOpWithReprs {
+        reprs: smallvec::smallvec![ops[6].repr()],
+        op: UnaryOp::from_vec(smallvec::smallvec![ops[6].unary().unwrap()]),
+    };
+    let nodes = vec![
+        DeepNode::Num(4.5),
+        DeepNode::Num(0.5),
+        DeepNode::Expr(Box::new(deep_ex)),
+    ];
+    let deepex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
+    assert_eq!(deepex.nodes().len(), 1);
+    match deepex.nodes()[0] {
+        DeepNode::Num(n) => assert_float_eq_f64(deepex.unary_op().op.apply(n), n),
+        _ => {
+            unreachable!();
+        }
+    }
+}
+
+#[test]
+fn test_deep_lift_node() {
+    let deepex =
+        DeepEx::<f64>::parse("(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))").unwrap();
+    println!("{}", deepex);
+    assert_eq!(
+        format!("{}", deepex),
+        "(({x}^2.0)*(({x}^1.0)*2.0))+((({x}^1.0)*2.0)*({x}^2.0))"
+    );
+
+    let deepex = DeepEx::<f64>::parse("(((a+x^2*x^2)))").unwrap();
+    println!("{}", deepex);
+    assert_eq!(format!("{}", deepex), "{a}+{x}^2.0*{x}^2.0");
+}
+
+#[test]
+fn test_deep_compile_2() {
+    let expr = DeepEx::<f64>::parse("1.0 * 3 * 2 * x / 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
+    let expr = DeepEx::<f64>::parse(
+        "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
+    )
+    .unwrap();
+    assert_eq!(
+        "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
+        expr.unparse()
+    );
+    let expr = DeepEx::<f64>::parse("x + 1 - 2").unwrap();
+    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
+    let expr = DeepEx::<f64>::parse("x - 1 + 2").unwrap();
+    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
+    let expr = DeepEx::<f64>::parse("x * 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
+    let expr = DeepEx::<f64>::parse("x / 2 / 3").unwrap();
+    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
+}
+
+#[test]
+fn test_operate_unary() -> ExResult<()> {
+    let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
+    let deepex = DeepEx::<f64>::parse(lstr)?;
+    let mut funcs = VecOfUnaryFuncs::new();
+    funcs.push(|x: f64| x * 1.23456);
+    let deepex = deepex.operate_unary(UnaryOpWithReprs {
+        reprs: smallvec::smallvec!["eagle"],
+        op: UnaryOp::from_vec(funcs),
+    });
+    assert_float_eq_f64(deepex.eval(&[1.0, 1.75, 2.25])?, -0.23148000000000002 * 8.0);
+    Ok(())
+}
+
+#[test]
+fn test_unparse() -> ExResult<()> {
+    fn test(text: &str, text_ref: &str) -> ExResult<()> {
+        let flatex = FlatEx::<f64>::parse(text)?;
+        assert_eq!(flatex.unparse(), text);
+        let deepex = DeepEx::<f64>::parse(text)?;
+        assert_eq!(deepex.unparse(), text_ref);
+        Ok(())
+    }
+    let text = "sin(5+var)^(1/{y})+{var}";
+    let text_ref = "sin(5.0+{var})^(1.0/{y})+{var}";
+    test(text, text_ref)?;
+    let text = "-(5+var)^(1/{y})+{var}";
+    let text_ref = "-(5.0+{var})^(1.0/{y})+{var}";
+    test(text, text_ref)?;
+    let text = "cos(sin(-(5+var)^(1/{y})))+{var}";
+    let text_ref = "cos(sin(-(5.0+{var})^(1.0/{y})))+{var}";
+    test(text, text_ref)?;
+    let text = "cos(sin(-5+var^(1/{y})))-{var}";
+    let text_ref = "cos(sin(-5.0+{var}^(1.0/{y})))-{var}";
+    test(text, text_ref)?;
+    let text = "cos(sin(-z+var*(1/{y})))+{var}";
+    let text_ref = "cos(sin(-({z})+{var}*(1.0/{y})))+{var}";
+    test(text, text_ref)?;
+    Ok(())
+}
