@@ -27,6 +27,7 @@ mod detail {
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
+    use crate::parser::LatinGreek;
 
     use super::{ExprIdxVec, DEPTH_PRIO_STEP};
 
@@ -359,7 +360,7 @@ mod detail {
         OF: MakeOperators<T>,
         LMF: MatchLiteral,
     {
-        let parsed_tokens = parser::tokenize_and_analyze(text, ops, LMF::is_literal)?;
+        let parsed_tokens = parser::tokenize_and_analyze::<_, _, LatinGreek>(text, ops, LMF::is_literal)?;
         parser::check_parsed_token_preconditions(&parsed_tokens)?;
         let parsed_vars = parser::find_parsed_vars(&parsed_tokens);
         make_expression(text, &parsed_tokens[0..], &parsed_vars)

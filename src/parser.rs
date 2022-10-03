@@ -2,8 +2,6 @@ use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::format_exerr;
 use crate::{operators::Operator, ExError, ExResult};
-use lazy_static::lazy_static;
-use regex::Regex;
 use smallvec::SmallVec;
 use std::fmt::Debug;
 
@@ -164,7 +162,7 @@ impl VarName for LatinGreek {
 ///
 /// See [`parse_with_number_pattern`](parse_with_number_pattern)
 ///
-pub fn tokenize_and_analyze<'a, T, F>(
+pub fn tokenize_and_analyze<'a, T, F, N>(
     text: &'a str,
     ops_in: &[Operator<'a, T>],
     is_numeric: F,
@@ -173,20 +171,12 @@ where
     <T as std::str::FromStr>::Err: Debug,
     T: DataType,
     F: Fn(&'a str) -> Option<&'a str>,
+    N: VarName,
 {
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
     let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_unstable_by(|o1, o2| o2.repr().partial_cmp(o1.repr()).unwrap());
     let ops = ops_tmp.to_vec(); // from now on const
-
-    lazy_static! {
-        static ref RE_VAR_NAME: Regex =
-            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap();
-    }
-    lazy_static! {
-        static ref RE_VAR_NAME_EXACT: Regex =
-            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
-    }
 
     let find_ops = |byte_offset: usize| {
         ops.iter().find(|op| {
@@ -195,7 +185,7 @@ where
                 op.repr() == maybe_op
                     && (op.has_bin()
                         || range_end >= text.len()
-                        || !RE_VAR_NAME_EXACT.is_match(
+                        || !N::is_exact_variable_name(
                             &text[byte_offset..range_end + next_char_boundary(text, range_end)],
                         ))
             } else {
@@ -239,8 +229,7 @@ where
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op((*op).clone()),
                 }
-            } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
-                let var_str = var_str.as_str();
+            } else if let Some((var_str, _)) = N::try_parse(text_rest) {
                 let n_bytes = var_str.len();
                 cur_byte_offset += n_bytes;
                 ParsedToken::<T>::Var(var_str)
@@ -467,7 +456,7 @@ fn test_preconditions() {
         }
 
         let ops = FloatOpsFactory::<f32>::make();
-        let elts = tokenize_and_analyze(text, &ops, is_numeric_text);
+        let elts = tokenize_and_analyze::<_, _, LatinGreek>(text, &ops, is_numeric_text);
         println!("{:?}", elts);
         match elts {
             Err(e) => check_err_msg::<Vec<ParsedToken<f32>>>(Err(e), msg_part),
