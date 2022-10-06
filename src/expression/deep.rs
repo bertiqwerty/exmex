@@ -621,7 +621,7 @@ where
         bin_ops: BinOpsWithReprs<'a, T>,
         unary_op: UnaryOpWithReprs<'a, T>,
     ) -> ExResult<Self> {
-        if nodes.len() == 0 && bin_ops.ops.len() == 0 && unary_op.reprs.len() == 0 {
+        if nodes.len() + bin_ops.ops.len() + unary_op.reprs.len() == 0 {
             return Ok(Self {
                 nodes,
                 bin_ops,
