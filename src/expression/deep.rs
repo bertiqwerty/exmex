@@ -5,7 +5,7 @@ use std::{
 };
 
 use num::Float;
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
     data_type::DataType,
@@ -582,6 +582,9 @@ where
                         }
                     }
                     used_prio_indices.push(bin_op_idx);
+                } else {
+                    already_declined[num_idx] = true;
+                    already_declined[num_idx + 1] = true;
                 }
             } else {
                 already_declined[num_idx] = true;
@@ -617,7 +620,18 @@ where
         nodes: Vec<DeepNode<'a, T, OF, LM>>,
         bin_ops: BinOpsWithReprs<'a, T>,
         unary_op: UnaryOpWithReprs<'a, T>,
-    ) -> ExResult<DeepEx<'a, T, OF, LM>> {
+    ) -> ExResult<Self> {
+        if nodes.len() == 0 && bin_ops.ops.len() == 0 && unary_op.reprs.len() == 0 {
+            return Ok(Self {
+                nodes,
+                bin_ops,
+                unary_op,
+                var_names: smallvec![],
+                text: "".to_string(),
+                dummy_literal_matcher_factory: PhantomData {},
+                dummy_ops_factory: PhantomData {},
+            });
+        }
         if nodes.len() != bin_ops.ops.len() + 1 {
             Err(format_exerr!(
                 "mismatch between number of nodes {:?} and binary operators {:?} ({} vs {})",
@@ -1157,7 +1171,8 @@ fn test_subs() -> ExResult<()> {
     let one_plus_one = deepex.subs(&mut sub1);
     assert!((one_plus_one.eval(&[])? - 2.0).abs() < 1e-12);
     assert_eq!(one_plus_one.var_names().len(), 0);
-    
+    assert_eq!("2.0", one_plus_one.unparse());
+
     let deepex = DeepEx::<f64>::parse("x+y")?;
     fn sub2<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
         match var {
@@ -1169,7 +1184,8 @@ fn test_subs() -> ExResult<()> {
     let subst = deepex.subs(&mut sub2);
     assert!((subst.eval(&[2.0])? - 3.0).abs() < 1e-12);
     assert_eq!(subst.var_names().len(), 1);
-    
+    assert_eq!("1.0+{y}", subst.unparse());
+
     let deepex = DeepEx::<f64>::parse("x/y")?;
     fn sub3<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
         match var {
@@ -1181,5 +1197,20 @@ fn test_subs() -> ExResult<()> {
     let subst = deepex.subs(&mut sub3);
     assert_eq!(subst.var_names().len(), 3);
     assert!((subst.eval(&[6.0, 3.0, 2.0])? - 1.0 / 3.0).abs() < 1e-12);
+    assert_eq!("(1.0+{z})/({x}+{y})", subst.unparse());
+
+    let deepex = DeepEx::<f64>::parse("x/y/z")?;
+    fn sub4<'a>(var: &str) -> Option<DeepEx<'a, f64>> {
+        match var {
+            "x" => Some(DeepEx::<f64>::parse("1+z").unwrap()),
+            "y" => Some(DeepEx::parse("x+y").unwrap()),
+            _ => None,
+        }
+    }
+    let subst = deepex.subs(&mut sub4);
+    assert_eq!(subst.var_names().len(), 3);
+    assert!((subst.eval(&[6.0, 3.0, 2.0])? - 1.0 / 6.0).abs() < 1e-12);
+    assert_eq!("(1.0+{z})/({x}+{y})/{z}", subst.unparse());
+
     Ok(())
 }

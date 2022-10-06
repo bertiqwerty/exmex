@@ -65,11 +65,33 @@ fn test_expr() -> ExResult<()> {
         inner_test(&flatex.to_deepex()?, vars, reference, false)?;
         let deepex = DeepEx::<f64>::parse(sut)?;
         inner_test(&deepex, vars, reference, false)?;
+        for (vidx, vn) in deepex.var_names().iter().enumerate() {
+            let sub_num = 3.7;
+            fn sub<'a>(v: &str, vn_: &str, x: f64) -> Option<DeepEx<'a, f64>> {
+                if v == vn_ {
+                    Some(DeepEx::from_num(x))
+                } else {
+                    None
+                }
+            }
+            let mut sub_closure = |v: &str| sub(v, vn, sub_num);
+            let subs = deepex.clone().subs(&mut sub_closure);
+            let vars_for_subs = vars
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != vidx)
+                .map(|(_, x)| *x)
+                .collect::<Vec<_>>();
+            let mut vars_substituted = vars.iter().map(|x| *x).collect::<Vec<_>>();
+            vars_substituted[vidx] = sub_num;
+            assert!((subs.eval(&vars_for_subs)? - deepex.eval(&vars_substituted)?).abs() < 1e-12);
+        }
         inner_test(&FlatEx::from_deepex(deepex)?, vars, reference, true)?;
         Ok(())
     }
     test("sin(1)", &[], 1.0f64.sin())?;
     test("2*3^2", &[], 2.0 * 3.0f64.powi(2))?;
+    test("(3.7)-2.0*1.0/{x}", &[1.5], 3.7 - 2.0 / 1.5)?;
     test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0)?;
     test("sin(-(0.7))", &[], (-0.7f64).sin())?;
     test("sin(-0.7)", &[], (-0.7f64).sin())?;
@@ -97,30 +119,36 @@ fn test_expr() -> ExResult<()> {
         &[1.2, 1.0],
         8.040556934857268,
     )?;
-    // test(
-    //     "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
-    //     &[1.5, 0.2532],
-    //     -3.1164569260604176,
-    // )?;
-    // test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
-    // test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
-    // &[1.0, 2.0, 3.0], 20.872570916580237)?;
-    // test("sin(-(1.0))", &[], -0.8414709848078965)?;
-    // test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
-    // test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
-    // test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
-    // test(
-    //     "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
-    //     &[1.0, 2.0, 3.0],
-    //     0.01661860154948708,
-    // )?;
-
-    let n_vars = 65;
-    let s = (0..n_vars)
-        .map(|i| format!("{{{}}}", i.to_string()))
-        .collect::<Vec<_>>()
-        .join("+");
-    test(s.as_str(), &vec![1.0; n_vars], n_vars as f64)?;
+    test("y-2*1/x", &[1.5, 0.2532], -1.0801333333333334)?;
+    test(
+        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(3.7-1/(y-2*1/cos(sin(x*y))))))*x)",
+        &[1.5, 0.2532],
+        0.3102594604194633,
+    )?;
+    test(
+        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
+        &[1.5, 0.2532],
+        -3.1164569260604176,
+    )?;
+       test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
+       test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
+       &[1.0, 2.0, 3.0], 20.872570916580237)?;
+       test("sin(-(1.0))", &[], -0.8414709848078965)?;
+       test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
+       test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
+       test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
+       test(
+           "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
+           &[1.0, 2.0, 3.0],
+           0.01661860154948708,
+       )?;
+    
+       let n_vars = 65;
+       let s = (0..n_vars)
+           .map(|i| format!("{{{}}}", i.to_string()))
+           .collect::<Vec<_>>()
+           .join("+");
+       test(s.as_str(), &vec![1.0; n_vars], n_vars as f64)?;
     Ok(())
 }
 
