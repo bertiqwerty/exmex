@@ -558,7 +558,14 @@ where
         detail::lift_nodes(self);
 
         let prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
+
         let mut num_inds = prio_indices.clone();
+        let mut priorities = self
+            .bin_ops
+            .ops
+            .iter()
+            .map(|o| o.prio)
+            .collect::<SmallVec<[i64; N_NODES_ON_STACK]>>();
         let mut used_prio_indices = ExprIdxVec::new();
 
         let mut already_declined: SmallVec<[bool; N_NODES_ON_STACK]> =
@@ -575,6 +582,7 @@ where
                     self.nodes[num_idx] = DeepNode::Num(bin_op_result);
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);
+                    priorities.remove(num_idx);
                     // reduce indices after removed position
                     for num_idx_after in num_inds.iter_mut() {
                         if *num_idx_after > num_idx {
@@ -582,9 +590,15 @@ where
                         }
                     }
                     used_prio_indices.push(bin_op_idx);
-                } else {
-                    already_declined[num_idx] = true;
-                    already_declined[num_idx + 1] = true;
+                } else if num_idx > 0 && num_idx < priorities.len() - 1 {
+                    if already_declined[num_idx + 1]
+                        && priorities[num_idx + 1] > priorities[num_idx]
+                    {
+                        already_declined[num_idx] = true;
+                    }
+                    if already_declined[num_idx] && priorities[num_idx] > priorities[num_idx + 1] {
+                        already_declined[num_idx + 1] = true;
+                    }
                 }
             } else {
                 already_declined[num_idx] = true;
@@ -1096,25 +1110,27 @@ fn test_deep_lift_node() {
 }
 
 #[test]
-fn test_deep_compile_2() {
+fn test_deep_compile_2() -> ExResult<()> {
+    let expr = DeepEx::<f64>::parse("x*8+2+3+7*y")?;
+    assert_eq!("{x}*8.0+5.0+7.0*{y}", expr.unparse());
     let expr = DeepEx::<f64>::parse("1.0 * 3 * 2 * x / 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 2.0);
+    assert_float_eq_f64(expr.eval(&[2.0])?, 2.0);
     let expr = DeepEx::<f64>::parse(
         "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+2+3+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
-    )
-    .unwrap();
+    )?;
     assert_eq!(
         "{x}*0.25+{x}*8.0+5.0+7.0*sin({y})-{z}/sin(1.5/(1.0-{x}*4.0))",
         expr.unparse()
     );
-    let expr = DeepEx::<f64>::parse("x + 1 - 2").unwrap();
-    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), -1.0);
-    let expr = DeepEx::<f64>::parse("x - 1 + 2").unwrap();
-    assert_float_eq_f64(expr.eval(&[0.0]).unwrap(), 1.0);
-    let expr = DeepEx::<f64>::parse("x * 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 4.0 / 3.0);
-    let expr = DeepEx::<f64>::parse("x / 2 / 3").unwrap();
-    assert_float_eq_f64(expr.eval(&[2.0]).unwrap(), 1.0 / 3.0);
+    let expr = DeepEx::<f64>::parse("x + 1 - 2")?;
+    assert_float_eq_f64(expr.eval(&[0.0])?, -1.0);
+    let expr = DeepEx::<f64>::parse("x - 1 + 2")?;
+    assert_float_eq_f64(expr.eval(&[0.0])?, 1.0);
+    let expr = DeepEx::<f64>::parse("x * 2 / 3")?;
+    assert_float_eq_f64(expr.eval(&[2.0])?, 4.0 / 3.0);
+    let expr = DeepEx::<f64>::parse("x / 2 / 3")?;
+    assert_float_eq_f64(expr.eval(&[2.0])?, 1.0 / 3.0);
+    Ok(())
 }
 
 #[test]
