@@ -179,37 +179,45 @@ fn test_partial() -> ExResult<()> {
 #[cfg(feature = "partial")]
 #[test]
 fn test_partial_finite() -> ExResult<()> {
-    fn test<'a>(sut: &str, range: Range<f64>) -> ExResult<()> {
-        let flatex = exmex::parse::<f64>(sut)?;
-        let n_vars = flatex.var_names().len();
-        let step = 1e-5;
-        let mut rng = thread_rng();
+    fn test(sut: &str, range: Range<f64>) -> ExResult<()> {
+        fn inner_test<'a, E: Differentiate<'a, f64>>(flatex: &E, range: Range<f64>) -> ExResult<()> {
+            let n_vars = flatex.var_names().len();
+            let step = 1e-5;
+            let mut rng = thread_rng();
 
-        let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
-        println!(
-            "\n\n ---- test_partial_finite -\n checking derivatives at {:?} for {}",
-            x0s, sut
-        );
-        for var_idx in 0..flatex.var_names().len() {
-            let x1s: Vec<f64> = x0s
-                .iter()
-                .enumerate()
-                .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
-                .collect();
+            let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
+            for var_idx in 0..flatex.var_names().len() {
+                let x1s: Vec<f64> = x0s
+                    .iter()
+                    .enumerate()
+                    .map(|(i, x0)| if i == var_idx { x0 + step } else { *x0 })
+                    .collect();
 
-            let f0 = flatex.eval(&x0s)?;
-            let f1 = flatex.eval(&x1s)?;
-            let finite_diff = (f1 - f0) / step;
-            let deri = flatex.clone().partial(var_idx)?;
-            let deri_val = deri.eval(&x0s)?;
-            println!(
-                "test_partial_finite -\n {} (derivative)\n {} (finite diff)",
-                deri_val, finite_diff
-            );
-            let msg = format!("sut {}, d_{} is {}", sut, var_idx, deri);
-            println!("test_partial_finite - {}", msg);
-            utils::assert_float_eq::<f64>(deri_val, finite_diff, 1e-5, 1e-3, msg.as_str());
+                let f0 = flatex.eval(&x0s)?;
+                let f1 = flatex.eval(&x1s)?;
+                let finite_diff = (f1 - f0) / step;
+                let deri = flatex.clone().partial(var_idx)?;
+                let deri_val = deri.eval(&x0s)?;
+                utils::assert_float_eq::<f64>(deri_val, finite_diff, 1e-5, 1e-3, "finite diff error");
+            }
+            Ok(())
         }
+        let flatex = exmex::parse::<f64>(sut)?;
+        inner_test(&flatex, range.clone())?;
+        let deepex = exmex::DeepEx::<f64>::parse(sut)?;
+        inner_test(&deepex, range.clone())?;
+        let vn0 = deepex.var_names()[0].clone();
+        let mut sub = |vn: &str| {
+            if vn0 == vn {
+                Some(DeepEx::<f64>::parse("x* 0.1 +0.3 * y+z* 0.1").unwrap())
+            } else {
+                None
+            }
+        };
+        let deepex = deepex.subs(&mut sub);
+        inner_test(&deepex, range.clone())?;
+        let flatex = FlatEx::from_deepex(deepex)?;
+        inner_test(&flatex, range)?;
         Ok(())
     }
     test("sqrt(x)", 0.0..10000.0)?;

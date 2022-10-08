@@ -65,11 +65,33 @@ fn test_expr() -> ExResult<()> {
         inner_test(&flatex.to_deepex()?, vars, reference, false)?;
         let deepex = DeepEx::<f64>::parse(sut)?;
         inner_test(&deepex, vars, reference, false)?;
+        for (vidx, vn) in deepex.var_names().iter().enumerate() {
+            let sub_num = 3.7;
+            fn sub<'a>(v: &str, vn_: &str, x: f64) -> Option<DeepEx<'a, f64>> {
+                if v == vn_ {
+                    Some(DeepEx::from_num(x))
+                } else {
+                    None
+                }
+            }
+            let mut sub_closure = |v: &str| sub(v, vn, sub_num);
+            let subs = deepex.clone().subs(&mut sub_closure);
+            let vars_for_subs = vars
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| *i != vidx)
+                .map(|(_, x)| *x)
+                .collect::<Vec<_>>();
+            let mut vars_substituted = vars.iter().map(|x| *x).collect::<Vec<_>>();
+            vars_substituted[vidx] = sub_num;
+            assert!((subs.eval(&vars_for_subs)? - deepex.eval(&vars_substituted)?).abs() < 1e-12);
+        }
         inner_test(&FlatEx::from_deepex(deepex)?, vars, reference, true)?;
         Ok(())
     }
     test("sin(1)", &[], 1.0f64.sin())?;
     test("2*3^2", &[], 2.0 * 3.0f64.powi(2))?;
+    test("(3.7)-2.0*1.0/{x}", &[1.5], 3.7 - 2.0 / 1.5)?;
     test("sin(-(sin(2)))*2", &[], (-(2f64.sin())).sin() * 2.0)?;
     test("sin(-(0.7))", &[], (-0.7f64).sin())?;
     test("sin(-0.7)", &[], (-0.7f64).sin())?;
@@ -97,23 +119,29 @@ fn test_expr() -> ExResult<()> {
         &[1.2, 1.0],
         8.040556934857268,
     )?;
-    // test(
-    //     "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
-    //     &[1.5, 0.2532],
-    //     -3.1164569260604176,
-    // )?;
-    // test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
-    // test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
-    // &[1.0, 2.0, 3.0], 20.872570916580237)?;
-    // test("sin(-(1.0))", &[], -0.8414709848078965)?;
-    // test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
-    // test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
-    // test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
-    // test(
-    //     "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
-    //     &[1.0, 2.0, 3.0],
-    //     0.01661860154948708,
-    // )?;
+    test("y-2*1/x", &[1.5, 0.2532], -1.0801333333333334)?;
+    test(
+        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(3.7-1/(y-2*1/cos(sin(x*y))))))*x)",
+        &[1.5, 0.2532],
+        0.3102594604194633,
+    )?;
+    test(
+        "5*sin(x * (4-y^(2-x) * 3 * cos(x-2*(y-1/(y-2*1/cos(sin(x*y))))))*x)",
+        &[1.5, 0.2532],
+        -3.1164569260604176,
+    )?;
+    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
+    test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
+       &[1.0, 2.0, 3.0], 20.872570916580237)?;
+    test("sin(-(1.0))", &[], -0.8414709848078965)?;
+    test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
+    test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
+    test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
+    test(
+        "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
+        &[1.0, 2.0, 3.0],
+        0.01661860154948708,
+    )?;
 
     let n_vars = 65;
     let s = (0..n_vars)
@@ -582,4 +610,70 @@ fn test_constants() -> ExResult<()> {
 fn test_fuzz() {
     assert!(exmex::eval_str::<f64>("an").is_err());
     assert!(FlatEx::<f64>::parse("\n").is_err());
+}
+
+#[test]
+fn test_sub1() -> ExResult<()> {
+    let deepex = DeepEx::<f64>::parse("x*(1.2-y)")?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z})*(1.2-({x}+{z}))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.nodes()[1], deepex_parsed.nodes()[1]);
+    for (sn, pn) in deepex_sub.nodes().iter().zip(deepex_parsed.nodes().iter()) {
+        assert_eq!(sn, pn);
+    }
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(
+        deepex_sub.var_names(),
+        ["x".to_string(), "z".to_string()]
+    );
+    assert_eq!(
+        flatex_sub.var_names(),
+        ["x".to_string(), "z".to_string()]
+    );
+    let test_input = [7.1, 2.36];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    utils::assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+    
+    utils::assert_float_eq_f64(val, ref_val);
+    
+    Ok(())
+}
+#[test]
+fn test_sub2() -> ExResult<()> {
+    let flatex = FlatEx::<f64>::parse("x*(1.2-(x/y))")?;
+    let deepex = flatex.to_deepex()?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z/w").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z}/{w})*(1.2-(({x}+{z}/{w})/({x}+{z}/{w})))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(
+        deepex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    assert_eq!(
+        flatex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    let test_input = [7.1, 2.3, 2.6];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    utils::assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+    
+    utils::assert_float_eq_f64(val, ref_val);
+    
+    Ok(())
 }
