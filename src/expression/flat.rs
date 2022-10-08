@@ -92,11 +92,11 @@ mod detail {
     {
         funcs
             .map(|func| {
-                Ok(ops
+                ops
                     .iter()
                     .find(|op| predicate(op, func.clone()))
-                    .map(|op| op.clone())
-                    .ok_or_else(|| ExError::new("could not find operator"))?)
+                    .cloned()
+                    .ok_or_else(|| ExError::new("could not find operator"))
             })
             .collect::<ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
     }
