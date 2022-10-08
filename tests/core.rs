@@ -627,23 +627,17 @@ fn test_sub1() -> ExResult<()> {
     }
     assert_eq!(deepex_sub.unparse(), reference);
     assert_eq!(flatex_sub.unparse(), reference);
-    assert_eq!(
-        deepex_sub.var_names(),
-        ["x".to_string(), "z".to_string()]
-    );
-    assert_eq!(
-        flatex_sub.var_names(),
-        ["x".to_string(), "z".to_string()]
-    );
+    assert_eq!(deepex_sub.var_names(), ["x".to_string(), "z".to_string()]);
+    assert_eq!(flatex_sub.var_names(), ["x".to_string(), "z".to_string()]);
     let test_input = [7.1, 2.36];
     let refex = FlatEx::<f64>::parse(reference)?;
     let ref_val = refex.eval(&test_input)?;
     let val = deepex_sub.eval(&test_input)?;
     utils::assert_float_eq_f64(val, ref_val);
     let val = flatex_sub.eval(&test_input)?;
-    
+
     utils::assert_float_eq_f64(val, ref_val);
-    
+
     Ok(())
 }
 #[test]
@@ -672,8 +666,67 @@ fn test_sub2() -> ExResult<()> {
     let val = deepex_sub.eval(&test_input)?;
     utils::assert_float_eq_f64(val, ref_val);
     let val = flatex_sub.eval(&test_input)?;
-    
+
     utils::assert_float_eq_f64(val, ref_val);
-    
+
+    Ok(())
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_to_deepex_non_default() -> ExResult<()> {
+    ops_factory!(
+        SomeOps,
+        i64,
+        Operator::make_bin(
+            "/",
+            BinOp {
+                apply: |a, b| a / b,
+                prio: 2,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin(
+            "*",
+            BinOp {
+                apply: |a, b| a * b,
+                prio: 2,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin(
+            "+",
+            BinOp {
+                apply: |a, b| a + b,
+                prio: 1,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin_unary(
+            "-",
+            BinOp {
+                apply: |a, b| a - b,
+                prio: 1,
+                is_commutative: false
+            },
+            |a| -a
+        )
+    );
+    let flatex = FlatEx::<i64, SomeOps>::parse("alpha*(-beta-(11-gamma/(omikron*3+zeta)))")?;
+    let deepex = flatex.to_deepex()?;
+    let input = [7, 5, 4, 3, 2];
+    assert_eq!(flatex.eval(&input), deepex.eval(&input));
+    let flatex2 = FlatEx::from_deepex(deepex)?;
+    assert_eq!(flatex.eval(&input), flatex2.eval(&input));
+
+    let serialized = serde_json::to_string(&flatex).unwrap();
+    let deserialized =
+        serde_json::from_str::<FlatEx<i64, SomeOps>>(serialized.as_str()).unwrap();
+
+    let deepex = deserialized.to_deepex()?;
+    let input = [7, 5, 4, 3, 2];
+    assert_eq!(flatex.eval(&input), deepex.eval(&input));
+    let flatex2 = FlatEx::from_deepex(deepex)?;
+    assert_eq!(flatex.eval(&input), flatex2.eval(&input));
     Ok(())
 }
