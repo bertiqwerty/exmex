@@ -31,7 +31,7 @@ mod detail {
         format_exerr,
         operators::UnaryOp,
         parser::{self, Paren, ParsedToken},
-        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator, 
+        BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
 
     use super::{ExprIdxVec, DEPTH_PRIO_STEP};
@@ -84,7 +84,7 @@ mod detail {
         funcs: I,
         ops: &[Operator<'a, T>],
         predicate: fn(&Operator<T>, F) -> bool,
-    ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
+    ) -> ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
     where
         T: Clone,
         I: Iterator<Item = F>,
@@ -95,10 +95,10 @@ mod detail {
                 Ok(ops
                     .iter()
                     .find(|op| predicate(op, func.clone()))
-                    .ok_or_else(|| ExError::new("could not find unary operator"))?
-                    .repr())
+                    .map(|op| op.clone())
+                    .ok_or_else(|| ExError::new("could not find operator"))?)
             })
-            .collect::<ExResult<SmallVec<[&str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
+            .collect::<ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
     }
 
     pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
@@ -121,11 +121,14 @@ mod detail {
         ops: &[Operator<'a, T>],
         unary_op: &UnaryOp<T>,
     ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
-        collect_reprs::<&fn(T) -> T, _, _>(
+        Ok(collect_reprs::<&fn(T) -> T, _, _>(
             unary_op.funcs_to_be_composed().iter(),
             ops,
             unary_predicate,
-        )
+        )?
+        .iter()
+        .map(|op| op.repr())
+        .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>())
     }
 
     pub fn convert_node<'a, T, OF, LM>(
@@ -174,11 +177,20 @@ mod detail {
     {
         let dummy_node = DeepNode::Var((usize::MAX, "".to_string()));
         let operators = OF::make();
-        let bin_reprs = collect_reprs::<&fn(T, T) -> T, _, _>(
+        let bin_ops = collect_reprs::<&fn(T, T) -> T, _, _>(
             flat_ops.iter().map(|op| &op.bin_op.apply),
             &operators,
             binary_predicate,
         )?;
+        type BinVecT<T> = SmallVec<[T; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+        let bin_reprs = bin_ops
+            .iter()
+            .map(|op| op.repr())
+            .collect::<BinVecT<&str>>();
+        let orig_prios = bin_ops
+            .iter()
+            .map(|op| Ok(op.bin()?.prio))
+            .collect::<ExResult<BinVecT<i64>>>()?;
         let prio_inds = prioritized_indices_flat(flat_ops, nodes);
         let mut deep_nodes = nodes
             .iter()
@@ -202,9 +214,15 @@ mod detail {
             );
 
             let flat_op = &flat_ops[idx];
-            let bin_op = BinOpsWithReprs {
+            let bin_op = flat_op.bin_op.clone();
+            let bin_op = BinOp {
+                apply: bin_op.apply,
+                prio: orig_prios[idx],
+                is_commutative: bin_op.is_commutative,
+            };
+            let bin_op_wr = BinOpsWithReprs {
                 reprs: smallvec![bin_reprs[idx]],
-                ops: smallvec![flat_op.bin_op.clone()],
+                ops: smallvec![bin_op],
             };
             let unary_reprs = collect_unary_reprs(&operators, &flat_op.unary_op)?;
             let unary_op = UnaryOpWithReprs {
@@ -217,7 +235,7 @@ mod detail {
                     mem::replace(&mut deep_nodes[num_1_idx], dummy_node.clone()),
                     mem::replace(&mut deep_nodes[num_2_idx], dummy_node.clone()),
                 ],
-                bin_op,
+                bin_op_wr,
                 unary_op,
             )?;
             deep_nodes[num_1_idx] = DeepNode::Expr(Box::new(deepex));
@@ -856,6 +874,7 @@ fn test_to_deepex() -> ExResult<()> {
     test("1/(x/y)*(2*x)", &[1.3, 0.5])?;
     test("+-+x", &[12341.234])?;
     test("-y*(x*(-(1-y))) + 1.7", &[1.2, 1.0])?;
+
     Ok(())
 }
 

@@ -130,25 +130,25 @@ fn test_expr() -> ExResult<()> {
         &[1.5, 0.2532],
         -3.1164569260604176,
     )?;
-       test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
-       test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
+    test("sin(x)+sin(y)+sin(z)", &[1.0, 2.0, 3.0], 1.8918884196934453)?;
+    test("x*0.2*5.0/4.0+x*2.0*4.0*1.0*1.0*1.0*1.0*1.0*1.0*1.0+7.0*sin(y)-z/sin(3.0/2.0/(1.0-x*4.0*1.0*1.0*1.0*1.0))",
        &[1.0, 2.0, 3.0], 20.872570916580237)?;
-       test("sin(-(1.0))", &[], -0.8414709848078965)?;
-       test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
-       test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
-       test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
-       test(
-           "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
-           &[1.0, 2.0, 3.0],
-           0.01661860154948708,
-       )?;
-    
-       let n_vars = 65;
-       let s = (0..n_vars)
-           .map(|i| format!("{{{}}}", i.to_string()))
-           .collect::<Vec<_>>()
-           .join("+");
-       test(s.as_str(), &vec![1.0; n_vars], n_vars as f64)?;
+    test("sin(-(1.0))", &[], -0.8414709848078965)?;
+    test("x*0.02*(3-(2*y))", &[1.0, 2.0], -0.02)?;
+    test("x*((x*1)-0.98)*(0.5*-y)", &[1.0, 2.0], -0.02)?;
+    test("x*0.02*sin(3*(2*y))", &[1.0, 2.0], 0.02 * 12.0f64.sin())?;
+    test(
+        "x*0.02*sin(-(3.0*(2.0*sin(x-1.0/(sin(y*5.0)+(5.0-1.0/z))))))",
+        &[1.0, 2.0, 3.0],
+        0.01661860154948708,
+    )?;
+
+    let n_vars = 65;
+    let s = (0..n_vars)
+        .map(|i| format!("{{{}}}", i.to_string()))
+        .collect::<Vec<_>>()
+        .join("+");
+    test(s.as_str(), &vec![1.0; n_vars], n_vars as f64)?;
     Ok(())
 }
 
@@ -610,4 +610,70 @@ fn test_constants() -> ExResult<()> {
 fn test_fuzz() {
     assert!(exmex::eval_str::<f64>("an").is_err());
     assert!(FlatEx::<f64>::parse("\n").is_err());
+}
+
+#[test]
+fn test_sub1() -> ExResult<()> {
+    let deepex = DeepEx::<f64>::parse("x*(1.2-y)")?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z})*(1.2-({x}+{z}))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.nodes()[1], deepex_parsed.nodes()[1]);
+    for (sn, pn) in deepex_sub.nodes().iter().zip(deepex_parsed.nodes().iter()) {
+        assert_eq!(sn, pn);
+    }
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(
+        deepex_sub.var_names(),
+        ["x".to_string(), "z".to_string()]
+    );
+    assert_eq!(
+        flatex_sub.var_names(),
+        ["x".to_string(), "z".to_string()]
+    );
+    let test_input = [7.1, 2.36];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    utils::assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+    
+    utils::assert_float_eq_f64(val, ref_val);
+    
+    Ok(())
+}
+#[test]
+fn test_sub2() -> ExResult<()> {
+    let flatex = FlatEx::<f64>::parse("x*(1.2-(x/y))")?;
+    let deepex = flatex.to_deepex()?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z/w").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z}/{w})*(1.2-(({x}+{z}/{w})/({x}+{z}/{w})))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(
+        deepex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    assert_eq!(
+        flatex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    let test_input = [7.1, 2.3, 2.6];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    utils::assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+    
+    utils::assert_float_eq_f64(val, ref_val);
+    
+    Ok(())
 }

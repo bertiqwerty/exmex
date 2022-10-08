@@ -511,7 +511,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DeepNode::Expr(e) => write!(f, "{:#?}", e),
+            DeepNode::Expr(e) => write!(f, "{:?}", e),
             DeepNode::Num(n) => write!(f, "{:?}", n),
             DeepNode::Var((_, var_name)) => write!(f, "{}", var_name),
         }
