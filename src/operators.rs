@@ -16,7 +16,7 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
     format_exerr!("{} operator '{}' not available", op_type_str, repr)
 }
 
-/// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`, 
+/// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`,
 /// or constants such as `π`. To use custom operators, see also the macro [`ops_factory`](crate::ops_factory).
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Clone> {
@@ -118,6 +118,12 @@ impl<'a, T: Clone> Operator<'a, T> {
     }
 }
 
+/// Binary operations implementIng this can be evaluated with 
+/// [`eval_core`](crate::expression::eval_core).
+pub trait OperateBinary<T> {
+    fn apply(&self, x: T, y: T) -> T;
+}
+
 pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
 /// Container of unary operators of one expression
@@ -150,7 +156,6 @@ where
         self.append_after_iter(other.funcs_to_be_composed.into_iter());
     }
 
-    
     /// Removes the operator that will be applied latest, i.e., the first element of the array.
     pub fn remove_latest(&mut self) {
         self.funcs_to_be_composed.remove(0);
@@ -192,7 +197,7 @@ where
             funcs_to_be_composed: iter.collect(),
         }
     }
-    
+
     pub fn funcs_to_be_composed(&self) -> &VecOfUnaryFuncs<T> {
         &self.funcs_to_be_composed
     }
@@ -221,6 +226,12 @@ pub struct BinOp<T: Clone> {
     /// True if this is a commutative operator such as `*` or `+`, false if not such as `-`, `/`, or `^`.
     /// Commutativity is used to compile sub-expressions of numbers correctly.
     pub is_commutative: bool,
+}
+
+impl<T: Clone> OperateBinary<T> for BinOp<T> {
+    fn apply(&self, x: T, y: T) -> T {
+        (self.apply)(x, y)
+    }
 }
 
 /// To use custom operators one needs to create a factory that implements this trait.
@@ -374,7 +385,6 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_constant("e", T::from(std::f64::consts::E).unwrap()),
             Operator::make_constant("TAU", T::from(std::f64::consts::TAU).unwrap()),
             Operator::make_constant("τ", T::from(std::f64::consts::TAU).unwrap()),
-            
         ]
     }
 }

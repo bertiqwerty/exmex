@@ -1,8 +1,8 @@
 use std::{fmt::Debug, str::FromStr};
 
-use crate::{data_type::DataType, parser, ExResult, MakeOperators};
+use crate::{data_type::DataType, operators::OperateBinary, parser, ExResult, MakeOperators};
 
-use self::deep::DeepEx;
+use self::{deep::DeepEx, number_tracker::NumberTracker};
 pub mod deep;
 pub mod flat;
 mod number_tracker;
@@ -93,6 +93,34 @@ where
     fn parse(text: &'a str) -> ExResult<Self>
     where
         Self: Sized;
+}
+
+pub fn eval_binary<T, O, N>(
+    numbers: &mut [T],
+    binary_ops: &[O],
+    prio_indices: &[usize],
+    tracker: &mut N,
+) -> T
+where
+    T: Clone,
+    O: OperateBinary<T>,
+    N: NumberTracker + ?Sized,
+{
+    debug_assert!(numbers.len() <= tracker.max_len());
+
+    for &idx in prio_indices {
+        let shift_left = tracker.get_previous(idx);
+        let shift_right = tracker.consume_next(idx);
+
+        let num_1_idx = idx - shift_left;
+        let num_2_idx = idx + shift_right;
+
+        // point of panic for invalid input
+        assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < binary_ops.len());
+
+        numbers[num_1_idx] = binary_ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
+    }
+    numbers.iter().next().unwrap().clone()
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.

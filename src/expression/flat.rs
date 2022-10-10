@@ -27,9 +27,9 @@ mod detail {
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
-        expression::number_tracker::NumberTracker,
+        expression::{eval_binary, number_tracker::NumberTracker},
         format_exerr,
-        operators::UnaryOp,
+        operators::{UnaryOp, OperateBinary},
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
@@ -48,7 +48,7 @@ mod detail {
         pub bin_op: BinOp<T>,
     }
 
-    impl<T: Clone> FlatOp<T> {
+    impl<T: Clone> OperateBinary<T> for FlatOp<T> {
         fn apply(&self, arg1: T, arg2: T) -> T {
             self.unary_op.apply((self.bin_op.apply)(arg1, arg2))
         }
@@ -92,8 +92,7 @@ mod detail {
     {
         funcs
             .map(|func| {
-                ops
-                    .iter()
+                ops.iter()
                     .find(|op| predicate(op, func.clone()))
                     .cloned()
                     .ok_or_else(|| ExError::new("could not find operator"))
@@ -254,29 +253,6 @@ mod detail {
         Ok(deepex)
     }
 
-    fn eval_flatex_tracker<T: Clone + Debug, N: NumberTracker + ?Sized>(
-        numbers: &mut [T],
-        ops: &[FlatOp<T>],
-        prio_indices: &[usize],
-        tracker: &mut N,
-    ) {
-        debug_assert!(numbers.len() <= tracker.max_len());
-
-        for &idx in prio_indices {
-            let shift_left = tracker.get_previous(idx);
-            let shift_right = tracker.consume_next(idx);
-
-            let num_1_idx = idx - shift_left;
-            let num_2_idx = idx + shift_right;
-
-            // point of panic for invalid input
-            assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < ops.len());
-
-            numbers[num_1_idx] =
-                ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
-        }
-    }
-
     pub fn eval_flatex<T: Clone + Debug>(
         vars: &[T],
         nodes: &[FlatNode<T>],
@@ -293,16 +269,14 @@ mod detail {
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
 
-        if numbers.len() <= usize::max_len(&0) {
+        Ok(if numbers.len() <= usize::max_len(&0) {
             let mut ignore = 0;
-            eval_flatex_tracker(numbers.as_mut_slice(), ops, prio_indices, &mut ignore);
+            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore)
         } else {
             let mut ignore: SmallVec<[usize; N_NODES_ON_STACK]> =
                 smallvec![0; 1 + numbers.len() / usize::BITS as usize];
-            eval_flatex_tracker(numbers.as_mut_slice(), ops, prio_indices, &mut ignore[..]);
-        }
-
-        Ok(numbers.into_iter().next().unwrap())
+            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore[..])
+        })
     }
 
     /// This is called in case a closing paren occurs. If available, the index of the unary operator of the

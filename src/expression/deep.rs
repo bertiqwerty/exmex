@@ -13,7 +13,7 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::{flat::ExprIdxVec, number_tracker::NumberTracker},
+    expression::{flat::ExprIdxVec},
     format_exerr,
     operators::UnaryOp,
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
@@ -907,18 +907,13 @@ where
         let prio_indices = prioritized_indices(&self.bin_ops().ops, self.nodes());
         let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
             smallvec::smallvec![0; 1 + numbers.len() / usize::BITS as usize];
-        for idx in prio_indices {
-            let shift_left = tracker.get_previous(idx);
-            let shift_right = tracker.consume_next(idx);
-
-            let num_1_idx = idx - shift_left;
-            let num_2_idx = idx + shift_right;
-
-            let num_1 = numbers[num_1_idx].clone();
-            let num_2 = numbers[num_2_idx].clone();
-            numbers[num_1_idx] = (self.bin_ops().ops[idx].apply)(num_1, num_2);
-        }
-        Ok(self.unary_op().op.apply(numbers[0].clone()))
+        let binary_evaluation = eval_binary(
+            numbers.as_mut_slice(),
+            &self.bin_ops().ops,
+            &prio_indices,
+            &mut tracker[..],
+        );
+        Ok(self.unary_op().op.apply(binary_evaluation))
     }
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names().len() != vars.len() {
@@ -996,6 +991,8 @@ where
 
 #[cfg(test)]
 use crate::{operators::VecOfUnaryFuncs, util::assert_float_eq_f64, FlatEx};
+
+use super::eval_binary;
 #[test]
 fn test_reset_vars() {
     let deepex = DeepEx::<f64>::parse("2*z+x+y * .5").unwrap();
