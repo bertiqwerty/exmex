@@ -13,7 +13,7 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::flat::ExprIdxVec,
+    expression::{flat::ExprIdxVec, number_tracker::NumberTracker},
     format_exerr,
     operators::UnaryOp,
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
@@ -904,23 +904,19 @@ where
                 }
             })
             .collect::<ExResult<SmallVec<[T; N_NODES_ON_STACK]>>>()?;
-        let mut ignore: SmallVec<[bool; N_NODES_ON_STACK]> =
-            smallvec::smallvec![false; self.nodes().len()];
         let prio_indices = prioritized_indices(&self.bin_ops().ops, self.nodes());
-        for (i, &bin_op_idx) in prio_indices.iter().enumerate() {
-            let num_idx = prio_indices[i];
-            let mut shift_left = 0usize;
-            while ignore[num_idx - shift_left] {
-                shift_left += 1usize;
-            }
-            let mut shift_right = 1usize;
-            while ignore[num_idx + shift_right] {
-                shift_right += 1usize;
-            }
-            let num_1 = numbers[num_idx - shift_left].clone();
-            let num_2 = numbers[num_idx + shift_right].clone();
-            numbers[num_idx - shift_left] = (self.bin_ops().ops[bin_op_idx].apply)(num_1, num_2);
-            ignore[num_idx + shift_right] = true;
+        let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
+            smallvec::smallvec![0; 1 + numbers.len() / usize::BITS as usize];
+        for idx in prio_indices {
+            let shift_left = tracker.get_previous(idx);
+            let shift_right = tracker.consume_next(idx);
+
+            let num_1_idx = idx - shift_left;
+            let num_2_idx = idx + shift_right;
+
+            let num_1 = numbers[num_1_idx].clone();
+            let num_2 = numbers[num_2_idx].clone();
+            numbers[num_1_idx] = (self.bin_ops().ops[idx].apply)(num_1, num_2);
         }
         Ok(self.unary_op().op.apply(numbers[0].clone()))
     }
