@@ -8,7 +8,7 @@ use crate::expression::{
 use crate::operators::UnaryOp;
 use crate::{
     format_exerr, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
-    NumberMatcher,
+    NumberMatcher, Calculate, CalculateFloat,
 };
 
 use smallvec::SmallVec;
@@ -29,7 +29,7 @@ mod detail {
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
         expression::{eval_binary, number_tracker::NumberTracker},
         format_exerr,
-        operators::{UnaryOp, OperateBinary},
+        operators::{OperateBinary, UnaryOp},
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
@@ -131,7 +131,7 @@ mod detail {
     }
 
     pub fn convert_node<'a, T, OF, LM>(
-        node: &FlatNode<T>,
+        node: FlatNode<T>,
         var_names: &[String],
         ops: &[Operator<'a, T>],
     ) -> ExResult<DeepNode<'a, T, OF, LM>>
@@ -141,7 +141,7 @@ mod detail {
         LM: MatchLiteral,
         <T as FromStr>::Err: Debug,
     {
-        let deepnode = match node.kind.clone() {
+        let deepnode = match node.kind {
             FlatNodeKind::Num(n) => DeepNode::Num(n),
             FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].clone())),
         };
@@ -164,9 +164,9 @@ mod detail {
     }
 
     pub fn flatex_to_deepex<'a, T, OF, LM>(
-        flat_ops: &[FlatOp<T>],
-        nodes: &[FlatNode<T>],
-        var_names: &SmallVec<[String; N_VARS_ON_STACK]>,
+        mut flat_ops: FlatOpVec<T>,
+        nodes: FlatNodeVec<T>,
+        var_names: SmallVec<[String; N_VARS_ON_STACK]>,
     ) -> Result<DeepEx<'a, T, OF, LM>, ExError>
     where
         T: DataType,
@@ -190,10 +190,10 @@ mod detail {
             .iter()
             .map(|op| Ok(op.bin()?.prio))
             .collect::<ExResult<BinVecT<i64>>>()?;
-        let prio_inds = prioritized_indices_flat(flat_ops, nodes);
+        let prio_inds = prioritized_indices_flat(&flat_ops, &nodes);
         let mut deep_nodes = nodes
-            .iter()
-            .map(|dn| convert_node::<T, OF, LM>(dn, var_names, &operators))
+            .into_iter()
+            .map(|dn| convert_node::<T, OF, LM>(dn, &var_names, &operators))
             .collect::<ExResult<Vec<DeepNode<T, OF, LM>>>>()?;
         let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
             smallvec![0; 1 + deep_nodes.len() / usize::BITS as usize];
@@ -212,8 +212,7 @@ mod detail {
                     && idx < flat_ops.len()
             );
 
-            let flat_op = &flat_ops[idx];
-            let bin_op = flat_op.bin_op.clone();
+            let bin_op = flat_ops[idx].bin_op.clone();
             let bin_op = BinOp {
                 apply: bin_op.apply,
                 prio: orig_prios[idx],
@@ -223,10 +222,11 @@ mod detail {
                 reprs: smallvec![bin_reprs[idx]],
                 ops: smallvec![bin_op],
             };
-            let unary_reprs = collect_unary_reprs(&operators, &flat_op.unary_op)?;
+            let unary_op = mem::take(&mut flat_ops[idx].unary_op);
+            let unary_reprs = collect_unary_reprs(&operators, &unary_op)?;
             let unary_op = UnaryOpWithReprs {
                 reprs: unary_reprs,
-                op: flat_op.unary_op.clone(),
+                op: unary_op,
             };
 
             let deepex = DeepEx::new(
@@ -687,13 +687,13 @@ where
     fn var_names(&self) -> &[String] {
         &self.var_names
     }
-    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    fn to_deepex(self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         Self: Sized,
         T: DataType,
         <T as FromStr>::Err: Debug,
     {
-        detail::flatex_to_deepex(&self.flat_ops, &self.nodes, &self.var_names)
+        detail::flatex_to_deepex(self.flat_ops, self.nodes, self.var_names)
     }
     fn from_deepex(deepex: DeepEx<T, OF, LM>) -> ExResult<Self>
     where
@@ -807,6 +807,25 @@ where
     (flat_nodes, flat_ops)
 }
 
+
+impl<'a, T, OF, LM> Calculate<'a, T> for FlatEx<T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T> + Debug,
+    LM: MatchLiteral + Debug,
+    <T as FromStr>::Err: Debug,
+{
+}
+
+impl<'a, T, OF, LM> CalculateFloat<'a, T> for FlatEx<T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T> + Debug,
+    LM: MatchLiteral + Debug,
+    <T as FromStr>::Err: Debug,
+{
+}
+
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>
 where
@@ -825,7 +844,7 @@ fn test_to_deepex() -> ExResult<()> {
     fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
         println!(" --- sut - {}", sut);
         let fex = FlatEx::<f64>::parse(sut)?;
-        let dex = fex.to_deepex()?;
+        let dex = fex.clone().to_deepex()?;
         println!("{:#?}", dex);
         assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
         Ok(())

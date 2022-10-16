@@ -4,7 +4,7 @@ use exmex::{format_exerr, DeepEx};
 #[cfg(test)]
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
-    prelude::*,
+    prelude::*, Calculate, CalculateFloat,
     ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
 use std::iter::repeat;
@@ -75,7 +75,7 @@ fn test_expr() -> ExResult<()> {
                 }
             }
             let mut sub_closure = |v: &str| sub(v, vn, sub_num);
-            let subs = deepex.clone().subs(&mut sub_closure);
+            let subs = deepex.clone().subs(&mut sub_closure)?;
             let vars_for_subs = vars
                 .iter()
                 .enumerate()
@@ -612,65 +612,6 @@ fn test_fuzz() {
     assert!(FlatEx::<f64>::parse("\n").is_err());
 }
 
-#[test]
-fn test_sub1() -> ExResult<()> {
-    let deepex = DeepEx::<f64>::parse("x*(1.2-y)")?;
-    let mut sub = |_: &str| Some(DeepEx::parse("x+z").unwrap());
-    let deepex_sub = deepex.subs(&mut sub);
-    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
-    let reference = "({x}+{z})*(1.2-({x}+{z}))";
-    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
-    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
-    assert_eq!(deepex_sub.nodes()[1], deepex_parsed.nodes()[1]);
-    for (sn, pn) in deepex_sub.nodes().iter().zip(deepex_parsed.nodes().iter()) {
-        assert_eq!(sn, pn);
-    }
-    assert_eq!(deepex_sub.unparse(), reference);
-    assert_eq!(flatex_sub.unparse(), reference);
-    assert_eq!(deepex_sub.var_names(), ["x".to_string(), "z".to_string()]);
-    assert_eq!(flatex_sub.var_names(), ["x".to_string(), "z".to_string()]);
-    let test_input = [7.1, 2.36];
-    let refex = FlatEx::<f64>::parse(reference)?;
-    let ref_val = refex.eval(&test_input)?;
-    let val = deepex_sub.eval(&test_input)?;
-    utils::assert_float_eq_f64(val, ref_val);
-    let val = flatex_sub.eval(&test_input)?;
-
-    utils::assert_float_eq_f64(val, ref_val);
-
-    Ok(())
-}
-#[test]
-fn test_sub2() -> ExResult<()> {
-    let flatex = FlatEx::<f64>::parse("x*(1.2-(x/y))")?;
-    let deepex = flatex.to_deepex()?;
-    let mut sub = |_: &str| Some(DeepEx::parse("x+z/w").unwrap());
-    let deepex_sub = deepex.subs(&mut sub);
-    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
-    let reference = "({x}+{z}/{w})*(1.2-(({x}+{z}/{w})/({x}+{z}/{w})))";
-    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
-    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
-    assert_eq!(deepex_sub.unparse(), reference);
-    assert_eq!(flatex_sub.unparse(), reference);
-    assert_eq!(
-        deepex_sub.var_names(),
-        ["w".to_string(), "x".to_string(), "z".to_string()]
-    );
-    assert_eq!(
-        flatex_sub.var_names(),
-        ["w".to_string(), "x".to_string(), "z".to_string()]
-    );
-    let test_input = [7.1, 2.3, 2.6];
-    let refex = FlatEx::<f64>::parse(reference)?;
-    let ref_val = refex.eval(&test_input)?;
-    let val = deepex_sub.eval(&test_input)?;
-    utils::assert_float_eq_f64(val, ref_val);
-    let val = flatex_sub.eval(&test_input)?;
-
-    utils::assert_float_eq_f64(val, ref_val);
-
-    Ok(())
-}
 
 #[cfg(feature = "serde")]
 #[test]
@@ -713,7 +654,7 @@ fn test_to_deepex_non_default() -> ExResult<()> {
         )
     );
     let flatex = FlatEx::<i64, SomeOps>::parse("alpha*(-beta-(11-gamma/(omikron*3+zeta)))")?;
-    let deepex = flatex.to_deepex()?;
+    let deepex = flatex.clone().to_deepex()?;
     let input = [7, 5, 4, 3, 2];
     assert_eq!(flatex.eval(&input), deepex.eval(&input));
     let flatex2 = FlatEx::from_deepex(deepex)?;
@@ -728,5 +669,24 @@ fn test_to_deepex_non_default() -> ExResult<()> {
     assert_eq!(flatex.eval(&input), deepex.eval(&input));
     let flatex2 = FlatEx::from_deepex(deepex)?;
     assert_eq!(flatex.eval(&input), flatex2.eval(&input));
+    Ok(())
+}
+
+#[test]
+fn test_calculate() -> ExResult<()> {
+    let one = FlatEx::<f64>::one();
+    let another_one = one.clone();
+    let two = one.operate_binary(another_one, "+")?;
+    utils::assert_float_eq_f64(two.eval(&[])?, 2.0);
+    let expr = DeepEx::<f64>::parse("exp(x)+2*y")?;
+    let expr_sub = DeepEx::parse("2*z")?;
+    let mut subs = |var: &str| {
+        match var {
+            "y" => Some(expr_sub.clone()),
+            _ => None,
+        }
+    };
+    let subsed = expr.subs(&mut subs)?;
+    utils::assert_float_eq_f64(subsed.eval(&[0.0, 2.0])?, 9.0);
     Ok(())
 }

@@ -3,6 +3,7 @@ use std::{fmt::Debug, str::FromStr};
 use crate::{data_type::DataType, operators::OperateBinary, parser, ExResult, MakeOperators};
 
 use self::{deep::DeepEx, number_tracker::NumberTracker};
+pub mod calculate;
 pub mod deep;
 pub mod flat;
 mod number_tracker;
@@ -14,7 +15,7 @@ mod serde;
 /// Expressions implementing this trait can be parsed from stings,
 /// evaluated for specific variable values, and unparsed, i.e.,
 /// transformed into a string representation.  
-pub trait Express<'a, T>
+pub trait Express<'a, T>: Clone
 where
     T: Clone,
 {
@@ -78,7 +79,7 @@ where
     fn var_names(&self) -> &[String];
 
     /// Conversion to a deep expression necessary for computations with expressions
-    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
+    fn to_deepex(self) -> ExResult<DeepEx<'a, T, Self::OperatorFactory, Self::LiteralMatcher>>
     where
         Self: Sized,
         T: DataType,
@@ -120,7 +121,8 @@ where
         // point of panic for invalid input
         assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < binary_ops.len());
 
-        numbers[num_1_idx] = binary_ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
+        numbers[num_1_idx] =
+            binary_ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
     }
     numbers.iter().next().unwrap().clone()
 }

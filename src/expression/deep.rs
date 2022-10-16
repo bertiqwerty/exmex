@@ -13,7 +13,7 @@ use crate::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
     },
-    expression::{flat::ExprIdxVec},
+    expression::flat::ExprIdxVec,
     format_exerr,
     operators::UnaryOp,
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
@@ -549,12 +549,8 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    pub fn make_ops(&self) -> Vec<Operator<'a, T>> {
-        OF::make()
-    }
-
     /// Compiles expression, needed for partial differentation.
-    pub fn compile(&mut self) {
+    pub(super) fn compile(&mut self) {
         detail::lift_nodes(self);
 
         let prio_indices = prioritized_indices(&self.bin_ops.ops, &self.nodes);
@@ -630,7 +626,7 @@ where
         self.text = detail::unparse_raw(self.nodes(), self.bin_ops(), self.unary_op());
     }
 
-    pub fn new(
+    pub(super) fn new(
         nodes: Vec<DeepNode<'a, T, OF, LM>>,
         bin_ops: BinOpsWithReprs<'a, T>,
         unary_op: UnaryOpWithReprs<'a, T>,
@@ -694,85 +690,81 @@ where
         }
     }
 
-    pub fn from_node(node: DeepNode<'a, T, OF, LM>) -> DeepEx<'a, T, OF, LM> {
+    pub(super) fn from_node(node: DeepNode<'a, T, OF, LM>) -> DeepEx<'a, T, OF, LM> {
         DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
     }
 
-    pub fn one() -> DeepEx<'a, T, OF, LM>
+    pub(super) fn one() -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
         DeepEx::from_node(DeepNode::one())
     }
 
-    pub fn zero() -> DeepEx<'a, T, OF, LM>
+    pub(super) fn zero() -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
         DeepEx::from_node(DeepNode::zero())
     }
 
-    pub fn from_num(x: T) -> DeepEx<'a, T, OF, LM>
+    pub(super) fn from_num(x: T) -> DeepEx<'a, T, OF, LM>
     where
         T: Float,
     {
         DeepEx::from_node(DeepNode::num(x))
     }
 
-    pub fn without_latest_unary_op(mut self) -> Self {
+    pub(super) fn without_latest_unary_op(mut self) -> Self {
         self.unary_op.remove_latest();
         self
     }
-    pub fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
+    pub(super) fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.remove_latest();
         self.unary_op.append_after(unary_op);
         self
     }
 
-    pub fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
+    pub(super) fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.clear();
         self.unary_op.append_after(unary_op);
         self
     }
 
-    pub fn bin_ops(&self) -> &BinOpsWithReprs<'a, T> {
+    pub(super) fn bin_ops(&self) -> &BinOpsWithReprs<'a, T> {
         &self.bin_ops
     }
 
-    pub fn unary_op(&self) -> &UnaryOpWithReprs<'a, T> {
+    pub(super) fn unary_op(&self) -> &UnaryOpWithReprs<'a, T> {
         &self.unary_op
     }
 
-    pub fn nodes(&self) -> &Vec<DeepNode<'a, T, OF, LM>> {
+    pub(super) fn nodes(&self) -> &Vec<DeepNode<'a, T, OF, LM>> {
         &self.nodes
     }
 
-    pub fn is_num(&self, num: T) -> bool
+    pub(super) fn is_num(&self, num: T) -> bool
     where
         T: Float,
     {
         detail::is_num(self, num)
     }
 
-    pub fn is_one(&self) -> bool
+    pub(super) fn is_one(&self) -> bool
     where
         T: Float,
     {
         self.is_num(T::from(1.0).unwrap())
     }
 
-    pub fn is_zero(&self) -> bool
+    pub(super) fn is_zero(&self) -> bool
     where
         T: Float,
     {
         self.is_num(T::from(0.0).unwrap())
     }
 
-    pub fn var_names(&self) -> &[String] {
-        &self.var_names
-    }
-
-    pub fn var_names_union(self, other: Self) -> (Self, Self) {
+    pub(super) fn var_names_union(self, other: Self) -> (Self, Self) {
         let mut all_var_names = self.var_names.iter().cloned().collect::<SmallVec<_>>();
         for name in other.var_names.clone() {
             if !all_var_names.contains(&name) {
@@ -787,39 +779,46 @@ where
         (self_vars_updated, other_vars_updated)
     }
 
-    pub fn var_names_like_other(mut self, other: &Self) -> Self {
+    pub(super) fn var_names_like_other(mut self, other: &Self) -> Self {
         self.var_names = other.var_names.clone();
         self
     }
 
     /// Applies a binary operator to self and other
-    pub fn operate_bin_repr(self, other: Self, bin_op_repr: &'a str) -> ExResult<Self> {
+    pub(super) fn operate_bin(self, other: Self, bin_op_repr: &'a str) -> ExResult<Self> {
         let ops = OF::make();
         let bin_op = find_bin_op(bin_op_repr, &ops)?;
         Ok(detail::operate_bin(self, other, bin_op))
     }
 
     /// Applies a binary operator to self and other
-    pub fn operate_bin(self, other: Self, bin_op: BinOpsWithReprs<'a, T>) -> Self {
+    pub(super) fn operate_bin_opwithrepr(
+        self,
+        other: Self,
+        bin_op: BinOpsWithReprs<'a, T>,
+    ) -> Self {
         detail::operate_bin(self, other, bin_op)
     }
 
     /// Applies a unary operator to self
-    pub fn operate_unary_repr(mut self, unary_op_repr: &'a str) -> ExResult<Self> {
+    pub(super) fn operate_unary(mut self, repr: &'a str) -> ExResult<Self> {
         let ops = OF::make();
-        let unary_op = find_unary_op(unary_op_repr, &ops)?;
+        let unary_op = find_unary_op(repr, &ops)?;
         self.unary_op.append_after(unary_op);
         self.compile();
         Ok(self)
     }
     /// Applies a unary operator to self
-    pub fn operate_unary(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
+    pub(super) fn operate_unary_opwithrepr(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
         self.compile();
         self
     }
 
-    pub fn reset_vars(&mut self, all_vars: SmallVec<[std::string::String; N_VARS_ON_STACK]>) {
+    pub(super) fn reset_vars(
+        &mut self,
+        all_vars: SmallVec<[std::string::String; N_VARS_ON_STACK]>,
+    ) {
         for node in &mut self.nodes {
             match node {
                 DeepNode::Var((_, v)) => {
@@ -835,7 +834,7 @@ where
         self.var_names = all_vars;
     }
 
-    pub fn subs<F>(mut self, sub: &mut F) -> Self
+    pub(super) fn subs<F>(mut self, sub: &mut F) -> Self
     where
         F: FnMut(&str) -> Option<Self>,
     {
@@ -933,13 +932,13 @@ where
     {
         Ok(deepex)
     }
-    fn to_deepex(&self) -> ExResult<DeepEx<'a, T, OF, LM>>
+    fn to_deepex(self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         Self: Sized,
         T: DataType,
         <T as FromStr>::Err: Debug,
     {
-        Ok(self.clone())
+        Ok(self)
     }
     fn unparse(&self) -> &str {
         self.text.as_str()
@@ -955,6 +954,24 @@ where
     }
 }
 
+impl<'a, T, OF, LM> Calculate<'a, T> for DeepEx<'a, T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+}
+impl<'a, T, OF, LM> CalculateFloat<'a, T> for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+}
 impl<'a, T, OF, LM> Display for DeepEx<'a, T, OF, LM>
 where
     T: DataType,
@@ -992,7 +1009,68 @@ where
 #[cfg(test)]
 use crate::{operators::VecOfUnaryFuncs, util::assert_float_eq_f64, FlatEx};
 
-use super::eval_binary;
+use super::{calculate::{Calculate, CalculateFloat}, eval_binary};
+
+#[test]
+fn test_sub1() -> ExResult<()> {
+    let deepex = DeepEx::<f64>::parse("x*(1.2-y)")?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z})*(1.2-({x}+{z}))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.nodes()[1], deepex_parsed.nodes()[1]);
+    for (sn, pn) in deepex_sub.nodes().iter().zip(deepex_parsed.nodes().iter()) {
+        assert_eq!(sn, pn);
+    }
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(deepex_sub.var_names(), ["x".to_string(), "z".to_string()]);
+    assert_eq!(flatex_sub.var_names(), ["x".to_string(), "z".to_string()]);
+    let test_input = [7.1, 2.36];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+
+    assert_float_eq_f64(val, ref_val);
+
+    Ok(())
+}
+
+#[test]
+fn test_sub2() -> ExResult<()> {
+    let flatex = FlatEx::<f64>::parse("x*(1.2-(x/y))")?;
+    let deepex = flatex.to_deepex()?;
+    let mut sub = |_: &str| Some(DeepEx::parse("x+z/w").unwrap());
+    let deepex_sub = deepex.subs(&mut sub);
+    let flatex_sub = FlatEx::from_deepex(deepex_sub.clone())?;
+    let reference = "({x}+{z}/{w})*(1.2-(({x}+{z}/{w})/({x}+{z}/{w})))";
+    let deepex_parsed = DeepEx::<f64>::parse(&reference)?;
+    assert_eq!(deepex_sub.nodes(), deepex_parsed.nodes());
+    assert_eq!(deepex_sub.unparse(), reference);
+    assert_eq!(flatex_sub.unparse(), reference);
+    assert_eq!(
+        deepex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    assert_eq!(
+        flatex_sub.var_names(),
+        ["w".to_string(), "x".to_string(), "z".to_string()]
+    );
+    let test_input = [7.1, 2.3, 2.6];
+    let refex = FlatEx::<f64>::parse(reference)?;
+    let ref_val = refex.eval(&test_input)?;
+    let val = deepex_sub.eval(&test_input)?;
+    assert_float_eq_f64(val, ref_val);
+    let val = flatex_sub.eval(&test_input)?;
+
+    assert_float_eq_f64(val, ref_val);
+
+    Ok(())
+}
 #[test]
 fn test_reset_vars() {
     let deepex = DeepEx::<f64>::parse("2*z+x+y * .5").unwrap();
@@ -1132,7 +1210,7 @@ fn test_operate_unary() -> ExResult<()> {
     let deepex = DeepEx::<f64>::parse(lstr)?;
     let mut funcs = VecOfUnaryFuncs::new();
     funcs.push(|x: f64| x * 1.23456);
-    let deepex = deepex.operate_unary(UnaryOpWithReprs {
+    let deepex = deepex.operate_unary_opwithrepr(UnaryOpWithReprs {
         reprs: smallvec::smallvec!["eagle"],
         op: UnaryOp::from_vec(funcs),
     });

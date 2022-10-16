@@ -285,7 +285,7 @@
 //! use exmex::{DeepEx, prelude::*};
 //! let deepex_1 = DeepEx::one();
 //! let deepex_2px = DeepEx::<f64>::parse("2 + x")?;
-//! let deepex_3px = deepex_1.operate_bin_repr(deepex_2px, "+")?;
+//! let deepex_3px = deepex_1.operate_binary(deepex_2px, "+")?;
 //! assert_eq!(format!("{}", deepex_3px), "1.0+(2.0+{x})");
 //! assert!(deepex_3px.eval(&[-3.0])? < 1e-12);
 //! #
@@ -302,17 +302,15 @@
 //! #
 //! use exmex::{DeepEx, prelude::*};
 //! let deepex = DeepEx::<f64>::parse("x")?;
-//! let ops = deepex.make_ops();
-//! let sin_op = exmex::find_unary_op("sin", &ops)?;
-//! let deep_sin_x = deepex.operate_unary(sin_op);
+//! let deep_sin_x = deepex.operate_unary("sin")?;
 //! assert!((deep_sin_x.eval(&[1.0])? - (1.0f64).sin()).abs() < 1e-12);
-//! 
+//!
 //! // for faster repeated evaluation, we can flatten the expression
 //! let flat_sin_x = FlatEx::from_deepex(deep_sin_x.clone())?;
 //! for i in 0..1000 {
 //!     assert!((deep_sin_x.eval(&[i as f64])? - flat_sin_x.eval(&[i as f64])?).abs() < 1e-12);
 //! }
-//! 
+//!
 //! #
 //! #     Ok(())
 //! # }
@@ -326,7 +324,7 @@
 //! use exmex::prelude::*;
 //! let flat_cos_x = FlatEx::<f64>::parse("cos(x)")?;
 //! let deep_cos_x = flat_cos_x.to_deepex()?;
-//! let deep_identity = deep_cos_x.operate_unary_repr("acos")?;
+//! let deep_identity = deep_cos_x.operate_unary("acos")?;
 //! assert!((deep_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
 //! #
 //! # Ok(())
@@ -348,8 +346,12 @@ mod util;
 
 pub use {
     expression::{
-        deep::find_bin_op, deep::find_unary_op, deep::DeepEx, flat::FlatEx, Express, MatchLiteral,
-        NumberMatcher,
+        calculate::{Calculate, CalculateFloat},
+        deep::find_bin_op,
+        deep::find_unary_op,
+        deep::DeepEx,
+        flat::FlatEx,
+        Express, MatchLiteral, NumberMatcher,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
     result::{ExError, ExResult},
@@ -360,10 +362,10 @@ pub use {lazy_static, regex};
 
 #[cfg(feature = "value")]
 mod value;
-#[cfg(feature = "value")]
-pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 #[cfg(feature = "partial")]
 pub use expression::partial::Differentiate;
+#[cfg(feature = "value")]
+pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 
 /// Exmex' prelude can be imported via `use exmex::prelude::*;`.
 ///
@@ -373,7 +375,11 @@ pub use expression::partial::Differentiate;
 /// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active.
 ///
 pub mod prelude {
-    pub use crate::expression::{flat::FlatEx, Express};
+    pub use crate::expression::{
+        calculate::{Calculate, CalculateFloat},
+        flat::FlatEx,
+        Express,
+    };
     #[cfg(feature = "partial")]
     pub use crate::Differentiate;
     pub use std::str::FromStr;

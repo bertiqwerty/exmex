@@ -450,7 +450,7 @@ fn exmex_bench_partial(c: &mut Criterion) {
             .iter_mut()
             .map(|expr| {
                 move |i: usize| {
-                    expr.partial(i).unwrap();
+                    expr.clone().partial(i).unwrap();
                 }
             })
             .collect::<Vec<_>>();

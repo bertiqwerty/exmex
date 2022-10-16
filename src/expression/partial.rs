@@ -48,17 +48,15 @@ where
     /// #
     /// use exmex::prelude::*;
     ///
-    /// let mut expr = FlatEx::<f64>::parse("sin(1+y^2)*x")?;
+    /// let expr = FlatEx::<f64>::parse("sin(1+y^2)*x")?;
     /// let dexpr_dx = expr.partial(0)?;
-    /// let dexpr_dy = expr.partial(1)?;
     ///
     /// assert!((dexpr_dx.eval(&[9e5, 2.0])? - (5.0 as f64).sin()).abs() < 1e-12);
-    /// //             |    
+    /// //                        |    
     /// //           The partial derivative dexpr_dx does depend on x. Still, it
     /// //           expects the same number of parameters as the corresponding
     /// //           antiderivative. Hence, you can pass any number for x.  
     ///
-    /// assert!((dexpr_dy.eval(&[2.5, 2.0])? - 10.0 * (5.0 as f64).cos()).abs() < 1e-12);
     /// #
     /// #     Ok(())
     /// # }
@@ -72,7 +70,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(&self, var_idx: usize) -> ExResult<Self>
+    fn partial(self, var_idx: usize) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -90,7 +88,7 @@ where
     ///
     /// let mut expr = FlatEx::<f64>::parse("x^4+y^4")?;
     ///
-    /// let dexpr_dxx_nth = expr.partial_nth(0, 2)?;
+    /// let dexpr_dxx_nth = expr.clone().partial_nth(0, 2)?;
     ///
     /// let dexpr_dx = expr.partial(0)?;
     /// let dexpr_dxx_2step = dexpr_dx.partial(0)?;
@@ -110,7 +108,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_nth(&self, var_idx: usize, n: usize) -> ExResult<Self>
+    fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -129,7 +127,7 @@ where
     ///
     /// let mut expr = FlatEx::<f64>::parse("x^4+y^4")?;
     ///
-    /// let dexpr_dxy_iter = expr.partial_iter([0, 1].iter().copied())?;
+    /// let dexpr_dxy_iter = expr.clone().partial_iter([0, 1].iter().copied())?;
     ///
     /// let dexpr_dx = expr.partial(0)?;
     /// let dexpr_dxy_2step = dexpr_dx.partial(1)?;
@@ -149,7 +147,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_iter<I>(&self, var_idxs: I) -> ExResult<Self>
+    fn partial_iter<I>(self, var_idxs: I) -> ExResult<Self>
     where
         T: DataType + Float,
         <T as FromStr>::Err: Debug,
@@ -160,7 +158,7 @@ where
 
         let unparsed = deepex.unparse();
         for var_idx in var_idxs.clone() {
-            check_partial_index(var_idx, self.var_names().len(), unparsed)?;
+            check_partial_index(var_idx, deepex.var_names().len(), unparsed)?;
         }
         for var_idx in var_idxs {
             deepex = partial_deepex(var_idx, deepex, &ops)?;
@@ -376,7 +374,7 @@ where
     } else if summand_2.is_zero() {
         summand_1
     } else {
-        summand_1.operate_bin(summand_2, add_op)
+        summand_1.operate_bin_opwithrepr(summand_2, add_op)
     })
 }
 
@@ -394,7 +392,7 @@ where
     Ok(if sub_2.is_zero() {
         sub_1
     } else {
-        sub_1.operate_bin(sub_2, sub_op)
+        sub_1.operate_bin_opwithrepr(sub_2, sub_op)
     })
 }
 
@@ -418,7 +416,7 @@ where
     } else if factor_2.is_one() {
         factor_1
     } else {
-        factor_1.operate_bin(factor_2, mul_op)
+        factor_1.operate_bin_opwithrepr(factor_2, mul_op)
     })
 }
 
@@ -440,7 +438,7 @@ where
     } else if denominator.is_one() {
         Ok(numerator)
     } else {
-        Ok(numerator.operate_bin(denominator, div_op))
+        Ok(numerator.operate_bin_opwithrepr(denominator, div_op))
     }
 }
 
@@ -470,7 +468,7 @@ where
     } else if exponent.is_one() {
         base
     } else {
-        base.operate_bin(exponent, power_op)
+        base.operate_bin_opwithrepr(exponent, power_op)
     })
 }
 
@@ -545,7 +543,7 @@ where
 
                     let one = DeepEx::one();
                     let val = pow(f.val.clone(), g.val.clone(), pow_op.clone())?;
-                    let g_minus_1 = g.val.clone().operate_bin(one, sub_op);
+                    let g_minus_1 = g.val.clone().operate_bin_opwithrepr(one, sub_op);
                     let der_1 = mul(
                         mul(
                             pow(f.val.clone(), g_minus_1, pow_op.clone())?,
@@ -557,7 +555,11 @@ where
                     )?;
 
                     let der_2 = mul(
-                        mul(val.clone(), f.val.operate_unary(ln_op), mul_op.clone())?,
+                        mul(
+                            val.clone(),
+                            f.val.operate_unary_opwithrepr(ln_op),
+                            mul_op.clone(),
+                        )?,
                         g.der.clone(),
                         mul_op,
                     )?;
@@ -749,7 +751,7 @@ where
                     let cos_squared_ex = f
                         .clone()
                         .with_new_latest_unary_op(cos_op)
-                        .operate_bin(two, power_op);
+                        .operate_bin_opwithrepr(two, power_op);
                     div(DeepEx::one(), cos_squared_ex, div_op)
                 },
             ),
@@ -768,9 +770,9 @@ where
                     let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let inner_squared = f
                         .with_new_latest_unary_op(UnaryOpWithReprs::new())
-                        .operate_bin(two, power_op);
+                        .operate_bin_opwithrepr(two, power_op);
                     let insq_min1_sqrt =
-                        sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
+                        sub(one.clone(), inner_squared, sub_op)?.operate_unary_opwithrepr(sqrt_op);
                     div(one.clone(), insq_min1_sqrt, div_op)
                 },
             ),
@@ -790,10 +792,10 @@ where
                     let two = DeepEx::from_num(T::from(2.0).unwrap());
                     let inner_squared = f
                         .with_new_latest_unary_op(UnaryOpWithReprs::new())
-                        .operate_bin(two, power_op);
+                        .operate_bin_opwithrepr(two, power_op);
                     let denominator =
-                        sub(one.clone(), inner_squared, sub_op)?.operate_unary(sqrt_op);
-                    Ok(div(one, denominator, div_op)?.operate_unary(minus_op))
+                        sub(one.clone(), inner_squared, sub_op)?.operate_unary_opwithrepr(sqrt_op);
+                    Ok(div(one, denominator, div_op)?.operate_unary_opwithrepr(minus_op))
                 },
             ),
         },

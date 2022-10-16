@@ -1,5 +1,5 @@
 #[cfg(feature = "partial")]
-use exmex::{parse, Differentiate, ExResult, Express, FlatEx};
+use exmex::{parse, Differentiate, ExResult, Express, Calculate, FlatEx};
 #[cfg(feature = "partial")]
 mod utils;
 #[cfg(feature = "partial")]
@@ -14,7 +14,7 @@ fn test_readme_partial() -> ExResult<()> {
     let expr = parse::<f64>("y*x^2")?;
 
     // d_x
-    let dexpr_dx = expr.partial(0)?;
+    let dexpr_dx = expr.clone().partial(0)?;
     assert_eq!(format!("{}", dexpr_dx), "({x}*2.0)*{y}");
 
     // d_xy
@@ -43,7 +43,7 @@ use exmex::DeepEx;
 #[cfg(feature = "partial")]
 #[test]
 fn test_partial() -> ExResult<()> {
-    fn test_expr<'a, E: Differentiate<'a, f64>>(
+    fn test_expr<'a, E: Differentiate<'a, f64> + Clone>(
         flatex: &E,
         var_idx: usize,
         n_vars: usize,
@@ -51,10 +51,10 @@ fn test_partial() -> ExResult<()> {
         reference: fn(f64) -> f64,
     ) -> ExResult<()> {
         let mut rng = rand::thread_rng();
-        assert!(flatex.partial(flatex.var_names().len()).is_err());
+        assert!(flatex.clone().partial(flatex.var_names().len()).is_err());
 
         // test flatex
-        let deri = flatex.partial(var_idx)?;
+        let deri = flatex.clone().partial(var_idx)?;
         println!("flatex {}", flatex);
         println!("partial {}", deri);
         for _ in 0..3 {
@@ -180,7 +180,7 @@ fn test_partial() -> ExResult<()> {
 #[test]
 fn test_partial_finite() -> ExResult<()> {
     fn test(sut: &str, range: Range<f64>) -> ExResult<()> {
-        fn inner_test<'a, E: Differentiate<'a, f64>>(flatex: &E, range: Range<f64>) -> ExResult<()> {
+        fn inner_test<'a, E: Differentiate<'a, f64> + Clone>(flatex: &E, range: Range<f64>) -> ExResult<()> {
             let n_vars = flatex.var_names().len();
             let step = 1e-5;
             let mut rng = thread_rng();
@@ -214,7 +214,7 @@ fn test_partial_finite() -> ExResult<()> {
                 None
             }
         };
-        let deepex = deepex.subs(&mut sub);
+        let deepex = deepex.subs(&mut sub)?;
         inner_test(&deepex, range.clone())?;
         let flatex = FlatEx::from_deepex(deepex)?;
         inner_test(&flatex, range)?;
@@ -264,7 +264,7 @@ fn test_partial_iter() -> ExResult<()> {
 
     fn test3(sut: &str) -> ExResult<()> {
         let expr = exmex::parse::<f64>(sut)?;
-        let deri = expr.partial_iter([0, 1, 2].iter().copied())?;
+        let deri = expr.clone().partial_iter([0, 1, 2].iter().copied())?;
         let mut deri_seq = expr;
         for i in 0..3 {
             deri_seq = deri_seq.partial(i)?;
