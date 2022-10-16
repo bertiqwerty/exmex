@@ -28,6 +28,7 @@ pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 mod detail {
     use std::{fmt::Debug, iter, str::FromStr};
 
+    #[cfg(feature = "partial")]
     use num::Float;
     use smallvec::SmallVec;
 
@@ -66,6 +67,7 @@ mod detail {
         resex
     }
 
+    #[cfg(feature = "partial")]
     pub fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
     where
         T: DataType + Float,
@@ -715,16 +717,20 @@ where
         DeepEx::from_node(DeepNode::num(x))
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn without_latest_unary_op(mut self) -> Self {
         self.unary_op.remove_latest();
         self
     }
+
+    #[cfg(feature = "partial")]
     pub(super) fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.remove_latest();
         self.unary_op.append_after(unary_op);
         self
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.clear();
         self.unary_op.append_after(unary_op);
@@ -743,6 +749,7 @@ where
         &self.nodes
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn is_num(&self, num: T) -> bool
     where
         T: Float,
@@ -750,6 +757,7 @@ where
         detail::is_num(self, num)
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn is_one(&self) -> bool
     where
         T: Float,
@@ -757,6 +765,7 @@ where
         self.is_num(T::from(1.0).unwrap())
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn is_zero(&self) -> bool
     where
         T: Float,
@@ -779,6 +788,7 @@ where
         (self_vars_updated, other_vars_updated)
     }
 
+    #[cfg(feature = "partial")]
     pub(super) fn var_names_like_other(mut self, other: &Self) -> Self {
         self.var_names = other.var_names.clone();
         self
@@ -791,6 +801,7 @@ where
         Ok(detail::operate_bin(self, other, bin_op))
     }
 
+    #[cfg(feature = "partial")]
     /// Applies a binary operator to self and other
     pub(super) fn operate_bin_opwithrepr(
         self,
@@ -808,7 +819,9 @@ where
         self.compile();
         Ok(self)
     }
+    
     /// Applies a unary operator to self
+    #[cfg(feature = "partial")]
     pub(super) fn operate_unary_opwithrepr(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
         self.compile();
