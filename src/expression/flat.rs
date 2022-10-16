@@ -741,7 +741,7 @@ where
 }
 
 #[cfg(feature = "partial")]
-use crate::partial::Differentiate;
+use crate::expression::partial::Differentiate;
 
 pub fn flatten_vecs<T, OF, LM>(
     deep_expr: &DeepEx<T, OF, LM>,

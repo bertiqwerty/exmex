@@ -6,6 +6,8 @@ use self::{deep::DeepEx, number_tracker::NumberTracker};
 pub mod deep;
 pub mod flat;
 mod number_tracker;
+#[cfg(feature = "partial")]
+pub mod partial;
 #[cfg(feature = "serde")]
 mod serde;
 

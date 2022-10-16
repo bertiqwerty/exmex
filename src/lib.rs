@@ -363,9 +363,7 @@ mod value;
 #[cfg(feature = "value")]
 pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 #[cfg(feature = "partial")]
-mod partial;
-#[cfg(feature = "partial")]
-pub use partial::Differentiate;
+pub use expression::partial::Differentiate;
 
 /// Exmex' prelude can be imported via `use exmex::prelude::*;`.
 ///
