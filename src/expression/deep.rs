@@ -1020,9 +1020,12 @@ where
 }
 
 #[cfg(test)]
-use crate::{operators::VecOfUnaryFuncs, util::assert_float_eq_f64, FlatEx};
-
+use crate::{util::assert_float_eq_f64, FlatEx};
 use super::{calculate::{Calculate, CalculateFloat}, eval_binary};
+ 
+#[cfg(test)]
+#[cfg(feature = "partial")]
+use crate::operators::VecOfUnaryFuncs;
 
 #[test]
 fn test_sub1() -> ExResult<()> {
@@ -1216,7 +1219,7 @@ fn test_deep_compile_2() -> ExResult<()> {
     assert_float_eq_f64(expr.eval(&[2.0])?, 1.0 / 3.0);
     Ok(())
 }
-
+#[cfg(feature = "partial")]
 #[test]
 fn test_operate_unary() -> ExResult<()> {
     let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";

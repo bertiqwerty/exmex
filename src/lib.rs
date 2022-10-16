@@ -275,56 +275,36 @@
 //!
 //! ## Calculating with Expression
 //!
-//! One cannot calculate with flattened expression of type [`FlatEx`](`FlatEx`) directly. However,
-//! one can apply all defined operators to nested expressions of type [`DeepEx`](`DeepEx`).
-//!
+//! Calculating with [`FlatEx`](`FlatEx`) directly is more expensive since transformations to [`DeepEx`](`DeepEx`)
+//! happen in the background.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::{DeepEx, prelude::*};
-//! let deepex_1 = DeepEx::one();
-//! let deepex_2px = DeepEx::<f64>::parse("2 + x")?;
-//! let deepex_3px = deepex_1.operate_binary(deepex_2px, "+")?;
-//! assert_eq!(format!("{}", deepex_3px), "1.0+(2.0+{x})");
-//! assert!(deepex_3px.eval(&[-3.0])? < 1e-12);
+//! 
+//! use exmex::{prelude::*};
+//! let expr_1 = FlatEx::one();
+//! let expr_2px = FlatEx::<f64>::parse("2 + x")?;
+//! let expr_3px = expr_1.operate_binary(expr_2px, "+")?;
+//! assert_eq!(format!("{}", expr_3px), "1.0+(2.0+{x})");
+//! assert!(expr_3px.eval(&[-3.0])? < 1e-12);
 //! #
 //! #     Ok(())
 //! # }
 //!```
-//! The method [`operate_binary`](`DeepEx::operate_binary`) traverses all operators to find the
-//! right one. It is possible to do this separately as shown in the following with a unary operator
-//! as example.
 //!
+//! If we start by parsing a flat expression, we can deepen the expression to do multiple calculations 
+//! and flatten eventually.
+//! 
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{DeepEx, prelude::*};
-//! let deepex = DeepEx::<f64>::parse("x")?;
-//! let deep_sin_x = deepex.operate_unary("sin")?;
-//! assert!((deep_sin_x.eval(&[1.0])? - (1.0f64).sin()).abs() < 1e-12);
-//!
-//! // for faster repeated evaluation, we can flatten the expression
-//! let flat_sin_x = FlatEx::from_deepex(deep_sin_x.clone())?;
-//! for i in 0..1000 {
-//!     assert!((deep_sin_x.eval(&[i as f64])? - flat_sin_x.eval(&[i as f64])?).abs() < 1e-12);
-//! }
-//!
-//! #
-//! #     Ok(())
-//! # }
-//! ```
-//!
-//! If we start by parsing a flat expression, we can deepen the expression to do calculations.
-//! ```rust
-//! # use std::error::Error;
-//! # fn main() -> Result<(), Box<dyn Error>> {
-//! #
-//! use exmex::prelude::*;
 //! let flat_cos_x = FlatEx::<f64>::parse("cos(x)")?;
 //! let deep_cos_x = flat_cos_x.to_deepex()?;
 //! let deep_identity = deep_cos_x.operate_unary("acos")?;
+//! let one = DeepEx::one();
+//! let deep_identity = deep_identity.operate_binary(one, "*")?;
 //! assert!((deep_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
 //! #
 //! # Ok(())
