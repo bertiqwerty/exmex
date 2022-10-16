@@ -292,7 +292,7 @@
 //! #     Ok(())
 //! # }
 //!```
-//! The method [`operate_bin_repr`](`DeepEx::operate_bin_repr`) traverses all operators to find the
+//! The method [`operate_binary`](`DeepEx::operate_binary`) traverses all operators to find the
 //! right one. It is possible to do this separately as shown in the following with a unary operator
 //! as example.
 //!
