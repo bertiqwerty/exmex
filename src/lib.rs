@@ -61,9 +61,9 @@
 //! # }
 //! ```
 //! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx)
-//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx) and
-//! [`Express`](Express) are the only items made accessible by the wildcard import from
-//! [`prelude`](prelude) if the feature `partial` is not used.
+//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx),
+//! [`Express`](Express), [`Calculate`](Calculate), [`CalculateFloat`](CalculateFloat) are the items made accessible by the 
+//! wildcard import from [`prelude`](prelude) if the feature `partial` is not used.
 //!
 //! ## Features
 //! Exmex comes with three features that can be activated in the `Cargo.toml` via
