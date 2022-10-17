@@ -275,13 +275,14 @@
 //!
 //! ## Calculating with Expression
 //!
-//! Calculating with [`FlatEx`](`FlatEx`) directly is more expensive since transformations to [`DeepEx`](`DeepEx`)
-//! happen in the background.
+//! Like partial derivatives, calculations need the nested expression type [`DeepEx`](`DeepEx`) that is 
+//! slower to evaluate than the flattened expression type [`FlatEx`](`FlatEx`). It is possible to calculate
+//! with flat expressions of type [`FlatEx`](`FlatEx`). However, transformations to the 
+//! nested expression [`DeepEx`](`DeepEx`) happen in the background.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
-//! 
-//! use exmex::{prelude::*};
+//! use exmex::prelude::*;
 //! let expr_1 = FlatEx::one();
 //! let expr_2px = FlatEx::<f64>::parse("2 + x")?;
 //! let expr_3px = expr_1.operate_binary(expr_2px, "+")?;
@@ -292,7 +293,7 @@
 //! # }
 //!```
 //!
-//! If we start by parsing a flat expression, we can deepen the expression to do multiple calculations 
+//! To save transformations, we can start by parsing a deep expression to do multiple calculations 
 //! and flatten eventually.
 //! 
 //! ```rust
@@ -300,16 +301,21 @@
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! #
 //! use exmex::{DeepEx, prelude::*};
-//! let flat_cos_x = FlatEx::<f64>::parse("cos(x)")?;
-//! let deep_cos_x = flat_cos_x.to_deepex()?;
+//! let deep_cos_x = DeepEx::<f64>::parse("cos(x)")?;
 //! let deep_identity = deep_cos_x.operate_unary("acos")?;
 //! let one = DeepEx::one();
 //! let deep_identity = deep_identity.operate_binary(one, "*")?;
-//! assert!((deep_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
+//! let flat_identity = FlatEx::from_deepex(deep_identity)?;
+//! assert!((flat_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
 //! #
 //! # Ok(())
 //! # }
 //! ```
+//! Additionally, it is possible to transform a flat expression to a nested expression
+//! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Calculations available for
+//! all data types `T` of an expression `FlatEx::<T>` are defined in the trait
+//! [`Calculate`](`Calculate`). For floating point data types there is the additional
+//! trait [`CalculateFloat`](`CalculateFloat`).
 
 use std::{fmt::Debug, str::FromStr};
 
