@@ -7,8 +7,8 @@ use crate::expression::{
 };
 use crate::operators::UnaryOp;
 use crate::{
-    format_exerr, BinOp, ExError, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral,
-    NumberMatcher, Calculate, CalculateFloat,
+    format_exerr, BinOp, Calculate, CalculateFloat, ExError, ExResult, FloatOpsFactory,
+    MakeOperators, MatchLiteral, NumberMatcher,
 };
 
 use smallvec::SmallVec;
@@ -70,7 +70,7 @@ mod detail {
     where
         T: Clone,
     {
-        pub fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
+        pub(super) fn from_kind(kind: FlatNodeKind<T>) -> FlatNode<T> {
             FlatNode {
                 kind,
                 unary_op: UnaryOp::new(),
@@ -80,7 +80,7 @@ mod detail {
 
     use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
 
-    pub fn collect_reprs<'a, F, T, I>(
+    fn collect_reprs<'a, F, T, I>(
         funcs: I,
         ops: &[Operator<'a, T>],
         predicate: fn(&Operator<T>, F) -> bool,
@@ -100,7 +100,7 @@ mod detail {
             .collect::<ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
     }
 
-    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
+    fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
         if op.has_unary() {
             op.unary().unwrap() == *func
         } else {
@@ -108,7 +108,7 @@ mod detail {
         }
     }
 
-    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
+    fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
         if op.has_bin() {
             op.bin().unwrap().apply == *func
         } else {
@@ -116,7 +116,7 @@ mod detail {
         }
     }
 
-    pub fn collect_unary_reprs<'a, T: Clone>(
+    fn collect_unary_reprs<'a, T: Clone>(
         ops: &[Operator<'a, T>],
         unary_op: &UnaryOp<T>,
     ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
@@ -130,11 +130,11 @@ mod detail {
         .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>())
     }
 
-    pub fn convert_node<'a, T, OF, LM>(
+    fn convert_node<'a, T, OF, LM>(
         node: FlatNode<T>,
         var_names: &[String],
         ops: &[Operator<'a, T>],
-    ) -> ExResult<DeepNode<'a, T, OF, LM>>
+    ) -> DeepNode<'a, T, OF, LM>
     where
         T: DataType,
         OF: MakeOperators<T>,
@@ -146,28 +146,28 @@ mod detail {
             FlatNodeKind::Var(var_idx) => DeepNode::Var((var_idx, var_names[var_idx].clone())),
         };
 
-        let reprs = collect_unary_reprs(ops, &node.unary_op)?;
+        // cannot fail unless there is a bug
+        let reprs = collect_unary_reprs(ops, &node.unary_op).unwrap();
+
         let n_reprs = reprs.len();
         let unary_op = UnaryOpWithReprs {
             reprs,
             op: node.unary_op.clone(),
         };
-        Ok(if n_reprs > 0 {
-            DeepNode::Expr(Box::new(DeepEx::new(
-                vec![deepnode],
-                BinOpsWithReprs::<T>::new(),
-                unary_op,
-            )?))
+        if n_reprs > 0 {
+            DeepNode::Expr(Box::new(
+                DeepEx::new(vec![deepnode], BinOpsWithReprs::<T>::new(), unary_op).unwrap(),
+            )) // cannot fail unless there is a bug
         } else {
             deepnode
-        })
+        }
     }
 
-    pub fn flatex_to_deepex<'a, T, OF, LM>(
+    pub(super) fn flatex_to_deepex<'a, T, OF, LM>(
         mut flat_ops: FlatOpVec<T>,
         nodes: FlatNodeVec<T>,
         var_names: SmallVec<[String; N_VARS_ON_STACK]>,
-    ) -> Result<DeepEx<'a, T, OF, LM>, ExError>
+    ) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         T: DataType,
         OF: MakeOperators<T>,
@@ -194,7 +194,7 @@ mod detail {
         let mut deep_nodes = nodes
             .into_iter()
             .map(|dn| convert_node::<T, OF, LM>(dn, &var_names, &operators))
-            .collect::<ExResult<Vec<DeepNode<T, OF, LM>>>>()?;
+            .collect::<Vec<DeepNode<T, OF, LM>>>();
         let mut tracker: SmallVec<[usize; N_NODES_ON_STACK]> =
             smallvec![0; 1 + deep_nodes.len() / usize::BITS as usize];
         debug_assert!(deep_nodes.len() <= tracker.max_len());
@@ -253,7 +253,7 @@ mod detail {
         Ok(deepex)
     }
 
-    pub fn eval_flatex<T: Clone + Debug>(
+    pub(super) fn eval_flatex<T: Clone + Debug>(
         vars: &[T],
         nodes: &[FlatNode<T>],
         ops: &[FlatOp<T>],
@@ -322,7 +322,7 @@ mod detail {
         }
     }
 
-    pub fn make_expression<T, OF, LMF>(
+    pub(super) fn make_expression<T, OF, LMF>(
         text: &str,
         parsed_tokens: &[ParsedToken<T>],
         parsed_vars: &[&str],
@@ -464,7 +464,7 @@ mod detail {
         })
     }
 
-    pub fn parse<T, OF, LMF>(text: &str, ops: &[Operator<T>]) -> ExResult<FlatEx<T, OF, LMF>>
+    pub(super) fn parse<T, OF, LMF>(text: &str, ops: &[Operator<T>]) -> ExResult<FlatEx<T, OF, LMF>>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
@@ -492,7 +492,7 @@ mod detail {
         make_expression(text, &parsed_tokens[0..], &parsed_vars)
     }
 
-    pub fn prioritized_indices_flat<T: Clone + Debug>(
+    pub(super) fn prioritized_indices_flat<T: Clone + Debug>(
         ops: &[FlatOp<T>],
         nodes: &[FlatNode<T>],
     ) -> ExprIdxVec {
@@ -806,7 +806,6 @@ where
     }
     (flat_nodes, flat_ops)
 }
-
 
 impl<'a, T, OF, LM> Calculate<'a, T> for FlatEx<T, OF, LM>
 where

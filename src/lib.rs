@@ -314,8 +314,7 @@
 //! Additionally, it is possible to transform a flat expression to a nested expression
 //! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Calculations available for
 //! all data types `T` of an expression `FlatEx::<T>` are defined in the trait
-//! [`Calculate`](`Calculate`). For floating point data types there is the additional
-//! trait [`CalculateFloat`](`CalculateFloat`).
+//! [`Calculate`](`Calculate`).
 
 use std::{fmt::Debug, str::FromStr};
 
