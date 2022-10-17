@@ -489,15 +489,15 @@ where
 }
 impl<'a, T, OF, LM> DeepNode<'a, T, OF, LM>
 where
-    T: DataType + Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    fn zero() -> Self {
+    fn zero() -> Self where T: Float {
         DeepNode::Num(T::from(0.0).unwrap())
     }
-    fn one() -> Self {
+    fn one() -> Self where T: Float{
         DeepNode::Num(T::from(1.0).unwrap())
     }
     fn num(n: T) -> Self {
@@ -711,8 +711,6 @@ where
     }
 
     pub(super) fn from_num(x: T) -> DeepEx<'a, T, OF, LM>
-    where
-        T: Float,
     {
         DeepEx::from_node(DeepNode::num(x))
     }

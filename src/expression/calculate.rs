@@ -26,6 +26,10 @@ where
         let substituted = self.to_deepex()?.subs(&mut sub_deepex);
         Self::from_deepex(substituted)
     }
+    fn from_num(x: T) -> Self {
+        Self::from_deepex(DeepEx::from_num(x))
+            .expect("we expect expressions to be constructable from a number")
+    }
 }
 
 pub trait CalculateFloat<'a, T>: Calculate<'a, T>
@@ -41,9 +45,5 @@ where
     fn one() -> Self {
         Self::from_deepex(DeepEx::one())
             .expect("we expect expressions to be constructable from a 1")
-    }
-    fn from_num(x: T) -> Self {
-        Self::from_deepex(DeepEx::from_num(x))
-            .expect("we expect expressions to be constructable from a number")
     }
 }
