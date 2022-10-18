@@ -663,9 +663,7 @@ fn test_to_deepex_non_default() -> ExResult<()> {
     let serialized = serde_json::to_string(&flatex).unwrap();
     let deserialized =
         serde_json::from_str::<FlatEx<i64, SomeOps>>(serialized.as_str()).unwrap();
-
     let deepex = deserialized.to_deepex()?;
-    let input = [7, 5, 4, 3, 2];
     assert_eq!(flatex.eval(&input), deepex.eval(&input));
     let flatex2 = FlatEx::from_deepex(deepex)?;
     assert_eq!(flatex.eval(&input), flatex2.eval(&input));

@@ -1,6 +1,7 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
+    ops,
     str::FromStr,
 };
 
@@ -494,10 +495,16 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    fn zero() -> Self where T: Float {
+    fn zero() -> Self
+    where
+        T: Float,
+    {
         DeepNode::Num(T::from(0.0).unwrap())
     }
-    fn one() -> Self where T: Float{
+    fn one() -> Self
+    where
+        T: Float,
+    {
         DeepNode::Num(T::from(1.0).unwrap())
     }
     fn num(n: T) -> Self {
@@ -710,8 +717,7 @@ where
         DeepEx::from_node(DeepNode::zero())
     }
 
-    pub(super) fn from_num(x: T) -> DeepEx<'a, T, OF, LM>
-    {
+    pub(super) fn from_num(x: T) -> DeepEx<'a, T, OF, LM> {
         DeepEx::from_node(DeepNode::num(x))
     }
 
@@ -817,7 +823,7 @@ where
         self.compile();
         Ok(self)
     }
-    
+
     /// Applies a unary operator to self
     #[cfg(feature = "partial")]
     pub(super) fn operate_unary_opwithrepr(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
@@ -1017,13 +1023,157 @@ where
 {
 }
 
+impl<'a, T, OF, LM> ops::Add for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn add(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "+")
+    }
+}
+
+impl<'a, T, OF, LM> ops::Sub for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "-")
+    }
+}
+
+impl<'a, T, OF, LM> ops::Mul for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn mul(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "*")
+    }
+}
+
+impl<'a, T, OF, LM> ops::Div for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn div(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "/")
+    }
+}
+
+impl<'a, T, OF, LM> ops::BitAnd for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "&")
+    }
+}
+
+impl<'a, T, OF, LM> ops::BitOr for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "|")
+    }
+}
+
+impl<'a, T, OF, LM> ops::BitXor for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "^")
+    }
+}
+
+impl<'a, T, OF, LM> ops::Rem for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn rem(self, rhs: Self) -> Self::Output {
+        self.operate_bin(rhs, "%")
+    }
+}
+
+impl<'a, T, OF, LM> ops::Neg for DeepEx<'a, T, OF, LM>
+where
+    T: DataType + num::Float,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+    Self: Sized,
+{
+    type Output = ExResult<DeepEx<'a, T, OF, LM>>;
+    fn neg(self) -> Self::Output {
+        self.operate_unary("-")
+    }
+}
+
+use super::{
+    calculate::{Calculate, CalculateFloat},
+    eval_binary,
+};
 #[cfg(test)]
 use crate::{util::assert_float_eq_f64, FlatEx};
-use super::{calculate::{Calculate, CalculateFloat}, eval_binary};
- 
+
 #[cfg(test)]
 #[cfg(feature = "partial")]
 use crate::operators::VecOfUnaryFuncs;
+
+#[test]
+fn test_ops() -> ExResult<()> {
+    let d1 = DeepEx::<f64>::one();
+    let d2 = DeepEx::<f64>::one();
+    let sum = (d1 + d2)?;
+    assert_float_eq_f64(sum.eval(&[])?, 2.0);
+    let mul = (sum.clone() * sum)?;
+    assert_float_eq_f64(mul.eval(&[])?, 4.0);
+    let div = (mul.clone() / mul)?;
+    assert_float_eq_f64(div.eval(&[])?, 1.0);
+    let sub = (div.clone() - div)?;
+    assert_float_eq_f64(sub.eval(&[])?, 0.0);
+    Ok(())
+}
 
 #[test]
 fn test_sub1() -> ExResult<()> {
