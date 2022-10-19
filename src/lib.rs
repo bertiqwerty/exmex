@@ -310,10 +310,27 @@
 //! # Ok(())
 //! # }
 //! ```
-//! Additionally, it is possible to transform a flat expression to a nested expression
-//! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Calculations available for
-//! all data types `T` of an expression `FlatEx::<T>` are defined in the trait
-//! [`Calculate`](`Calculate`).
+//! Alternatively, it is possible to transform a flat expression to a nested expression
+//! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Moreover, we have implemented the default
+//! operators as wrappers around [`Calculate::operate_unary`](Calculate::operate_unary) and 
+//! [`Calculate::operate_binary`](Calculate::operate_binary), see the following re-write of the snippet 
+//! above.
+//! 
+//! ```rust
+//! # use std::error::Error;
+//! # fn main() -> Result<(), Box<dyn Error>> {
+//! #
+//! use exmex::{DeepEx, prelude::*};
+//! let deep_cos_x = DeepEx::<f64>::parse("cos(x)")?;
+//! let deep_identity = deep_cos_x.acos()?;
+//! let one = DeepEx::one();
+//! let deep_identity = (deep_identity * one)?;
+//! let flat_identity = FlatEx::from_deepex(deep_identity)?;
+//! assert!((flat_identity.eval(&[3.0])? - 3.0).abs() < 1e-12);
+//! #
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{fmt::Debug, str::FromStr};
 
