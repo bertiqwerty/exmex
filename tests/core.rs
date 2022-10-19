@@ -728,13 +728,36 @@ fn test_ops() -> ExResult<()> {
         DeepEx::<f64>::parse("{x}^4.0")?.eval(&[7.3])
     );
     let d = (-d)?;
-    assert_eq!(
-        d.eval(&[7.3]),
-        DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[7.3])
-    );
+    let ref_val = DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[7.3])?;
+    let ref_val_2 = DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[0.95])?;
+    assert_eq!(d.eval(&[7.3])?, ref_val);
     assert!((d.clone() & d.clone()).is_err());
     assert!((d.clone() | d.clone()).is_err());
     assert!((d.clone() % d.clone()).is_err());
+    utils::assert_float_eq_f64(d.clone().abs()?.eval(&[7.3])?, ref_val.abs());
+    utils::assert_float_eq_f64(d.clone().sin()?.eval(&[7.3])?, ref_val.sin());
+    utils::assert_float_eq_f64(d.clone().cos()?.eval(&[7.3])?, ref_val.cos());
+    utils::assert_float_eq_f64(d.clone().tan()?.eval(&[7.3])?, ref_val.tan());
+    utils::assert_float_eq_f64(d.clone().asin()?.eval(&[0.95])?, ref_val_2.asin());
+    utils::assert_float_eq_f64(d.clone().acos()?.eval(&[0.95])?, ref_val_2.acos());
+    utils::assert_float_eq_f64(d.clone().atan()?.eval(&[0.95])?, ref_val_2.atan());
+    utils::assert_float_eq_f64(d.clone().ceil()?.eval(&[7.3])?, ref_val.ceil());
+    utils::assert_float_eq_f64(d.clone().floor()?.eval(&[7.3])?, ref_val.floor());
+    utils::assert_float_eq_f64(d.clone().round()?.eval(&[7.3])?, ref_val.round());
+    utils::assert_float_eq_f64(d.clone().exp()?.eval(&[7.3])?, ref_val.exp());
+    utils::assert_float_eq_f64((-d.clone())?.clone().log()?.eval(&[7.3])?, (-ref_val).ln());
+    utils::assert_float_eq_f64((-d.clone())?.clone().log2()?.eval(&[7.3])?, (-ref_val).log2());
+    utils::assert_float_eq_f64((-d.clone())?.clone().log10()?.eval(&[7.3])?, (-ref_val).log10());
+    utils::assert_float_eq_f64((-d.clone())?.clone().ln()?.eval(&[7.3])?, (-ref_val).ln());
+    utils::assert_float_eq_f64(d.clone().signum()?.eval(&[7.3])?, ref_val.signum());
+    utils::assert_float_eq_f64((-d.clone())?.clone().sqrt()?.eval(&[7.3])?, (-ref_val).sqrt());
+    utils::assert_float_eq_f64((-d.clone())?.clone().cbrt()?.eval(&[7.3])?, (-ref_val).cbrt());
+    utils::assert_float_eq_f64(d.clone().trunc()?.eval(&[7.3])?, ref_val.trunc());
+    utils::assert_float_eq_f64(d.clone().fract()?.eval(&[7.3])?, ref_val.fract());
+    utils::assert_float_eq_f64(DeepEx::<f64>::pi().eval(&[])?, std::f64::consts::PI);
+    utils::assert_float_eq_f64(DeepEx::<f64>::e().eval(&[])?, std::f64::consts::E);
+    utils::assert_float_eq_f64(DeepEx::<f64>::tau().eval(&[])?, std::f64::consts::TAU);
+
     Ok(())
 }
 

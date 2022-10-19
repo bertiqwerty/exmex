@@ -90,7 +90,7 @@ where
     }
 }
 
-/// For floats we provide ways to conviniently create expressions that represent a `1` or a `0`.
+/// For floats we provide ways to conviniently create expressions that represent zero one.
 pub trait CalculateFloat<'a, T>: Calculate<'a, T>
 where
     T: DataType + num::Float,
