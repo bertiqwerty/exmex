@@ -515,8 +515,7 @@ mod detail {
         indices
     }
 }
-/// This is the core data type representing a flattened expression and the result of
-/// parsing a string. We use flattened expressions to make efficient evaluation possible.
+/// Flattened expressions make efficient evaluation possible.
 /// Simplified, a flat expression consists of a [`SmallVec`](https://docs.rs/smallvec/)
 /// of nodes and a [`SmallVec`](https://docs.rs/smallvec/) of operators that are applied
 /// to the nodes in an order following operator priorities.

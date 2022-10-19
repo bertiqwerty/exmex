@@ -548,7 +548,7 @@ where
 }
 
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
-/// expressions. Compared to [`FlatEx`](FlatEx), this is slower to evaluate but 
+/// expressions. Compared to [`FlatEx`](crate::FlatEx), this is slower to evaluate but 
 /// easier to calculate with.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct DeepEx<'a, T, OF = FloatOpsFactory<T>, LM = NumberMatcher>

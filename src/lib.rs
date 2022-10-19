@@ -399,7 +399,7 @@ where
     flatex.eval(&[])
 }
 
-/// Parses a string and returns the expression that can be evaluated.
+/// Parses a string and returns the expression with default operators that can be evaluated.
 ///
 /// # Errrors
 ///
