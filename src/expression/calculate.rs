@@ -90,19 +90,3 @@ where
     }
 }
 
-/// For floats we provide ways to conviniently create expressions that represent zero one.
-pub trait CalculateFloat<'a, T>: Calculate<'a, T>
-where
-    T: DataType + num::Float,
-    <T as FromStr>::Err: Debug,
-    Self: Sized,
-{
-    fn zero() -> Self {
-        Self::from_deepex(DeepEx::zero())
-            .expect("we expect expressions to be constructable from a 0")
-    }
-    fn one() -> Self {
-        Self::from_deepex(DeepEx::one())
-            .expect("we expect expressions to be constructable from a 1")
-    }
-}

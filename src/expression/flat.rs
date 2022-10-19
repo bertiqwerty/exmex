@@ -7,8 +7,8 @@ use crate::expression::{
 };
 use crate::operators::UnaryOp;
 use crate::{
-    format_exerr, BinOp, Calculate, CalculateFloat, ExError, ExResult, FloatOpsFactory,
-    MakeOperators, MatchLiteral, NumberMatcher,
+    format_exerr, BinOp, Calculate, ExError, ExResult, FloatOpsFactory, MakeOperators,
+    MatchLiteral, NumberMatcher,
 };
 
 use smallvec::SmallVec;
@@ -810,15 +810,6 @@ where
 impl<'a, T, OF, LM> Calculate<'a, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
-    OF: MakeOperators<T> + Debug,
-    LM: MatchLiteral + Debug,
-    <T as FromStr>::Err: Debug,
-{
-}
-
-impl<'a, T, OF, LM> CalculateFloat<'a, T> for FlatEx<T, OF, LM>
-where
-    T: DataType + num::Float,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
     <T as FromStr>::Err: Debug,

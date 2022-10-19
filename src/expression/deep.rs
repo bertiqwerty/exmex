@@ -8,6 +8,7 @@ use std::{
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 
+use super::{calculate::Calculate, eval_binary};
 use crate::{
     data_type::DataType,
     definitions::{
@@ -29,7 +30,18 @@ pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
 macro_rules! attach_unary_op {
     ($name:ident) => {
-        pub fn $name(self) -> ExResult<Self> {
+        pub fn $name(self) -> ExResult<Self>
+        {
+            self.operate_unary(stringify!($name))
+        }
+    };
+}
+macro_rules! attach_unary_float_op {
+    ($name:ident) => {
+        pub fn $name(self) -> ExResult<Self>
+        where
+            T: num::Float,
+        {
             self.operate_unary(stringify!($name))
         }
     };
@@ -911,28 +923,28 @@ where
     }
 
     attach_unary_op!(abs);
-    attach_unary_op!(sin);
-    attach_unary_op!(cos);
-    attach_unary_op!(tan);
-    attach_unary_op!(sinh);
-    attach_unary_op!(cosh);
-    attach_unary_op!(tanh);
-    attach_unary_op!(asin);
-    attach_unary_op!(acos);
-    attach_unary_op!(atan);
+    attach_unary_float_op!(sin);
+    attach_unary_float_op!(cos);
+    attach_unary_float_op!(tan);
+    attach_unary_float_op!(sinh);
+    attach_unary_float_op!(cosh);
+    attach_unary_float_op!(tanh);
+    attach_unary_float_op!(asin);
+    attach_unary_float_op!(acos);
+    attach_unary_float_op!(atan);
     attach_unary_op!(signum);
-    attach_unary_op!(log);
-    attach_unary_op!(log2);
-    attach_unary_op!(log10);
-    attach_unary_op!(ln);
-    attach_unary_op!(round);
-    attach_unary_op!(floor);
-    attach_unary_op!(ceil);
-    attach_unary_op!(exp);
-    attach_unary_op!(sqrt);
-    attach_unary_op!(cbrt);
-    attach_unary_op!(fract);
-    attach_unary_op!(trunc);
+    attach_unary_float_op!(log);
+    attach_unary_float_op!(log2);
+    attach_unary_float_op!(log10);
+    attach_unary_float_op!(ln);
+    attach_unary_float_op!(round);
+    attach_unary_float_op!(floor);
+    attach_unary_float_op!(ceil);
+    attach_unary_float_op!(exp);
+    attach_unary_float_op!(sqrt);
+    attach_unary_float_op!(cbrt);
+    attach_unary_float_op!(fract);
+    attach_unary_float_op!(trunc);
     attach_constant_op!(pi, T::from(std::f64::consts::PI).unwrap());
     attach_constant_op!(e, T::from(std::f64::consts::E).unwrap());
     attach_constant_op!(tau, T::from(std::f64::consts::TAU).unwrap());
@@ -1026,15 +1038,7 @@ where
     Self: Sized,
 {
 }
-impl<'a, T, OF, LM> CalculateFloat<'a, T> for DeepEx<'a, T, OF, LM>
-where
-    T: DataType + num::Float,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-    <T as FromStr>::Err: Debug,
-    Self: Sized,
-{
-}
+
 impl<'a, T, OF, LM> Display for DeepEx<'a, T, OF, LM>
 where
     T: DataType,
@@ -1195,10 +1199,6 @@ where
     }
 }
 
-use super::{
-    calculate::{Calculate, CalculateFloat},
-    eval_binary,
-};
 #[cfg(test)]
 use crate::{util::assert_float_eq_f64, FlatEx};
 

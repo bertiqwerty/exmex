@@ -62,7 +62,7 @@
 //! ```
 //! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx)
 //! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx),
-//! [`Express`](Express), [`Calculate`](Calculate), [`CalculateFloat`](CalculateFloat) are the items made accessible by the 
+//! [`Express`](Express), and [`Calculate`](Calculate) are the items made accessible by the
 //! wildcard import from [`prelude`](prelude) if the feature `partial` is not used.
 //!
 //! ## Features
@@ -275,9 +275,9 @@
 //!
 //! ## Calculating with Expression
 //!
-//! Like partial derivatives, calculations need the nested expression type [`DeepEx`](`DeepEx`) that is 
+//! Like partial derivatives, calculations need the nested expression type [`DeepEx`](`DeepEx`) that is
 //! slower to evaluate than the flattened expression type [`FlatEx`](`FlatEx`). It is possible to calculate
-//! with flat expressions of type [`FlatEx`](`FlatEx`). However, transformations to the 
+//! with flat expressions of type [`FlatEx`](`FlatEx`). However, transformations to the
 //! nested expression [`DeepEx`](`DeepEx`) happen in the background.
 //! ```rust
 //! # use std::error::Error;
@@ -293,9 +293,9 @@
 //! # }
 //!```
 //!
-//! To save transformations, we can start by parsing a deep expression to do multiple calculations 
+//! To save transformations, we can start by parsing a deep expression to do multiple calculations
 //! and flatten eventually.
-//! 
+//!
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -331,11 +331,7 @@ mod util;
 
 pub use {
     expression::{
-        calculate::{Calculate, CalculateFloat},
-        deep::find_bin_op,
-        deep::find_unary_op,
-        deep::DeepEx,
-        flat::FlatEx,
+        calculate::Calculate, deep::find_bin_op, deep::find_unary_op, deep::DeepEx, flat::FlatEx,
         Express, MatchLiteral, NumberMatcher,
     },
     operators::{BinOp, FloatOpsFactory, MakeOperators, Operator},
@@ -360,11 +356,7 @@ pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 /// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active.
 ///
 pub mod prelude {
-    pub use crate::expression::{
-        calculate::{Calculate, CalculateFloat},
-        flat::FlatEx,
-        Express,
-    };
+    pub use crate::expression::{calculate::Calculate, flat::FlatEx, Express};
     #[cfg(feature = "partial")]
     pub use crate::Differentiate;
     pub use std::str::FromStr;
