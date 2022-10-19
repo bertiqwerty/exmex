@@ -1160,20 +1160,6 @@ use crate::{util::assert_float_eq_f64, FlatEx};
 #[cfg(feature = "partial")]
 use crate::operators::VecOfUnaryFuncs;
 
-#[test]
-fn test_ops() -> ExResult<()> {
-    let d1 = DeepEx::<f64>::one();
-    let d2 = DeepEx::<f64>::one();
-    let sum = (d1 + d2)?;
-    assert_float_eq_f64(sum.eval(&[])?, 2.0);
-    let mul = (sum.clone() * sum)?;
-    assert_float_eq_f64(mul.eval(&[])?, 4.0);
-    let div = (mul.clone() / mul)?;
-    assert_float_eq_f64(div.eval(&[])?, 1.0);
-    let sub = (div.clone() - div)?;
-    assert_float_eq_f64(sub.eval(&[])?, 0.0);
-    Ok(())
-}
 
 #[test]
 fn test_sub1() -> ExResult<()> {

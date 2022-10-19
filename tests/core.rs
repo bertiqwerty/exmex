@@ -671,6 +671,29 @@ fn test_to_deepex_non_default() -> ExResult<()> {
 }
 
 #[test]
+fn test_ops() -> ExResult<()> {
+    let d1 = DeepEx::<f64>::one();
+    let d2 = DeepEx::<f64>::one();
+    let sum = (d1 + d2)?;
+    utils::assert_float_eq_f64(sum.eval(&[])?, 2.0);
+    let mul = (sum.clone() * sum)?;
+    utils::assert_float_eq_f64(mul.eval(&[])?, 4.0);
+    let div = (mul.clone() / mul)?;
+    utils::assert_float_eq_f64(div.eval(&[])?, 1.0);
+    let sub = (div.clone() - div)?;
+    utils::assert_float_eq_f64(sub.eval(&[])?, 0.0);
+    let d = DeepEx::<f64>::parse("x^2")?;
+    let d = (d ^ DeepEx::from_num(2.0))?;
+    assert_eq!(d.eval(&[7.3]), DeepEx::<f64>::parse("{x}^4.0")?.eval(&[7.3]));
+    let d = (-d)?; 
+    assert_eq!(d.eval(&[7.3]), DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[7.3]));
+    assert!((d.clone() & d.clone()).is_err());
+    assert!((d.clone() | d.clone()).is_err());
+    assert!((d.clone() % d.clone()).is_err());
+    Ok(())
+}
+
+#[test]
 fn test_calculate() -> ExResult<()> {
     let one = FlatEx::<f64>::one();
     let another_one = one.clone();
