@@ -5,6 +5,7 @@ use std::{
     str::FromStr,
 };
 
+#[cfg(feature = "partial")]
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 
@@ -526,18 +527,6 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    fn zero() -> Self
-    where
-        T: Float,
-    {
-        DeepNode::Num(T::from(0.0).unwrap())
-    }
-    fn one() -> Self
-    where
-        T: Float,
-    {
-        DeepNode::Num(T::from(1.0).unwrap())
-    }
     fn num(n: T) -> Self {
         DeepNode::Num(n)
     }
@@ -732,20 +721,6 @@ where
 
     pub(super) fn from_node(node: DeepNode<'a, T, OF, LM>) -> DeepEx<'a, T, OF, LM> {
         DeepEx::new(vec![node], BinOpsWithReprs::new(), UnaryOpWithReprs::new()).unwrap()
-    }
-
-    pub(super) fn one() -> DeepEx<'a, T, OF, LM>
-    where
-        T: Float,
-    {
-        DeepEx::from_node(DeepNode::one())
-    }
-
-    pub(super) fn zero() -> DeepEx<'a, T, OF, LM>
-    where
-        T: Float,
-    {
-        DeepEx::from_node(DeepNode::zero())
     }
 
     pub(super) fn from_num(x: T) -> DeepEx<'a, T, OF, LM> {
@@ -945,6 +920,8 @@ where
     attach_unary_float_op!(cbrt);
     attach_unary_float_op!(fract);
     attach_unary_float_op!(trunc);
+    attach_constant_op!(one, T::from(1.0).unwrap());
+    attach_constant_op!(zero, T::from(0.0).unwrap());
     attach_constant_op!(pi, T::from(std::f64::consts::PI).unwrap());
     attach_constant_op!(e, T::from(std::f64::consts::E).unwrap());
     attach_constant_op!(tau, T::from(std::f64::consts::TAU).unwrap());

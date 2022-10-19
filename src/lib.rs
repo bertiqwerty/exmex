@@ -283,11 +283,10 @@
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
 //! use exmex::prelude::*;
-//! let expr_1 = FlatEx::one();
+//! let expr_1 = FlatEx::<f64>::parse("x")?;
 //! let expr_2px = FlatEx::<f64>::parse("2 + x")?;
-//! let expr_3px = expr_1.operate_binary(expr_2px, "+")?;
-//! assert_eq!(format!("{}", expr_3px), "1.0+(2.0+{x})");
-//! assert!(expr_3px.eval(&[-3.0])? < 1e-12);
+//! let expr_2p2x = expr_1.operate_binary(expr_2px, "+")?;
+//! assert!(expr_2p2x.eval(&[-1.5])? < 1e-12);
 //! #
 //! #     Ok(())
 //! # }

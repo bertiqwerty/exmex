@@ -5,7 +5,7 @@ use exmex::{format_exerr, DeepEx};
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
     prelude::*,
-    Calculate, CalculateFloat, ExError, ExResult, MatchLiteral,
+    Calculate, ExError, ExResult, MatchLiteral,
     {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
 use std::iter::repeat;
@@ -763,7 +763,7 @@ fn test_ops() -> ExResult<()> {
 
 #[test]
 fn test_calculate() -> ExResult<()> {
-    let one = FlatEx::<f64>::one();
+    let one = DeepEx::<f64>::one();
     let another_one = one.clone();
     let two = one.operate_binary(another_one, "+")?;
     utils::assert_float_eq_f64(two.eval(&[])?, 2.0);
