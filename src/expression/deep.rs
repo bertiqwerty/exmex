@@ -1025,7 +1025,7 @@ where
 
 impl<'a, T, OF, LM> ops::Add for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1039,7 +1039,7 @@ where
 
 impl<'a, T, OF, LM> ops::Sub for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1053,7 +1053,7 @@ where
 
 impl<'a, T, OF, LM> ops::Mul for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1067,7 +1067,7 @@ where
 
 impl<'a, T, OF, LM> ops::Div for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1081,7 +1081,7 @@ where
 
 impl<'a, T, OF, LM> ops::BitAnd for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1095,7 +1095,7 @@ where
 
 impl<'a, T, OF, LM> ops::BitOr for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1109,7 +1109,7 @@ where
 
 impl<'a, T, OF, LM> ops::BitXor for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1123,7 +1123,7 @@ where
 
 impl<'a, T, OF, LM> ops::Rem for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1137,7 +1137,7 @@ where
 
 impl<'a, T, OF, LM> ops::Neg for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float,
+    T: DataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,

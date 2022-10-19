@@ -4,8 +4,9 @@ use exmex::{format_exerr, DeepEx};
 #[cfg(test)]
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
-    prelude::*, Calculate, CalculateFloat,
-    ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
+    prelude::*,
+    Calculate, CalculateFloat, ExError, ExResult, MatchLiteral,
+    {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
 use std::iter::repeat;
 #[cfg(test)]
@@ -612,7 +613,6 @@ fn test_fuzz() {
     assert!(FlatEx::<f64>::parse("\n").is_err());
 }
 
-
 #[cfg(feature = "serde")]
 #[test]
 fn test_to_deepex_non_default() -> ExResult<()> {
@@ -651,6 +651,30 @@ fn test_to_deepex_non_default() -> ExResult<()> {
                 is_commutative: false
             },
             |a| -a
+        ),
+        Operator::make_bin(
+            "%",
+            BinOp {
+                apply: |a, b| a % b,
+                prio: 2,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
+            "|",
+            BinOp {
+                apply: |a, b| a | b,
+                prio: 2,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin(
+            "&",
+            BinOp {
+                apply: |a, b| a & b,
+                prio: 2,
+                is_commutative: true
+            }
         )
     );
     let flatex = FlatEx::<i64, SomeOps>::parse("alpha*(-beta-(11-gamma/(omikron*3+zeta)))")?;
@@ -661,12 +685,27 @@ fn test_to_deepex_non_default() -> ExResult<()> {
     assert_eq!(flatex.eval(&input), flatex2.eval(&input));
 
     let serialized = serde_json::to_string(&flatex).unwrap();
-    let deserialized =
-        serde_json::from_str::<FlatEx<i64, SomeOps>>(serialized.as_str()).unwrap();
+    let deserialized = serde_json::from_str::<FlatEx<i64, SomeOps>>(serialized.as_str()).unwrap();
     let deepex = deserialized.to_deepex()?;
     assert_eq!(flatex.eval(&input), deepex.eval(&input));
     let flatex2 = FlatEx::from_deepex(deepex)?;
     assert_eq!(flatex.eval(&input), flatex2.eval(&input));
+    let xpy_f = FlatEx::<i64, SomeOps>::parse("x + y")?;
+    let y_f = FlatEx::<i64, SomeOps>::parse("y")?;
+    let xpy = xpy_f.to_deepex()?;
+    let y = y_f.to_deepex()?;
+    let xpy_mod_y = (xpy.clone() % y.clone())?;
+    assert_eq!(xpy_mod_y.eval(&[1, 2])?, 1);
+    let xpy_or_y = (xpy.clone() | y.clone())?;
+    assert_eq!(
+        xpy_or_y.eval(&[1, 2])?,
+        DeepEx::<i64, SomeOps>::parse("(x+y) | y")?.eval(&[1, 2])?
+    );
+    let xpy_and_y = (xpy.clone() & y.clone())?;
+    assert_eq!(
+        xpy_and_y.eval(&[7, 2])?,
+        DeepEx::<i64, SomeOps>::parse("(x+y) & y")?.eval(&[7, 2])?
+    );
     Ok(())
 }
 
@@ -684,9 +723,15 @@ fn test_ops() -> ExResult<()> {
     utils::assert_float_eq_f64(sub.eval(&[])?, 0.0);
     let d = DeepEx::<f64>::parse("x^2")?;
     let d = (d ^ DeepEx::from_num(2.0))?;
-    assert_eq!(d.eval(&[7.3]), DeepEx::<f64>::parse("{x}^4.0")?.eval(&[7.3]));
-    let d = (-d)?; 
-    assert_eq!(d.eval(&[7.3]), DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[7.3]));
+    assert_eq!(
+        d.eval(&[7.3]),
+        DeepEx::<f64>::parse("{x}^4.0")?.eval(&[7.3])
+    );
+    let d = (-d)?;
+    assert_eq!(
+        d.eval(&[7.3]),
+        DeepEx::<f64>::parse("-({x}^4.0)")?.eval(&[7.3])
+    );
     assert!((d.clone() & d.clone()).is_err());
     assert!((d.clone() | d.clone()).is_err());
     assert!((d.clone() % d.clone()).is_err());
@@ -701,11 +746,9 @@ fn test_calculate() -> ExResult<()> {
     utils::assert_float_eq_f64(two.eval(&[])?, 2.0);
     let expr = DeepEx::<f64>::parse("exp(x)+2*y")?;
     let expr_sub = DeepEx::parse("2*z")?;
-    let mut subs = |var: &str| {
-        match var {
-            "y" => Some(expr_sub.clone()),
-            _ => None,
-        }
+    let mut subs = |var: &str| match var {
+        "y" => Some(expr_sub.clone()),
+        _ => None,
     };
     let subsed = expr.subs(&mut subs)?;
     utils::assert_float_eq_f64(subsed.eval(&[0.0, 2.0])?, 9.0);
