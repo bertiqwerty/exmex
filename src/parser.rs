@@ -257,25 +257,25 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.has_unary() && !op_r.has_unary() => Err(format_exerr!(
-                        "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
-                        op_l.repr(),
-                        op_r.repr())),                
-                _ => Ok(()),
-            }
+                    (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                        if !op_l.has_unary() && !op_r.has_unary() => Err(format_exerr!(
+                            "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
+                            op_l.repr(),
+                            op_r.repr())),                
+                    _ => Ok(()),
+                }
             },
         },
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
-                    if !op_l.has_bin() && !op_r.has_unary() => Err(format_exerr!(
-                        "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
-                        op_l.repr(),
-                        op_r.repr())),                
-                _ => Ok(()),
-            }
+                    (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                        if !op_l.has_bin() && !op_r.has_unary() => Err(format_exerr!(
+                            "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
+                            op_l.repr(),
+                            op_r.repr())),                
+                    _ => Ok(()),
+                }
             },
         },
         PairPreCondition {
