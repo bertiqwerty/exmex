@@ -22,7 +22,7 @@ pub enum ParsedToken<'a, T: DataType> {
 }
 
 /// Returns the index of the variable in the slice. Panics if not available!
-pub fn find_var_index<'a>(name: &str, parsed_vars: &[&'a str]) -> usize {
+pub fn find_var_index(name: &str, parsed_vars: &[&str]) -> usize {
     let idx = parsed_vars.iter().enumerate().find(|(_, n)| **n == name);
     match idx {
         Some((i, _)) => i,

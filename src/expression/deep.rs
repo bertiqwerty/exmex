@@ -31,8 +31,7 @@ pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
 
 macro_rules! attach_unary_op {
     ($name:ident) => {
-        pub fn $name(self) -> ExResult<Self>
-        {
+        pub fn $name(self) -> ExResult<Self> {
             self.operate_unary(stringify!($name))
         }
     };
@@ -144,8 +143,8 @@ mod detail {
         <T as FromStr>::Err: Debug,
     {
         let mut node_strings = nodes.iter().map(|n| match n {
-            DeepNode::Num(n) => format!("{:?}", n),
-            DeepNode::Var((_, var_name)) => format!("{{{}}}", var_name),
+            DeepNode::Num(n) => format!("{n:?}"),
+            DeepNode::Var((_, var_name)) => format!("{{{var_name}}}"),
             DeepNode::Expr(e) => {
                 if e.unary_op().op.len() == 0 {
                     format!("({})", unparse_raw(e.nodes(), e.bin_ops(), e.unary_op()))
@@ -181,10 +180,7 @@ mod detail {
         if unary_op.op.len() == 0 {
             node_with_bin_ops_string
         } else {
-            format!(
-                "{}{}{}",
-                unary_op_string, node_with_bin_ops_string, closings
-            )
+            format!("{unary_op_string}{node_with_bin_ops_string}{closings}")
         }
     }
     /// Handles the case that a token is a unary operator and returns a tuple.
@@ -540,15 +536,15 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DeepNode::Expr(e) => write!(f, "{:?}", e),
-            DeepNode::Num(n) => write!(f, "{:?}", n),
-            DeepNode::Var((_, var_name)) => write!(f, "{}", var_name),
+            DeepNode::Expr(e) => write!(f, "{e:?}"),
+            DeepNode::Num(n) => write!(f, "{n:?}"),
+            DeepNode::Var((_, var_name)) => write!(f, "{var_name}"),
         }
     }
 }
 
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
-/// expressions. Compared to [`FlatEx`](crate::FlatEx), this is slower to evaluate but 
+/// expressions. Compared to [`FlatEx`](crate::FlatEx), this is slower to evaluate but
 /// easier to calculate with.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct DeepEx<'a, T, OF = FloatOpsFactory<T>, LM = NumberMatcher>

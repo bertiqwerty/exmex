@@ -735,7 +735,7 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let unparsed = self.unparse();
-        write!(f, "{}", unparsed)
+        write!(f, "{unparsed}")
     }
 }
 
