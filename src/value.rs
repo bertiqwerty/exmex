@@ -83,7 +83,7 @@ macro_rules! to_type {
 /// # }
 /// ```
 ///
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Val<I = i32, F = f64>
 where
     I: DataType + PrimInt + Signed,
@@ -95,6 +95,7 @@ where
     /// Since the trait `Try` is experimental, we keep track of an error in an additional variant.
     Error(ExError),
     /// Sometimes, `Val` does not contain a value
+    #[default]
     None,
 }
 

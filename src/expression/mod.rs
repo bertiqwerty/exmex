@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::{fmt::Debug, mem, str::FromStr};
 
 use crate::{data_type::DataType, operators::OperateBinary, parser, ExResult, MakeOperators};
 
@@ -105,7 +105,7 @@ pub fn eval_binary<T, O, N>(
     tracker: &mut N,
 ) -> T
 where
-    T: Clone,
+    T: Clone + Default,
     O: OperateBinary<T>,
     N: NumberTracker + ?Sized,
 {
@@ -121,8 +121,10 @@ where
         // point of panic for invalid input
         assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < binary_ops.len());
 
-        numbers[num_1_idx] =
-            binary_ops[idx].apply(numbers[num_1_idx].clone(), numbers[num_2_idx].clone());
+        numbers[num_1_idx] = binary_ops[idx].apply(
+            mem::take(&mut numbers[num_1_idx]),
+            mem::take(&mut numbers[num_2_idx]),
+        );
     }
     numbers.iter().next().unwrap().clone()
 }

@@ -232,7 +232,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
     let expr = FlatEx::<f64>::parse(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[std::f64::consts::FRAC_PI_2]).unwrap(), 1.0);
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, Default, PartialEq, Eq)]
     struct Thumbs {
         val: bool,
     }

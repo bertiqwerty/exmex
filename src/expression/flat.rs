@@ -254,7 +254,7 @@ mod detail {
         Ok(deepex)
     }
 
-    pub(super) fn eval_flatex<T: Clone + Debug>(
+    pub(super) fn eval_flatex<T: Clone + Debug + Default>(
         vars: &[T],
         nodes: &[FlatNode<T>],
         ops: &[FlatOp<T>],
@@ -329,7 +329,7 @@ mod detail {
         parsed_vars: &[&str],
     ) -> ExResult<FlatEx<T, OF, LMF>>
     where
-        T: Clone + FromStr + Debug,
+        T: DataType,
         OF: MakeOperators<T>,
         LMF: MatchLiteral,
     {

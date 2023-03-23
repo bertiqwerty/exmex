@@ -1,4 +1,4 @@
 use std::{fmt::Debug, str::FromStr};
 
-pub trait DataType: Clone + FromStr + Debug {}
-impl<T: Clone + FromStr + Debug> DataType for T {}
+pub trait DataType: Clone + FromStr + Debug + Default {}
+impl<T: Clone + FromStr + Debug + Default> DataType for T {}
