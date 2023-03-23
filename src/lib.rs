@@ -312,10 +312,10 @@
 //! ```
 //! Alternatively, it is possible to transform a flat expression to a nested expression
 //! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Moreover, we have implemented the default
-//! operators as wrappers around [`Calculate::operate_unary`](Calculate::operate_unary) and 
-//! [`Calculate::operate_binary`](Calculate::operate_binary), see the following re-write of the snippet 
+//! operators as wrappers around [`Calculate::operate_unary`](Calculate::operate_unary) and
+//! [`Calculate::operate_binary`](Calculate::operate_binary), see the following re-write of the snippet
 //! above.
-//! 
+//!
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

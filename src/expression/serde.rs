@@ -74,7 +74,7 @@ use crate::operators::{BinOp, Operator};
 
 #[cfg(feature = "partial")]
 #[cfg(test)]
-use {serde_test::Token};
+use serde_test::Token;
 
 #[cfg(feature = "partial")]
 #[test]

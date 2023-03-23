@@ -2,11 +2,11 @@ use std::{collections::BTreeMap, iter::repeat};
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
+#[cfg(feature = "partial")]
+use exmex::Differentiate;
 use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
 #[cfg(feature = "value")]
 use exmex::{FlatExVal, Val};
-#[cfg(feature = "partial")]
-use exmex::Differentiate;
 
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};

@@ -118,7 +118,7 @@ impl<'a, T: Clone> Operator<'a, T> {
     }
 }
 
-/// Binary operations implementIng this can be evaluated with 
+/// Binary operations implementIng this can be evaluated with
 /// [`eval_core`](crate::expression::eval_core).
 pub trait OperateBinary<T> {
     fn apply(&self, x: T, y: T) -> T;

@@ -39,10 +39,12 @@ pub fn is_operator_binary<'a, T: DataType>(
 ) -> ExResult<bool> {
     if op.has_bin() && !op.has_unary() {
         match parsed_token_on_the_left {
-            ParsedToken::Op(op_) => {
-                Err(format_exerr!("a binary operator cannot be on the right another operator, {:?} next to {:?}", op, op_))
-            },
-            _ => Ok(true)
+            ParsedToken::Op(op_) => Err(format_exerr!(
+                "a binary operator cannot be on the right another operator, {:?} next to {:?}",
+                op,
+                op_
+            )),
+            _ => Ok(true),
         }
     } else if op.has_bin() && op.has_unary() {
         Ok(match parsed_token_on_the_left {
@@ -174,9 +176,11 @@ where
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Num(num_str.parse::<T>().map_err(|e| format_exerr!(
-                    "could not parse '{}', {:?}", num_str, e)
-                )?)
+                ParsedToken::<T>::Num(
+                    num_str
+                        .parse::<T>()
+                        .map_err(|e| format_exerr!("could not parse '{}', {:?}", num_str, e))?,
+                )
             } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
@@ -250,7 +254,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                         "a number/variable cannot be on the left of a unary operator",
                         left,
                         right,
-                    ),                
+                    ),
                 _ => Ok(()),
             },
         },
@@ -261,7 +265,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                         if !op_l.has_unary() && !op_r.has_unary() => Err(format_exerr!(
                             "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
                             op_l.repr(),
-                            op_r.repr())),                
+                            op_r.repr())),
                     _ => Ok(()),
                 }
             },
@@ -273,7 +277,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                         if !op_l.has_bin() && !op_r.has_unary() => Err(format_exerr!(
                             "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
                             op_l.repr(),
-                            op_r.repr())),                
+                            op_r.repr())),
                     _ => Ok(()),
                 }
             },
@@ -281,7 +285,9 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Op(op), ParsedToken::Paren(_p @ Paren::Close)) => Err(format_exerr!(
-                    "an operator cannot be on the left of a closing paren, violated by '{}'", op.repr())),                
+                    "an operator cannot be on the left of a closing paren, violated by '{}'",
+                    op.repr()
+                )),
                 _ => Ok(()),
             },
         },
@@ -313,7 +319,11 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 (
                     ParsedToken::Paren(_p_l @ Paren::Open),
                     ParsedToken::Paren(_p_r @ Paren::Close),
-                ) => make_err("wlog an opening paren cannot be next to a closing paren", left, right),                
+                ) => make_err(
+                    "wlog an opening paren cannot be next to a closing paren",
+                    left,
+                    right,
+                ),
                 _ => Ok(()),
             },
         },
@@ -364,7 +374,10 @@ where
                         Paren::Open => 1,
                     };
                     if open_paren_cnt < 0 {
-                        return Err(format_exerr!("too many closing parentheses until position {}", i));
+                        return Err(format_exerr!(
+                            "too many closing parentheses until position {}",
+                            i
+                        ));
                     }
                     Ok(())
                 }

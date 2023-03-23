@@ -4,7 +4,7 @@ use num::{Float, PrimInt, Signed};
 
 use crate::{
     data_type::DataType, expression::MatchLiteral, format_exerr, literal_matcher_from_pattern,
-    BinOp, ExError, ExResult, FlatEx, MakeOperators, Operator, Express
+    BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
 
 macro_rules! to_type {
@@ -332,7 +332,7 @@ unary_name!(sqrt, Float);
 unary_name!(cbrt, Float);
 unary_name!(ln, Float);
 unary_name!(log2, Float);
-unary_name!(log10, Float); 
+unary_name!(log10, Float);
 unary_name!(swap_bytes, Int);
 unary_name!(to_le, Int);
 unary_name!(to_be, Int);

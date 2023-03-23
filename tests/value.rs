@@ -1,7 +1,5 @@
 #[cfg(feature = "value")]
-use {
-    exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val},
-};
+use exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val};
 
 #[cfg(feature = "value")]
 mod utils;
@@ -81,7 +79,10 @@ fn test_serde_public() -> ExResult<()> {
 #[cfg(feature = "value")]
 #[test]
 fn test_to() -> ExResult<()> {
-    utils::assert_float_eq_f64(Val::<i32, f64>::Float(std::f64::consts::TAU).to_float()?, std::f64::consts::TAU);
+    utils::assert_float_eq_f64(
+        Val::<i32, f64>::Float(std::f64::consts::TAU).to_float()?,
+        std::f64::consts::TAU,
+    );
     assert_eq!(Val::<i32, f64>::Int(123).to_int()?, 123);
     assert!(Val::<i32, f64>::Bool(true).to_bool()?);
     assert!(Val::<i32, f64>::Bool(false).to_int().is_err());

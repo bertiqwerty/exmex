@@ -1,5 +1,5 @@
 #[cfg(feature = "partial")]
-use exmex::{parse, Differentiate, ExResult, Express, Calculate, FlatEx};
+use exmex::{parse, Calculate, Differentiate, ExResult, Express, FlatEx};
 #[cfg(feature = "partial")]
 mod utils;
 #[cfg(feature = "partial")]
@@ -180,7 +180,10 @@ fn test_partial() -> ExResult<()> {
 #[test]
 fn test_partial_finite() -> ExResult<()> {
     fn test(sut: &str, range: Range<f64>) -> ExResult<()> {
-        fn inner_test<'a, E: Differentiate<'a, f64> + Clone>(flatex: &E, range: Range<f64>) -> ExResult<()> {
+        fn inner_test<'a, E: Differentiate<'a, f64> + Clone>(
+            flatex: &E,
+            range: Range<f64>,
+        ) -> ExResult<()> {
             let n_vars = flatex.var_names().len();
             let step = 1e-5;
             let mut rng = thread_rng();
@@ -198,7 +201,13 @@ fn test_partial_finite() -> ExResult<()> {
                 let finite_diff = (f1 - f0) / step;
                 let deri = flatex.clone().partial(var_idx)?;
                 let deri_val = deri.eval(&x0s)?;
-                utils::assert_float_eq::<f64>(deri_val, finite_diff, 1e-5, 1e-3, "finite diff error");
+                utils::assert_float_eq::<f64>(
+                    deri_val,
+                    finite_diff,
+                    1e-5,
+                    1e-3,
+                    "finite diff error",
+                );
             }
             Ok(())
         }
