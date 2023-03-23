@@ -13,6 +13,7 @@ use crate::{
 
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
+use std::iter;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
@@ -646,6 +647,26 @@ where
         let ops = OF::make();
         detail::parse_wo_compile(text, &ops)
     }
+    pub fn var_indices_ordered(&self) -> SmallVec<[usize; N_VARS_ON_STACK]> {
+        self.prio_indices
+            .iter()
+            .flat_map(|idx| {
+                iter::once(match &self.nodes[*idx].kind {
+                    FlatNodeKind::Num(_) => None,
+                    FlatNodeKind::Var(var_idx) => Some(*var_idx),
+                })
+                .chain(iter::once(if *idx == self.prio_indices.len() - 1 {
+                    match &self.nodes[*idx + 1].kind {
+                        FlatNodeKind::Num(_) => None,
+                        FlatNodeKind::Var(var_idx) => Some(*var_idx),
+                    }
+                } else {
+                    None
+                }))
+            })
+            .flatten()
+            .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
+    }
 }
 
 impl<'a, T, OF, LM> Express<'a, T> for FlatEx<T, OF, LM>
@@ -686,6 +707,7 @@ where
     fn var_names(&self) -> &[String] {
         &self.var_names
     }
+
     fn to_deepex(self) -> ExResult<DeepEx<'a, T, OF, LM>>
     where
         Self: Sized,

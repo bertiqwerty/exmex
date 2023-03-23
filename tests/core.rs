@@ -5,8 +5,7 @@ use exmex::{format_exerr, DeepEx};
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
     prelude::*,
-    Calculate, ExError, ExResult, MatchLiteral,
-    {BinOp, FloatOpsFactory, MakeOperators, Operator},
+    Calculate, ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
 use std::iter::repeat;
 #[cfg(test)]
@@ -746,12 +745,24 @@ fn test_ops() -> ExResult<()> {
     utils::assert_float_eq_f64(d.clone().round()?.eval(&[7.3])?, ref_val.round());
     utils::assert_float_eq_f64(d.clone().exp()?.eval(&[7.3])?, ref_val.exp());
     utils::assert_float_eq_f64((-d.clone())?.clone().log()?.eval(&[7.3])?, (-ref_val).ln());
-    utils::assert_float_eq_f64((-d.clone())?.clone().log2()?.eval(&[7.3])?, (-ref_val).log2());
-    utils::assert_float_eq_f64((-d.clone())?.clone().log10()?.eval(&[7.3])?, (-ref_val).log10());
+    utils::assert_float_eq_f64(
+        (-d.clone())?.clone().log2()?.eval(&[7.3])?,
+        (-ref_val).log2(),
+    );
+    utils::assert_float_eq_f64(
+        (-d.clone())?.clone().log10()?.eval(&[7.3])?,
+        (-ref_val).log10(),
+    );
     utils::assert_float_eq_f64((-d.clone())?.clone().ln()?.eval(&[7.3])?, (-ref_val).ln());
     utils::assert_float_eq_f64(d.clone().signum()?.eval(&[7.3])?, ref_val.signum());
-    utils::assert_float_eq_f64((-d.clone())?.clone().sqrt()?.eval(&[7.3])?, (-ref_val).sqrt());
-    utils::assert_float_eq_f64((-d.clone())?.clone().cbrt()?.eval(&[7.3])?, (-ref_val).cbrt());
+    utils::assert_float_eq_f64(
+        (-d.clone())?.clone().sqrt()?.eval(&[7.3])?,
+        (-ref_val).sqrt(),
+    );
+    utils::assert_float_eq_f64(
+        (-d.clone())?.clone().cbrt()?.eval(&[7.3])?,
+        (-ref_val).cbrt(),
+    );
     utils::assert_float_eq_f64(d.clone().trunc()?.eval(&[7.3])?, ref_val.trunc());
     utils::assert_float_eq_f64(d.clone().fract()?.eval(&[7.3])?, ref_val.fract());
     utils::assert_float_eq_f64(DeepEx::<f64>::pi().eval(&[])?, std::f64::consts::PI);
@@ -776,4 +787,19 @@ fn test_calculate() -> ExResult<()> {
     let subsed = expr.subs(&mut subs)?;
     utils::assert_float_eq_f64(subsed.eval(&[0.0, 2.0])?, 9.0);
     Ok(())
+}
+
+#[test]
+fn test_var_indices_ordered() {
+    fn test<'a>(s: &str, reference: impl Iterator<Item = &'a usize>) {
+        let expr = FlatEx::<f64>::parse(s).unwrap();
+        let vars_ordered = expr.var_indices_ordered();
+        for (a, b) in reference.zip(vars_ordered) {
+            assert_eq!(a, &b);
+        }
+    }
+    test("x + y * z", [1, 2, 0].iter());
+    test("(x + y) * z", [0, 1, 2].iter());
+    test("(x + y) * cos(a - sin(b + z))", [1, 4, 0, 2, 3].iter());
+    test("(x + y) * (a - (b + z))", [1, 4, 0, 2, 3].iter());
 }
