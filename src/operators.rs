@@ -410,7 +410,7 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
 macro_rules! ops_factory {
     ($name:ident, $T:ty, $( $ops:expr ),*) => {
         #[derive(Clone, Debug)]
-        struct $name;
+        pub struct $name;
         impl MakeOperators<$T> for $name {
             fn make<'a>() -> Vec<Operator<'a, $T>> {
                 vec![$($ops,)*]

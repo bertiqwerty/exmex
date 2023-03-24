@@ -126,7 +126,7 @@ where
             mem::take(&mut numbers[num_2_idx]),
         );
     }
-    numbers.iter().next().unwrap().clone()
+    mem::take(numbers.iter_mut().next().unwrap())
 }
 
 /// Implement this trait to create a matcher for custom literals of operands.

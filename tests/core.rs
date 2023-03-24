@@ -813,4 +813,63 @@ fn test_eval_vec_iter() {
     test("x + y * z", vec![1.0, 2.0, 3.0], 7.0);
     test("(x + y) * z", vec![1.0, 2.0, 3.0], 9.0);
     test("z * (x + y) - a", vec![0.5, 1.0, 2.0, 3.0], 8.5);
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct StringContainer {
+        data: Vec<String>,
+        has_been_cloned: bool,
+    }
+    impl StringContainer {
+        fn new(s: &str) -> Self {
+            Self {
+                data: vec![s.to_string()],
+                has_been_cloned: false,
+            }
+        }
+        fn from_slice(v: &[&str]) -> Self {
+            Self {
+                data: v.iter().map(|s| s.to_string()).collect(),
+                has_been_cloned: false,
+            }
+        }
+    }
+    impl Default for StringContainer {
+        fn default() -> Self {
+            Self::new("")
+        }
+    }
+    impl Clone for StringContainer {
+        fn clone(&self) -> Self {
+            Self {
+                data: self.data.clone(),
+                has_been_cloned: true,
+            }
+        }
+    }
+    impl FromStr for StringContainer {
+        type Err = ExError;
+        fn from_str(_: &str) -> Result<Self, Self::Err> {
+            Ok(StringContainer::default())
+        }
+    }
+    ops_factory!(
+        StringOps,
+        StringContainer,
+        Operator::make_bin(
+            "+",
+            BinOp {
+                apply: |mut s1, mut s2| {
+                    s1.data.append(&mut s2.data);
+                    s1
+                },
+                prio: 0,
+                is_commutative: false
+            }
+        )
+    );
+    let expr = FlatEx::<StringContainer, StringOps>::parse("x+y").unwrap();
+    let x = StringContainer::new("x");
+    let y = StringContainer::new("y");
+    let res = expr.eval_vec(vec![x, y]).unwrap();
+    assert_eq!(res, StringContainer::from_slice(&["x", "y"]));
 }

@@ -303,7 +303,7 @@ mod detail {
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
 
-            eval_numbers(&mut numbers, ops, prio_indices)
+        eval_numbers(&mut numbers, ops, prio_indices)
     }
 
     /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
@@ -696,7 +696,7 @@ where
             .flatten()
             .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
     }
-    
+
     pub fn eval_vec(&self, mut vars: Vec<T>) -> ExResult<T> {
         if self.var_names.len() != vars.len() {
             return Err(format_exerr!(
@@ -705,9 +705,14 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex_consuming_vars(&mut vars, &self.nodes, &self.flat_ops, &self.prio_indices)
+        detail::eval_flatex_consuming_vars(
+            &mut vars,
+            &self.nodes,
+            &self.flat_ops,
+            &self.prio_indices,
+        )
     }
-    pub fn eval_iter(&self, vars: impl Iterator<Item=T>) -> ExResult<T> {
+    pub fn eval_iter(&self, vars: impl Iterator<Item = T>) -> ExResult<T> {
         let mut vars = vars.collect::<SmallVec<[T; N_VARS_ON_STACK]>>();
         if self.var_names.len() != vars.len() {
             return Err(format_exerr!(
@@ -716,7 +721,12 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex_consuming_vars(&mut vars, &self.nodes, &self.flat_ops, &self.prio_indices)
+        detail::eval_flatex_consuming_vars(
+            &mut vars,
+            &self.nodes,
+            &self.flat_ops,
+            &self.prio_indices,
+        )
     }
 }
 
