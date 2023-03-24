@@ -1,4 +1,4 @@
-use self::detail::{FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
+use self::detail::{var_indices_ordered, FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::expression::{
@@ -13,7 +13,6 @@ use crate::{
 
 use smallvec::SmallVec;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::iter;
 use std::marker::PhantomData;
 use std::str::FromStr;
 
@@ -23,7 +22,7 @@ mod detail {
     use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
     use smallvec::{smallvec, SmallVec};
-    use std::mem;
+    use std::{iter, mem};
 
     use crate::{
         data_type::DataType,
@@ -287,18 +286,53 @@ mod detail {
         eval_numbers(&mut numbers, ops, prio_indices)
     }
 
+    pub(super) fn var_indices_ordered<T: Default + Clone + Debug>(
+        prio_indices: &[usize],
+        nodes: &[FlatNode<T>],
+    ) -> SmallVec<[usize; N_VARS_ON_STACK]> {
+        let mut node_taken: SmallVec<[bool; N_NODES_ON_STACK]> = smallvec![false; nodes.len()];
+        let mut get_var = |idx: usize| {
+            if !node_taken[idx] {
+                node_taken[idx] = true;
+                match &nodes[idx].kind {
+                    FlatNodeKind::Num(_) => None,
+                    FlatNodeKind::Var(var_idx) => Some(*var_idx),
+                }
+            } else {
+                None
+            }
+        };
+        prio_indices
+            .iter()
+            .flat_map(|prio_idx| {
+                iter::once(get_var(*prio_idx)).chain(iter::once(get_var(*prio_idx + 1)))
+            })
+            .flatten()
+            .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
+    }
+
     pub(super) fn eval_flatex_consuming_vars<T: Clone + Debug + Default>(
         vars: &mut [T],
         nodes: &[FlatNode<T>],
         ops: &[FlatOp<T>],
         prio_indices: &[usize],
     ) -> ExResult<T> {
+        let mut last_var_idx = 0;
+        let var_indices_ordered = var_indices_ordered(prio_indices, nodes);
         let mut numbers = nodes
             .iter()
             .map(|node| {
                 node.unary_op.apply(match &node.kind {
                     FlatNodeKind::Num(n) => n.clone(),
-                    FlatNodeKind::Var(idx) => mem::take(&mut vars[*idx]),
+                    FlatNodeKind::Var(idx) => {
+                        let var = if var_indices_ordered[last_var_idx + 1..].contains(idx) {
+                            vars[*idx].clone()
+                        } else {
+                            mem::take(&mut vars[*idx])
+                        };
+                        last_var_idx += 1;
+                        var
+                    }
                 })
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
@@ -677,24 +711,7 @@ where
     /// Returns the indices of the variables in the order of their occurrence during the
     /// operations
     pub fn var_indices_ordered(&self) -> SmallVec<[usize; N_VARS_ON_STACK]> {
-        self.prio_indices
-            .iter()
-            .flat_map(|idx| {
-                iter::once(match &self.nodes[*idx].kind {
-                    FlatNodeKind::Num(_) => None,
-                    FlatNodeKind::Var(var_idx) => Some(*var_idx),
-                })
-                .chain(iter::once(if *idx == self.prio_indices.len() - 1 {
-                    match &self.nodes[*idx + 1].kind {
-                        FlatNodeKind::Num(_) => None,
-                        FlatNodeKind::Var(var_idx) => Some(*var_idx),
-                    }
-                } else {
-                    None
-                }))
-            })
-            .flatten()
-            .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
+        var_indices_ordered(&self.prio_indices, &self.nodes)
     }
 
     pub fn eval_vec(&self, mut vars: Vec<T>) -> ExResult<T> {

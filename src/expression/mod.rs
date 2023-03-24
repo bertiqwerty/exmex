@@ -109,17 +109,12 @@ where
     O: OperateBinary<T>,
     N: NumberTracker + ?Sized,
 {
-    debug_assert!(numbers.len() <= tracker.max_len());
-
     for &idx in prio_indices {
         let shift_left = tracker.get_previous(idx);
         let shift_right = tracker.consume_next(idx);
 
         let num_1_idx = idx - shift_left;
         let num_2_idx = idx + shift_right;
-
-        // point of panic for invalid input
-        assert!(num_1_idx < numbers.len() && num_2_idx < numbers.len() && idx < binary_ops.len());
 
         numbers[num_1_idx] = binary_ops[idx].apply(
             mem::take(&mut numbers[num_1_idx]),

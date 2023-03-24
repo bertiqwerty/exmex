@@ -794,14 +794,18 @@ fn test_var_indices_ordered() {
     fn test<'a>(s: &str, reference: impl Iterator<Item = &'a usize>) {
         let expr = FlatEx::<f64>::parse(s).unwrap();
         let vars_ordered = expr.var_indices_ordered();
-        for (a, b) in reference.zip(vars_ordered) {
-            assert_eq!(a, &b);
+        let reference = reference.collect::<Vec<_>>();
+        assert_eq!(reference.len(), vars_ordered.len());
+        for (a, b) in reference.iter().zip(vars_ordered) {
+            assert_eq!(**a, b);
         }
     }
+    test("x + x", [0, 0].iter());
+    test("x + y + x", [0, 1, 0].iter());
     test("x + y * z", [1, 2, 0].iter());
     test("(x + y) * z", [0, 1, 2].iter());
     test("(x + y) * cos(a - sin(b + z))", [1, 4, 0, 2, 3].iter());
-    test("(x + y) * (a - (b + z))", [1, 4, 0, 2, 3].iter());
+    test("(x + y) * (a - (b * z)) + a", [1, 4, 0, 2, 3, 0].iter());
 }
 #[test]
 fn test_eval_vec_iter() {
@@ -812,7 +816,7 @@ fn test_eval_vec_iter() {
     }
     test("x + y * z", vec![1.0, 2.0, 3.0], 7.0);
     test("(x + y) * z", vec![1.0, 2.0, 3.0], 9.0);
-    test("z * (x + y) - a", vec![0.5, 1.0, 2.0, 3.0], 8.5);
+    test("x * z * (x + y) - a * a", vec![0.5, 1.0, 2.0, 3.0], 8.75);
 
     #[derive(Debug, PartialEq, Eq)]
     struct StringContainer {
@@ -872,4 +876,9 @@ fn test_eval_vec_iter() {
     let y = StringContainer::new("y");
     let res = expr.eval_vec(vec![x, y]).unwrap();
     assert_eq!(res, StringContainer::from_slice(&["x", "y"]));
+    let expr = FlatEx::<StringContainer, StringOps>::parse("x+y+x").unwrap();
+    let x = StringContainer::new("x");
+    let y = StringContainer::new("y");
+    let res = expr.eval_vec(vec![x, y]).unwrap();
+    assert_eq!(res, StringContainer::from_slice(&["x", "y", "x"]).clone());
 }
