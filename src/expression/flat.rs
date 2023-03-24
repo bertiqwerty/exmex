@@ -254,7 +254,22 @@ mod detail {
         Ok(deepex)
     }
 
-    pub(super) fn eval_flatex<T: Clone + Debug + Default>(
+    fn eval_numbers<T: Clone + Debug + Default>(
+        numbers: &mut SmallVec<[T; N_NODES_ON_STACK]>,
+        ops: &[FlatOp<T>],
+        prio_indices: &[usize],
+    ) -> ExResult<T> {
+        Ok(if numbers.len() <= usize::max_len(&0) {
+            let mut ignore = 0;
+            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore)
+        } else {
+            let mut ignore: SmallVec<[usize; N_NODES_ON_STACK]> =
+                smallvec![0; 1 + numbers.len() / usize::BITS as usize];
+            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore[..])
+        })
+    }
+
+    pub(super) fn eval_flatex_cloning<T: Clone + Debug + Default>(
         vars: &[T],
         nodes: &[FlatNode<T>],
         ops: &[FlatOp<T>],
@@ -269,15 +284,26 @@ mod detail {
                 })
             })
             .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
+        eval_numbers(&mut numbers, ops, prio_indices)
+    }
 
-        Ok(if numbers.len() <= usize::max_len(&0) {
-            let mut ignore = 0;
-            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore)
-        } else {
-            let mut ignore: SmallVec<[usize; N_NODES_ON_STACK]> =
-                smallvec![0; 1 + numbers.len() / usize::BITS as usize];
-            eval_binary(numbers.as_mut_slice(), ops, prio_indices, &mut ignore[..])
-        })
+    pub(super) fn eval_flatex_consuming_vars<T: Clone + Debug + Default>(
+        vars: &mut [T],
+        nodes: &[FlatNode<T>],
+        ops: &[FlatOp<T>],
+        prio_indices: &[usize],
+    ) -> ExResult<T> {
+        let mut numbers = nodes
+            .iter()
+            .map(|node| {
+                node.unary_op.apply(match &node.kind {
+                    FlatNodeKind::Num(n) => n.clone(),
+                    FlatNodeKind::Var(idx) => mem::take(&mut vars[*idx]),
+                })
+            })
+            .collect::<SmallVec<[T; N_NODES_ON_STACK]>>();
+
+            eval_numbers(&mut numbers, ops, prio_indices)
     }
 
     /// This is called in case a closing paren occurs. If available, the index of the unary operator of the
@@ -647,6 +673,9 @@ where
         let ops = OF::make();
         detail::parse_wo_compile(text, &ops)
     }
+
+    /// Returns the indices of the variables in the order of their occurrence during the
+    /// operations
     pub fn var_indices_ordered(&self) -> SmallVec<[usize; N_VARS_ON_STACK]> {
         self.prio_indices
             .iter()
@@ -666,6 +695,18 @@ where
             })
             .flatten()
             .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
+    }
+    
+    pub fn eval_iter(&self, vars: impl Iterator<Item=T>) -> ExResult<T> {
+        let mut vars = vars.collect::<SmallVec<[T; N_VARS_ON_STACK]>>();
+        if self.var_names.len() != vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is different to the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
+        detail::eval_flatex_consuming_vars(&mut vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 }
 
@@ -687,7 +728,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
+        detail::eval_flatex_cloning(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
@@ -698,7 +739,7 @@ where
                 vars.len()
             ));
         }
-        detail::eval_flatex(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
+        detail::eval_flatex_cloning(vars, &self.nodes, &self.flat_ops, &self.prio_indices)
     }
 
     fn unparse(&self) -> &str {
