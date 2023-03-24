@@ -804,12 +804,13 @@ fn test_var_indices_ordered() {
     test("(x + y) * (a - (b + z))", [1, 4, 0, 2, 3].iter());
 }
 #[test]
-fn test_eval_iter() {
-    fn test<'a>(s: &str, vars: impl Iterator<Item = f64>, reference: f64) {
+fn test_eval_vec_iter() {
+    fn test<'a>(s: &str, vars: Vec<f64>, reference: f64) {
         let expr = FlatEx::<f64>::parse(s).unwrap();
-        assert!((expr.eval_iter(vars).unwrap() - reference).abs() < 1e-12)
+        assert!((expr.eval_vec(vars.clone()).unwrap() - reference).abs() < 1e-12);
+        assert!((expr.eval_iter(vars.into_iter()).unwrap() - reference).abs() < 1e-12);
     }
-    test("x + y * z", vec![1.0, 2.0, 3.0].into_iter(), 7.0);
-    test("(x + y) * z", vec![1.0, 2.0, 3.0].into_iter(), 9.0);
-    test("z * (x + y) - a", vec![0.5, 1.0, 2.0, 3.0].into_iter(), 8.5);
+    test("x + y * z", vec![1.0, 2.0, 3.0], 7.0);
+    test("(x + y) * z", vec![1.0, 2.0, 3.0], 9.0);
+    test("z * (x + y) - a", vec![0.5, 1.0, 2.0, 3.0], 8.5);
 }

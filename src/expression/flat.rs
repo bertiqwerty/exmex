@@ -697,6 +697,16 @@ where
             .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>()
     }
     
+    pub fn eval_vec(&self, mut vars: Vec<T>) -> ExResult<T> {
+        if self.var_names.len() != vars.len() {
+            return Err(format_exerr!(
+                "expression contains {} vars which is different to the length {} of the passed slice",
+                self.var_names.len(),
+                vars.len()
+            ));
+        }
+        detail::eval_flatex_consuming_vars(&mut vars, &self.nodes, &self.flat_ops, &self.prio_indices)
+    }
     pub fn eval_iter(&self, vars: impl Iterator<Item=T>) -> ExResult<T> {
         let mut vars = vars.collect::<SmallVec<[T; N_VARS_ON_STACK]>>();
         if self.var_names.len() != vars.len() {
