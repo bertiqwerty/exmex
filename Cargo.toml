@@ -2,7 +2,7 @@
 name = "exmex"
 version = "0.17.0"  # check html document root in lib.rs and the Readme.md
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/exmex"
 description = "fast, simple, and extendable mathematical expression evaluator able to compute partial derivatives"
