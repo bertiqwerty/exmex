@@ -50,16 +50,10 @@ impl<'a, T: Clone> Operator<'a, T> {
     ) -> Operator<'a, T> {
         if constant.is_some() {
             if bin_op.is_some() {
-                panic!(
-                    "Bug! Operators cannot be constant and binary. Check '{}'",
-                    repr
-                );
+                panic!("Bug! Operators cannot be constant and binary. Check '{repr}'");
             }
             if unary_op.is_some() {
-                panic!(
-                    "Bug! Operators cannot be constant and unary. Check '{}'.",
-                    repr
-                );
+                panic!("Bug! Operators cannot be constant and unary. Check '{repr}'.");
             }
         }
         Operator {

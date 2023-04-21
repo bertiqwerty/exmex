@@ -27,7 +27,7 @@ pub fn find_var_index(name: &str, parsed_vars: &[&str]) -> usize {
     match idx {
         Some((i, _)) => i,
         None => {
-            panic!("This is probably a bug. I don't know variable {}", name)
+            panic!("This is probably a bug. I don't know variable {name}")
         }
     }
 }
