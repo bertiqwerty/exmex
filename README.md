@@ -14,7 +14,7 @@ Add
 ```
 [dependencies]
 # ...
-exmex = "0.17.0"
+exmex = "0.17.2"
 ```
 to your `Cargo.toml` for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
 ```
