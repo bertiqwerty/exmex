@@ -714,6 +714,7 @@ where
         var_indices_ordered(&self.prio_indices, &self.nodes)
     }
 
+    /// Consumes vector for evaluation, possibly useful for large value types.
     pub fn eval_vec(&self, mut vars: Vec<T>) -> ExResult<T> {
         if self.var_names.len() != vars.len() {
             return Err(format_exerr!(
@@ -729,6 +730,8 @@ where
             &self.prio_indices,
         )
     }
+
+    /// Collects iterator into [`SmallVec`](SmallVec).
     pub fn eval_iter(&self, vars: impl Iterator<Item = T>) -> ExResult<T> {
         let mut vars = vars.collect::<SmallVec<[T; N_VARS_ON_STACK]>>();
         if self.var_names.len() != vars.len() {
