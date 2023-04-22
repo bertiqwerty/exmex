@@ -334,7 +334,6 @@
 
 use std::{fmt::Debug, str::FromStr};
 
-use data_type::DataType;
 use num::Float;
 mod definitions;
 mod expression;
@@ -346,6 +345,7 @@ mod result;
 mod util;
 
 pub use {
+    data_type::DataType,
     expression::{
         calculate::Calculate, deep::find_bin_op, deep::find_unary_op, deep::DeepEx, flat::FlatEx,
         Express, MatchLiteral, NumberMatcher,
