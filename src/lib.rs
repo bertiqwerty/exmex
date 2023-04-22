@@ -16,7 +16,7 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! For floats, we have a list of predifined operators containing
+//! For floats, we have a list of predefined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log10`, `ln`, and `log2`. Further, the constants π, τ,
 //! and Euler's number are refered to via `π`/`PI`, `τ/TAU`, and `E`, respectively. The full list is
 //! defined in [`FloatOpsFactory`](FloatOpsFactory). Library users can also create their
