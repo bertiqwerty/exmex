@@ -7,13 +7,36 @@ use exmex::{
     prelude::*,
     Calculate, ExError, ExResult, MatchLiteral, {BinOp, FloatOpsFactory, MakeOperators, Operator},
 };
+use regex::Regex;
+use std::fs::{self, File};
+use std::io::{self, BufRead};
 use std::iter::repeat;
+
 #[cfg(test)]
 use std::{
     iter::once,
     ops::{BitAnd, BitOr},
     str::FromStr,
 };
+
+#[test]
+fn test_version() {
+    // make sure the version strings in the Cargo.toml and lib.rs coincide
+    let file = File::open("src/lib.rs").unwrap();
+    let version_line_lib = io::BufReader::new(file)
+        .lines()
+        .find(|line| line.as_ref().unwrap().contains("html_root_url"))
+        .unwrap()
+        .unwrap();
+    let re_version = Regex::new(r#"[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}"#).unwrap();
+    let match_lib = re_version.find(&version_line_lib).unwrap().as_str();
+
+    let toml_string = fs::read_to_string("Cargo.toml").unwrap();
+    let cargo_toml: toml::Value = toml::from_str(&toml_string).unwrap();
+    let package = cargo_toml.get("package").unwrap().as_table().unwrap();
+    let version = package.get("version").unwrap().as_str().unwrap();
+    assert_eq!(match_lib, version);
+}
 
 #[test]
 fn test_display() -> ExResult<()> {

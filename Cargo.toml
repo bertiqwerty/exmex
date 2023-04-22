@@ -1,6 +1,6 @@
 [package]
 name = "exmex"
-version = "0.17.2"  # check html document root in lib.rs and the Readme.md
+version = "0.17.2"  # check html document root in lib.rs
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -46,6 +46,7 @@ rsc = "2.0.0"
 evalexpr = "9.0.0"
 serde_test = "1.0.160"
 serde_json = "1.0.96"
+toml = "0.7.3"
 
 [[bench]]
 name = "benchmark"

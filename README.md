@@ -10,13 +10,11 @@ Exmex is an extendable mathematical expression parser and evaluator. Ease of use
 Parts of Exmex' functionality are accessible from Python via [Mexpress](https://github.com/bertiqwerty/mexpress).
 
 ## Installation
-Add
+Run
 ```
-[dependencies]
-# ...
-exmex = "0.17.2"
+cargo add exmex
 ```
-to your `Cargo.toml` for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
+in your project's directory for the [latest relase](https://crates.io/crates/exmex). If you want to use the newest version of Exmex, add
 ```
 [dependencies]
 # ...
