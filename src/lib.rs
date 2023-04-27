@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/exmex/0.17.2")]
+#![doc(html_root_url = "https://docs.rs/exmex/0.17.3")]
 //! Exmex is an extendable mathematical expression parser and evaluator. Ease of use, flexibility, and efficient evaluations are its main design goals.
 //! Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators
 //! for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their
