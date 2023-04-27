@@ -862,7 +862,7 @@ fn test_eval_vec_iter() {
     }
     impl Default for StringContainer {
         fn default() -> Self {
-            Self::new("")
+            Self::new("default")
         }
     }
     impl Clone for StringContainer {
@@ -889,7 +889,40 @@ fn test_eval_vec_iter() {
                     s1.data.append(&mut s2.data);
                     s1
                 },
+                prio: 2,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
+            "-",
+            BinOp {
+                apply: |mut s1, mut s2| {
+                    s1.data.append(&mut s2.data);
+                    s1
+                },
+                prio: 3,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
+            "|",
+            BinOp {
+                apply: |mut s1, mut s2| {
+                    s1.data.append(&mut s2.data);
+                    s1
+                },
                 prio: 0,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
+            "==",
+            BinOp {
+                apply: |mut s1, mut s2| {
+                    s1.data.append(&mut s2.data);
+                    s1
+                },
+                prio: 1,
                 is_commutative: false
             }
         )
@@ -904,4 +937,9 @@ fn test_eval_vec_iter() {
     let y = StringContainer::new("y");
     let res = expr.eval_vec(vec![x, y]).unwrap();
     assert_eq!(res, StringContainer::from_slice(&["x", "y", "x"]).clone());
+    let expr = FlatEx::<StringContainer, StringOps>::parse("(x|y==x)-(x|y==x)").unwrap();
+    let x = StringContainer::new("x");
+    let y = StringContainer::new("y");
+    let res = expr.eval_vec(vec![x, y]).unwrap();
+    assert_eq!(res, StringContainer::from_slice(&["x", "y", "x", "x", "y", "x"]).clone());
 }
