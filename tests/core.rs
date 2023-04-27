@@ -875,8 +875,8 @@ fn test_eval_vec_iter() {
     }
     impl FromStr for StringContainer {
         type Err = ExError;
-        fn from_str(_: &str) -> Result<Self, Self::Err> {
-            Ok(StringContainer::default())
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(StringContainer::new(s))
         }
     }
     ops_factory!(
@@ -932,14 +932,16 @@ fn test_eval_vec_iter() {
     let y = StringContainer::new("y");
     let res = expr.eval_vec(vec![x, y]).unwrap();
     assert_eq!(res, StringContainer::from_slice(&["x", "y"]));
+    assert!(!res.has_been_cloned);
     let expr = FlatEx::<StringContainer, StringOps>::parse("x+y+x").unwrap();
     let x = StringContainer::new("x");
     let y = StringContainer::new("y");
     let res = expr.eval_vec(vec![x, y]).unwrap();
+    assert!(res.has_been_cloned);
     assert_eq!(res, StringContainer::from_slice(&["x", "y", "x"]).clone());
-    let expr = FlatEx::<StringContainer, StringOps>::parse("(x|y==x)-(x|y==x)").unwrap();
-    let x = StringContainer::new("x");
-    let y = StringContainer::new("y");
+    let expr = FlatEx::<StringContainer, StringOps>::parse("(x|y-2)-(x|y==2)").unwrap();
+    let x = StringContainer::new("alpha");
+    let y = StringContainer::new("beta");
     let res = expr.eval_vec(vec![x, y]).unwrap();
-    assert_eq!(res, StringContainer::from_slice(&["x", "y", "x", "x", "y", "x"]).clone());
+    assert_eq!(res, StringContainer::from_slice(&["alpha", "beta", "2", "alpha", "beta", "2"]).clone());
 }

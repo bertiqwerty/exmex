@@ -317,20 +317,39 @@ mod detail {
         ops: &[FlatOp<T>],
         prio_indices: &[usize],
     ) -> ExResult<T> {
-        let mut last_var_idx = 0;
-        let var_indices_ordered = var_indices_ordered(prio_indices, nodes);
+        let mut var_indices = nodes
+            .iter()
+            .flat_map(|n| match n.kind {
+                FlatNodeKind::Num(_) => None,
+                FlatNodeKind::Var(idx) => Some(idx),
+            })
+            .collect::<SmallVec<[usize; N_VARS_ON_STACK]>>();
+
         let mut numbers = nodes
             .iter()
             .map(|node| {
                 node.unary_op.apply(match &node.kind {
                     FlatNodeKind::Num(n) => n.clone(),
                     FlatNodeKind::Var(idx) => {
-                        let var = if var_indices_ordered[last_var_idx + 1..].contains(idx) {
+                        let mut found_idx_idx = usize::MAX;
+                        let n_vars_with_idx = var_indices
+                            .iter()
+                            .enumerate()
+                            .filter(|(idx_idx, var_idx)| {
+                                if *var_idx == idx {
+                                    found_idx_idx = *idx_idx;
+                                    true
+                                } else {
+                                    false
+                                }
+                            })
+                            .count();
+                        let var = if n_vars_with_idx > 1 {
+                            var_indices[found_idx_idx] = usize::MAX;
                             vars[*idx].clone()
                         } else {
                             mem::take(&mut vars[*idx])
                         };
-                        last_var_idx += 1;
                         var
                     }
                 })
