@@ -943,5 +943,8 @@ fn test_eval_vec_iter() {
     let x = StringContainer::new("alpha");
     let y = StringContainer::new("beta");
     let res = expr.eval_vec(vec![x, y]).unwrap();
-    assert_eq!(res, StringContainer::from_slice(&["alpha", "beta", "2", "alpha", "beta", "2"]).clone());
+    assert_eq!(
+        res,
+        StringContainer::from_slice(&["alpha", "beta", "2", "alpha", "beta", "2"]).clone()
+    );
 }

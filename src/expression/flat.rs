@@ -344,13 +344,12 @@ mod detail {
                                 }
                             })
                             .count();
-                        let var = if n_vars_with_idx > 1 {
+                        if n_vars_with_idx > 1 {
                             var_indices[found_idx_idx] = usize::MAX;
                             vars[*idx].clone()
                         } else {
                             mem::take(&mut vars[*idx])
-                        };
-                        var
+                        }
                     }
                 })
             })
