@@ -819,16 +819,13 @@ where
     }
 
     /// Applies a unary operator to self
-    pub(super) fn operate_unary(mut self, repr: &'a str) -> ExResult<Self> {
+    pub(super) fn operate_unary(self, repr: &'a str) -> ExResult<Self> {
         let ops = OF::make();
         let unary_op = find_unary_op(repr, &ops)?;
-        self.unary_op.append_after(unary_op);
-        self.compile();
-        Ok(self)
+        Ok(self.operate_unary_opwithrepr(unary_op))
     }
 
     /// Applies a unary operator to self
-    #[cfg(feature = "partial")]
     pub(super) fn operate_unary_opwithrepr(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
         self.compile();
