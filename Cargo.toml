@@ -17,11 +17,11 @@ include = ["**/*.rs", "Cargo.toml"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-regex = "1.8.1"
+regex = "1.8.4"
 num = "0.4.0"
 smallvec = "1.10.0"
 lazy_static = "1.4.0"
-serde = { version="1.0.160", optional = true }
+serde = { version="1.0.164", optional = true }
 
 [profile.test]
 opt-level = 3
@@ -38,15 +38,15 @@ all-features = true
 
 [dev-dependencies]
 rand = "0.8.5"
-itertools = "0.10.3"
-criterion = "0.4.0"
+itertools = "0.10.5"
+criterion = "0.5.1"
 meval = "0.2.0"
 fasteval = "0.2.4"
 rsc = "2.0.0"
-evalexpr = "9.0.0"
-serde_test = "1.0.160"
-serde_json = "1.0.96"
-toml = "0.7.3"
+evalexpr = "11.0.0"
+serde_test = "1.0.164"
+serde_json = "1.0.97"
+toml = "0.7.4"
 
 [[bench]]
 name = "benchmark"
