@@ -406,10 +406,10 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    let zero = DeepEx::zero();
     let (factor_1, factor_2) = factor_1.var_names_union(factor_2);
-    let zero = zero.var_names_like_other(&factor_1);
     Ok(if factor_1.is_zero() || factor_2.is_zero() {
+        let zero = DeepEx::zero();
+        let zero = zero.var_names_like_other(&factor_1);
         zero
     } else if factor_1.is_one() {
         factor_2
@@ -430,10 +430,10 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    let zero = DeepEx::zero();
     let (numerator, denominator) = numerator.var_names_union(denominator);
-    let zero = zero.var_names_like_other(&numerator);
     if numerator.is_zero() && !denominator.is_zero() {
+        let zero = DeepEx::zero();
+        let zero = zero.var_names_like_other(&numerator);
         Ok(zero)
     } else if denominator.is_one() {
         Ok(numerator)
@@ -452,18 +452,18 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    let zero = DeepEx::zero();
-    let one = DeepEx::one();
     let (base, exponent) = base.var_names_union(exponent);
-    let zero = zero.var_names_like_other(&base);
-    let one = one.var_names_like_other(&base);
     Ok(if base.is_zero() && exponent.is_zero() {
         return Err(ExError::new(
             "base and exponent both zero. help. fatal. ah. help.",
         ));
     } else if base.is_zero() {
+        let zero = DeepEx::zero();
+        let zero = zero.var_names_like_other(&base);
         zero
     } else if exponent.is_zero() {
+        let one = DeepEx::one();
+        let one = one.var_names_like_other(&base);
         one
     } else if exponent.is_one() {
         base
