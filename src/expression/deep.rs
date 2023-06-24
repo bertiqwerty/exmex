@@ -95,7 +95,6 @@ mod detail {
         resex
     }
 
-    #[cfg(feature = "partial")]
     pub fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
     where
         T: DataType + PartialEq,
@@ -752,7 +751,6 @@ where
         &self.nodes
     }
 
-    #[cfg(feature = "partial")]
     pub(super) fn is_num(&self, num: T) -> bool
     where
         T: NeutralElts + PartialEq,
@@ -760,7 +758,6 @@ where
         detail::is_num(self, num)
     }
 
-    #[cfg(feature = "partial")]
     pub(super) fn is_one(&self) -> bool
     where
         T: NeutralElts,
@@ -768,7 +765,6 @@ where
         self.is_num(T::one())
     }
 
-    #[cfg(feature = "partial")]
     pub(super) fn is_zero(&self) -> bool
     where
         T: NeutralElts,
@@ -791,7 +787,6 @@ where
         (self_vars_updated, other_vars_updated)
     }
 
-    #[cfg(feature = "partial")]
     pub(super) fn var_names_like_other(mut self, other: &Self) -> Self {
         self.var_names = other.var_names.clone();
         self
@@ -1053,7 +1048,7 @@ where
 
 impl<'a, T, OF, LM> ops::Add for DeepEx<'a, T, OF, LM>
 where
-    T: DataType,
+    T: DataType + NeutralElts,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1061,7 +1056,14 @@ where
 {
     type Output = ExResult<DeepEx<'a, T, OF, LM>>;
     fn add(self, rhs: Self) -> Self::Output {
-        self.operate_bin(rhs, "+")
+        let (summand_1, summand_2) = self.var_names_union(rhs);
+        Ok(if summand_1.is_zero() {
+            summand_2
+        } else if summand_2.is_zero() {
+            summand_1
+        } else {
+            summand_1.operate_bin(summand_2, "+")?
+        })
     }
 }
 
@@ -1081,7 +1083,7 @@ where
 
 impl<'a, T, OF, LM> ops::Mul for DeepEx<'a, T, OF, LM>
 where
-    T: DataType,
+    T: DataType + NeutralElts,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1089,13 +1091,24 @@ where
 {
     type Output = ExResult<DeepEx<'a, T, OF, LM>>;
     fn mul(self, rhs: Self) -> Self::Output {
-        self.operate_bin(rhs, "*")
+        let (factor1, factor2) = self.var_names_union(rhs);
+        if factor1.is_zero() || factor2.is_zero() {
+            let zero = DeepEx::zero();
+            let zero = zero.var_names_like_other(&factor1);
+            Ok(zero)
+        } else if factor1.is_one() {
+            Ok(factor2)
+        } else if factor2.is_one() {
+            Ok(factor1)
+        } else {
+            factor1.operate_bin(factor2, "*")
+        }
     }
 }
 
 impl<'a, T, OF, LM> ops::Div for DeepEx<'a, T, OF, LM>
 where
-    T: DataType,
+    T: DataType + NeutralElts,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -1103,7 +1116,16 @@ where
 {
     type Output = ExResult<DeepEx<'a, T, OF, LM>>;
     fn div(self, rhs: Self) -> Self::Output {
-        self.operate_bin(rhs, "/")
+        let (numerator, denominator) = self.var_names_union(rhs);
+        Ok(if numerator.is_zero() && !denominator.is_zero() {
+            let zero = DeepEx::zero();
+            let zero = zero.var_names_like_other(&numerator);
+            zero
+        } else if denominator.is_one() {
+            numerator
+        } else {
+            numerator.operate_bin(denominator, "/")?
+        })
     }
 }
 
