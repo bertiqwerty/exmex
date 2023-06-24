@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-pub trait NeutralElts : PartialEq {
+pub trait NeutralElts: PartialEq {
     fn one() -> Self;
     fn zero() -> Self;
 }

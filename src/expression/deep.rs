@@ -765,7 +765,6 @@ where
     where
         T: NeutralElts,
     {
-
         self.is_num(T::one())
     }
 
@@ -888,10 +887,16 @@ where
         self
     }
 
-    pub fn one() -> Self where T: NeutralElts {
+    pub fn one() -> Self
+    where
+        T: NeutralElts,
+    {
         DeepEx::from_num(T::one())
     }
-    pub fn zero() -> Self where T: NeutralElts {
+    pub fn zero() -> Self
+    where
+        T: NeutralElts,
+    {
         DeepEx::from_num(T::zero())
     }
 
