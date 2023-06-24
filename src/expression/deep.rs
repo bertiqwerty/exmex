@@ -5,13 +5,11 @@ use std::{
     str::FromStr,
 };
 
-#[cfg(feature = "partial")]
-use num::Float;
 use smallvec::{smallvec, SmallVec};
 
 use super::{calculate::Calculate, eval_binary};
 use crate::{
-    data_type::DataType,
+    data_type::{DataType, NeutralElts},
     definitions::{
         N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
         N_VARS_ON_STACK,
@@ -46,7 +44,7 @@ macro_rules! attach_unary_float_op {
         }
     };
 }
-macro_rules! attach_constant_op {
+macro_rules! attach_constant_op_float {
     ($name:ident, $constant:expr) => {
         pub fn $name() -> Self
         where
@@ -60,8 +58,6 @@ macro_rules! attach_constant_op {
 mod detail {
     use std::{fmt::Debug, iter, str::FromStr};
 
-    #[cfg(feature = "partial")]
-    use num::Float;
     use smallvec::SmallVec;
 
     use crate::{
@@ -102,14 +98,14 @@ mod detail {
     #[cfg(feature = "partial")]
     pub fn is_num<T, OF, LM>(deepex: &DeepEx<T, OF, LM>, num: T) -> bool
     where
-        T: DataType + Float,
+        T: DataType + PartialEq,
         OF: MakeOperators<T>,
         LM: MatchLiteral,
         <T as FromStr>::Err: Debug,
     {
         deepex.nodes().len() == 1
             && match &deepex.nodes()[0] {
-                DeepNode::Num(n) => deepex.unary_op().op.apply(*n) == num,
+                DeepNode::Num(n) => deepex.unary_op().op.apply(n.clone()) == num,
                 DeepNode::Expr(e) => is_num(e, num),
                 _ => false,
             }
@@ -759,7 +755,7 @@ where
     #[cfg(feature = "partial")]
     pub(super) fn is_num(&self, num: T) -> bool
     where
-        T: Float,
+        T: NeutralElts + PartialEq,
     {
         detail::is_num(self, num)
     }
@@ -767,17 +763,18 @@ where
     #[cfg(feature = "partial")]
     pub(super) fn is_one(&self) -> bool
     where
-        T: Float,
+        T: NeutralElts,
     {
-        self.is_num(T::from(1.0).unwrap())
+
+        self.is_num(T::one())
     }
 
     #[cfg(feature = "partial")]
     pub(super) fn is_zero(&self) -> bool
     where
-        T: Float,
+        T: NeutralElts,
     {
-        self.is_num(T::from(0.0).unwrap())
+        self.is_num(T::zero())
     }
 
     pub(super) fn var_names_union(self, other: Self) -> (Self, Self) {
@@ -891,6 +888,13 @@ where
         self
     }
 
+    pub fn one() -> Self where T: NeutralElts {
+        DeepEx::from_num(T::one())
+    }
+    pub fn zero() -> Self where T: NeutralElts {
+        DeepEx::from_num(T::zero())
+    }
+
     attach_unary_op!(abs);
     attach_unary_float_op!(sin);
     attach_unary_float_op!(cos);
@@ -914,11 +918,9 @@ where
     attach_unary_float_op!(cbrt);
     attach_unary_float_op!(fract);
     attach_unary_float_op!(trunc);
-    attach_constant_op!(one, T::from(1.0).unwrap());
-    attach_constant_op!(zero, T::from(0.0).unwrap());
-    attach_constant_op!(pi, T::from(std::f64::consts::PI).unwrap());
-    attach_constant_op!(e, T::from(std::f64::consts::E).unwrap());
-    attach_constant_op!(tau, T::from(std::f64::consts::TAU).unwrap());
+    attach_constant_op_float!(pi, T::from(std::f64::consts::PI).unwrap());
+    attach_constant_op_float!(e, T::from(std::f64::consts::E).unwrap());
+    attach_constant_op_float!(tau, T::from(std::f64::consts::TAU).unwrap());
 }
 
 impl<'a, T, OF, LM> Express<'a, T> for DeepEx<'a, T, OF, LM>

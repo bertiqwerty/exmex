@@ -8,7 +8,7 @@ use num::Float;
 use smallvec::SmallVec;
 
 use crate::{
-    data_type::DataType,
+    data_type::{DataType, NeutralElts},
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
     expression::{
         deep::{
@@ -72,7 +72,7 @@ where
     ///
     fn partial(self, var_idx: usize) -> ExResult<Self>
     where
-        T: DataType + Float,
+        T: DataType + NeutralElts + Float,
         <T as FromStr>::Err: Debug,
     {
         self.partial_nth(var_idx, 1)
@@ -110,7 +110,7 @@ where
     ///
     fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self>
     where
-        T: DataType + Float,
+        T: DataType + NeutralElts + Float,
         <T as FromStr>::Err: Debug,
     {
         self.partial_iter(iter::repeat(var_idx).take(n))
@@ -149,7 +149,7 @@ where
     ///
     fn partial_iter<I>(self, var_idxs: I) -> ExResult<Self>
     where
-        T: DataType + Float,
+        T: DataType + NeutralElts + Float,
         <T as FromStr>::Err: Debug,
         I: Iterator<Item = usize> + Clone,
     {
@@ -203,7 +203,7 @@ fn make_op_missing_err(repr: &str) -> ExError {
     format_exerr!("operator {} needed for outer partial derivative", repr)
 }
 
-fn partial_derivative_outer<'a, T: Float + DataType, OF, LM>(
+fn partial_derivative_outer<'a, T: NeutralElts + DataType, OF, LM>(
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
     ops: &[Operator<'a, T>],
@@ -237,7 +237,7 @@ where
     )
 }
 
-fn partial_derivative_inner<'a, T: Float + DataType, OF, LM>(
+fn partial_derivative_inner<'a, T: NeutralElts + Float + DataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
@@ -342,7 +342,7 @@ where
     Ok(res)
 }
 
-pub fn partial_deepex<'a, T: Float + DataType, OF, LM>(
+pub fn partial_deepex<'a, T: NeutralElts + Float + DataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     ops: &[Operator<'a, T>],
@@ -358,7 +358,7 @@ where
     mul(inner, outer, find_mul(ops)?)
 }
 
-fn add<'a, T: Float + DataType, OF, LM>(
+fn add<'a, T: NeutralElts + DataType, OF, LM>(
     summand_1: DeepEx<'a, T, OF, LM>,
     summand_2: DeepEx<'a, T, OF, LM>,
     add_op: BinOpsWithReprs<'a, T>,
@@ -378,7 +378,7 @@ where
     })
 }
 
-fn sub<'a, T: Float + DataType, OF, LM>(
+fn sub<'a, T: NeutralElts + DataType, OF, LM>(
     sub_1: DeepEx<'a, T, OF, LM>,
     sub_2: DeepEx<'a, T, OF, LM>,
     sub_op: BinOpsWithReprs<'a, T>,
@@ -396,7 +396,7 @@ where
     })
 }
 
-fn mul<'a, T: Float + DataType, OF, LM>(
+fn mul<'a, T: NeutralElts + DataType, OF, LM>(
     factor_1: DeepEx<'a, T, OF, LM>,
     factor_2: DeepEx<'a, T, OF, LM>,
     mul_op: BinOpsWithReprs<'a, T>,
@@ -420,7 +420,7 @@ where
     })
 }
 
-fn div<'a, T: Float + DataType, OF, LM>(
+fn div<'a, T: NeutralElts + DataType, OF, LM>(
     numerator: DeepEx<'a, T, OF, LM>,
     denominator: DeepEx<'a, T, OF, LM>,
     div_op: BinOpsWithReprs<'a, T>,
@@ -442,7 +442,7 @@ where
     }
 }
 
-fn pow<'a, T: Float + DataType, OF, LM>(
+fn pow<'a, T: NeutralElts + DataType, OF, LM>(
     base: DeepEx<'a, T, OF, LM>,
     exponent: DeepEx<'a, T, OF, LM>,
     power_op: BinOpsWithReprs<'a, T>,
@@ -472,22 +472,22 @@ where
     })
 }
 
-fn find_mul<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
+fn find_mul<'a, T: Clone + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_bin_op("*", ops)
 }
-fn find_div<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
+fn find_div<'a, T: Clone + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_bin_op("/", ops)
 }
-fn find_add<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
+fn find_add<'a, T: Clone + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_bin_op("+", ops)
 }
-fn find_sub<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
+fn find_sub<'a, T: Clone + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_bin_op("-", ops)
 }
-fn find_pow<'a, T: Copy + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
+fn find_pow<'a, T: Clone + Debug>(ops: &[Operator<'a, T>]) -> ExResult<BinOpsWithReprs<'a, T>> {
     find_bin_op("^", ops)
 }
-fn find_minus_unary<'a, T: Copy + Debug>(
+fn find_minus_unary<'a, T: Clone + Debug>(
     ops: &[Operator<'a, T>],
 ) -> ExResult<UnaryOpWithReprs<'a, T>> {
     find_unary_op("-", ops)
@@ -498,7 +498,7 @@ enum Base {
     Ten,
     Euler,
 }
-fn log_deri<'a, T: Float + DataType, OF, LM>(
+fn log_deri<'a, T: NeutralElts + Float + DataType, OF, LM>(
     f: DeepEx<'a, T, OF, LM>,
     base: Base,
     ops: &[Operator<'a, T>],
@@ -520,7 +520,7 @@ where
     div(DeepEx::one(), denominator, div_op)
 }
 
-pub fn make_partial_derivative_ops<'a, T: Float + DataType, OF, LM>(
+pub fn make_partial_derivative_ops<'a, T: NeutralElts + Float + DataType, OF, LM>(
 ) -> Vec<PartialDerivative<'a, T, OF, LM>>
 where
     OF: MakeOperators<T>,
