@@ -334,7 +334,6 @@
 
 use std::{fmt::Debug, str::FromStr};
 
-use num::Float;
 mod definitions;
 mod expression;
 #[macro_use]
@@ -361,6 +360,7 @@ pub use {lazy_static, regex};
 mod value;
 #[cfg(feature = "partial")]
 pub use expression::partial::Differentiate;
+use num::Float;
 #[cfg(feature = "value")]
 pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 
@@ -385,8 +385,9 @@ pub mod prelude {
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`](ExError) is returned.
 ///
-pub fn eval_str<T: Float + DataType>(text: &str) -> ExResult<T>
+pub fn eval_str<T: DataType>(text: &str) -> ExResult<T>
 where
+    T: DataType + Float,
     <T as FromStr>::Err: Debug,
 {
     let flatex = FlatEx::<T>::parse_wo_compile(text)?;
@@ -406,8 +407,9 @@ where
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`](ExError) is returned.
 ///
-pub fn parse<T: Float + DataType>(text: &str) -> ExResult<FlatEx<T>>
+pub fn parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
+    T: DataType + Float,
     <T as FromStr>::Err: Debug,
 {
     FlatEx::<T>::parse(text)

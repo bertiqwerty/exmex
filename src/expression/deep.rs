@@ -34,21 +34,10 @@ macro_rules! attach_unary_op {
         }
     };
 }
-macro_rules! attach_unary_float_op {
-    ($name:ident) => {
-        pub fn $name(self) -> ExResult<Self>
-        where
-            T: num::Float,
-        {
-            self.operate_unary(stringify!($name))
-        }
-    };
-}
-macro_rules! attach_constant_op_float {
+macro_rules! attach_constant_op{
     ($name:ident, $constant:expr) => {
         pub fn $name() -> Self
-        where
-            T: num::Float,
+            where T: From<f64>
         {
             Self::from_num($constant)
         }
@@ -898,31 +887,31 @@ where
         })
     }
     attach_unary_op!(abs);
-    attach_unary_float_op!(sin);
-    attach_unary_float_op!(cos);
-    attach_unary_float_op!(tan);
-    attach_unary_float_op!(sinh);
-    attach_unary_float_op!(cosh);
-    attach_unary_float_op!(tanh);
-    attach_unary_float_op!(asin);
-    attach_unary_float_op!(acos);
-    attach_unary_float_op!(atan);
+    attach_unary_op!(sin);
+    attach_unary_op!(cos);
+    attach_unary_op!(tan);
+    attach_unary_op!(sinh);
+    attach_unary_op!(cosh);
+    attach_unary_op!(tanh);
+    attach_unary_op!(asin);
+    attach_unary_op!(acos);
+    attach_unary_op!(atan);
     attach_unary_op!(signum);
-    attach_unary_float_op!(log);
-    attach_unary_float_op!(log2);
-    attach_unary_float_op!(log10);
-    attach_unary_float_op!(ln);
-    attach_unary_float_op!(round);
-    attach_unary_float_op!(floor);
-    attach_unary_float_op!(ceil);
-    attach_unary_float_op!(exp);
-    attach_unary_float_op!(sqrt);
-    attach_unary_float_op!(cbrt);
-    attach_unary_float_op!(fract);
-    attach_unary_float_op!(trunc);
-    attach_constant_op_float!(pi, T::from(std::f64::consts::PI).unwrap());
-    attach_constant_op_float!(e, T::from(std::f64::consts::E).unwrap());
-    attach_constant_op_float!(tau, T::from(std::f64::consts::TAU).unwrap());
+    attach_unary_op!(log);
+    attach_unary_op!(log2);
+    attach_unary_op!(log10);
+    attach_unary_op!(ln);
+    attach_unary_op!(round);
+    attach_unary_op!(floor);
+    attach_unary_op!(ceil);
+    attach_unary_op!(exp);
+    attach_unary_op!(sqrt);
+    attach_unary_op!(cbrt);
+    attach_unary_op!(fract);
+    attach_unary_op!(trunc);
+    attach_constant_op!(pi, T::from(std::f64::consts::PI));
+    attach_constant_op!(e, T::from(std::f64::consts::E));
+    attach_constant_op!(tau, T::from(std::f64::consts::TAU));
 }
 
 impl<'a, T, OF, LM> Express<'a, T> for DeepEx<'a, T, OF, LM>
@@ -1041,7 +1030,7 @@ where
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + num::Float + NeutralElts,
+    T: DataType + From<f32> + NeutralElts,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
     <T as FromStr>::Err: Debug,

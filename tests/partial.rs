@@ -1,5 +1,5 @@
 #[cfg(feature = "partial")]
-use exmex::{parse, Calculate, Differentiate, ExResult, Express, FlatEx};
+use exmex::{parse, Calculate, Differentiate, ExResult, Express, FlatEx, MakeOperators};
 #[cfg(feature = "partial")]
 mod utils;
 #[cfg(feature = "partial")]
@@ -310,4 +310,31 @@ fn test_log() -> ExResult<()> {
         utils::assert_float_eq_f64(deri_ln.eval(&[v])? * 1.0 / 2.0f64.ln(), deri.eval(&[v])?);
     }
     Ok(())
+}
+
+#[cfg(feature = "partial")]
+#[test]
+fn test_operatorsubset() {
+    use exmex::{FloatOpsFactory, Operator};
+
+    #[derive(Debug, Clone)]
+    struct SubsetFloatOpsFactory;
+    impl MakeOperators<f32> for SubsetFloatOpsFactory {
+        fn make<'a>() -> Vec<Operator<'a, f32>> {
+            let ops = FloatOpsFactory::<f32>::make();
+            ops.into_iter()
+                .filter(|o| {
+                    let r = o.repr();
+                    r == "+" || r == "*" || r == "/" || r == "-" || r == "^" || r == "sin"
+                })
+                .collect::<Vec<_>>()
+        }
+    }
+    let flatex = FlatEx::<f32, SubsetFloatOpsFactory>::parse("sin(x)").unwrap();
+    let cosx = flatex.partial(0);
+    assert!(format!("{cosx:?}").contains("cos"));
+    let flatex = FlatEx::<f32, SubsetFloatOpsFactory>::parse("1/x").unwrap();
+    println!("{}", flatex.clone().partial(0).unwrap());
+    let dflatex = flatex.partial(0).unwrap();
+    assert_eq!("-1.0/({x}*{x})", format!("{dflatex}"));
 }

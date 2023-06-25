@@ -300,7 +300,7 @@ pub trait MakeOperators<T: Clone>: Clone + Debug {
 ///
 ///
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
-pub struct FloatOpsFactory<T: Float> {
+pub struct FloatOpsFactory<T> {
     dummy: PhantomData<T>,
 }
 

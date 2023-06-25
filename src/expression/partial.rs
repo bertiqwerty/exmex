@@ -4,7 +4,6 @@ use std::{
     str::FromStr,
 };
 
-use num::Float;
 use smallvec::SmallVec;
 
 use crate::{
@@ -32,7 +31,7 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
 /// *`feature = "partial"`* - Trait for partial differentiation.  
 pub trait Differentiate<'a, T>
 where
-    T: DataType + Clone + Float + NeutralElts,
+    T: DataType + Clone + From<f32> + NeutralElts,
     <T as FromStr>::Err: Debug,
     Self: Sized + Express<'a, T> + Display + Debug,
 {
@@ -221,7 +220,7 @@ where
     )
 }
 
-fn partial_derivative_inner<'a, T: NeutralElts + Float + DataType, OF, LM>(
+fn partial_derivative_inner<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
@@ -325,7 +324,7 @@ where
     Ok(res)
 }
 
-pub fn partial_deepex<T: NeutralElts + Float + DataType, OF, LM>(
+pub fn partial_deepex<T: NeutralElts + DataType + From<f32>, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'_, T, OF, LM>,
 ) -> ExResult<DeepEx<'_, T, OF, LM>>
@@ -345,7 +344,7 @@ enum Base {
     Ten,
     Euler,
 }
-fn log_deri<T: NeutralElts + Float + DataType, OF, LM>(
+fn log_deri<T: NeutralElts + DataType + From<f32>, OF, LM>(
     f: DeepEx<'_, T, OF, LM>,
     base: Base,
 ) -> ExResult<DeepEx<'_, T, OF, LM>>
@@ -354,17 +353,17 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    let ln_base = |base_float: f64| DeepEx::from_num(T::from(base_float).unwrap().ln());
+    let ln_base = |base_float: f32| DeepEx::from_num(T::from(base_float)).ln();
     let x = f.without_latest_unary();
     let denominator = match base {
-        Base::Ten => (x * ln_base(10.0))?,
-        Base::Two => (x * ln_base(2.0))?,
+        Base::Ten => (x * ln_base(10.0)?)?,
+        Base::Two => (x * ln_base(2.0)?)?,
         Base::Euler => x,
     };
     DeepEx::one() / denominator
 }
 
-pub fn make_partial_derivative_ops<'a, T: NeutralElts + Float + DataType, OF, LM>(
+pub fn make_partial_derivative_ops<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
 ) -> Vec<PartialDerivative<'a, T, OF, LM>>
 where
     OF: MakeOperators<T>,
@@ -459,7 +458,7 @@ where
             unary_outer_op: Some(
                 |f: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
                     let one = DeepEx::one();
-                    let two = DeepEx::from_num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0));
                     one / (two * f)?
                 },
             ),
@@ -518,7 +517,7 @@ where
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
-                    let two = DeepEx::from_num(T::from(2.0).unwrap());
+                    let two = DeepEx::from_num(T::from(2.0));
                     let cos_squared_ex = f.clone().without_latest_unary().cos()?.pow(two)?;
                     DeepEx::one() / cos_squared_ex
                 },
@@ -529,7 +528,7 @@ where
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
-                let two = DeepEx::from_num(T::from(2.0).unwrap());
+                let two = DeepEx::from_num(T::from(2.0));
                 let inner_squared = f.without_latest_unary().pow(two)?;
                 let insq_min1_sqrt = (one.clone() - inner_squared)?.sqrt()?;
                 one / insq_min1_sqrt
@@ -540,7 +539,7 @@ where
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
-                let two = DeepEx::from_num(T::from(2.0).unwrap());
+                let two = DeepEx::from_num(T::from(2.0));
                 let inner_squared = f.without_latest_unary().pow(two)?;
                 let denominator = (one.clone() - inner_squared)?.sqrt()?;
                 let div = (one / denominator)?;
@@ -552,7 +551,7 @@ where
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
-                let two = DeepEx::from_num(T::from(2.0).unwrap());
+                let two = DeepEx::from_num(T::from(2.0));
                 let inner_squared = f.without_latest_unary().pow(two)?;
                 one.clone() / (one + inner_squared)?
             }),
@@ -576,7 +575,7 @@ where
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
-                let two = DeepEx::from_num(T::from(2.0).unwrap());
+                let two = DeepEx::from_num(T::from(2.0));
                 one - f.without_latest_unary().tanh()?.pow(two)?
             }),
         },
