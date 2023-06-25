@@ -30,8 +30,10 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
     }
 }
 /// *`feature = "partial"`* - Trait for partial differentiation.  
-pub trait Differentiate<'a, T: Clone>
+pub trait Differentiate<'a, T>
 where
+    T: DataType + Clone + Float + NeutralElts,
+    <T as FromStr>::Err: Debug,
     Self: Sized + Express<'a, T> + Display + Debug,
 {
     /// *`feature = "partial"`* - This method computes a new expression
@@ -67,11 +69,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial(self, var_idx: usize) -> ExResult<Self>
-    where
-        T: DataType + NeutralElts + Float,
-        <T as FromStr>::Err: Debug,
-    {
+    fn partial(self, var_idx: usize) -> ExResult<Self> {
         self.partial_nth(var_idx, 1)
     }
 
@@ -105,11 +103,7 @@ where
     /// * If you use custom operators this might not work as expected. It could return an [`ExError`](crate::ExError) if
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
-    fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self>
-    where
-        T: DataType + NeutralElts + Float,
-        <T as FromStr>::Err: Debug,
-    {
+    fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self> {
         self.partial_iter(iter::repeat(var_idx).take(n))
     }
 
@@ -146,8 +140,6 @@ where
     ///
     fn partial_iter<I>(self, var_idxs: I) -> ExResult<Self>
     where
-        T: DataType + NeutralElts + Float,
-        <T as FromStr>::Err: Debug,
         I: Iterator<Item = usize> + Clone,
     {
         let mut deepex = self.to_deepex()?;

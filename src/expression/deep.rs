@@ -1041,7 +1041,7 @@ where
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for DeepEx<'a, T, OF, LM>
 where
-    T: DataType,
+    T: DataType + num::Float + NeutralElts,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
     <T as FromStr>::Err: Debug,
