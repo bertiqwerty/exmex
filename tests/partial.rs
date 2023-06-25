@@ -332,6 +332,7 @@ fn test_operatorsubset() {
     }
     let flatex = FlatEx::<f32, SubsetFloatOpsFactory>::parse("sin(x)").unwrap();
     let cosx = flatex.partial(0);
+    assert!(cosx.is_err());
     assert!(format!("{cosx:?}").contains("cos"));
     let flatex = FlatEx::<f32, SubsetFloatOpsFactory>::parse("1/x").unwrap();
     println!("{}", flatex.clone().partial(0).unwrap());
