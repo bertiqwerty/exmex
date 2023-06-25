@@ -11,10 +11,10 @@ use crate::{
     data_type::{DataType, NeutralElts},
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
     expression::{
-        deep::{find_unary_op, prioritized_indices, DeepEx, DeepNode, UnaryOpWithReprs},
+        deep::{prioritized_indices, DeepEx, DeepNode},
         flat::ExprIdxVec,
     },
-    format_exerr, ExError, ExResult, Express, MakeOperators, MatchLiteral, Operator,
+    format_exerr, ExError, ExResult, Express, MakeOperators, MatchLiteral,
 };
 
 pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
@@ -219,7 +219,7 @@ where
             let unary_deri_op = op.unary_outer_op.ok_or_else(|| make_op_missing_err(repr))?;
             let mut new_deepex = deepex.clone();
             for _ in 0..idx {
-                new_deepex = new_deepex.without_latest_unary_op();
+                new_deepex = new_deepex.without_latest_unary();
             }
             unary_deri_op(new_deepex)
         });
@@ -333,10 +333,10 @@ where
     Ok(res)
 }
 
-pub fn partial_deepex<'a, T: NeutralElts + Float + DataType, OF, LM>(
+pub fn partial_deepex<T: NeutralElts + Float + DataType, OF, LM>(
     var_idx: usize,
-    deepex: DeepEx<'a, T, OF, LM>,
-) -> ExResult<DeepEx<'a, T, OF, LM>>
+    deepex: DeepEx<'_, T, OF, LM>,
+) -> ExResult<DeepEx<'_, T, OF, LM>>
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
@@ -348,28 +348,22 @@ where
     inner * outer
 }
 
-fn find_minus_unary<'a, T: Clone + Debug>(
-    ops: &[Operator<'a, T>],
-) -> ExResult<UnaryOpWithReprs<'a, T>> {
-    find_unary_op("-", ops)
-}
-
 enum Base {
     Two,
     Ten,
     Euler,
 }
-fn log_deri<'a, T: NeutralElts + Float + DataType, OF, LM>(
-    f: DeepEx<'a, T, OF, LM>,
+fn log_deri<T: NeutralElts + Float + DataType, OF, LM>(
+    f: DeepEx<'_, T, OF, LM>,
     base: Base,
-) -> ExResult<DeepEx<'a, T, OF, LM>>
+) -> ExResult<DeepEx<'_, T, OF, LM>>
 where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
     let ln_base = |base_float: f64| DeepEx::from_num(T::from(base_float).unwrap().ln());
-    let x = f.with_new_latest_unary_op(UnaryOpWithReprs::new());
+    let x = f.without_latest_unary();
     let denominator = match base {
         Base::Ten => (x * ln_base(10.0))?,
         Base::Two => (x * ln_base(2.0))?,
@@ -434,11 +428,7 @@ where
                 },
             ),
             unary_outer_op: Some(
-                |_: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
-                    let one = DeepEx::one();
-                    let minus = find_minus_unary(one.ops())?;
-                    Ok(one.with_only_unary_op(minus))
-                },
+                |_: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> { -DeepEx::one() },
             ),
         },
         PartialDerivative {
@@ -523,18 +513,15 @@ where
             repr: "sin",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let unary_op = find_unary_op("cos", f.ops())?;
-                Ok(f.with_new_latest_unary_op(unary_op))
+                f.without_latest_unary().cos()
             }),
         },
         PartialDerivative {
             repr: "cos",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let mut sin = find_unary_op("sin", f.ops())?;
-                let minus = find_minus_unary(f.ops())?;
-                sin.append_after(minus);
-                Ok(f.with_new_latest_unary_op(sin))
+                let sin = f.without_latest_unary().sin()?;
+                -sin
             }),
         },
         PartialDerivative {
@@ -542,9 +529,8 @@ where
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
-                    let cos_op = find_unary_op("cos", f.ops())?;
                     let two = DeepEx::from_num(T::from(2.0).unwrap());
-                    let cos_squared_ex = f.clone().with_new_latest_unary_op(cos_op).pow(two)?;
+                    let cos_squared_ex = f.clone().without_latest_unary().cos()?.pow(two)?;
                     DeepEx::one() / cos_squared_ex
                 },
             ),
@@ -553,32 +539,23 @@ where
             repr: "asin",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let sqrt_op = find_unary_op("sqrt", f.ops())?;
                 let one = DeepEx::one();
-
                 let two = DeepEx::from_num(T::from(2.0).unwrap());
-                let inner_squared = f
-                    .with_new_latest_unary_op(UnaryOpWithReprs::new())
-                    .pow(two)?;
-                let insq_min1_sqrt =
-                    (one.clone() - inner_squared)?.operate_unary_opwithrepr(sqrt_op);
-                one.clone() / insq_min1_sqrt
+                let inner_squared = f.without_latest_unary().pow(two)?;
+                let insq_min1_sqrt = (one.clone() - inner_squared)?.sqrt()?;
+                one / insq_min1_sqrt
             }),
         },
         PartialDerivative {
             repr: "acos",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let sqrt_op = find_unary_op("sqrt", f.ops())?;
-                let minus_op = find_minus_unary(f.ops())?;
-
                 let one = DeepEx::one();
                 let two = DeepEx::from_num(T::from(2.0).unwrap());
-                let inner_squared = f
-                    .with_new_latest_unary_op(UnaryOpWithReprs::new())
-                    .pow(two)?;
-                let denominator = (one.clone() - inner_squared)?.operate_unary_opwithrepr(sqrt_op);
-                Ok((one / denominator)?.operate_unary_opwithrepr(minus_op))
+                let inner_squared = f.without_latest_unary().pow(two)?;
+                let denominator = (one.clone() - inner_squared)?.sqrt()?;
+                let div = (one / denominator)?;
+                -div
             }),
         },
         PartialDerivative {
@@ -587,9 +564,7 @@ where
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
                 let two = DeepEx::from_num(T::from(2.0).unwrap());
-                let inner_squared = f
-                    .with_new_latest_unary_op(UnaryOpWithReprs::new())
-                    .pow(two)?;
+                let inner_squared = f.without_latest_unary().pow(two)?;
                 one.clone() / (one + inner_squared)?
             }),
         },
@@ -597,16 +572,14 @@ where
             repr: "sinh",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let cosh_op = find_unary_op("cosh", f.ops())?;
-                Ok(f.with_new_latest_unary_op(cosh_op))
+                f.without_latest_unary().cosh()
             }),
         },
         PartialDerivative {
             repr: "cosh",
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
-                let sinh_op = find_unary_op("sinh", f.ops())?;
-                Ok(f.with_new_latest_unary_op(sinh_op))
+                f.without_latest_unary().sinh()
             }),
         },
         PartialDerivative {
@@ -614,9 +587,8 @@ where
             bin_op: None,
             unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
                 let one = DeepEx::one();
-                let tanh_op = find_unary_op("tanh", f.ops())?;
                 let two = DeepEx::from_num(T::from(2.0).unwrap());
-                one - f.with_new_latest_unary_op(tanh_op).pow(two)?
+                one - f.without_latest_unary().tanh()?.pow(two)?
             }),
         },
     ]

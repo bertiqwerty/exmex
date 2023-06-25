@@ -723,22 +723,8 @@ where
     }
 
     #[cfg(feature = "partial")]
-    pub(super) fn without_latest_unary_op(mut self) -> Self {
+    pub(super) fn without_latest_unary(mut self) -> Self {
         self.unary_op.remove_latest();
-        self
-    }
-
-    #[cfg(feature = "partial")]
-    pub(super) fn with_new_latest_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.remove_latest();
-        self.unary_op.append_after(unary_op);
-        self
-    }
-
-    #[cfg(feature = "partial")]
-    pub(super) fn with_only_unary_op(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
-        self.unary_op.clear();
-        self.unary_op.append_after(unary_op);
         self
     }
 
@@ -802,16 +788,11 @@ where
     }
 
     /// Applies a unary operator to self
-    pub(super) fn operate_unary(self, repr: &'a str) -> ExResult<Self> {
+    pub(super) fn operate_unary(mut self, repr: &'a str) -> ExResult<Self> {
         let unary_op = find_unary_op(repr, &self.ops)?;
-        Ok(self.operate_unary_opwithrepr(unary_op))
-    }
-
-    /// Applies a unary operator to self
-    pub(super) fn operate_unary_opwithrepr(mut self, unary_op: UnaryOpWithReprs<'a, T>) -> Self {
         self.unary_op.append_after(unary_op);
         self.compile();
-        self
+        Ok(self)
     }
 
     pub(super) fn reset_vars(
@@ -1223,10 +1204,6 @@ where
 #[cfg(test)]
 use crate::{util::assert_float_eq_f64, FlatEx};
 
-#[cfg(test)]
-#[cfg(feature = "partial")]
-use crate::operators::VecOfUnaryFuncs;
-
 #[test]
 fn test_sub1() -> ExResult<()> {
     let deepex = DeepEx::<f64>::parse("x*(1.2-y)")?;
@@ -1417,20 +1394,6 @@ fn test_deep_compile_2() -> ExResult<()> {
     assert_float_eq_f64(expr.eval(&[2.0])?, 4.0 / 3.0);
     let expr = DeepEx::<f64>::parse("x / 2 / 3")?;
     assert_float_eq_f64(expr.eval(&[2.0])?, 1.0 / 3.0);
-    Ok(())
-}
-#[cfg(feature = "partial")]
-#[test]
-fn test_operate_unary() -> ExResult<()> {
-    let lstr = "x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)+x+y+x+z*(-y)";
-    let deepex = DeepEx::<f64>::parse(lstr)?;
-    let mut funcs = VecOfUnaryFuncs::new();
-    funcs.push(|x: f64| x * 1.23456);
-    let deepex = deepex.operate_unary_opwithrepr(UnaryOpWithReprs {
-        reprs: smallvec::smallvec!["eagle"],
-        op: UnaryOp::from_vec(funcs),
-    });
-    assert_float_eq_f64(deepex.eval(&[1.0, 1.75, 2.25])?, -0.23148000000000002 * 8.0);
     Ok(())
 }
 
