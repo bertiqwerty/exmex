@@ -389,10 +389,8 @@ where
                     let one = DeepEx::one();
                     let val = f.val.clone().pow(g.val.clone())?;
                     let g_minus_1 = (g.val.clone() - one)?;
-                    let der_1 = ((f.val.clone().pow(g_minus_1)? * g.val.clone())? * f.der.clone())?;
-
-                    let der_2 = ((val.clone() * f.val.ln()?)? * g.der.clone())?;
-
+                    let der_1 = ((f.val.clone().pow(g_minus_1)? * g.val)? * f.der)?;
+                    let der_2 = ((val.clone() * f.val.ln()?)? * g.der)?;
                     let der = (der_1 + der_2)?;
                     Ok(ValueDerivative { val, der })
                 },
@@ -453,7 +451,6 @@ where
                  g: ValueDerivative<T, OF, LM>|
                  -> ExResult<ValueDerivative<T, OF, LM>> {
                     let val = (f.val.clone() / g.val.clone())?;
-
                     let numerator = ((f.der * g.val.clone())? - (g.der * f.val)?)?;
                     let denominator = (g.val.clone() * g.val)?;
                     Ok(ValueDerivative {
