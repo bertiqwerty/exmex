@@ -559,6 +559,7 @@ where
     var_names: SmallVec<[String; N_VARS_ON_STACK]>,
 
     text: String,
+    ops: Vec<Operator<'a, T>>,
     dummy_ops_factory: PhantomData<OF>,
     dummy_literal_matcher_factory: PhantomData<LM>,
 }
@@ -659,6 +660,7 @@ where
                 unary_op,
                 var_names: smallvec![],
                 text: "".to_string(),
+                ops: OF::make(),
                 dummy_literal_matcher_factory: PhantomData {},
                 dummy_ops_factory: PhantomData {},
             });
@@ -702,6 +704,7 @@ where
                 unary_op,
                 var_names,
                 text,
+                ops: OF::make(),
                 dummy_ops_factory: PhantomData,
                 dummy_literal_matcher_factory: PhantomData,
             };
@@ -794,25 +797,13 @@ where
 
     /// Applies a binary operator to self and other
     pub(super) fn operate_bin(self, other: Self, bin_op_repr: &'a str) -> ExResult<Self> {
-        let ops = OF::make();
-        let bin_op = find_bin_op(bin_op_repr, &ops)?;
+        let bin_op = find_bin_op(bin_op_repr, &self.ops)?;
         Ok(detail::operate_bin(self, other, bin_op))
-    }
-
-    #[cfg(feature = "partial")]
-    /// Applies a binary operator to self and other
-    pub(super) fn operate_bin_opwithrepr(
-        self,
-        other: Self,
-        bin_op: BinOpsWithReprs<'a, T>,
-    ) -> Self {
-        detail::operate_bin(self, other, bin_op)
     }
 
     /// Applies a unary operator to self
     pub(super) fn operate_unary(self, repr: &'a str) -> ExResult<Self> {
-        let ops = OF::make();
-        let unary_op = find_unary_op(repr, &ops)?;
+        let unary_op = find_unary_op(repr, &self.ops)?;
         Ok(self.operate_unary_opwithrepr(unary_op))
     }
 
@@ -895,6 +886,36 @@ where
         DeepEx::from_num(T::zero())
     }
 
+    pub fn ops(&self) -> &Vec<Operator<'a, T>> {
+        &self.ops
+    }
+
+    pub fn pow(self, exponent: DeepEx<'a, T, OF, LM>) -> ExResult<DeepEx<'a, T, OF, LM>>
+    where
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+        <T as FromStr>::Err: Debug,
+        T: NeutralElts,
+    {
+        let (base, exponent) = self.var_names_union(exponent);
+        Ok(if base.is_zero() && exponent.is_zero() {
+            return Err(ExError::new(
+                "base and exponent both zero. help. fatal. ah. help.",
+            ));
+        } else if base.is_zero() {
+            let zero = DeepEx::zero();
+            let zero = zero.var_names_like_other(&base);
+            zero
+        } else if exponent.is_zero() {
+            let one = DeepEx::one();
+            let one = one.var_names_like_other(&base);
+            one
+        } else if exponent.is_one() {
+            base
+        } else {
+            base.operate_bin(exponent, "^")?
+        })
+    }
     attach_unary_op!(abs);
     attach_unary_float_op!(sin);
     attach_unary_float_op!(cos);
@@ -1056,13 +1077,13 @@ where
 {
     type Output = ExResult<DeepEx<'a, T, OF, LM>>;
     fn add(self, rhs: Self) -> Self::Output {
-        let (summand_1, summand_2) = self.var_names_union(rhs);
-        Ok(if summand_1.is_zero() {
-            summand_2
-        } else if summand_2.is_zero() {
-            summand_1
+        let (summand1, summand2) = self.var_names_union(rhs);
+        Ok(if summand1.is_zero() {
+            summand2
+        } else if summand2.is_zero() {
+            summand1
         } else {
-            summand_1.operate_bin(summand_2, "+")?
+            summand1.operate_bin(summand2, "+")?
         })
     }
 }
