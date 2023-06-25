@@ -34,10 +34,11 @@ macro_rules! attach_unary_op {
         }
     };
 }
-macro_rules! attach_constant_op{
+macro_rules! attach_constant_op {
     ($name:ident, $constant:expr) => {
         pub fn $name() -> Self
-            where T: From<f64>
+        where
+            T: From<f64>,
         {
             Self::from_num($constant)
         }
