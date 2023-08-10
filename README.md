@@ -3,6 +3,8 @@
 [![example workflow](https://github.com/bertiqwerty/exmex/actions/workflows/rust.yml/badge.svg)](https://github.com/bertiqwerty/exmex)
 ![license](https://img.shields.io/crates/l/exmex.svg)
 [![dependency status](https://deps.rs/repo/github/bertiqwerty/exmex/status.svg)](https://deps.rs/repo/github/bertiqwerty/exmex)
+[![downloads](https://img.shields.io/crates/d/exmex.svg)](https://crates.io/crates/exmex)
+
 # Exmex
 
 Exmex is an extendable mathematical expression parser and evaluator. Ease of use, flexibility, and efficient evaluations are its main design goals. Exmex can parse mathematical expressions possibly containing variables and operators. On the one hand, it comes with a list of default operators for floating point values. For differentiable default operators, Exmex can compute partial derivatives. On the other hand, users can define their own operators and work with different data types such as float, integer, bool, or other types that implement `Clone`, `FromStr`, `Debug`, `Default`.
