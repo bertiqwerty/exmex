@@ -228,7 +228,6 @@ base_arith!(add, checked_add);
 base_arith!(sub, checked_sub);
 base_arith!(mul, checked_mul);
 base_arith!(div, checked_div);
-
 macro_rules! single_type_arith {
     ($name:ident, $variant:ident, $op:expr) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
@@ -236,6 +235,8 @@ macro_rules! single_type_arith {
             I: DataType + PrimInt + Signed,
             F: DataType + Float,
         {
+            // https://github.com/rust-lang/rust-clippy/issues/11274
+            #[allow(clippy::redundant_closure_call)]
             match (a, b) {
                 (Val::$variant(na), Val::$variant(nb)) => $op(na, nb),
                 _ => Val::Error(format_exerr!(
@@ -320,8 +321,10 @@ macro_rules! unary_match_name {
 
 macro_rules! unary_match_op {
     ($name:ident, $scalar:ident, $(($ops:expr, $variants:ident)),+) => {
+        // https://github.com/rust-lang/rust-clippy/issues/11274
+        #[allow(clippy::redundant_closure_call)]
         match $scalar {
-            $(Val::$variants(x) =>  $ops(x),)+
+            $(Val::$variants(x) => $ops(x),)+
             _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
         }
     };
@@ -387,13 +390,9 @@ unary_op!(
                 Some(x) => x,
                 None => return Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
             };
-            let res =
-                (1usize..(a_usize_unpacked + 1usize))
-                    .map(I::from)
-                    .fold(Some(I::one()), |a, b| match (a, b) {
-                        (Some(a_), Some(b_)) => Some(a_ * b_),
-                        _ => None,
-                    });
+            let res = (1usize..(a_usize_unpacked + 1usize))
+                .map(I::from)
+                .try_fold(I::one(), |a, b| b.map(|b| a * b));
             match res {
                 Some(i) => Val::Int(i),
                 None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),

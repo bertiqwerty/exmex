@@ -197,7 +197,7 @@ where
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
 {
-    let factorexes = deepex
+    let mut factorexes = deepex
         .unary_op()
         .reprs
         .iter()
@@ -214,10 +214,9 @@ where
             }
             unary_deri_op(new_deepex)
         });
-    factorexes.fold(
-        Ok(DeepEx::one()),
-        |dp1, dp2| -> ExResult<DeepEx<T, OF, LM>> { dp1? * dp2? },
-    )
+    factorexes.try_fold(DeepEx::one(), |dp1, dp2| -> ExResult<DeepEx<T, OF, LM>> {
+        dp2.and_then(|dp2| dp2 * dp1)
+    })
 }
 
 fn partial_derivative_inner<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
