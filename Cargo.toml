@@ -1,6 +1,6 @@
 [package]
 name = "exmex"
-version = "0.17.3"  # check html document root in lib.rs
+version = "0.17.4"  # check html document root in lib.rs
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -17,11 +17,11 @@ include = ["**/*.rs", "Cargo.toml"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-regex = "1.9.3"
+regex = "1.9.5"
 num = "0.4.1"
 smallvec = "1.11.0"
 lazy_static = "1.4.0"
-serde = { version="1.0.185", optional = true }
+serde = { version="1.0.188", optional = true }
 
 [profile.test]
 opt-level = 3
