@@ -228,6 +228,11 @@ fn test_no_vars() -> ExResult<()> {
     test_error("1500000000+1500000000")?;
     test_error("-1500000000-1500000000")?;
     test_error("0%0")?;
+    test_int("1&&2", 1)?;
+    test_bool("true&&false", false)?;
+    test_bool("false || true", true)?;
+    test_int("1&&2.0", 1)?;
+    test_float("1||2.0", 2.0)?;
 
     Ok(())
 }

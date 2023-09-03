@@ -273,9 +273,42 @@ single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
     }
 });
 
-single_type_arith!(or, Bool, |a, b| Val::Bool(a || b));
-single_type_arith!(and, Bool, |a, b| Val::Bool(a && b));
-
+fn and<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    <I as FromStr>::Err: Debug,
+    F: DataType + Float,
+    <F as FromStr>::Err: Debug,
+{
+    match (&a, &b) {
+        (Val::Bool(a), Val::Bool(b)) => Val::Bool(*a && *b),
+        _ => {
+            if a.clone() <= b.clone() {
+                a
+            } else {
+                b
+            }
+        }
+    }
+}
+fn or<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    <I as FromStr>::Err: Debug,
+    F: DataType + Float,
+    <F as FromStr>::Err: Debug,
+{
+    match (&a, &b) {
+        (Val::Bool(a), Val::Bool(b)) => Val::Bool(*a || *b),
+        _ => {
+            if a.clone() >= b.clone() {
+                a
+            } else {
+                b
+            }
+        }
+    }
+}
 macro_rules! unary_match_name {
     ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident)),+) => {
         match $scalar {
