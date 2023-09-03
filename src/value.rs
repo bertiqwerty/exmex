@@ -595,7 +595,7 @@ where
                 BinOp {
                     apply: |a, b| Val::Bool(a >= b),
                     prio: 1,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
@@ -603,7 +603,7 @@ where
                 BinOp {
                     apply: |a, b| Val::Bool(a > b),
                     prio: 1,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
@@ -611,7 +611,7 @@ where
                 BinOp {
                     apply: |a, b| Val::Bool(a <= b),
                     prio: 1,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
@@ -619,7 +619,7 @@ where
                 BinOp {
                     apply: |a, b| Val::Bool(a < b),
                     prio: 1,
-                    is_commutative: true,
+                    is_commutative: false,
                 },
             ),
             Operator::make_bin(
