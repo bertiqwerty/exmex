@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 regex = "1.9.5"
 num = "0.4.1"
-smallvec = "1.11.0"
+smallvec = "1.11.1"
 lazy_static = "1.4.0"
 serde = { version="1.0.188", optional = true }
 
@@ -45,8 +45,8 @@ fasteval = "0.2.4"
 rsc = "2.0.0"
 evalexpr = "11.0.0"
 serde_test = "1.0.176"
-serde_json = "1.0.105"
-toml = "0.7.6"
+serde_json = "1.0.107"
+toml = "0.8.0"
 
 [[bench]]
 name = "benchmark"
