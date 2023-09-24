@@ -40,7 +40,6 @@ all-features = true
 rand = "0.8.5"
 itertools = "0.11.0"
 criterion = "0.5.1"
-meval = "0.2.0"
 fasteval = "0.2.4"
 rsc = "2.0.0"
 evalexpr = "11.0.0"

@@ -286,29 +286,6 @@ fn evalexpr_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "evalexpr", c);
 }
 
-fn meval_parse(strings: &[&str]) -> Vec<impl Fn(f64, f64, f64) -> f64> {
-    strings
-        .iter()
-        .map(|expr_str| {
-            let expr = expr_str.parse::<meval::Expr>().unwrap();
-            expr.bind3("x", "y", "z").unwrap()
-        })
-        .collect::<Vec<_>>()
-}
-
-fn meval_bench_parse(c: &mut Criterion) {
-    run_benchmark_parse(meval_parse, "meval_parse", c);
-}
-
-fn meval_bench_eval(c: &mut Criterion) {
-    let parsed_exprs = meval_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs
-        .iter()
-        .map(|expr| move |x: f64| expr(x, BENCH_Y, BENCH_Z))
-        .collect::<Vec<_>>();
-    run_benchmark(funcs, "meval", c);
-}
-
 fn fasteval_parse(strings: &[&str]) -> Vec<((Instruction, Slab), BTreeMap<String, f64>)> {
     let parsed_exprs = strings.iter().map(|expr_str| {
         let parser = fasteval::Parser::new();
@@ -467,7 +444,6 @@ criterion_group!(
     exmex_bench_eval,
     exmex_bench_eval_uncompiled,
     exmex_bench_eval_val,
-    meval_bench_eval,
     rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
@@ -475,7 +451,6 @@ criterion_group!(
     exmex_bench_parse_uncompiled,
     exmex_bench_parse_val,
     exmex_bench_parse_optimized,
-    meval_bench_parse,
     rsc_bench_parse,
     evalexpr_bench_parse,
     exmex_bench_partial,
