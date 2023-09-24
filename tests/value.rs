@@ -241,8 +241,17 @@ fn test_no_vars() -> ExResult<()> {
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde() {
+    use serde::{Deserialize, Serialize};
     let s = "-1200 if (cb / ib) < 1 else -2400";
     let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
-    let ser = serde_json::to_string_pretty(&expr).unwrap();
-    let _deser: FlatExVal<i32, f64> = serde_json::from_str(&ser).unwrap();
+
+    #[derive(Serialize, Deserialize)]
+    struct Tmp {
+        expr: FlatExVal<i32, f64>,
+    }
+    let tmp = Tmp { expr };
+    let ser = serde_json::to_string_pretty(&tmp)
+        .unwrap()
+        .replace("/", "\\/");
+    let _deser: Tmp = serde_json::from_str(&ser).unwrap();
 }

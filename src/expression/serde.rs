@@ -34,11 +34,12 @@ where
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(FlatExVisitor {
+        let visitor = FlatExVisitor {
             lifetime_dummy: PhantomData,
             of_dummy: PhantomData,
             literal_matcher_dummy: PhantomData,
-        })
+        };
+        deserializer.deserialize_str(visitor)
     }
 }
 
@@ -61,6 +62,14 @@ where
     }
 
     fn visit_borrowed_str<E>(self, unparsed: &'de str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        let flatex = Self::Value::parse(unparsed);
+        flatex.map_err(|epe| E::custom(format!("Parse error - {}", epe.msg())))
+    }
+
+    fn visit_str<E>(self, unparsed: &str) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
