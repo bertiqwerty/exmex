@@ -236,3 +236,13 @@ fn test_no_vars() -> ExResult<()> {
 
     Ok(())
 }
+
+#[cfg(feature = "value")]
+#[cfg(feature = "serde")]
+#[test]
+fn test_serde() {
+    let s = "-1200 if (cb / ib) < 1 else -2400";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let ser = serde_json::to_string_pretty(&expr).unwrap();
+    let _deser: FlatExVal<i32, f64> = serde_json::from_str(&ser).unwrap();
+}
