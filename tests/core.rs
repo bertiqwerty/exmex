@@ -964,11 +964,12 @@ fn test_string_ops() {
                 prio: 2,
                 is_commutative: false
             }
-        )
+        ),
+        Operator::make_constant("-", "MINUS".to_string())
     );
-    let expr = FlatEx::<String, StringOpsFactory, StringMatcher>::parse("x+y+{_}").unwrap();
+    let expr = FlatEx::<String, StringOpsFactory, StringMatcher>::parse("x+y+{_}+-").unwrap();
     assert_eq!(
         expr.eval(&["abc".to_string()]).unwrap(),
-        "xyabc".to_string()
+        "xyabcMINUS".to_string()
     );
 }
