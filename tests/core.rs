@@ -948,3 +948,27 @@ fn test_eval_vec_iter() {
         StringContainer::from_slice(&["alpha", "beta", "2", "alpha", "beta", "2"]).clone()
     );
 }
+#[test]
+fn test_string_ops() {
+    literal_matcher_from_pattern!(StringMatcher, r"^[a-zA-z0-9]+");
+    ops_factory!(
+        StringOpsFactory,
+        String,
+        Operator::make_bin(
+            "+",
+            BinOp {
+                apply: |mut s1, s2| {
+                    s1.push_str(&s2);
+                    s1
+                },
+                prio: 2,
+                is_commutative: false
+            }
+        )
+    );
+    let expr = FlatEx::<String, StringOpsFactory, StringMatcher>::parse("x+y+{_}").unwrap();
+    assert_eq!(
+        expr.eval(&["abc".to_string()]).unwrap(),
+        "xyabc".to_string()
+    );
+}
