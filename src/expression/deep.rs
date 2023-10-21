@@ -378,7 +378,7 @@ fn find_op<'a, T: Clone + Debug>(
     ops.iter().cloned().find(|op| op.repr() == repr)
 }
 
-pub fn find_bin_op<'a, T: Clone + Debug>(
+fn find_bin_op<'a, T: Clone + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<BinOpsWithReprs<'a, T>> {
@@ -389,7 +389,7 @@ pub fn find_bin_op<'a, T: Clone + Debug>(
     })
 }
 
-pub fn find_unary_op<'a, T: Clone + Debug>(
+fn find_unary_op<'a, T: Clone + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<UnaryOpWithReprs<'a, T>> {
@@ -470,14 +470,10 @@ where
             .collect();
     }
 
+    #[cfg(feature = "partial")]
     pub fn remove_latest(&mut self) {
         self.op.remove_latest();
         self.reprs.remove(0);
-    }
-
-    pub fn clear(&mut self) {
-        self.op.clear();
-        self.reprs.clear();
     }
 }
 impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
