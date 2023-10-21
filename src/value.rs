@@ -7,21 +7,6 @@ use crate::{
     BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
 
-macro_rules! to_type {
-    ($name:ident, $T:ty, $variant:ident) => {
-        pub fn $name(self) -> ExResult<$T> {
-            match self {
-                Val::$variant(x) => Ok(x),
-                _ => Err(format_exerr!(
-                    "value {:?} does not contain type {}",
-                    self,
-                    stringify!($variant)
-                )),
-            }
-        }
-    };
-}
-
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
 /// To use the value type, there are the is a parse function [`parse_val`](`parse_val`).
@@ -104,9 +89,63 @@ where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
-    to_type!(to_int, I, Int);
-    to_type!(to_float, F, Float);
-    to_type!(to_bool, bool, Bool);
+    pub fn to_bool(self) -> ExResult<bool> {
+        match self {
+            Self::Bool(b) => Ok(b),
+            Self::Int(n) => Ok(n != I::from(0).unwrap()),
+            Self::Float(x) => Ok(x != F::from(0.0).unwrap()),
+            Self::Error(e) => Err(e),
+            Self::None => Err(ExError::new(
+                "`Val` of `Val::None` cannot be converted to float",
+            )),
+        }
+    }
+    pub fn to_float(self) -> ExResult<F> {
+        match self {
+            Self::Bool(b) => Ok(F::from(if b { 1.0 } else { 0.0 }).unwrap()),
+            Self::Int(n) => {
+                F::from(n).ok_or_else(|| format_exerr!("cannot convert {:?} to float", n))
+            }
+            Self::Float(x) => Ok(x),
+            Self::Error(e) => Err(e),
+            Self::None => Err(ExError::new(
+                "`Val` of `Val::None` cannot be converted to float",
+            )),
+        }
+    }
+    pub fn to_int(self) -> ExResult<I> {
+        match self {
+            Self::Bool(b) => Ok(I::from(if b { 1 } else { 0 }).unwrap()),
+            Self::Float(x) => {
+                I::from(x).ok_or_else(|| format_exerr!("cannot convert {:?} to int", x))
+            }
+            Self::Int(n) => Ok(n),
+            Self::Error(e) => Err(e),
+            Self::None => Err(ExError::new(
+                "`Val` of `Val::None` cannot be converted to float",
+            )),
+        }
+    }
+}
+
+impl<I, F> From<f32> for Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    fn from(value: f32) -> Self {
+        Val::Float(F::from(value).unwrap())
+    }
+}
+
+impl<I, F> From<u8> for Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    fn from(value: u8) -> Self {
+        Val::Int(I::from(value).unwrap())
+    }
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
@@ -479,13 +518,14 @@ where
                     is_commutative: false,
                 },
             ),
-            Operator::make_bin(
+            Operator::make_bin_unary(
                 "+",
                 BinOp {
                     apply: add,
                     prio: 3,
                     is_commutative: true,
                 },
+                |x| x,
             ),
             Operator::make_bin_unary(
                 "-",

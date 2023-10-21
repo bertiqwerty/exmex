@@ -21,3 +21,6 @@ where
 /// Every type that is used as value needs to implement at least this.
 pub trait DataType: Clone + FromStr + Debug + Default {}
 impl<T: Clone + FromStr + Debug + Default> DataType for T {}
+
+pub trait DiffDataType: DataType + From<f32> + From<u8> + PartialEq {}
+impl<T: DataType + From<f32> + From<u8> + PartialEq> DiffDataType for T {}

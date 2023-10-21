@@ -49,6 +49,19 @@ fn test_vars() -> ExResult<()> {
 
 #[test]
 #[cfg(feature = "value")]
+#[cfg(feature = "partial")]
+fn test_value_partial() -> ExResult<()> {
+    use exmex::Differentiate;
+
+    let sin = exmex::parse_val::<i32, f64>("sin(x)")?;
+    let cos = sin.partial(0).unwrap();
+    let res = cos.eval(&[Val::Float(34.0)])?.to_float()?;
+    assert!((res - 34.0f64.cos()).abs() < 1e-12);
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "value")]
 fn test_readme() -> ExResult<()> {
     let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
     let res = expr.eval(&[Val::Float(34.0), Val::Int(21)])?.to_float()?;
@@ -85,7 +98,8 @@ fn test_to() -> ExResult<()> {
     );
     assert_eq!(Val::<i32, f64>::Int(123).to_int()?, 123);
     assert!(Val::<i32, f64>::Bool(true).to_bool()?);
-    assert!(Val::<i32, f64>::Bool(false).to_int().is_err());
+    assert_eq!(Val::<i32, f64>::Bool(false).to_int()?, 0);
+    assert_eq!(Val::<i32, f64>::Bool(true).to_float()?, 1.0);
     utils::assert_float_eq_f64(Val::<i32, f64>::Float(3.4).to_float()?, 3.4);
     assert_eq!(Val::<i32, f64>::Int(34).to_int()?, 34);
     assert!(!Val::<i32, f64>::Bool(false).to_bool()?);

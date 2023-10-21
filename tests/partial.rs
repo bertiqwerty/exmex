@@ -1,13 +1,18 @@
 #[cfg(feature = "partial")]
-use exmex::{parse, Calculate, Differentiate, ExResult, Express, FlatEx, MakeOperators};
+use exmex::{
+    parse, Calculate, DiffDataType, Differentiate, ExResult, Express, FlatEx, MakeOperators,
+};
 #[cfg(feature = "partial")]
 mod utils;
+#[cfg(feature = "partial")]
+#[cfg(feature = "value")]
+use exmex::{FlatExVal, Val};
 #[cfg(feature = "partial")]
 use rand::{thread_rng, Rng};
 #[cfg(feature = "partial")]
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
-use std::ops::Range;
+use std::{fmt::Debug, ops::Range, str::FromStr};
 #[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
@@ -43,13 +48,19 @@ use exmex::DeepEx;
 #[cfg(feature = "partial")]
 #[test]
 fn test_partial() -> ExResult<()> {
-    fn test_expr<'a, E: Differentiate<'a, f64> + Clone>(
+    fn test_expr<'a, F, E: Differentiate<'a, F> + Clone>(
         flatex: &E,
         var_idx: usize,
         n_vars: usize,
         random_range: Range<f64>,
-        reference: fn(f64) -> f64,
-    ) -> ExResult<()> {
+        reference: impl Fn(F) -> F,
+        to_float: fn(F) -> f64,
+        to_f: fn(f64) -> F,
+    ) -> ExResult<()>
+    where
+        F: DiffDataType,
+        <F as FromStr>::Err: Debug,
+    {
         let mut rng = rand::thread_rng();
         assert!(flatex.clone().partial(flatex.var_names().len()).is_err());
 
@@ -58,11 +69,14 @@ fn test_partial() -> ExResult<()> {
         println!("flatex {}", flatex);
         println!("partial {}", deri);
         for _ in 0..3 {
-            let vut = rng.gen_range(random_range.clone());
-            let mut vars: SmallVec<[f64; 10]> = smallvec![0.0; n_vars];
-            vars[var_idx] = vut;
-            println!("value under test {}.", vut);
-            utils::assert_float_eq_f64(deri.eval(&vars).unwrap(), reference(vut));
+            let vut = to_f(rng.gen_range(random_range.clone()));
+            let mut vars: SmallVec<[F; 10]> = smallvec![to_f(0.0); n_vars];
+            vars[var_idx] = vut.clone();
+            println!("value under test {}.", to_float(vut.clone()));
+            utils::assert_float_eq_f64(
+                to_float(deri.eval(&vars).unwrap()),
+                to_float(reference(vut)),
+            );
         }
         Ok(())
     }
@@ -75,9 +89,39 @@ fn test_partial() -> ExResult<()> {
     ) -> ExResult<()> {
         println!("testing {}...", sut);
         let flatex = FlatEx::<f64>::parse(sut)?;
-        test_expr(&flatex, var_idx, n_vars, random_range.clone(), reference)?;
+        test_expr(
+            &flatex,
+            var_idx,
+            n_vars,
+            random_range.clone(),
+            reference,
+            |x| x,
+            |x| x,
+        )?;
         let deepex = DeepEx::<f64>::parse(sut)?;
-        test_expr(&deepex, var_idx, n_vars, random_range, reference)
+        test_expr(
+            &deepex,
+            var_idx,
+            n_vars,
+            random_range.clone(),
+            reference,
+            |x| x,
+            |x| x,
+        )?;
+        #[cfg(feature = "value")]
+        {
+            let flatex = FlatExVal::<i32, f64>::parse(sut).unwrap();
+            test_expr(
+                &flatex,
+                var_idx,
+                n_vars,
+                random_range,
+                |x| Val::Float(reference(x.to_float().unwrap())),
+                |x| x.to_float().unwrap(),
+                |x| Val::Float(x),
+            )?;
+        }
+        Ok(())
     }
 
     let sut = "+x";
@@ -130,13 +174,37 @@ fn test_partial() -> ExResult<()> {
     let flatex_1 = FlatEx::<f64>::parse(sut)?;
     let deri = flatex_1.partial(var_idx)?;
     let reference = |x: f64| -x.sin() + x.cos();
-    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(
+        &deri,
+        var_idx,
+        n_vars,
+        -10000.0..10000.0,
+        reference,
+        |x| x,
+        |x| x,
+    )?;
     let deri = deri.partial(var_idx)?;
     let reference = |x: f64| -x.cos() - x.sin();
-    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(
+        &deri,
+        var_idx,
+        n_vars,
+        -10000.0..10000.0,
+        reference,
+        |x| x,
+        |x| x,
+    )?;
     let deri = deri.partial(var_idx)?;
     let reference = |x: f64| x.sin() - x.cos();
-    test_expr(&deri, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test_expr(
+        &deri,
+        var_idx,
+        n_vars,
+        -10000.0..10000.0,
+        reference,
+        |x| x,
+        |x| x,
+    )?;
 
     let sut = "sin(x)-cos(x)+tan(x)+a";
     let var_idx = 1;

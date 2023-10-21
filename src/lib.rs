@@ -343,8 +343,10 @@ mod parser;
 mod result;
 mod util;
 
+#[cfg(feature = "partial")]
+pub use data_type::DiffDataType;
 pub use {
-    data_type::DataType,
+    data_type::{DataType, NeutralElts},
     expression::{
         calculate::Calculate, deep::find_bin_op, deep::find_unary_op, deep::DeepEx, flat::FlatEx,
         Express, MatchLiteral, NumberMatcher,
