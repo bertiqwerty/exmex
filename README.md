@@ -104,6 +104,9 @@ let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
 assert!((result - 2.0).abs() < 1e-12);
 ```
 
+When both `partial` and `value` are activated, partial derivatives can be computed for expressions of types such 
+as `FlatExVal<i32, f64>`.
+
 ## Mixing Data Types in one Expression with the Feature `value`
 
 After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/0.17.5/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/0.17.5/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
