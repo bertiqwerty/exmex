@@ -25,6 +25,6 @@ pub trait DataType: Clone + FromStr + Debug + Default {}
 impl<T: Clone + FromStr + Debug + Default> DataType for T {}
 
 /// [`DataType`]s of expressions that are differentiable need to implement
-/// additionally `From<f32>`, [`NeutralElts`] gathered here. 
+/// additionally `From<f32>`, [`NeutralElts`] gathered here.
 pub trait DiffDataType: DataType + From<f32> + NeutralElts {}
 impl<T: DataType + From<f32> + NeutralElts> DiffDataType for T {}

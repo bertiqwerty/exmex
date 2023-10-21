@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[cfg(feature = "partial")]
-use crate::{DiffDataType,Differentiate};
+use crate::{DiffDataType, Differentiate};
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
