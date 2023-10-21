@@ -28,7 +28,8 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
         Ok(())
     }
 }
-/// *`feature = "partial"`* - Trait for partial differentiation.  
+/// *`feature = "partial"`* - Trait for partial differentiation. This is implemented for expressions
+/// with datatypes that implement `DiffDataType`.  
 pub trait Differentiate<'a, T>
 where
     T: DataType + Clone + From<f32> + NeutralElts,
