@@ -1,19 +1,21 @@
 use std::{fmt::Debug, str::FromStr};
 
+/// The neutral elements of addition and multiplication are zero and one, respectively.
+/// An implementation is provided for all types that implement `From<u8> + PartialEq`.
 pub trait NeutralElts: PartialEq {
-    fn one() -> Self;
     fn zero() -> Self;
+    fn one() -> Self;
 }
 
 impl<T> NeutralElts for T
 where
     T: From<u8> + PartialEq,
 {
-    fn one() -> Self {
-        T::from(1)
-    }
     fn zero() -> Self {
         T::from(0)
+    }
+    fn one() -> Self {
+        T::from(1)
     }
 }
 
@@ -22,5 +24,7 @@ where
 pub trait DataType: Clone + FromStr + Debug + Default {}
 impl<T: Clone + FromStr + Debug + Default> DataType for T {}
 
+/// [`DataType`]s of expressions that are differentiable need to implement
+/// additionally `From<f32>`, `From<u8>`, and `PartialEq` gathered here. 
 pub trait DiffDataType: DataType + From<f32> + From<u8> + PartialEq {}
 impl<T: DataType + From<f32> + From<u8> + PartialEq> DiffDataType for T {}

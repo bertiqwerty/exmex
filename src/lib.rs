@@ -19,7 +19,7 @@
 //! For floats, we have a list of predefined operators containing
 //! `^`, `*`, `/`, `+`, `-`, `sin`, `cos`, `tan`, `exp`, `log10`, `ln`, and `log2`. Further, the constants π, τ,
 //! and Euler's number are refered to via `π`/`PI`, `τ/TAU`, and `E`, respectively. The full list is
-//! defined in [`FloatOpsFactory`](FloatOpsFactory). Library users can also create their
+//! defined in [`FloatOpsFactory`]. Library users can also create their
 //! own operators and constants as shown below in the section about extendability.
 //!
 //! ## Variables
@@ -60,10 +60,10 @@
 //! #     Ok(())
 //! # }
 //! ```
-//! The value returned by [`parse`](parse) is an instance of the struct [`FlatEx`](FlatEx)
-//! that implements the [`Express`](Express) trait. Moreover, [`FlatEx`](FlatEx),
-//! [`Express`](Express), and [`Calculate`](Calculate) are the items made accessible by the
-//! wildcard import from [`prelude`](prelude) if the feature `partial` is not used.
+//! The value returned by [`parse`] is an instance of the struct [`FlatEx`(
+//! that implements the [`Express`] trait. Moreover, [`FlatEx`],
+//! [`Express`], and [`Calculate`] are the items made accessible by the
+//! wildcard import from [`prelude`] if the feature `partial` is not used.
 //!
 //! ## Features
 //! Exmex comes with three features that can be activated in the `Cargo.toml` via
@@ -87,7 +87,7 @@
 //! The implementation un-parses and re-parses the whole expression.
 //! [`Deserialize`](https://docs.serde.rs/serde/de/trait.Deserialize.html) and
 //! [`Serialize`](https://docs.serde.rs/serde/de/trait.Serialize.html) are implemented for
-//! [`FlatEx`](FlatEx).
+//! [`FlatEx`].
 //!
 //! ### A more General Value Type
 //!
@@ -103,7 +103,7 @@
 //! ### Custom Operators and Constants
 //!
 //! Operators are instances of the struct
-//! [`Operator`](Operator). Constants are defined in terms of constant operators. More precisely,
+//! [`Operator`]. Constants are defined in terms of constant operators. More precisely,
 //! operators can be
 //! * binary such as `*`,
 //! * unary such as `sin`,
@@ -159,9 +159,9 @@
 //! # }
 //! ```
 //!
-//! To extend an existing list of operators, the macro [`ops_factory`](ops_factory) is not
+//! To extend an existing list of operators, the macro [`ops_factory`] is not
 //! sufficient. In this case one has to create a factory struct and implement the
-//! [`MakeOperators`](MakeOperators) trait with a little boilerplate code.
+//! [`MakeOperators`] trait with a little boilerplate code.
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {
@@ -188,11 +188,11 @@
 //! ```
 //! ### Custom Data Types of Numbers
 //!
-//! You can use any type that implements [`Clone`](Clone),
-//! [`FromStr`](std::str::FromStr), and [`Debug`](std::fmt::Debug). In case the representation of your data type's literals
+//! You can use any type that implements [`Clone`],
+//! [`FromStr`], and [`Debug`]. In case the representation of your data type's literals
 //! in the string does not match the number regex `r"^(\.?[0-9]+(\.[0-9]+)?)"`, you have to create a suitable matcher
-//! type that implements [`MatchLiteral`](MatchLiteral). Given a suitable regex pattern, you can utilize the macro
-//! [`literal_matcher_from_pattern`](literal_matcher_from_pattern).
+//! type that implements [`MatchLiteral`]. Given a suitable regex pattern, you can utilize the macro
+//! [`literal_matcher_from_pattern`].
 //! Here is an example for `bool`.
 //! ```rust
 //! # use std::error::Error;
@@ -312,8 +312,8 @@
 //! ```
 //! Alternatively, it is possible to transform a flat expression to a nested expression
 //! with [`FlatEx::to_deepex`](`FlatEx::to_deepex`). Moreover, we have implemented the default
-//! operators as wrappers around [`Calculate::operate_unary`](Calculate::operate_unary) and
-//! [`Calculate::operate_binary`](Calculate::operate_binary), see the following re-write of the snippet
+//! operators as wrappers around [`Calculate::operate_unary`] and
+//! [`Calculate::operate_binary`], see the following re-write of the snippet
 //! above.
 //!
 //! ```rust
@@ -368,9 +368,9 @@ pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
 /// Exmex' prelude can be imported via `use exmex::prelude::*;`.
 ///
 /// The prelude contains
-/// * expression trait [`Express`](Express),
-/// * its implementation [`FlatEx`](FlatEx),
-/// * and the partial differentiation of [`FlatEx`](FlatEx), if the feature `partial` is active.
+/// * expression trait [`Express`],
+/// * its implementation [`FlatEx`],
+/// * and the partial differentiation of [`FlatEx`], if the feature `partial` is active.
 ///
 pub mod prelude {
     pub use crate::expression::{calculate::Calculate, flat::FlatEx, Express};
@@ -384,7 +384,7 @@ pub mod prelude {
 /// # Errrors
 ///
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
-/// [`ExError`](ExError) is returned.
+/// [`ExError`] is returned.
 ///
 pub fn eval_str<T: DataType>(text: &str) -> ExResult<T>
 where
@@ -406,7 +406,7 @@ where
 /// # Errrors
 ///
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
-/// [`ExError`](ExError) is returned.
+/// [`ExError`] is returned.
 ///
 pub fn parse<T>(text: &str) -> ExResult<FlatEx<T>>
 where
