@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[cfg(feature = "partial")]
-use crate::Differentiate;
+use crate::{DiffDataType,Differentiate};
 
 /// Container of binary operators of one expression.
 pub type BinOpVec<T> = SmallVec<[BinOp<T>; N_NODES_ON_STACK]>;
@@ -1027,7 +1027,7 @@ where
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for DeepEx<'a, T, OF, LM>
 where
-    T: DataType + From<f32> + NeutralElts,
+    T: DiffDataType,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
     <T as FromStr>::Err: Debug,

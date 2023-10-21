@@ -1,13 +1,13 @@
 use self::detail::{var_indices_ordered, FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::data_type::DataType;
-#[cfg(feature = "partial")]
-use crate::data_type::NeutralElts;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::expression::{
     deep::{DeepEx, DeepNode},
     Express,
 };
 use crate::operators::UnaryOp;
+#[cfg(feature = "partial")]
+use crate::DiffDataType;
 use crate::{
     format_exerr, BinOp, Calculate, ExError, ExResult, FloatOpsFactory, MakeOperators,
     MatchLiteral, NumberMatcher,
@@ -941,7 +941,7 @@ where
 #[cfg(feature = "partial")]
 impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>
 where
-    T: DataType + From<f32> + NeutralElts,
+    T: DiffDataType,
     OF: MakeOperators<T> + Debug,
     LM: MatchLiteral + Debug,
     <T as FromStr>::Err: Debug,
