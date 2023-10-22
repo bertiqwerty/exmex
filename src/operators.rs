@@ -17,7 +17,8 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
 }
 
 /// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`,
-/// or constants such as `π`. To use custom operators, see also the macro [`ops_factory`](crate::ops_factory).
+/// or constants such as `π`. To use custom operators, see the short-cut-macro [`ops_factory`](crate::ops_factory)
+/// implement the trait [`MakeOperators`](crate::MakeOperators) directly.
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub struct Operator<'a, T: Clone> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
