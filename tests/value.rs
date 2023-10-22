@@ -50,33 +50,43 @@ fn test_vars() -> ExResult<()> {
 #[test]
 #[cfg(feature = "value")]
 #[cfg(feature = "partial")]
-
 fn test_value_partial() -> ExResult<()> {
     use exmex::Differentiate;
 
-    let expr = exmex::parse_val::<i32, f64>("x if x > 0 else -x")?;
+    use crate::utils::assert_float_eq_f64;
 
-    println!("{:?}", expr.clone().to_deepex());
+    let expr = exmex::parse_val::<i32, f64>("x if x > 0 else (2*x if x >= -1 else -x)")?;
+
+    assert_float_eq_f64(1.0, expr.eval(&[Val::Float(1.0)])?.to_float()?);
+    assert_float_eq_f64(0.0, expr.eval(&[Val::Float(0.0)])?.to_float()?);
+    assert_float_eq_f64(2.0, expr.eval(&[Val::Float(-2.0)])?.to_float()?);
+    assert_float_eq_f64(-2.0, expr.eval(&[Val::Float(-1.0)])?.to_float()?);
+
+    println!("{expr}");
     let deri = expr.partial(0).unwrap();
 
-    for x in [-1.0, -0.5, 0.0] {
+    for x in [-2.0, -1.5] {
         let res = deri.eval(&[Val::Float(x)])?.to_float()?;
-        assert!((res + 1.0).abs() < 1e-12);
+        assert_float_eq_f64(res, -1.0);
     }
     for x in [1.0, 0.5, 3.0] {
         let res = deri.eval(&[Val::Float(x)])?.to_float()?;
-        assert!((res - 1.0).abs() < 1e-12);
+        assert_float_eq_f64(res, 1.0);
+    }
+    for x in [-1.0, -0.5, 0.0] {
+        let res = deri.eval(&[Val::Float(x)])?.to_float()?;
+        assert_float_eq_f64(res, 2.0);
     }
     let sin = exmex::parse_val::<i32, f64>("sin(x)")?;
     let cos = sin.partial(0).unwrap();
     let res = cos.eval(&[Val::Float(34.0)])?.to_float()?;
-    assert!((res - 34.0f64.cos()).abs() < 1e-12);
+    assert_float_eq_f64(res, 34.0f64.cos());
 
     let sin = exmex::parse_val::<i32, f64>("sin(x) if x < 0 else sin(x)")?;
     let cos = sin.partial(0).unwrap();
     for x in [-1.0, -0.5, 0.0, 0.5, 1.0] {
         let res = cos.eval(&[Val::Float(x)])?.to_float()?;
-        assert!((res - x.cos()).abs() < 1e-12);
+        assert_float_eq_f64(res, x.cos());
     }
 
     Ok(())

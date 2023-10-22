@@ -391,8 +391,8 @@ macro_rules! make_partial_derisval {
                  g: ValueDerivative<T, OF, LM>|
                  -> ExResult<ValueDerivative<T, OF, LM>> {
                     Ok(ValueDerivative {
-                        val: f.val.clone().operate_bin(g.val, $repr)?,
-                        der: f.val.operate_bin(g.der, $repr)?,
+                        val: f.val.clone().operate_bin(g.val.clone(), $repr)?,
+                        der: f.val.operate_bin(g.val, $repr)?,
                     })
                 },
             ),
