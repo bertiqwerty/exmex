@@ -527,7 +527,7 @@ where
 /// A deep expression evaluates co-recursively since its nodes can contain other deep
 /// expressions. Compared to [`FlatEx`](crate::FlatEx), this is slower to evaluate but
 /// easier to calculate with.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct DeepEx<'a, T, OF = FloatOpsFactory<T>, LM = NumberMatcher>
 where
     T: DataType,
@@ -548,6 +548,31 @@ where
     ops: Vec<Operator<'a, T>>,
     dummy_ops_factory: PhantomData<OF>,
     dummy_literal_matcher_factory: PhantomData<LM>,
+}
+
+impl<'a, T, OF, LM> Debug for DeepEx<'a, T, OF, LM>
+where
+    T: DataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = format!(
+            "\n\n--\nformula: {}\n\nnodes: {:?}\n\nbin_ops: {:?}\n\nunary_op: {:?}\n\nvar_names: {:?}\n\nops: {}",
+            self.text,
+            self.nodes,
+            self.bin_ops,
+            self.unary_op,
+            self.var_names,
+            self.ops
+                .iter()
+                .map(|o| o.repr())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        f.write_str(s.as_str())
+    }
 }
 
 impl<'a, T, OF, LM> DeepEx<'a, T, OF, LM>
