@@ -155,7 +155,7 @@ where
         Self::from_deepex(deepex)
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ValueDerivative<'a, T, OF, LM>
 where
     T: DataType,
@@ -363,6 +363,44 @@ where
     DeepEx::one() / denominator
 }
 
+macro_rules! make_partial_derivative_identity {
+    ($repr:expr) => {
+        PartialDerivative {
+            repr: $repr,
+            bin_op: Some(
+                |f: ValueDerivative<T, OF, LM>,
+                 g: ValueDerivative<T, OF, LM>|
+                 -> ExResult<ValueDerivative<T, OF, LM>> {
+                    Ok(ValueDerivative {
+                        val: f.val.operate_bin(g.val, $repr)?,
+                        der: f.der.operate_bin(g.der, $repr)?,
+                    })
+                },
+            ),
+            unary_outer_op: None,
+        }
+    };
+}
+
+macro_rules! make_partial_derisval {
+    ($repr:expr) => {
+        PartialDerivative {
+            repr: $repr,
+            bin_op: Some(
+                |f: ValueDerivative<T, OF, LM>,
+                 g: ValueDerivative<T, OF, LM>|
+                 -> ExResult<ValueDerivative<T, OF, LM>> {
+                    Ok(ValueDerivative {
+                        val: f.val.clone().operate_bin(g.val, $repr)?,
+                        der: f.val.operate_bin(g.der, $repr)?,
+                    })
+                },
+            ),
+            unary_outer_op: None,
+        }
+    };
+}
+
 pub fn make_partial_derivative_ops<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
 ) -> Vec<PartialDerivative<'a, T, OF, LM>>
 where
@@ -435,6 +473,14 @@ where
             ),
             unary_outer_op: None,
         },
+        make_partial_derisval!(">"),
+        make_partial_derisval!("<"),
+        make_partial_derisval!("!="),
+        make_partial_derisval!("=="),
+        make_partial_derisval!("<="),
+        make_partial_derisval!(">="),
+        make_partial_derivative_identity!("if"),
+        make_partial_derivative_identity!("else"),
         PartialDerivative {
             repr: "/",
             bin_op: Some(
