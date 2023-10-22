@@ -98,6 +98,18 @@ fn test_readme() -> ExResult<()> {
     let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
     let res = expr.eval(&[Val::Float(34.0), Val::Int(21)])?.to_float()?;
     assert!((res - 1.2).abs() < 1e-12);
+
+    #[cfg(feature = "partial")]
+    {
+        use exmex::Differentiate;
+        let expr = exmex::parse_val::<i32, f64>("3*x if x > 1 else x^2")?;
+        let deri = expr.partial(0)?;
+        let res = deri.eval(&[Val::Float(1.0)])?.to_float()?;
+        assert!((res - 2.0).abs() < 1e-12);
+        let res = deri.eval(&[Val::Float(7.0)])?.to_float()?;
+        assert!((res - 3.0).abs() < 1e-12);
+    }
+
     Ok(())
 }
 
