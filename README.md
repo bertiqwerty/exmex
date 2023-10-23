@@ -64,7 +64,7 @@ let result = expr.eval(&[0, 1])?;
 assert_eq!(result, u32::MAX - 1);
 ```
 More involved examples of data types are
-* operators as operands as used for [day 19 of Advent of Code 2020](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/) and
+* operators as operands as used for [day 19 of Advent of Code 2020](https://www.bertiqwerty.com/posts/operatorenparsen-in-rust/) and
 * the type [`Val`](https://docs.rs/exmex/0.17.5/exmex/enum.Val.html) that can be activated with the feature `value`, see below.
 
 ## Partial Differentiation
