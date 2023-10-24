@@ -25,7 +25,9 @@ pub trait DataType: Clone + FromStr + Debug + Default {}
 impl<T: Clone + FromStr + Debug + Default> DataType for T {}
 
 /// [`DataType`]s of expressions that are differentiable need to implement
-/// additionally `From<f32>` and [`NeutralElts`]. They are gathered here.
+/// additionally `From<f32>`, `PartialEq`, and [`NeutralElts`]. Vice-versa,
+/// if you have an expression with a datatype that implements [`DiffDataType`],
+/// partial derivatives of that expression can be computed.
 #[cfg(feature = "partial")]
 pub trait DiffDataType: DataType + From<f32> + NeutralElts {}
 #[cfg(feature = "partial")]

@@ -1,3 +1,4 @@
+use exmex::{ops_factory, BinOp, ExError, NeutralElts, Operator};
 #[cfg(feature = "partial")]
 use exmex::{
     parse, Calculate, DiffDataType, Differentiate, ExResult, Express, FlatEx, MakeOperators,
@@ -13,6 +14,7 @@ use rand::{thread_rng, Rng};
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
 use std::{fmt::Debug, ops::Range, str::FromStr};
+use std::{fmt::Display, ops::Index};
 #[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
@@ -406,4 +408,105 @@ fn test_operatorsubset() {
     println!("{}", flatex.clone().partial(0).unwrap());
     let dflatex = flatex.partial(0).unwrap();
     assert_eq!("-1.0/({x}*{x})", format!("{dflatex}"));
+}
+
+#[test]
+fn test_deri() {
+    #[derive(Clone, Default, PartialEq)]
+    struct Arr {
+        data: [f64; 2],
+    }
+    impl Arr {
+        fn new(data: [f64; 2]) -> Self {
+            Arr { data }
+        }
+    }
+    impl Index<usize> for Arr {
+        type Output = f64;
+        fn index(&self, index: usize) -> &Self::Output {
+            &self.data[index]
+        }
+    }
+    ops_factory!(
+        ArrOpsFactory,
+        Arr,
+        Operator::make_bin(
+            "+",
+            BinOp {
+                apply: |a, b| Arr::new([a[0] + b[0], a[1] + b[1]]),
+                prio: 1,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin(
+            "-",
+            BinOp {
+                apply: |a, b| Arr::new([a[0] - b[0], a[1] - b[1]]),
+                prio: 2,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
+            "*",
+            BinOp {
+                apply: |a, b| Arr::new([a[0] * b[0], a[1] * b[1]]),
+                prio: 3,
+                is_commutative: true
+            }
+        ),
+        Operator::make_bin(
+            "/",
+            BinOp {
+                apply: |a, b| Arr::new([a[0] / b[0], a[1] / b[1]]),
+                prio: 4,
+                is_commutative: false
+            }
+        )
+    );
+
+    impl Debug for Arr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(format!("[{}, {}]", self[0], self[1]).as_str())
+        }
+    }
+    impl Display for Arr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            <Self as Debug>::fmt(&self, f)
+        }
+    }
+
+    impl FromStr for Arr {
+        type Err = ExError;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let mut it = s.split(',');
+            let a = it.next().unwrap().parse::<f64>().unwrap();
+            let b = it.next().unwrap().parse::<f64>().unwrap();
+            Ok(Self::new([a, b]))
+        }
+    }
+
+    impl From<f32> for Arr {
+        fn from(value: f32) -> Self {
+            Self::new([value as f64, value as f64])
+        }
+    }
+
+    impl NeutralElts for Arr {
+        fn zero() -> Self {
+            Self::new([0.0, 0.0])
+        }
+        fn one() -> Self {
+            Self::new([1.0, 1.0])
+        }
+    }
+
+    let expr = FlatEx::<Arr, ArrOpsFactory>::parse("a+b*c+d*d").unwrap();
+    let deri = expr.clone().partial(0).unwrap();
+    assert_eq!(deri.unparse(), "[1, 1]");
+    let deri = expr.clone().partial(1).unwrap();
+    assert_eq!(deri.unparse(), "{c}");
+    let deri = expr.clone().partial(2).unwrap();
+    assert_eq!(deri.unparse(), "{b}");
+    let deri = expr.clone().partial(3).unwrap();
+    assert_eq!(deri.unparse(), "{d}+{d}");
 }

@@ -7,13 +7,13 @@ use std::{
 use smallvec::SmallVec;
 
 use crate::{
-    data_type::{DataType, NeutralElts},
+    data_type::DataType,
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
     expression::{
         deep::{prioritized_indices, DeepEx, DeepNode},
         flat::ExprIdxVec,
     },
-    format_exerr, ExError, ExResult, Express, MakeOperators, MatchLiteral,
+    format_exerr, DiffDataType, ExError, ExResult, Express, MakeOperators, MatchLiteral,
 };
 
 pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
@@ -32,7 +32,7 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
 /// with datatypes that implement `DiffDataType`.  
 pub trait Differentiate<'a, T>
 where
-    T: DataType + Clone + From<f32> + NeutralElts,
+    T: DiffDataType,
     <T as FromStr>::Err: Debug,
     Self: Sized + Express<'a, T> + Display + Debug,
 {
@@ -189,7 +189,7 @@ fn make_op_missing_err(repr: &str) -> ExError {
     format_exerr!("operator {} needed for outer partial derivative", repr)
 }
 
-fn partial_derivative_outer<'a, T: NeutralElts + DataType, OF, LM>(
+fn partial_derivative_outer<'a, T: DiffDataType, OF, LM>(
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
 ) -> ExResult<DeepEx<'a, T, OF, LM>>
@@ -220,7 +220,7 @@ where
     })
 }
 
-fn partial_derivative_inner<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
+fn partial_derivative_inner<'a, T: DiffDataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
@@ -267,23 +267,20 @@ where
         })
         .collect::<ExResult<Vec<_>>>()?;
 
-    let partial_bin_ops_of_deepex = deepex
-        .bin_ops()
-        .reprs
-        .iter()
-        .map(|repr| -> ExResult<&PartialDerivative<'a, T, OF, LM>> {
-            partial_derivative_ops
-                .iter()
-                .find(|pdo| &pdo.repr == repr)
-                .ok_or_else(|| {
-                    format_exerr!(
-                        "derivative operator of {} needed for partial derivative",
-                        repr
-                    )
-                })
-        })
-        .collect::<ExResult<SmallVec<[&PartialDerivative<'a, T, OF, LM>; N_BINOPS_OF_DEEPEX_ON_STACK]>>>(
-        )?;
+    let partial_bin_ops_of_deepex =
+        deepex
+            .bin_ops()
+            .reprs
+            .iter()
+            .map(|repr| {
+                (
+                    *repr,
+                    partial_derivative_ops.iter().find(|pdo| &pdo.repr == repr),
+                )
+            })
+            .collect::<SmallVec<
+                [(&str, Option<&PartialDerivative<'a, T, OF, LM>>); N_BINOPS_OF_DEEPEX_ON_STACK],
+            >>();
 
     let mut num_inds = prio_indices.clone();
     let mut used_prio_indices = ExprIdxVec::new();
@@ -295,10 +292,14 @@ where
 
         let pd_deepex = if let (Some(n1), Some(n2)) = (node_1, node_2) {
             let pdo = &partial_bin_ops_of_deepex[bin_op_idx];
-            pdo.bin_op
-                .ok_or_else(|| format_exerr!("cannot find binary op for {}", pdo.repr))?(
-                n1, n2
-            )
+            match pdo {
+                (_, Some(pdo)) => pdo
+                    .bin_op
+                    .ok_or_else(|| format_exerr!("cannot find binary op for {}", pdo.repr))?(
+                    n1, n2,
+                ),
+                (repr, None) => no_op_partial(repr, n1, n2),
+            }
         } else {
             Err(ExError::new(
                 "nodes do not contain values in partial derivative",
@@ -324,7 +325,7 @@ where
     Ok(res)
 }
 
-pub fn partial_deepex<T: NeutralElts + DataType + From<f32>, OF, LM>(
+pub fn partial_deepex<T: DiffDataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'_, T, OF, LM>,
 ) -> ExResult<DeepEx<'_, T, OF, LM>>
@@ -344,7 +345,7 @@ enum Base {
     Ten,
     Euler,
 }
-fn log_deri<T: NeutralElts + DataType + From<f32>, OF, LM>(
+fn log_deri<T: DiffDataType, OF, LM>(
     f: DeepEx<'_, T, OF, LM>,
     base: Base,
 ) -> ExResult<DeepEx<'_, T, OF, LM>>
@@ -363,7 +364,7 @@ where
     DeepEx::one() / denominator
 }
 
-macro_rules! make_partial_derivative_identity {
+macro_rules! make_partial_per_elt {
     ($repr:expr) => {
         PartialDerivative {
             repr: $repr,
@@ -382,6 +383,23 @@ macro_rules! make_partial_derivative_identity {
     };
 }
 
+fn no_op_partial<'a, T, OF, LM>(
+    repr: &'a str,
+    f: ValueDerivative<'a, T, OF, LM>,
+    g: ValueDerivative<'a, T, OF, LM>,
+) -> ExResult<ValueDerivative<'a, T, OF, LM>>
+where
+    T: DiffDataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    Ok(ValueDerivative {
+        val: f.val.clone().operate_bin(g.val.clone(), repr)?,
+        der: f.val.operate_bin(g.val, repr)?,
+    })
+}
+
 macro_rules! make_partial_derisval {
     ($repr:expr) => {
         PartialDerivative {
@@ -389,21 +407,16 @@ macro_rules! make_partial_derisval {
             bin_op: Some(
                 |f: ValueDerivative<T, OF, LM>,
                  g: ValueDerivative<T, OF, LM>|
-                 -> ExResult<ValueDerivative<T, OF, LM>> {
-                    Ok(ValueDerivative {
-                        val: f.val.clone().operate_bin(g.val.clone(), $repr)?,
-                        der: f.val.operate_bin(g.val, $repr)?,
-                    })
-                },
+                 -> ExResult<ValueDerivative<T, OF, LM>> { no_op_partial($repr, f, g) },
             ),
             unary_outer_op: None,
         }
     };
 }
 
-pub fn make_partial_derivative_ops<'a, T: NeutralElts + DataType + From<f32>, OF, LM>(
-) -> Vec<PartialDerivative<'a, T, OF, LM>>
+pub fn make_partial_derivative_ops<'a, T, OF, LM>() -> Vec<PartialDerivative<'a, T, OF, LM>>
 where
+    T: DiffDataType,
     OF: MakeOperators<T>,
     LM: MatchLiteral,
     <T as FromStr>::Err: Debug,
@@ -479,8 +492,8 @@ where
         make_partial_derisval!("=="),
         make_partial_derisval!("<="),
         make_partial_derisval!(">="),
-        make_partial_derivative_identity!("if"),
-        make_partial_derivative_identity!("else"),
+        make_partial_per_elt!("if"),
+        make_partial_per_elt!("else"),
         PartialDerivative {
             repr: "/",
             bin_op: Some(
