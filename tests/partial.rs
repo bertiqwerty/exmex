@@ -431,6 +431,17 @@ fn test_deri() {
         ArrOpsFactory,
         Arr,
         Operator::make_bin(
+            ">>",
+            BinOp {
+                apply: |a, b| Arr::new([
+                    if a[0] > b[0] { 1.0 } else { 0.0 },
+                    if a[1] > b[1] { 1.0 } else { 0.0 }
+                ]),
+                prio: 0,
+                is_commutative: false
+            }
+        ),
+        Operator::make_bin(
             "+",
             BinOp {
                 apply: |a, b| Arr::new([a[0] + b[0], a[1] + b[1]]),
@@ -509,4 +520,9 @@ fn test_deri() {
     assert_eq!(deri.unparse(), "{b}");
     let deri = expr.clone().partial(3).unwrap();
     assert_eq!(deri.unparse(), "{d}+{d}");
+    let expr = FlatEx::<Arr, ArrOpsFactory>::parse("a+b*c >> d*d").unwrap();
+    let deri = expr.clone().partial_relaxed(1).unwrap();
+    assert_eq!(deri.unparse(), "{c}>>[0, 0]");
+    let deri = expr.clone().partial(1);
+    assert!(deri.is_err());
 }

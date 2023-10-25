@@ -28,6 +28,27 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
         Ok(())
     }
 }
+
+fn partial_iter<'a, T, D, I>(expr: D, var_idxs: I, missing_op_mode: MissingOpMode) -> ExResult<D>
+where
+    T: DiffDataType,
+    D: Differentiate<'a, T>,
+    <T as FromStr>::Err: Debug,
+    I: Iterator<Item = usize> + Clone,
+{
+    let mut deepex = expr.to_deepex()?;
+
+    let unparsed = deepex.unparse();
+    for var_idx in var_idxs.clone() {
+        check_partial_index(var_idx, deepex.var_names().len(), unparsed)?;
+    }
+    for var_idx in var_idxs {
+        deepex = partial_deepex(var_idx, deepex, missing_op_mode)?;
+    }
+    deepex.compile();
+    D::from_deepex(deepex)
+}
+
 /// *`feature = "partial"`* - Trait for partial differentiation. This is implemented for expressions
 /// with datatypes that implement `DiffDataType`.  
 pub trait Differentiate<'a, T>
@@ -73,6 +94,12 @@ where
         self.partial_nth(var_idx, 1)
     }
 
+    /// Like [`Differentiate::partial`]. The only difference is that in case there is no differentation defined for 
+    /// an operator this will differentiate the operands independently instead of returning an error.
+    fn partial_relaxed(self, var_idx: usize) -> ExResult<Self> {
+        self.partial_nth_relaxed(var_idx, 1)
+    }
+
     /// *`feature = "partial"`* - Computes the nth partial derivative with respect to one variable
     /// # Example
     /// ```rust
@@ -105,6 +132,12 @@ where
     ///
     fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self> {
         self.partial_iter(iter::repeat(var_idx).take(n))
+    }
+    
+    /// Like [`Differentiate::partial_nth`]. The only difference is that in case there is no differentation defined for 
+    /// an operator this will differentiate the operands independently instead of returning an error.
+    fn partial_nth_relaxed(self, var_idx: usize, n: usize) -> ExResult<Self> {
+        self.partial_iter_relaxed(iter::repeat(var_idx).take(n))
     }
 
     /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator
@@ -142,17 +175,16 @@ where
     where
         I: Iterator<Item = usize> + Clone,
     {
-        let mut deepex = self.to_deepex()?;
-
-        let unparsed = deepex.unparse();
-        for var_idx in var_idxs.clone() {
-            check_partial_index(var_idx, deepex.var_names().len(), unparsed)?;
-        }
-        for var_idx in var_idxs {
-            deepex = partial_deepex(var_idx, deepex)?;
-        }
-        deepex.compile();
-        Self::from_deepex(deepex)
+        partial_iter(self, var_idxs, MissingOpMode::Error)
+    }
+    
+    /// Like [`Differentiate::partial_iter`]. The only difference is that in case there is no differentation defined for 
+    /// a binary operator this will differentiate the operands independently instead of returning an error.
+    fn partial_iter_relaxed<I>(self, var_idxs: I) -> ExResult<Self>
+    where
+        I: Iterator<Item = usize> + Clone,
+    {
+        partial_iter(self, var_idxs, MissingOpMode::PerOperand)
     }
 }
 #[derive(Clone, Debug)]
@@ -220,10 +252,17 @@ where
     })
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum MissingOpMode {
+    PerOperand,
+    Error,
+}
+
 fn partial_derivative_inner<'a, T: DiffDataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'a, T, OF, LM>,
     partial_derivative_ops: &[PartialDerivative<'a, T, OF, LM>],
+    missing_op_mode: MissingOpMode,
 ) -> ExResult<DeepEx<'a, T, OF, LM>>
 where
     OF: MakeOperators<T>,
@@ -241,7 +280,7 @@ where
                     DeepEx::zero()
                 }
             }
-            DeepNode::Expr(e) => partial_deepex(var_idx, *e)?,
+            DeepNode::Expr(e) => partial_deepex(var_idx, *e, missing_op_mode)?,
         };
         let (res, _) = res.var_names_union(deepex);
         return Ok(res);
@@ -259,7 +298,7 @@ where
         .iter()
         .map(|node| -> ExResult<_> {
             let deepex_val = make_deepex(node.clone());
-            let deepex_der = partial_deepex(var_idx, (*deepex_val).clone())?;
+            let deepex_der = partial_deepex(var_idx, (*deepex_val).clone(), missing_op_mode)?;
             Ok(Some(ValueDerivative {
                 val: *deepex_val,
                 der: deepex_der,
@@ -298,7 +337,12 @@ where
                     .ok_or_else(|| format_exerr!("cannot find binary op for {}", pdo.repr))?(
                     n1, n2,
                 ),
-                (repr, None) => no_op_partial(repr, n1, n2),
+                (repr, None) => match missing_op_mode {
+                    MissingOpMode::PerOperand => partial_deri_per_operand(repr, n1, n2),
+                    MissingOpMode::Error => {
+                        Err(format_exerr!("cannot find binary op for {repr}",))?
+                    }
+                },
             }
         } else {
             Err(ExError::new(
@@ -328,6 +372,7 @@ where
 pub fn partial_deepex<T: DiffDataType, OF, LM>(
     var_idx: usize,
     deepex: DeepEx<'_, T, OF, LM>,
+    missing_op_mode: MissingOpMode,
 ) -> ExResult<DeepEx<'_, T, OF, LM>>
 where
     OF: MakeOperators<T>,
@@ -335,7 +380,12 @@ where
     <T as FromStr>::Err: Debug,
 {
     let partial_derivative_ops = make_partial_derivative_ops::<T, OF, LM>();
-    let inner = partial_derivative_inner(var_idx, deepex.clone(), &partial_derivative_ops)?;
+    let inner = partial_derivative_inner(
+        var_idx,
+        deepex.clone(),
+        &partial_derivative_ops,
+        missing_op_mode,
+    )?;
     let outer = partial_derivative_outer(deepex, &partial_derivative_ops)?;
     inner * outer
 }
@@ -364,7 +414,24 @@ where
     DeepEx::one() / denominator
 }
 
-macro_rules! make_partial_per_elt {
+fn partial_deri_per_operand<'a, T, OF, LM>(
+    repr: &'a str,
+    f: ValueDerivative<'a, T, OF, LM>,
+    g: ValueDerivative<'a, T, OF, LM>,
+) -> ExResult<ValueDerivative<'a, T, OF, LM>>
+where
+    T: DiffDataType,
+    OF: MakeOperators<T>,
+    LM: MatchLiteral,
+    <T as FromStr>::Err: Debug,
+{
+    Ok(ValueDerivative {
+        val: f.val.clone().operate_bin(g.val.clone(), repr)?,
+        der: f.der.operate_bin(g.der, repr)?,
+    })
+}
+
+macro_rules! make_partial_per_operand {
     ($repr:expr) => {
         PartialDerivative {
             repr: $repr,
@@ -383,7 +450,7 @@ macro_rules! make_partial_per_elt {
     };
 }
 
-fn no_op_partial<'a, T, OF, LM>(
+fn partial_derisval<'a, T, OF, LM>(
     repr: &'a str,
     f: ValueDerivative<'a, T, OF, LM>,
     g: ValueDerivative<'a, T, OF, LM>,
@@ -407,7 +474,9 @@ macro_rules! make_partial_derisval {
             bin_op: Some(
                 |f: ValueDerivative<T, OF, LM>,
                  g: ValueDerivative<T, OF, LM>|
-                 -> ExResult<ValueDerivative<T, OF, LM>> { no_op_partial($repr, f, g) },
+                 -> ExResult<ValueDerivative<T, OF, LM>> {
+                    partial_derisval($repr, f, g)
+                },
             ),
             unary_outer_op: None,
         }
@@ -492,8 +561,8 @@ where
         make_partial_derisval!("=="),
         make_partial_derisval!("<="),
         make_partial_derisval!(">="),
-        make_partial_per_elt!("if"),
-        make_partial_per_elt!("else"),
+        make_partial_per_operand!("if"),
+        make_partial_per_operand!("else"),
         PartialDerivative {
             repr: "/",
             bin_op: Some(
@@ -659,7 +728,7 @@ fn test_compile() -> ExResult<()> {
     let deepex = DeepEx::<f64>::parse("1+(((a+x^2*x^2)))")?;
     println!("{}", deepex);
     assert_eq!(format!("{}", deepex), "1.0+({a}+{x}^2.0*{x}^2.0)");
-    let mut ddeepex = partial_deepex(1, deepex)?;
+    let mut ddeepex = partial_deepex(1, deepex, MissingOpMode::Error)?;
     ddeepex.compile();
     println!("{}", ddeepex);
     assert_eq!(
@@ -682,21 +751,21 @@ fn test_sincosin() -> ExResult<()> {
 #[test]
 fn test_partial() {
     let dut = DeepEx::<f64>::parse("z*sin(x)+cos(y)^(sin(z))").unwrap();
-    let d_z = partial_deepex(2, dut.clone()).unwrap();
+    let d_z = partial_deepex(2, dut.clone(), MissingOpMode::Error).unwrap();
     assert_float_eq_f64(
         d_z.eval(&[-0.18961918881278095, -6.383306547710852, 3.1742139703464503])
             .unwrap(),
         -0.18346624475117082,
     );
     let dut = DeepEx::<f64>::parse("sin(x)/x^2").unwrap();
-    let d_x = partial_deepex(0, dut).unwrap();
+    let d_x = partial_deepex(0, dut, MissingOpMode::Error).unwrap();
     assert_float_eq_f64(
         d_x.eval(&[-0.18961918881278095]).unwrap(),
         -27.977974668662565,
     );
 
     let dut = DeepEx::<f64>::parse("x^y").unwrap();
-    let d_x = partial_deepex(0, dut).unwrap();
+    let d_x = partial_deepex(0, dut, MissingOpMode::Error).unwrap();
     assert_float_eq_f64(d_x.eval(&[7.5, 3.5]).unwrap(), 539.164392544148);
 }
 
@@ -707,11 +776,11 @@ fn test_partial_3_vars() {
     }
     fn assert(s: &str, vars: &[f64], ref_vals: &[f64]) {
         let dut = DeepEx::<f64>::parse(s).unwrap();
-        let d_x = partial_deepex(0, dut.clone()).unwrap();
+        let d_x = partial_deepex(0, dut.clone(), MissingOpMode::Error).unwrap();
         assert_float_eq_f64(eval_(&d_x, vars), ref_vals[0]);
-        let d_y = partial_deepex(1, dut.clone()).unwrap();
+        let d_y = partial_deepex(1, dut.clone(), MissingOpMode::Error).unwrap();
         assert_float_eq_f64(eval_(&d_y, vars), ref_vals[1]);
-        let d_z = partial_deepex(2, dut.clone()).unwrap();
+        let d_z = partial_deepex(2, dut.clone(), MissingOpMode::Error).unwrap();
         assert_float_eq_f64(eval_(&d_z, vars), ref_vals[2]);
     }
     assert("x+y+z", &[2345.3, 4523.5, 1.2], &[1.0, 1.0, 1.0]);
@@ -725,7 +794,7 @@ fn test_partial_3_vars() {
 #[test]
 fn test_partial_x2x() {
     let deepex = DeepEx::<f64>::parse("x * 2 * x").unwrap();
-    let derivative = partial_deepex(0, deepex.clone()).unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
     let result = derivative.eval(&[1.0]).unwrap();
@@ -735,7 +804,7 @@ fn test_partial_x2x() {
 #[test]
 fn test_partial_cos_squared() {
     let deepex = DeepEx::<f64>::parse("cos(y) ^ 2").unwrap();
-    let derivative = partial_deepex(0, deepex.clone()).unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = derivative.eval(&[0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
     let result = derivative.eval(&[1.0]).unwrap();
@@ -766,12 +835,12 @@ fn test_num_ops() {
 #[test]
 fn test_partial_combined() {
     let deepex = DeepEx::<f64>::parse("sin(x) + cos(y) ^ 2").unwrap();
-    let d_y = partial_deepex(1, deepex.clone()).unwrap();
+    let d_y = partial_deepex(1, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = d_y.eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
     let result = d_y.eval(&[-12.0, 1.0]).unwrap();
     assert_float_eq_f64(result, -0.9092974268256818);
-    let d_x = partial_deepex(0, deepex.clone()).unwrap();
+    let d_x = partial_deepex(0, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = d_x.eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.5002954462477305);
     let result = d_x.eval(&[-12.0, 1.0]).unwrap();
@@ -781,7 +850,7 @@ fn test_partial_combined() {
 #[test]
 fn test_partial_derivative_second_var() {
     let deepex = DeepEx::<f64>::parse("sin(x) + cos(y)").unwrap();
-    let derivative = partial_deepex(1, deepex.clone()).unwrap();
+    let derivative = partial_deepex(1, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = derivative.eval(&[231.431, 0.0]).unwrap();
     assert_float_eq_f64(result, 0.0);
     let result = derivative.eval(&[-12.0, 1.0]).unwrap();
@@ -791,7 +860,7 @@ fn test_partial_derivative_second_var() {
 #[test]
 fn test_partial_derivative_first_var() {
     let deepex = DeepEx::<f64>::parse("sin(x) + cos(y)").unwrap();
-    let derivative = partial_deepex(0, deepex.clone()).unwrap();
+    let derivative = partial_deepex(0, deepex.clone(), MissingOpMode::Error).unwrap();
     let result = derivative.eval(&[0.0, 2345.03]).unwrap();
     assert_float_eq_f64(result, 1.0);
     let result = derivative.eval(&[1.0, 43212.43]).unwrap();
@@ -804,7 +873,13 @@ fn test_partial_inner() {
         let partial_derivative_ops =
             make_partial_derivative_ops::<f64, FloatOpsFactory<f64>, NumberMatcher>();
         let deepex_1 = DeepEx::<f64>::parse(text).unwrap();
-        let deri = partial_derivative_inner(var_idx, deepex_1, &partial_derivative_ops).unwrap();
+        let deri = partial_derivative_inner(
+            var_idx,
+            deepex_1,
+            &partial_derivative_ops,
+            MissingOpMode::Error,
+        )
+        .unwrap();
         for i in 0..vals.len() {
             assert_float_eq_f64(deri.eval(&[vals[i]]).unwrap(), ref_vals[i]);
         }
@@ -839,7 +914,7 @@ fn test_partial_outer() {
 #[test]
 fn test_partial_derivative_simple() -> ExResult<()> {
     let deepex = DeepEx::<f64>::parse("1")?;
-    let derivative = partial_deepex(0, deepex)?;
+    let derivative = partial_deepex(0, deepex, MissingOpMode::Error)?;
 
     assert_eq!(derivative.nodes().len(), 1);
     assert_eq!(derivative.bin_ops().ops.len(), 0);
@@ -848,7 +923,7 @@ fn test_partial_derivative_simple() -> ExResult<()> {
         _ => unreachable!(),
     }
     let deepex = DeepEx::<f64>::parse("x")?;
-    let derivative = partial_deepex(0, deepex)?;
+    let derivative = partial_deepex(0, deepex, MissingOpMode::Error)?;
     assert_eq!(derivative.nodes().len(), 1);
     assert_eq!(derivative.bin_ops().ops.len(), 0);
     match derivative.nodes()[0] {
@@ -856,12 +931,12 @@ fn test_partial_derivative_simple() -> ExResult<()> {
         _ => unreachable!(),
     }
     let deepex = DeepEx::<f64>::parse("x^2")?;
-    let derivative = partial_deepex(0, deepex)?;
+    let derivative = partial_deepex(0, deepex, MissingOpMode::Error)?;
     let result = derivative.eval(&[4.5])?;
     assert_float_eq_f64(result, 9.0);
 
     let deepex = DeepEx::<f64>::parse("sin(x)")?;
-    let derivative = partial_deepex(0, deepex.clone())?;
+    let derivative = partial_deepex(0, deepex.clone(), MissingOpMode::Error)?;
     let result = derivative.eval(&[0.0])?;
     assert_float_eq_f64(result, 1.0);
     let result = derivative.eval(&[1.0])?;
