@@ -1,4 +1,4 @@
-use exmex::{ops_factory, BinOp, ExError, NeutralElts, Operator, MissingOpMode};
+use exmex::{ops_factory, BinOp, ExError, MissingOpMode, NeutralElts, Operator};
 #[cfg(feature = "partial")]
 use exmex::{
     parse, Calculate, DiffDataType, Differentiate, ExResult, Express, FlatEx, MakeOperators,
@@ -521,9 +521,15 @@ fn test_deri() {
     let deri = expr.clone().partial(3).unwrap();
     assert_eq!(deri.unparse(), "{d}+{d}");
     let expr = FlatEx::<Arr, ArrOpsFactory>::parse("a+b*c >> d*d").unwrap();
-    let deri = expr.clone().partial_relaxed(1, MissingOpMode::PerOperand).unwrap();
+    let deri = expr
+        .clone()
+        .partial_relaxed(1, MissingOpMode::PerOperand)
+        .unwrap();
     assert_eq!(deri.unparse(), "{c}>>[0, 0]");
-    let deri = expr.clone().partial_relaxed(1, MissingOpMode::None).unwrap();
+    let deri = expr
+        .clone()
+        .partial_relaxed(1, MissingOpMode::None)
+        .unwrap();
     assert_eq!(deri.unparse(), "({a}+({b}*{c}))>>({d}*{d})");
     let deri = expr.clone().partial_relaxed(1, MissingOpMode::Error);
     assert!(deri.is_err());
