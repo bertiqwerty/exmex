@@ -29,26 +29,6 @@ pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExR
     }
 }
 
-fn partial_iter<'a, T, D, I>(expr: D, var_idxs: I, missing_op_mode: MissingOpMode) -> ExResult<D>
-where
-    T: DiffDataType,
-    D: Differentiate<'a, T>,
-    <T as FromStr>::Err: Debug,
-    I: Iterator<Item = usize> + Clone,
-{
-    let mut deepex = expr.to_deepex()?;
-
-    let unparsed = deepex.unparse();
-    for var_idx in var_idxs.clone() {
-        check_partial_index(var_idx, deepex.var_names().len(), unparsed)?;
-    }
-    for var_idx in var_idxs {
-        deepex = partial_deepex(var_idx, deepex, missing_op_mode)?;
-    }
-    deepex.compile();
-    D::from_deepex(deepex)
-}
-
 /// *`feature = "partial"`* - Trait for partial differentiation. This is implemented for expressions
 /// with datatypes that implement `DiffDataType`.  
 pub trait Differentiate<'a, T>
@@ -94,10 +74,10 @@ where
         self.partial_nth(var_idx, 1)
     }
 
-    /// Like [`Differentiate::partial`]. The only difference is that in case there is no differentation defined for 
-    /// an operator this will differentiate the operands independently instead of returning an error.
-    fn partial_relaxed(self, var_idx: usize) -> ExResult<Self> {
-        self.partial_nth_relaxed(var_idx, 1)
+    /// Like [`Differentiate::partial`]. The only difference is that in case there is no differentation defined for
+    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    fn partial_relaxed(self, var_idx: usize, missing_op_mode: MissingOpMode) -> ExResult<Self> {
+        self.partial_nth_relaxed(var_idx, 1, missing_op_mode)
     }
 
     /// *`feature = "partial"`* - Computes the nth partial derivative with respect to one variable
@@ -133,11 +113,16 @@ where
     fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self> {
         self.partial_iter(iter::repeat(var_idx).take(n))
     }
-    
-    /// Like [`Differentiate::partial_nth`]. The only difference is that in case there is no differentation defined for 
-    /// an operator this will differentiate the operands independently instead of returning an error.
-    fn partial_nth_relaxed(self, var_idx: usize, n: usize) -> ExResult<Self> {
-        self.partial_iter_relaxed(iter::repeat(var_idx).take(n))
+
+    /// Like [`Differentiate::partial_nth`]. The only difference is that in case there is no differentation defined for
+    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    fn partial_nth_relaxed(
+        self,
+        var_idx: usize,
+        n: usize,
+        missing_op_mode: MissingOpMode,
+    ) -> ExResult<Self> {
+        self.partial_iter_relaxed(iter::repeat(var_idx).take(n), missing_op_mode)
     }
 
     /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator
@@ -175,16 +160,26 @@ where
     where
         I: Iterator<Item = usize> + Clone,
     {
-        partial_iter(self, var_idxs, MissingOpMode::Error)
+        self.partial_iter_relaxed(var_idxs, MissingOpMode::Error)
     }
-    
-    /// Like [`Differentiate::partial_iter`]. The only difference is that in case there is no differentation defined for 
-    /// a binary operator this will differentiate the operands independently instead of returning an error.
-    fn partial_iter_relaxed<I>(self, var_idxs: I) -> ExResult<Self>
+
+    /// Like [`Differentiate::partial_iter`]. The only difference is that in case there is no differentation defined for
+    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    fn partial_iter_relaxed<I>(self, var_idxs: I, missing_op_mode: MissingOpMode) -> ExResult<Self>
     where
         I: Iterator<Item = usize> + Clone,
     {
-        partial_iter(self, var_idxs, MissingOpMode::PerOperand)
+        let mut deepex = self.to_deepex()?;
+
+        let unparsed = deepex.unparse();
+        for var_idx in var_idxs.clone() {
+            check_partial_index(var_idx, deepex.var_names().len(), unparsed)?;
+        }
+        for var_idx in var_idxs {
+            deepex = partial_deepex(var_idx, deepex, missing_op_mode)?;
+        }
+        deepex.compile();
+        Self::from_deepex(deepex)
     }
 }
 #[derive(Clone, Debug)]
@@ -252,9 +247,14 @@ where
     })
 }
 
+/// Feature `partial` - What should happen in case for an operator the derivative is missing
 #[derive(Clone, Copy, Debug)]
 pub enum MissingOpMode {
+    /// Compute partial derviatives per operand like for `+`
     PerOperand,
+    /// Do not compute partial derivatives and keep the operands as they were
+    None,
+    /// Return an error
     Error,
 }
 
@@ -339,6 +339,7 @@ where
                 ),
                 (repr, None) => match missing_op_mode {
                     MissingOpMode::PerOperand => partial_deri_per_operand(repr, n1, n2),
+                    MissingOpMode::None => partial_derisval(repr, n1, n2),
                     MissingOpMode::Error => {
                         Err(format_exerr!("cannot find binary op for {repr}",))?
                     }

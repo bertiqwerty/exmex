@@ -360,7 +360,7 @@ pub use {lazy_static, regex};
 #[cfg(feature = "value")]
 mod value;
 #[cfg(feature = "partial")]
-pub use expression::partial::Differentiate;
+pub use expression::partial::{Differentiate, MissingOpMode};
 use num::Float;
 #[cfg(feature = "value")]
 pub use value::{parse_val, FlatExVal, Val, ValMatcher, ValOpsFactory};
