@@ -75,7 +75,7 @@ where
     }
 
     /// Like [`Differentiate::partial`]. The only difference is that in case there is no differentation defined for
-    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    /// a binary operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
     fn partial_relaxed(self, var_idx: usize, missing_op_mode: MissingOpMode) -> ExResult<Self> {
         self.partial_nth_relaxed(var_idx, 1, missing_op_mode)
     }
@@ -115,7 +115,7 @@ where
     }
 
     /// Like [`Differentiate::partial_nth`]. The only difference is that in case there is no differentation defined for
-    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    /// a binary operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
     fn partial_nth_relaxed(
         self,
         var_idx: usize,
@@ -164,7 +164,7 @@ where
     }
 
     /// Like [`Differentiate::partial_iter`]. The only difference is that in case there is no differentation defined for
-    /// an operator this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
+    /// a binary this will not necessarily throw an error depending on `missing_op_mode`, see [`MissingOpMode`].
     fn partial_iter_relaxed<I>(self, var_idxs: I, missing_op_mode: MissingOpMode) -> ExResult<Self>
     where
         I: Iterator<Item = usize> + Clone,

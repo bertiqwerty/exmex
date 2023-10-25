@@ -1,4 +1,4 @@
-use exmex::{ops_factory, BinOp, ExError, MissingOpMode, NeutralElts, Operator};
+use exmex::{ops_factory, BinOp, ExError, MatchLiteral, MissingOpMode, NeutralElts, Operator};
 #[cfg(feature = "partial")]
 use exmex::{
     parse, Calculate, DiffDataType, Differentiate, ExResult, Express, FlatEx, MakeOperators,
@@ -411,7 +411,7 @@ fn test_operatorsubset() {
 }
 
 #[test]
-fn test_deri() {
+fn test_custom_data() {
     #[derive(Clone, Default, PartialEq)]
     struct Arr {
         data: [f64; 2],
@@ -430,6 +430,7 @@ fn test_deri() {
     ops_factory!(
         ArrOpsFactory,
         Arr,
+        Operator::make_unary("set0", |_| Arr::new([0.0, 0.0])),
         Operator::make_bin(
             ">>",
             BinOp {
@@ -489,7 +490,8 @@ fn test_deri() {
     impl FromStr for Arr {
         type Err = ExError;
         fn from_str(s: &str) -> Result<Self, Self::Err> {
-            let mut it = s.split(',');
+            let s = s.trim();
+            let mut it = s[1..s.len() - 1].split(',');
             let a = it.next().unwrap().parse::<f64>().unwrap();
             let b = it.next().unwrap().parse::<f64>().unwrap();
             Ok(Self::new([a, b]))
@@ -511,7 +513,29 @@ fn test_deri() {
         }
     }
 
-    let expr = FlatEx::<Arr, ArrOpsFactory>::parse("a+b*c+d*d").unwrap();
+    #[derive(Debug, Clone)]
+    struct ArrMatcher;
+    impl MatchLiteral for ArrMatcher {
+        fn is_literal(text: &str) -> Option<&str> {
+            let text = text.trim();
+            if text.starts_with('[') && text.contains(',') {
+                let end = text
+                    .chars()
+                    .enumerate()
+                    .find(|(_, c)| c == &']')
+                    .map(|(i, _)| i);
+                if let Some(end) = end {
+                    Some(&text[..end + 1])
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    }
+
+    let expr = FlatEx::<Arr, ArrOpsFactory, ArrMatcher>::parse("a+b*c+d*d").unwrap();
     let deri = expr.clone().partial(0).unwrap();
     assert_eq!(deri.unparse(), "[1, 1]");
     let deri = expr.clone().partial(1).unwrap();
@@ -520,7 +544,7 @@ fn test_deri() {
     assert_eq!(deri.unparse(), "{b}");
     let deri = expr.clone().partial(3).unwrap();
     assert_eq!(deri.unparse(), "{d}+{d}");
-    let expr = FlatEx::<Arr, ArrOpsFactory>::parse("a+b*c >> d*d").unwrap();
+    let expr = FlatEx::<Arr, ArrOpsFactory, ArrMatcher>::parse("a+b*c >> d*d").unwrap();
     let deri = expr
         .clone()
         .partial_relaxed(1, MissingOpMode::PerOperand)
@@ -535,4 +559,5 @@ fn test_deri() {
     assert!(deri.is_err());
     let deri = expr.clone().partial(1);
     assert!(deri.is_err());
+    FlatEx::<Arr, ArrOpsFactory, ArrMatcher>::parse("[1,1] + set0(a)").unwrap();
 }
