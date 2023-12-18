@@ -1,7 +1,7 @@
-use exmex::{ops_factory, BinOp, ExError, MatchLiteral, MissingOpMode, NeutralElts, Operator};
 #[cfg(feature = "partial")]
 use exmex::{
-    parse, Calculate, DiffDataType, Differentiate, ExResult, Express, FlatEx, MakeOperators,
+    ops_factory, parse, BinOp, Calculate, DiffDataType, Differentiate, ExError, ExResult, Express,
+    FlatEx, MakeOperators, MatchLiteral, MissingOpMode, NeutralElts, Operator,
 };
 #[cfg(feature = "partial")]
 mod utils;
@@ -13,8 +13,7 @@ use rand::{thread_rng, Rng};
 #[cfg(feature = "partial")]
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
-use std::{fmt::Debug, ops::Range, str::FromStr};
-use std::{fmt::Display, ops::Index};
+use std::{fmt::Debug, fmt::Display, ops::Index, ops::Range, str::FromStr};
 #[cfg(feature = "partial")]
 #[test]
 fn test_readme_partial() -> ExResult<()> {
@@ -410,6 +409,7 @@ fn test_operatorsubset() {
     assert_eq!("-1.0/({x}*{x})", format!("{dflatex}"));
 }
 
+#[cfg(feature = "partial")]
 #[test]
 fn test_custom_data() {
     #[derive(Clone, Default, PartialEq)]

@@ -13,12 +13,12 @@ use crate::{
         deep::{prioritized_indices, DeepEx, DeepNode},
         flat::ExprIdxVec,
     },
-    format_exerr, DiffDataType, ExError, ExResult, Express, MakeOperators, MatchLiteral,
+    exerr, DiffDataType, ExError, ExResult, Express, MakeOperators, MatchLiteral,
 };
 
 pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
     if var_idx >= n_vars {
-        Err(format_exerr!(
+        Err(exerr!(
             "index {} is invalid since we have only {} vars in {}",
             var_idx,
             n_vars,
@@ -213,7 +213,7 @@ where
 }
 
 fn make_op_missing_err(repr: &str) -> ExError {
-    format_exerr!("operator {} needed for outer partial derivative", repr)
+    exerr!("operator {} needed for outer partial derivative", repr)
 }
 
 fn partial_derivative_outer<'a, T: DiffDataType, OF, LM>(
@@ -334,14 +334,14 @@ where
             match pdo {
                 (_, Some(pdo)) => pdo
                     .bin_op
-                    .ok_or_else(|| format_exerr!("cannot find binary op for {}", pdo.repr))?(
+                    .ok_or_else(|| exerr!("cannot find binary op for {}", pdo.repr))?(
                     n1, n2,
                 ),
                 (repr, None) => match missing_op_mode {
                     MissingOpMode::PerOperand => partial_deri_per_operand(repr, n1, n2),
                     MissingOpMode::None => partial_derisval(repr, n1, n2),
                     MissingOpMode::Error => {
-                        Err(format_exerr!("cannot find binary op for {repr}",))?
+                        Err(exerr!("cannot find binary op for {repr}",))?
                     }
                 },
             }

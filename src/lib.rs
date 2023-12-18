@@ -341,10 +341,15 @@ mod operators;
 mod data_type;
 mod parser;
 mod result;
+pub mod statements;
 mod util;
 
 #[cfg(feature = "partial")]
 pub use data_type::DiffDataType;
+
+pub use statements::{Statement, Statements};
+#[cfg(feature = "value")]
+pub use statements::StatementsVal;
 pub use {
     data_type::{DataType, NeutralElts},
     expression::{
@@ -393,10 +398,7 @@ where
 {
     let flatex = FlatEx::<T>::parse_wo_compile(text)?;
     if !flatex.var_names().is_empty() {
-        return Err(format_exerr!(
-            "input string contains variables, '{}' ",
-            text
-        ));
+        return Err(exerr!("input string contains variables, '{}' ", text));
     }
     flatex.eval(&[])
 }

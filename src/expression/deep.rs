@@ -15,7 +15,7 @@ use crate::{
         N_VARS_ON_STACK,
     },
     expression::flat::ExprIdxVec,
-    format_exerr,
+    exerr,
     operators::UnaryOp,
     BinOp, ExError, ExResult, Express, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
     Operator,
@@ -270,8 +270,7 @@ mod detail {
     {
         let mut bin_ops = BinOpVec::new();
         let mut reprs_bin_ops: SmallVec<[&str; N_BINOPS_OF_DEEPEX_ON_STACK]> = SmallVec::new();
-        let mut nodes = Vec::<DeepNode<T, OF, LM>>::new();
-        nodes.reserve(parsed_tokens.len() / 2);
+        let mut nodes = Vec::<DeepNode<T, OF, LM>>::with_capacity(parsed_tokens.len() / 2);
         // The main loop checks one token after the next whereby sub-expressions are
         // handled recursively. Thereby, the token-position-index idx_tkn is increased
         // according to the length of the sub-expression.
@@ -375,14 +374,14 @@ fn find_op<'a, T: Clone + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> Option<Operator<'a, T>> {
-    ops.iter().cloned().find(|op| op.repr() == repr)
+    ops.iter().find(|op| op.repr() == repr).cloned()
 }
 
 fn find_bin_op<'a, T: Clone + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<BinOpsWithReprs<'a, T>> {
-    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
+    let op = find_op(repr, ops).ok_or_else(|| exerr!("did not find operator {}", repr))?;
     Ok(BinOpsWithReprs {
         reprs: smallvec::smallvec![op.repr()],
         ops: smallvec::smallvec![op.bin()?],
@@ -393,7 +392,7 @@ fn find_unary_op<'a, T: Clone + Debug>(
     repr: &'a str,
     ops: &[Operator<'a, T>],
 ) -> ExResult<UnaryOpWithReprs<'a, T>> {
-    let op = find_op(repr, ops).ok_or_else(|| format_exerr!("did not find operator {}", repr))?;
+    let op = find_op(repr, ops).ok_or_else(|| exerr!("did not find operator {}", repr))?;
     Ok(UnaryOpWithReprs {
         reprs: smallvec::smallvec![op.repr()],
         op: UnaryOp::from_vec(smallvec::smallvec![op.unary()?]),
@@ -677,7 +676,7 @@ where
             });
         }
         if nodes.len() != bin_ops.ops.len() + 1 {
-            Err(format_exerr!(
+            Err(exerr!(
                 "mismatch between number of nodes {:?} and binary operators {:?} ({} vs {})",
                 nodes,
                 bin_ops.ops,
@@ -947,7 +946,7 @@ where
     type OperatorFactory = OF;
     fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names().len() > vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is different to the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()
@@ -977,7 +976,7 @@ where
     }
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names().len() != vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is different to the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()

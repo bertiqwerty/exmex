@@ -3,7 +3,7 @@ use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::{Float, PrimInt, Signed};
 
 use crate::{
-    data_type::DataType, expression::MatchLiteral, format_exerr, literal_matcher_from_pattern,
+    data_type::DataType, expression::MatchLiteral, exerr, literal_matcher_from_pattern,
     BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
 
@@ -104,7 +104,7 @@ where
         match self {
             Self::Bool(b) => Ok(F::from(if b { 1.0 } else { 0.0 }).unwrap()),
             Self::Int(n) => {
-                F::from(n).ok_or_else(|| format_exerr!("cannot convert {:?} to float", n))
+                F::from(n).ok_or_else(|| exerr!("cannot convert {:?} to float", n))
             }
             Self::Float(x) => Ok(x),
             Self::Error(e) => Err(e),
@@ -117,7 +117,7 @@ where
         match self {
             Self::Bool(b) => Ok(I::from(if b { 1 } else { 0 }).unwrap()),
             Self::Float(x) => {
-                I::from(x).ok_or_else(|| format_exerr!("cannot convert {:?} to int", x))
+                I::from(x).ok_or_else(|| exerr!("cannot convert {:?} to int", x))
             }
             Self::Int(n) => Ok(n),
             Self::Error(e) => Err(e),
@@ -149,7 +149,7 @@ where
 }
 
 fn map_parse_err<E: Debug>(e: E) -> ExError {
-    format_exerr!("{:?}", e)
+    exerr!("{:?}", e)
 }
 
 impl<I, F> FromStr for Val<I, F>
@@ -171,7 +171,7 @@ where
         });
         match res {
             Result::Ok(_) => res,
-            Result::Err(e) => Err(format_exerr!("could not parse {}, {:?}", s, e)),
+            Result::Err(e) => Err(exerr!("could not parse {}, {:?}", s, e)),
         }
     }
 }
@@ -224,9 +224,9 @@ where
         (Val::Int(x), Val::Int(y)) => match y.to_usize() {
             Some(exponent_) => match num::checked_pow(x, exponent_) {
                 Some(res) => Val::Int(res),
-                None => Val::Error(format_exerr!("overflow in {:?}^{:?}", x, y)),
+                None => Val::Error(exerr!("overflow in {:?}^{:?}", x, y)),
             },
-            None => Val::Error(format_exerr!(
+            None => Val::Error(exerr!(
                 "cannot convert {:?} to exponent of an int",
                 y
             )),
@@ -246,7 +246,7 @@ macro_rules! base_arith {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
                 (Val::Int(x), Val::Int(y)) => match x.$intname(&y) {
                     Some(res) => Val::Int(res),
-                    None => Val::Error(format_exerr!(
+                    None => Val::Error(exerr!(
                         "overflow in {:?}{:?}{:?}",
                         x,
                         stringify!($intname),
@@ -278,7 +278,7 @@ macro_rules! single_type_arith {
             #[allow(clippy::redundant_closure_call)]
             match (a, b) {
                 (Val::$variant(na), Val::$variant(nb)) => $op(na, nb),
-                _ => Val::Error(format_exerr!(
+                _ => Val::Error(exerr!(
                     "can only apply 2 {}s to {}",
                     stringify!($variant),
                     stringify!($name)
@@ -301,7 +301,7 @@ single_type_arith!(right_shift, Int, |a: I, b: I| -> Val<I, F> {
         Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
             Val::Int(a >> bu)
         }
-        _ => Val::Error(format_exerr!("cannot shift right {:?} by {:?}", a, b)),
+        _ => Val::Error(exerr!("cannot shift right {:?} by {:?}", a, b)),
     }
 });
 single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
@@ -309,7 +309,7 @@ single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
         Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
             Val::Int(a << bu)
         }
-        _ => Val::Error(format_exerr!("cannot shift left {:?} by {:?}", a, b)),
+        _ => Val::Error(exerr!("cannot shift left {:?} by {:?}", a, b)),
     }
 });
 
@@ -353,7 +353,7 @@ macro_rules! unary_match_name {
     ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident)),+) => {
         match $scalar {
             $(Val::$variants(x) => Val::$variants(x.$name()),)+
-            _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
+            _ => Val::<I, F>::Error(exerr!("did not expect {:?}", $scalar)),
         }
     };
 }
@@ -364,7 +364,7 @@ macro_rules! unary_match_op {
         #[allow(clippy::redundant_closure_call)]
         match $scalar {
             $(Val::$variants(x) => $ops(x),)+
-            _ => Val::<I, F>::Error(format_exerr!("did not expect {:?}", $scalar)),
+            _ => Val::<I, F>::Error(exerr!("did not expect {:?}", $scalar)),
         }
     };
 }
@@ -427,14 +427,14 @@ unary_op!(
         } else {
             let a_usize_unpacked: usize = match a.to_usize() {
                 Some(x) => x,
-                None => return Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
+                None => return Val::Error(exerr!("cannot compute factorial of {:?}", a)),
             };
             let res = (1usize..(a_usize_unpacked + 1usize))
                 .map(I::from)
                 .try_fold(I::one(), |a, b| b.map(|b| a * b));
             match res {
                 Some(i) => Val::Int(i),
-                None => Val::Error(format_exerr!("cannot compute factorial of {:?}", a)),
+                None => Val::Error(exerr!("cannot compute factorial of {:?}", a)),
             }
         },
         Int
@@ -460,7 +460,7 @@ macro_rules! cast {
                 Val::$variant(x) => Val::$variant(x),
                 Val::$other_variant(x) => Val::$variant($T::from(x).unwrap()),
                 Val::Bool(x) => Val::$variant(if x { $T::one() } else { $T::zero() }),
-                _ => Val::Error(format_exerr!("cannot convert '{:?}' to float", v)),
+                _ => Val::Error(exerr!("cannot convert '{:?}' to float", v)),
             }
         }
     };
@@ -490,7 +490,7 @@ cast!(cast_to_int, Int, Float, I);
 /// | `to_float` | convert integer, float, or bool to float |
 /// | `to_int` | convert integer, float, or bool to integer |
 ///
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default)]
 pub struct ValOpsFactory<I = i32, F = f64>
 where
     I: DataType + PrimInt + Signed,

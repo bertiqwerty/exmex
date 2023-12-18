@@ -154,7 +154,7 @@ macro_rules! literal_matcher_from_pattern {
     ($matcher_name:ident, $regex_pattern:expr) => {
         /// Literal matcher type that was created with the macro
         /// [`literal_matcher_from_pattern`](literal_matcher_from_pattern).
-        #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+        #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default)]
         pub struct $matcher_name;
         impl MatchLiteral for $matcher_name {
             fn is_literal(text: &str) -> Option<&str> {

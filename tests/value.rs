@@ -1,5 +1,5 @@
 #[cfg(feature = "value")]
-use exmex::{format_exerr, ExError, ExResult, Express, FlatExVal, Val};
+use exmex::{exerr, ExResult, Express, FlatExVal, Val};
 
 #[cfg(feature = "value")]
 mod utils;
@@ -188,7 +188,7 @@ fn test_no_vars() -> ExResult<()> {
                         println!("found expected error {:?}", e);
                         Ok(())
                     }
-                    _ => Err(format_exerr!("'{}' should fail but didn't", s)),
+                    _ => Err(exerr!("'{}' should fail but didn't", s)),
                 }
             }
             Err(e) => {
@@ -201,7 +201,7 @@ fn test_no_vars() -> ExResult<()> {
         let expr = FlatExVal::<i32, f64>::parse(s)?;
         match expr.eval(&[])? {
             Val::None => Ok(()),
-            _ => Err(format_exerr!("'{}' should return none but didn't", s)),
+            _ => Err(exerr!("'{}' should return none but didn't", s)),
         }
     }
     test_int("1+2 if 1 > 0 else 2+4", 3)?;

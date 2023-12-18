@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod utils;
-use exmex::{format_exerr, DeepEx};
+use exmex::{exerr, DeepEx};
 #[cfg(test)]
 use exmex::{
     literal_matcher_from_pattern, ops_factory, parse,
@@ -283,7 +283,7 @@ fn test_variables_non_ascii() -> ExResult<()> {
             } else if s == "👎" {
                 Ok(Self { val: false })
             } else {
-                Err(format_exerr!("cannot parse {} to `Thumbs`", s))
+                Err(exerr!("cannot parse {} to `Thumbs`", s))
             }
         }
     }

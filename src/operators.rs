@@ -1,4 +1,4 @@
-use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, format_exerr, ExError, ExResult};
+use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, exerr, ExError, ExResult};
 use num::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
@@ -13,7 +13,7 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
         OperatorType::Bin => "binary",
         OperatorType::Unary => "unary",
     };
-    format_exerr!("{} operator '{}' not available", op_type_str, repr)
+    exerr!("{} operator '{}' not available", op_type_str, repr)
 }
 
 /// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`,

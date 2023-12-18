@@ -9,7 +9,7 @@ use crate::operators::UnaryOp;
 #[cfg(feature = "partial")]
 use crate::DiffDataType;
 use crate::{
-    format_exerr, BinOp, Calculate, ExError, ExResult, FloatOpsFactory, MakeOperators,
+    exerr, BinOp, Calculate, ExResult, FloatOpsFactory, MakeOperators,
     MatchLiteral, NumberMatcher,
 };
 
@@ -30,7 +30,7 @@ mod detail {
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
         expression::{eval_binary, number_tracker::NumberTracker},
-        format_exerr,
+        exerr,
         operators::{OperateBinary, UnaryOp},
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
@@ -243,7 +243,7 @@ mod detail {
         }
         let final_node = deep_nodes
             .first()
-            .ok_or_else(|| format_exerr!("prio indices cannot be empty but is {:?}", prio_inds))?
+            .ok_or_else(|| exerr!("prio indices cannot be empty but is {:?}", prio_inds))?
             .clone();
         let mut deepex = DeepEx::new(
             vec![final_node],
@@ -737,7 +737,7 @@ where
     /// Consumes vector for evaluation, possibly useful for large value types.
     pub fn eval_vec(&self, mut vars: Vec<T>) -> ExResult<T> {
         if self.var_names.len() != vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is different to the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()
@@ -755,7 +755,7 @@ where
     pub fn eval_iter(&self, vars: impl Iterator<Item = T>) -> ExResult<T> {
         let mut vars = vars.collect::<SmallVec<[T; N_VARS_ON_STACK]>>();
         if self.var_names.len() != vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is different to the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()
@@ -782,7 +782,7 @@ where
 
     fn eval(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names.len() != vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is different to the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()
@@ -793,7 +793,7 @@ where
 
     fn eval_relaxed(&self, vars: &[T]) -> ExResult<T> {
         if self.var_names.len() > vars.len() {
-            return Err(format_exerr!(
+            return Err(exerr!(
                 "expression contains {} vars which is higher than the length {} of the passed slice",
                 self.var_names.len(),
                 vars.len()

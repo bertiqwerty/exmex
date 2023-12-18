@@ -32,15 +32,15 @@ pub type ExResult<U> = Result<U, ExError>;
 /// Creates an [`ExError`](ExError) with a formatted message.
 /// ```rust
 /// # use std::error::Error;
-/// use exmex::{format_exerr, ExError};
+/// use exmex::{exerr, ExError};
 /// # fn main() -> Result<(), Box<dyn Error>> {
-/// assert_eq!(format_exerr!("some error {}", 1), ExError::new(format!("some error {}", 1).as_str()));
+/// assert_eq!(exerr!("some error {}", 1), ExError::new(format!("some error {}", 1).as_str()));
 /// #     Ok(())
 /// # }
 /// ```
 #[macro_export]
-macro_rules! format_exerr {
+macro_rules! exerr {
     ($s:literal, $( $exps:expr ),*) => {
-        ExError::new(format!($s, $($exps,)*).as_str())
+        $crate::ExError::new(format!($s, $($exps,)*).as_str())
     }
 }
