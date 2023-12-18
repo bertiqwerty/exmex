@@ -9,8 +9,7 @@ use crate::operators::UnaryOp;
 #[cfg(feature = "partial")]
 use crate::DiffDataType;
 use crate::{
-    exerr, BinOp, Calculate, ExResult, FloatOpsFactory, MakeOperators,
-    MatchLiteral, NumberMatcher,
+    exerr, BinOp, Calculate, ExResult, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
 };
 
 use smallvec::SmallVec;
@@ -29,8 +28,8 @@ mod detail {
     use crate::{
         data_type::DataType,
         definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
-        expression::{eval_binary, number_tracker::NumberTracker},
         exerr,
+        expression::{eval_binary, number_tracker::NumberTracker},
         operators::{OperateBinary, UnaryOp},
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,

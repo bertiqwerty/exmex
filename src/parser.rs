@@ -207,12 +207,7 @@ struct PairPreCondition<'a, T: DataType> {
 }
 
 fn make_err<T: DataType>(msg: &str, left: &ParsedToken<T>, right: &ParsedToken<T>) -> ExResult<()> {
-    Err(exerr!(
-        "{}, left: {:?}; right: {:?}",
-        msg,
-        left,
-        right
-    ))
+    Err(exerr!("{}, left: {:?}; right: {:?}", msg, left, right))
 }
 
 fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
@@ -374,10 +369,7 @@ where
                         Paren::Open => 1,
                     };
                     if open_paren_cnt < 0 {
-                        return Err(exerr!(
-                            "too many closing parentheses until position {}",
-                            i
-                        ));
+                        return Err(exerr!("too many closing parentheses until position {}", i));
                     }
                     Ok(())
                 }

@@ -347,9 +347,9 @@ mod util;
 #[cfg(feature = "partial")]
 pub use data_type::DiffDataType;
 
-pub use statements::{Statement, Statements};
 #[cfg(feature = "value")]
 pub use statements::StatementsVal;
+pub use statements::{Statement, Statements};
 pub use {
     data_type::{DataType, NeutralElts},
     expression::{

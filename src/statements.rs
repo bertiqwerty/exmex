@@ -101,13 +101,13 @@ where
     T: DataType,
     <T as FromStr>::Err: Debug,
     OF: MakeOperators<T>,
-    LM: MatchLiteral
+    LM: MatchLiteral,
 {
     pub var: Option<&'a str>,
-    pub rhs: Rhs<T, OF, LM>
+    pub rhs: Rhs<T, OF, LM>,
 }
 
-pub fn line_2_statement< T, OF, LM>(line_str: & str) -> ExResult<Statement< T, OF, LM>>
+pub fn line_2_statement<T, OF, LM>(line_str: &str) -> ExResult<Statement<T, OF, LM>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
@@ -120,7 +120,7 @@ where
     } else {
         Rhs::Expr(expr)
     };
-    Ok(Statement{var, rhs})
+    Ok(Statement { var, rhs })
 }
 
 type ParsedStatement<'a, T, OF, LM> = ExResult<(Option<&'a str>, FlatEx<T, OF, LM>)>;
@@ -147,7 +147,8 @@ use crate::{FloatOpsFactory, NumberMatcher};
 #[test]
 fn test_statements() {
     let s = "x = 123";
-    let Statement{var, rhs} = line_2_statement::<f32, FloatOpsFactory<f32>, NumberMatcher>(s).unwrap();
+    let Statement { var, rhs } =
+        line_2_statement::<f32, FloatOpsFactory<f32>, NumberMatcher>(s).unwrap();
     assert_eq!(var, Some("x"));
     assert_eq!(rhs, Rhs::Val(123.0));
 }

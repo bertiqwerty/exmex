@@ -3,8 +3,8 @@ use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 use num::{Float, PrimInt, Signed};
 
 use crate::{
-    data_type::DataType, expression::MatchLiteral, exerr, literal_matcher_from_pattern,
-    BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
+    data_type::DataType, exerr, expression::MatchLiteral, literal_matcher_from_pattern, BinOp,
+    ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
 
 /// *`feature = "value"`* -
@@ -103,9 +103,7 @@ where
     pub fn to_float(self) -> ExResult<F> {
         match self {
             Self::Bool(b) => Ok(F::from(if b { 1.0 } else { 0.0 }).unwrap()),
-            Self::Int(n) => {
-                F::from(n).ok_or_else(|| exerr!("cannot convert {:?} to float", n))
-            }
+            Self::Int(n) => F::from(n).ok_or_else(|| exerr!("cannot convert {:?} to float", n)),
             Self::Float(x) => Ok(x),
             Self::Error(e) => Err(e),
             Self::None => Err(ExError::new(
@@ -116,9 +114,7 @@ where
     pub fn to_int(self) -> ExResult<I> {
         match self {
             Self::Bool(b) => Ok(I::from(if b { 1 } else { 0 }).unwrap()),
-            Self::Float(x) => {
-                I::from(x).ok_or_else(|| exerr!("cannot convert {:?} to int", x))
-            }
+            Self::Float(x) => I::from(x).ok_or_else(|| exerr!("cannot convert {:?} to int", x)),
             Self::Int(n) => Ok(n),
             Self::Error(e) => Err(e),
             Self::None => Err(ExError::new(
@@ -226,10 +222,7 @@ where
                 Some(res) => Val::Int(res),
                 None => Val::Error(exerr!("overflow in {:?}^{:?}", x, y)),
             },
-            None => Val::Error(exerr!(
-                "cannot convert {:?} to exponent of an int",
-                y
-            )),
+            None => Val::Error(exerr!("cannot convert {:?} to exponent of an int", y)),
         },
         _ => Val::Error(ExError::new("cannot compute power of")),
     }

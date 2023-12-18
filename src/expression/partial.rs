@@ -9,11 +9,12 @@ use smallvec::SmallVec;
 use crate::{
     data_type::DataType,
     definitions::N_BINOPS_OF_DEEPEX_ON_STACK,
+    exerr,
     expression::{
         deep::{prioritized_indices, DeepEx, DeepNode},
         flat::ExprIdxVec,
     },
-    exerr, DiffDataType, ExError, ExResult, Express, MakeOperators, MatchLiteral,
+    DiffDataType, ExError, ExResult, Express, MakeOperators, MatchLiteral,
 };
 
 pub fn check_partial_index(var_idx: usize, n_vars: usize, unparsed: &str) -> ExResult<()> {
@@ -335,14 +336,12 @@ where
                 (_, Some(pdo)) => pdo
                     .bin_op
                     .ok_or_else(|| exerr!("cannot find binary op for {}", pdo.repr))?(
-                    n1, n2,
+                    n1, n2
                 ),
                 (repr, None) => match missing_op_mode {
                     MissingOpMode::PerOperand => partial_deri_per_operand(repr, n1, n2),
                     MissingOpMode::None => partial_derisval(repr, n1, n2),
-                    MissingOpMode::Error => {
-                        Err(exerr!("cannot find binary op for {repr}",))?
-                    }
+                    MissingOpMode::Error => Err(exerr!("cannot find binary op for {repr}",))?,
                 },
             }
         } else {
