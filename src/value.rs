@@ -432,7 +432,7 @@ unary_op!(
             };
             let res = (1usize..(a_usize_unpacked + 1usize))
                 .map(I::from)
-                .try_fold(I::one(), |a, b| b.map(|b| a * b));
+                .try_fold(I::one(), |a, b| b.and_then(|b| a.checked_mul(&b)));
             match res {
                 Some(i) => Val::Int(i),
                 None => Val::Error(exerr!("cannot compute factorial of {:?}", a)),

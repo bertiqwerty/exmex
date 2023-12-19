@@ -318,5 +318,13 @@ fn test_serde() {
 #[test]
 fn test_fuzz() {
     let s = "ata---n-----0>>220>22--ata---n-----0>>220>22-------------tanh-------------------tanh--------6/π";
-    assert!(FlatExVal::<i64, f64>::parse(s).is_err());
+    let expr = FlatExVal::<i64, f64>::parse(s).unwrap();
+    
+    let res = expr.eval(&[Val::Int(2), Val::Int(3)]).unwrap();
+    assert!(!res.to_bool().unwrap());
+    let s = "fact+82";
+    let expr = FlatExVal::<i64, f64>::parse(s).unwrap();
+    assert!(expr.eval(&[]).unwrap().to_int().is_err());
+    assert!(expr.eval(&[]).unwrap().to_float().is_err());
+    assert!(expr.eval(&[]).unwrap().to_bool().is_err());
 }
