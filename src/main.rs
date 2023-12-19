@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 match rhs.eval(&statements) {
                     Ok(x) => println!("{x:?}"),
-                    Err(e) => eprintln!("Error {e:?}")
+                    Err(e) => eprintln!("Error {e:?}"),
                 }
             }
 

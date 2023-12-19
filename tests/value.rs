@@ -319,7 +319,7 @@ fn test_serde() {
 fn test_fuzz() {
     let s = "ata---n-----0>>220>22--ata---n-----0>>220>22-------------tanh-------------------tanh--------6/π";
     let expr = FlatExVal::<i64, f64>::parse(s).unwrap();
-    
+
     let res = expr.eval(&[Val::Int(2), Val::Int(3)]).unwrap();
     assert!(!res.to_bool().unwrap());
     let s = "fact+82";

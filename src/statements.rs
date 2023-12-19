@@ -1,7 +1,10 @@
-#[cfg(feature = "value")]
-use {num::{Float, PrimInt, Signed}, crate::{Val, ValMatcher, ValOpsFactory}};
 use std::fmt::Debug;
 use std::str::FromStr;
+#[cfg(feature = "value")]
+use {
+    crate::{Val, ValMatcher, ValOpsFactory},
+    num::{Float, PrimInt, Signed},
+};
 
 use crate::{
     exerr, Calculate, DeepEx, FlatEx, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
