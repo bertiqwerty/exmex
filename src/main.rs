@@ -15,11 +15,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             stdout.flush()?;
             stdin.read_line(&mut buffer)?;
             let Statement { var, rhs } = statements::line_2_statement(buffer.trim())?;
-            println!("{:?}", statements);
             if let Some(var) = var {
                 statements = statements.insert(var, rhs)?;
             } else {
-                println!("{:?}", rhs.eval(&statements));
+                match rhs.eval(&statements) {
+                    Ok(x) => println!("{x:?}"),
+                    Err(e) => eprintln!("Error {e:?}")
+                }
             }
 
             buffer.clear();

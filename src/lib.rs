@@ -348,7 +348,7 @@ mod util;
 pub use data_type::DiffDataType;
 
 #[cfg(feature = "value")]
-pub use statements::StatementsVal;
+pub use statements::{line_2_statement_val, StatementsVal};
 pub use statements::{Statement, Statements};
 pub use {
     data_type::{DataType, NeutralElts},

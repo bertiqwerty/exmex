@@ -224,7 +224,9 @@ where
             },
             None => Val::Error(exerr!("cannot convert {:?} to exponent of an int", y)),
         },
-        _ => Val::Error(ExError::new("cannot compute power of")),
+        (Val::Error(e), _) => Val::Error(e),
+        (_, Val::Error(e)) => Val::Error(e),
+        _ => Val::Error(exerr!("cannot compute power",)),
     }
 }
 
@@ -248,6 +250,8 @@ macro_rules! base_arith {
                 },
                 (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
                 (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
+                (Val::Error(e), _) => Val::Error(e),
+                (_, Val::Error(e)) => Val::Error(e),
                 _ => Val::Error(ExError::new(
                     format!("can only apply {} to ints or floats", stringify!($name)).as_str(),
                 )),
@@ -271,6 +275,8 @@ macro_rules! single_type_arith {
             #[allow(clippy::redundant_closure_call)]
             match (a, b) {
                 (Val::$variant(na), Val::$variant(nb)) => $op(na, nb),
+                (Val::Error(e), _) => Val::Error(e),
+                (_, Val::Error(e)) => Val::Error(e),
                 _ => Val::Error(exerr!(
                     "can only apply 2 {}s to {}",
                     stringify!($variant),
@@ -346,6 +352,7 @@ macro_rules! unary_match_name {
     ($name:ident, $scalar:ident, $(($unused_ops:expr, $variants:ident)),+) => {
         match $scalar {
             $(Val::$variants(x) => Val::$variants(x.$name()),)+
+            Val::Error(_) => $scalar,
             _ => Val::<I, F>::Error(exerr!("did not expect {:?}", $scalar)),
         }
     };
@@ -357,6 +364,7 @@ macro_rules! unary_match_op {
         #[allow(clippy::redundant_closure_call)]
         match $scalar {
             $(Val::$variants(x) => $ops(x),)+
+            Val::Error(_) => $scalar,
             _ => Val::<I, F>::Error(exerr!("did not expect {:?}", $scalar)),
         }
     };

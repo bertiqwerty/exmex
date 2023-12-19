@@ -1,9 +1,11 @@
 #[cfg(feature = "value")]
-use crate::{Val, ValMatcher, ValOpsFactory};
+use {num::{Float, PrimInt, Signed}, crate::{Val, ValMatcher, ValOpsFactory}};
 use std::fmt::Debug;
 use std::str::FromStr;
 
-use crate::{exerr, Calculate, DeepEx, FlatEx, MakeOperators, MatchLiteral};
+use crate::{
+    exerr, Calculate, DeepEx, FlatEx, FloatOpsFactory, MakeOperators, MatchLiteral, NumberMatcher,
+};
 use crate::{DataType, ExResult, Express};
 
 fn eval_expr<T, OF, LM>(expr: FlatEx<T, OF, LM>, statements: &Statements<T, OF, LM>) -> ExResult<T>
@@ -58,7 +60,7 @@ where
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Statements<T, OF, LM>
+pub struct Statements<T, OF = FloatOpsFactory<T>, LM = NumberMatcher>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,
@@ -70,7 +72,7 @@ where
 }
 
 #[cfg(feature = "value")]
-pub type StatementsVal<I, F> = Statements<Val<I, F>, ValOpsFactory, ValMatcher>;
+pub type StatementsVal<I, F> = Statements<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
 
 impl<T, OF, LM> Statements<T, OF, LM>
 where
@@ -105,6 +107,19 @@ where
 {
     pub var: Option<&'a str>,
     pub rhs: Rhs<T, OF, LM>,
+}
+
+#[cfg(feature = "value")]
+type StatementVal<'a, I, F> = Statement<'a, Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
+#[cfg(feature = "value")]
+pub fn line_2_statement_val<I, F>(line_str: &str) -> ExResult<StatementVal<I, F>>
+where
+    I: DataType + Signed + PrimInt,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    line_2_statement::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>(line_str)
 }
 
 pub fn line_2_statement<T, OF, LM>(line_str: &str) -> ExResult<Statement<T, OF, LM>>
@@ -142,8 +157,6 @@ where
     })
 }
 
-#[cfg(test)]
-use crate::{FloatOpsFactory, NumberMatcher};
 #[test]
 fn test_statements() {
     let s = "x = 123";

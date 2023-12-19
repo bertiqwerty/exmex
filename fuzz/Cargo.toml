@@ -39,3 +39,9 @@ name = "parse_val"
 path = "fuzz_targets/parse_val.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "statements"
+path = "fuzz_targets/statements.rs"
+test = false
+doc = false

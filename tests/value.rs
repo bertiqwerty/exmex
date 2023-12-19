@@ -313,3 +313,10 @@ fn test_serde() {
         .replace("/", "\\/");
     let _deser: Tmp = serde_json::from_str(&ser).unwrap();
 }
+
+#[cfg(feature = "value")]
+#[test]
+fn test_fuzz() {
+    let s = "ata---n-----0>>220>22--ata---n-----0>>220>22-------------tanh-------------------tanh--------6/π";
+    assert!(FlatExVal::<i64, f64>::parse(s).is_err());
+}
