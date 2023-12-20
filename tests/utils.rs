@@ -9,7 +9,10 @@ pub fn assert_float_eq<T: num::Float + std::fmt::Display>(
     println!("d   {}", (f1 - f2).abs());
     if (f1 - f2).abs() >= atol + rtol * f2.abs() {
         println!("Floats not almost equal. {}\nf1: {}\nf2: {}\n", msg, f1, f2);
-        unreachable!();
+        assert!(false);
+    } else if f1.is_nan() || f2.is_nan() {
+        println!("NaN detected. {}\nf1: {}\nf2: {}\n", msg, f1, f2);
+        assert!(false);
     }
 }
 

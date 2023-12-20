@@ -400,6 +400,9 @@ unary_name!(atan, Float);
 unary_name!(sinh, Float);
 unary_name!(cosh, Float);
 unary_name!(tanh, Float);
+unary_name!(asinh, Float);
+unary_name!(acosh, Float);
+unary_name!(atanh, Float);
 unary_name!(floor, Float);
 unary_name!(ceil, Float);
 unary_name!(trunc, Float);
@@ -710,6 +713,9 @@ where
             Operator::make_unary("sinh", sinh),
             Operator::make_unary("cosh", cosh),
             Operator::make_unary("tanh", tanh),
+            Operator::make_unary("asinh", asinh),
+            Operator::make_unary("acosh", acosh),
+            Operator::make_unary("atanh", atanh),
             Operator::make_unary("floor", floor),
             Operator::make_unary("ceil", ceil),
             Operator::make_unary("trunc", trunc),

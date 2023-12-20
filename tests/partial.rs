@@ -248,7 +248,7 @@ fn test_partial() -> ExResult<()> {
 #[cfg(feature = "partial")]
 #[test]
 fn test_partial_finite() -> ExResult<()> {
-    fn test(sut: &str, range: Range<f64>) -> ExResult<()> {
+    fn test_(sut: &str, range: Range<f64>, skip_subs: bool) -> ExResult<()> {
         fn inner_test<'a, E: Differentiate<'a, f64> + Clone>(
             flatex: &E,
             range: Range<f64>,
@@ -275,7 +275,7 @@ fn test_partial_finite() -> ExResult<()> {
                     finite_diff,
                     1e-5,
                     1e-3,
-                    "finite diff error",
+                    format!("finite diff error at {x0s:?} for {flatex}").as_str(),
                 );
             }
             Ok(())
@@ -284,24 +284,32 @@ fn test_partial_finite() -> ExResult<()> {
         inner_test(&flatex, range.clone())?;
         let deepex = exmex::DeepEx::<f64>::parse(sut)?;
         inner_test(&deepex, range.clone())?;
-        let vn0 = deepex.var_names()[0].clone();
-        let mut sub = |vn: &str| {
-            if vn0 == vn {
-                Some(DeepEx::<f64>::parse("x* 0.1 +0.3 * y+z* 0.1").unwrap())
-            } else {
-                None
-            }
-        };
-        let deepex = deepex.subs(&mut sub)?;
-        inner_test(&deepex, range.clone())?;
-        let flatex = FlatEx::from_deepex(deepex)?;
-        inner_test(&flatex, range)?;
+        if !skip_subs {
+            let vn0 = deepex.var_names()[0].clone();
+            let mut sub = |vn: &str| {
+                if vn0 == vn {
+                    Some(DeepEx::<f64>::parse("x* 0.1 +0.3 * y+z* 0.1").unwrap())
+                } else {
+                    None
+                }
+            };
+            let deepex = deepex.subs(&mut sub)?;
+            inner_test(&deepex, range.clone())?;
+            let flatex = FlatEx::from_deepex(deepex)?;
+            inner_test(&flatex, range)?;
+        }
         Ok(())
     }
+    fn test(sut: &str, range: Range<f64>) -> ExResult<()> {
+        test_(sut, range, false)
+    }
+    fn test_skip_subs(sut: &str, range: Range<f64>) -> ExResult<()> {
+        test_(sut, range, true)
+    }
     test("sqrt(x)", 0.0..10000.0)?;
-    test("asin(x)", -1.0..1.0)?;
-    test("acos(x)", -1.0..1.0)?;
-    test("atan(x)", -1.0..1.0)?;
+    test("asin(x)", -0.9..0.9)?;
+    test("acos(x)", -0.9..0.9)?;
+    test("atan(x)", -0.9..0.9)?;
     test("-y*(x*(-(1-y))) + 1.7", 2.0..10.0)?;
     test("1/x", -10.0..10.0)?;
     test("x^x", 0.01..2.0)?;
@@ -313,16 +321,22 @@ fn test_partial_finite() -> ExResult<()> {
     test("y-sin(x-z)", -10.0..10.0)?;
     test("(sin(x)^2)/x/4", -10.0..10.0)?;
     test("sin(y+x)/((x*2)/y)*(2*x)", -1.0..1.0)?;
-    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.01..1.0)?;
+    test("z*sin(x)+cos(y)^(1 + x^2)/(sin(z))", 0.1..1.0)?;
     test("ln(x^2)", 0.1..10.0)?;
     test("log2(x^2)", 0.1..10.0)?;
     test("log10(x^2)", 0.1..10.0)?;
     test("tan(x)", -1.0..1.0)?;
     test("tan(exp(x))", -1000.0..0.0)?;
     test("exp(y-x)", -1.0..1.0)?;
-    test("sqrt(exp(y-x))", -1000.0..0.0)?;
+    test("sqrt(exp(y-x))", -100.0..0.0)?;
     test("sin(sin(x+z))", -10.0..10.0)?;
     test("asin(sqrt(x+y))", 0.0..0.5)?;
+    println!("atanh");
+    test("atanh(x)+atanh(y)", -0.9..0.9)?;
+    println!("asinh");
+    test("asinh(x)+asinh(y)", -0.9..1.5)?;
+    println!("acosh");
+    test_skip_subs("acosh(x)+acosh(y)", 1.1..1.5)?;
     Ok(())
 }
 

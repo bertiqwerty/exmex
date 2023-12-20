@@ -707,6 +707,34 @@ where
                 one - f.without_latest_unary().tanh()?.pow(two)?
             }),
         },
+        PartialDerivative {
+            repr: "asinh",
+            bin_op: None,
+            unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
+                let one = DeepEx::one();
+                let two = DeepEx::from_num(T::from(2.0));
+                one.clone() / (one + f.without_latest_unary().pow(two)?)?.sqrt()?
+            }),
+        },
+        PartialDerivative {
+            repr: "acosh",
+            bin_op: None,
+            unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
+                let one = DeepEx::one();
+                one.clone()
+                    / ((f.clone().without_latest_unary() - one.clone())?.sqrt()?
+                        * (f.without_latest_unary() + one)?.sqrt()?)?
+            }),
+        },
+        PartialDerivative {
+            repr: "atanh",
+            bin_op: None,
+            unary_outer_op: Some(|f: DeepEx<T, OF, LM>| -> ExResult<DeepEx<T, OF, LM>> {
+                let one = DeepEx::one();
+                let two = DeepEx::from_num(T::from(2.0));
+                one.clone() / (one - f.without_latest_unary().pow(two)?)?
+            }),
+        },
     ]
 }
 

@@ -291,6 +291,10 @@ fn test_no_vars() -> ExResult<()> {
     test_bool("false || true", true)?;
     test_int("1&&2.0", 1)?;
     test_float("1||2.0", 2.0)?;
+    test_float(
+        "atanh(0.5)/asinh(-7.5)*acosh(2.3)",
+        0.5f64.atanh() / (-7.5f64).asinh() * 2.3f64.acosh(),
+    )?;
 
     Ok(())
 }
