@@ -11,30 +11,74 @@ use crate::{
 };
 use crate::{DataType, ExResult, Express};
 
-fn eval_expr<T, OF, LM>(expr: FlatEx<T, OF, LM>, statements: &Statements<T, OF, LM>) -> ExResult<T>
-where
-    T: DataType,
-    <T as FromStr>::Err: Debug,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-{
-    let mut deepex = expr.to_deepex()?;
-    let mut f = |v: &str| {
-        let idx = statements
-            .vars
-            .iter()
-            .enumerate()
-            .find(|(_, vs)| v == *vs)
-            .map(|(i, _)| i);
-        idx.and_then(|i| match &statements.expressions[i] {
-            Rhs::Expr(expr) => expr.clone().to_deepex().ok(),
-            Rhs::Val(v) => Some(DeepEx::from_num(v.clone())),
-        })
-    };
-    deepex = deepex.subs(&mut f)?;
-    deepex.eval(&[])
-}
+use self::detail::{ParsedLhs, ParsedStatement};
 
+mod detail {
+    use std::{fmt::Debug, str::FromStr};
+
+    use crate::{exerr, DataType, ExResult, Express, FlatEx, MakeOperators, MatchLiteral};
+
+    #[derive(Default, Debug)]
+    pub enum ParsedLhs<'a> {
+        Var(&'a str),
+        Fn(Vec<&'a str>),
+        #[default]
+        None,
+    }
+    pub struct ParsedStatement<'a, T, OF, LM>
+    where
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        pub expr: FlatEx<T, OF, LM>,
+        pub lhs: ParsedLhs<'a>,
+    }
+
+    //= ExResult<(Option<&'a str>, FlatEx<T, OF, LM>)>;
+
+    fn parse_func_str(fn_str: &str) -> Vec<&str> {
+        fn_str
+            .split(' ')
+            .map(|s| s.trim().trim_matches(','))
+            .collect()
+    }
+
+    pub fn parse<T, OF, LM>(s: &str) -> ExResult<ParsedStatement<T, OF, LM>>
+    where
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        let mut splitted = s.split('=');
+        let first = splitted.next();
+        let second = splitted.next();
+        Ok(match (first, second) {
+            (Some(s), None) => ParsedStatement {
+                lhs: ParsedLhs::None,
+                expr: FlatEx::parse(s)?,
+            },
+            (Some(s), Some(expr_str)) => {
+                let s = s.trim();
+                let expr = FlatEx::parse(expr_str)?;
+                if s.contains(' ') || s.contains('(') {
+                    ParsedStatement {
+                        lhs: ParsedLhs::Fn(parse_func_str(s)),
+                        expr,
+                    }
+                } else {
+                    ParsedStatement {
+                        lhs: ParsedLhs::Var(s),
+                        expr,
+                    }
+                }
+            }
+            _ => Err(exerr!("could not split {s}",))?,
+        })
+    }
+}
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Rhs<T, OF, LM>
@@ -57,7 +101,7 @@ where
     pub fn eval(self, statements: &Statements<T, OF, LM>) -> ExResult<T> {
         match self {
             Rhs::Val(v) => Ok(v.clone()),
-            Rhs::Expr(expr) => eval_expr(expr, statements),
+            Rhs::Expr(expr) => statements.eval(expr),
         }
     }
 }
@@ -84,20 +128,39 @@ where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
 {
-    pub fn insert(mut self, var: &str, rhs: Rhs<T, OF, LM>) -> ExResult<Self> {
-        let value = match rhs {
-            Rhs::Expr(expr) => eval_expr(expr, &self)?,
-            Rhs::Val(v) => v.clone(),
-        };
+    pub fn insert(mut self, var: &str, rhs: Rhs<T, OF, LM>) -> Self {
         let exists_idx = self.vars.iter().position(|v| v == var);
         if let Some(idx) = exists_idx {
             self.vars[idx] = var.to_string();
-            self.expressions[idx] = Rhs::Val(value);
+            self.expressions[idx] = rhs;
         } else {
             self.vars.push(var.to_string());
-            self.expressions.push(Rhs::Val(value));
+            self.expressions.push(rhs);
         }
-        Ok(self)
+        self
+    }
+    fn eval(&self, expr: FlatEx<T, OF, LM>) -> ExResult<T>
+    where
+        T: DataType,
+        <T as FromStr>::Err: Debug,
+        OF: MakeOperators<T>,
+        LM: MatchLiteral,
+    {
+        let mut deepex = expr.to_deepex()?;
+        let mut f = |v: &str| {
+            let idx = self
+                .vars
+                .iter()
+                .enumerate()
+                .find(|(_, vs)| v == *vs)
+                .map(|(i, _)| i);
+            idx.and_then(|i| match &self.expressions[i] {
+                Rhs::Expr(expr) => expr.clone().to_deepex().ok(),
+                Rhs::Val(v) => Some(DeepEx::from_num(v.clone())),
+            })
+        };
+        deepex = deepex.subs(&mut f)?;
+        deepex.eval(&[])
     }
 }
 
@@ -132,32 +195,19 @@ where
     OF: MakeOperators<T>,
     LM: MatchLiteral,
 {
-    let (var, expr) = parse(line_str)?;
+    let ParsedStatement { lhs: var, expr } = detail::parse(line_str)?;
     let rhs = if expr.var_names().is_empty() {
         Rhs::Val(expr.eval(&[])?)
     } else {
         Rhs::Expr(expr)
     };
-    Ok(Statement { var, rhs })
-}
-
-type ParsedStatement<'a, T, OF, LM> = ExResult<(Option<&'a str>, FlatEx<T, OF, LM>)>;
-
-fn parse<T, OF, LM>(s: &str) -> ParsedStatement<T, OF, LM>
-where
-    T: DataType,
-    <T as FromStr>::Err: Debug,
-    OF: MakeOperators<T>,
-    LM: MatchLiteral,
-{
-    let mut splitted = s.split('=');
-    let first = splitted.next();
-    let second = splitted.next();
-    Ok(match (first, second) {
-        (Some(s), None) => (None, FlatEx::parse(s)?),
-        (Some(var), Some(expr_str)) => (Some(var.trim()), FlatEx::parse(expr_str)?),
-        _ => Err(exerr!("could not split {s}",))?,
-    })
+    match var {
+        ParsedLhs::Var(var) => Ok(Statement {
+            var: Some(var),
+            rhs,
+        }),
+        _ => Err(exerr!("unsuported {:?}", var)),
+    }
 }
 
 #[test]
