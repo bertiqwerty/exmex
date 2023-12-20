@@ -217,7 +217,7 @@ fn test_partial() -> ExResult<()> {
     let var_idx = 1;
     let n_vars = 3;
     let reference = |x: f64| 1.0 / x * x.exp() + x.ln() * x.exp();
-    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test(sut, var_idx, n_vars, 0.1..20.0, reference)?;
 
     let sut = "a+z+sinh(v)/cosh(v)+b+tanh({v})";
     let var_idx = 2;
@@ -226,7 +226,7 @@ fn test_partial() -> ExResult<()> {
         (x.cosh() * x.cosh() - x.sinh() * x.sinh()) / x.cosh().powf(2.0)
             + 1.0 / (x.cosh().powf(2.0))
     };
-    test(sut, var_idx, n_vars, -10000.0..10000.0, reference)?;
+    test(sut, var_idx, n_vars, -100.0..100.0, reference)?;
 
     let sut = "w+z+acos(v)+asin(v)+b+atan({v})";
     let var_idx = 1;

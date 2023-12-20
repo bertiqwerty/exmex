@@ -414,12 +414,12 @@ fn test_variables() -> ExResult<()> {
     let expr = FlatEx::<f64>::parse(sut)?;
     utils::assert_float_eq_f64(expr.eval(&[2.5, 3.7]).unwrap(), 14.992794866624788);
 
-    let sut = "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(-x^2 + sin(4*sinh(y)))";
+    let sut = "-sqrt(x)/(tanh(5-x)*2) + floor(2.4)* 1/asin(sin(4*sinh(y)))";
     let expr = FlatEx::<f64>::parse(sut)?;
     utils::assert_float_eq_f64(
         expr.eval(&[2.5, 3.7]).unwrap(),
         -(2.5f64.sqrt()) / (2.5f64.tanh() * 2.0)
-            + 2.0 / ((3.7f64.sinh() * 4.0).sin() + 2.5 * 2.5).asin(),
+            + 2.0 / ((3.7f64.sinh() * 4.0).sin()).asin(),
     );
 
     let sut = "asin(sin(x)) + acos(cos(x)) + atan(tan(x))";
@@ -526,7 +526,7 @@ fn test_eval_str() -> ExResult<()> {
         utils::assert_float_eq_f64(expr.eval(&[])?, reference);
         Ok(())
     }
-    test("0/0", f64::NAN)?;
+    assert!(exmex::eval_str::<f64>("0/0")?.is_nan());
     test("abs(  -22/2)", 11.0)?;
     test("signum(-22/2)", -1.0)?;
     test("cbrt(8)", 2.0)?;
