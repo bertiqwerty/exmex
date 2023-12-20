@@ -1,3 +1,5 @@
+// This is work in progress.
+
 use std::fmt::Debug;
 use std::str::FromStr;
 #[cfg(feature = "value")]
@@ -35,8 +37,6 @@ mod detail {
         pub expr: FlatEx<T, OF, LM>,
         pub lhs: ParsedLhs<'a>,
     }
-
-    //= ExResult<(Option<&'a str>, FlatEx<T, OF, LM>)>;
 
     fn parse_func_str(fn_str: &str) -> Vec<&str> {
         fn_str
