@@ -11,6 +11,7 @@ use regex::Regex;
 use std::fs::{self, File};
 use std::io::{self, BufRead};
 use std::iter::repeat;
+use utils::assert_float_eq_f64;
 
 #[cfg(test)]
 use std::{
@@ -418,8 +419,7 @@ fn test_variables() -> ExResult<()> {
     let expr = FlatEx::<f64>::parse(sut)?;
     utils::assert_float_eq_f64(
         expr.eval(&[2.5, 3.7]).unwrap(),
-        -(2.5f64.sqrt()) / (2.5f64.tanh() * 2.0)
-            + 2.0 / ((3.7f64.sinh() * 4.0).sin()).asin(),
+        -(2.5f64.sqrt()) / (2.5f64.tanh() * 2.0) + 2.0 / ((3.7f64.sinh() * 4.0).sin()).asin(),
     );
 
     let sut = "asin(sin(x)) + acos(cos(x)) + atan(tan(x))";
@@ -971,5 +971,31 @@ fn test_string_ops() {
     assert_eq!(
         expr.eval(&["abc".to_string()]).unwrap(),
         "xyabcMINUS".to_string()
+    );
+}
+
+#[test]
+fn test_binary_function_style() {
+    use std::fmt::Debug;
+    fn test(s: &str, vars: &[f64], reference: f64) {
+        println!("testing {s}");
+        fn test_<'a, EX: Express<'a, f64> + Debug>(s: &'a str, vars: &[f64], reference: f64) {
+            let expr = EX::parse(s).unwrap();
+            println!("{expr:?}");
+            assert_float_eq_f64(expr.eval(vars).unwrap(), reference);
+        }
+        println!("flatex...");
+        test_::<FlatEx<f64>>(s, vars, reference);
+        println!("deepex...");
+        test_::<DeepEx<f64>>(s, vars, reference);
+    }
+    test("/ (1, -2)", &[], -0.5);
+    test("/ 1 2 * 3", &[], 1.5);
+    test("atan2(1, 2) * 3", &[], 1.0f64.atan2(2.0) * 3.0);
+    test("atan2(1, x / 2) * 3", &[1.0], 1.0f64.atan2(0.5) * 3.0);
+    test(
+        "atan2(0.2/y, x) * 3",
+        &[1.2, 2.1],
+        (0.2 / 2.1_f64).atan2(1.2_f64) * 3.0,
     );
 }

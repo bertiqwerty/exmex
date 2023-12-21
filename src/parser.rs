@@ -35,12 +35,12 @@ pub fn find_var_index(name: &str, parsed_vars: &[&str]) -> usize {
 /// Disambiguates operators based on predecessor token.
 pub fn is_operator_binary<'a, T: DataType>(
     op: &Operator<'a, T>,
-    parsed_token_on_the_left: &ParsedToken<'a, T>,
+    parsed_token_on_the_left: Option<&ParsedToken<'a, T>>,
 ) -> ExResult<bool> {
     if op.has_bin() && !op.has_unary() {
         match parsed_token_on_the_left {
-            ParsedToken::Op(op_) => Err(exerr!(
-                "a binary operator cannot be on the right another operator, {:?} next to {:?}",
+            Some(ParsedToken::Op(op_)) => Err(exerr!(
+                "a binary operator cannot be on the right of another operator, {:?} next to {:?}",
                 op,
                 op_
             )),
@@ -48,9 +48,10 @@ pub fn is_operator_binary<'a, T: DataType>(
         }
     } else if op.has_bin() && op.has_unary() {
         Ok(match parsed_token_on_the_left {
-            ParsedToken::Num(_) | ParsedToken::Var(_) => true,
-            ParsedToken::Paren(p) => *p == Paren::Close,
-            ParsedToken::Op(_) => false,
+            Some(ParsedToken::Num(_)) | Some(ParsedToken::Var(_)) => true,
+            Some(ParsedToken::Paren(p)) => *p == Paren::Close,
+            Some(ParsedToken::Op(_)) => false,
+            None => false,
         })
     } else {
         Ok(false)
@@ -158,12 +159,16 @@ where
         } else if i == cur_byte_offset && cur_byte_offset < text.len() {
             let text_rest = &text[cur_byte_offset..];
             let cur_byte_offset_tmp = cur_byte_offset;
-            let next_parsed_token = if c == '(' {
+            if c == '(' {
                 cur_byte_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Open)
+                res.push(ParsedToken::<T>::Paren(Paren::Open));
             } else if c == ')' {
                 cur_byte_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Close)
+                res.push(ParsedToken::<T>::Paren(Paren::Close));
+            } else if c == ',' {
+                cur_byte_offset += 1;
+                res.push(ParsedToken::<T>::Paren(Paren::Close));
+                res.push(ParsedToken::<T>::Paren(Paren::Open));
             } else if c == '{' {
                 let n_count = text_rest
                     .chars()
@@ -172,31 +177,30 @@ where
                     .sum();
                 let var_name = &text_rest[1..n_count];
                 cur_byte_offset += n_count + 1;
-                ParsedToken::<T>::Var(var_name)
+                res.push(ParsedToken::<T>::Var(var_name));
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Num(
+                res.push(ParsedToken::<T>::Num(
                     num_str
                         .parse::<T>()
                         .map_err(|e| exerr!("could not parse '{}', {:?}", num_str, e))?,
-                )
+                ));
             } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
-                match op.constant() {
+                res.push(match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op((*op).clone()),
-                }
+                });
             } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_bytes = var_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Var(var_str)
+                res.push(ParsedToken::<T>::Var(var_str));
             } else {
                 return Err(exerr!("don't know how to parse {}", text_rest));
-            };
-            res.push(next_parsed_token);
+            }
         }
     }
     Ok(res)
@@ -210,23 +214,8 @@ fn make_err<T: DataType>(msg: &str, left: &ParsedToken<T>, right: &ParsedToken<T
     Err(exerr!("{}, left: {:?}; right: {:?}", msg, left, right))
 }
 
-fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
+fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 8] {
     [
-        PairPreCondition {
-            apply: |left, right| {
-                let num_var_str =
-                    "a number/variable cannot be next to a number/variable, violated by ";
-                match (left, right) {
-                    (ParsedToken::Num(_), ParsedToken::Var(_))
-                    | (ParsedToken::Var(_), ParsedToken::Num(_))
-                    | (ParsedToken::Num(_), ParsedToken::Num(_))
-                    | (ParsedToken::Var(_), ParsedToken::Var(_)) => {
-                        make_err(num_var_str, left, right)
-                    }
-                    _ => Ok(()),
-                }
-            },
-        },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
@@ -451,10 +440,6 @@ fn test_preconditions() {
     test("12-(3-4)*2+ ((1/2)", "parentheses mismatch");
     test(r"5\6", r"don't know how to parse \");
     test(r"3.4.", r"don't know how to parse 3.4.");
-    test(
-        r"3. .4",
-        r"a number/variable cannot be next to a number/variable",
-    );
     test(
         r"2sin({x})",
         r"number/variable cannot be on the left of a unary operator",

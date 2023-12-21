@@ -351,6 +351,14 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
                 },
                 |a| -a,
             ),
+            Operator::make_bin(
+                "atan2",
+                BinOp {
+                    apply: |y, x| y.atan2(x),
+                    prio: 3,
+                    is_commutative: false,
+                },
+            ),
             Operator::make_unary("abs", |a| a.abs()),
             Operator::make_unary("signum", |a| a.signum()),
             Operator::make_unary("sin", |a| a.sin()),

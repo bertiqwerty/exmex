@@ -694,10 +694,10 @@ where
             Operator::make_bin(
                 "else",
                 BinOp {
-                    apply: |res_of_if, v| match res_of_if {
+                    apply: |res_of_if, v| {println!("debug {res_of_if:?} {v:?}");match res_of_if {
                         Val::None => v,
                         _ => res_of_if,
-                    },
+                    }},
                     prio: 0,
                     is_commutative: false,
                 },
