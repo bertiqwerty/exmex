@@ -120,10 +120,14 @@
 //! * Constant operators are handled as if they were numbers and are replaced by their numeric values during parsing.
 //! They can be used as in `sin(PI)` or `4 + E`. Note that the calling notation of constant operators such as `PI()` is invalid.
 //!
+//! All binary operators can be used either like `a op b` or like `op(a, b)`. Thereby, the latter will be interpreted as `((a) op (b))`. For instance
+//! `atan2(y * 2, 1 / x) * 2` and `((y * 2) atan2 (1 / x)) * 2` are equivalent. We do not support `n`-ary operators like `f(a, b, c)` for `n = 3`.
+//! 
 //! Binary, unary, and constant operators can be created with the functions [`make_bin`](Operator::make_bin), [`make_unary`](Operator::make_unary),
 //! and [`make_constant`](Operator::make_constant), respectively.
 //! Operators need to be created by factories to make serialization via [`serde`](https://serde.rs/) possible as
 //! shown in the following.
+//! 
 //! ```rust
 //! # use std::error::Error;
 //! # fn main() -> Result<(), Box<dyn Error>> {

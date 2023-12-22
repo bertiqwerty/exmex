@@ -222,7 +222,7 @@ where
                 // call syntax
                 cur_byte_offset += 1;
                 let op_idx = find_op_of_comma(&res).ok_or_else(|| {
-                    exerr!("need operator for comma, could be missing operator or paren mismatch",)
+                    exerr!("could not find operator for comma, could be operator with more than 2 args (not supported), missing operator, or paren mismatch",)
                 })?;
                 let op_at_comma = mem::replace(&mut res[op_idx], ParsedToken::Paren(Paren::Open));
                 close_additional_paren = true;
