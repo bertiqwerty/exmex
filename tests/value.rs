@@ -332,7 +332,7 @@ fn test_no_vars() -> ExResult<()> {
         "atanh(0.5)/asinh(-7.5)*acosh(2.3)",
         0.5f64.atanh() / (-7.5f64).asinh() * 2.3f64.acosh(),
     )?;
-
+    test_float("sin(atan2(1, 1.0 / 2.0))", (1.0f64.atan2(0.5)).sin())?;
     Ok(())
 }
 

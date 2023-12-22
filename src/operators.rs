@@ -355,7 +355,7 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
                 "atan2",
                 BinOp {
                     apply: |y, x| y.atan2(x),
-                    prio: 3,
+                    prio: 0,
                     is_commutative: false,
                 },
             ),

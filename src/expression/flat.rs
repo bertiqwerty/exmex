@@ -381,14 +381,14 @@ mod detail {
     where
         T: DataType,
     {
-        Ok(parser::is_operator_binary(
+        parser::is_operator_binary(
             op,
             if idx > 0 {
                 Some(&parsed_tokens[idx - 1])
             } else {
                 None
             },
-        )?)
+        )
     }
 
     type ExResultOption<T> = ExResult<Option<T>>;

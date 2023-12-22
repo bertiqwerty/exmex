@@ -981,7 +981,6 @@ fn test_binary_function_style() {
         println!("testing {s}");
         fn test_<'a, EX: Express<'a, f64> + Debug>(s: &'a str, vars: &[f64], reference: f64) {
             let expr = EX::parse(s).unwrap();
-            println!("{expr:?}");
             assert_float_eq_f64(expr.eval(vars).unwrap(), reference);
         }
         println!("flatex...");
@@ -989,13 +988,22 @@ fn test_binary_function_style() {
         println!("deepex...");
         test_::<DeepEx<f64>>(s, vars, reference);
     }
-    test("/ (1, -2)", &[], -0.5);
+    test(
+        "atan2(0.2/y, x)",
+        &[1.2, 2.1],
+        (0.2 / 2.1_f64).atan2(1.2_f64),
+    );
+    test("+ (1, -2) / 2", &[], -0.5);
     test("/ 1 2 * 3", &[], 1.5);
     test("atan2(1, 2) * 3", &[], 1.0f64.atan2(2.0) * 3.0);
-    test("atan2(1, x / 2) * 3", &[1.0], 1.0f64.atan2(0.5) * 3.0);
     test(
-        "atan2(0.2/y, x) * 3",
-        &[1.2, 2.1],
-        (0.2 / 2.1_f64).atan2(1.2_f64) * 3.0,
+        "2 + atan2(1, x / 2) * 3",
+        &[1.0],
+        2.0 + 1.0f64.atan2(0.5) * 3.0,
+    );
+    test(
+        "sin(atan2(1, x / 2)) * 3",
+        &[1.0],
+        (1.0f64.atan2(0.5)).sin() * 3.0,
     );
 }

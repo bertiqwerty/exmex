@@ -122,6 +122,12 @@ where
             )),
         }
     }
+    pub fn to_float_val(self) -> Self {
+        match self.to_float() {
+            Ok(f) => Val::Float(f),
+            Err(e) => Val::Error(e),
+        }
+    }
 }
 
 impl<I, F> From<f32> for Val<I, F>
@@ -340,12 +346,28 @@ where
     match (&a, &b) {
         (Val::Bool(a), Val::Bool(b)) => Val::Bool(*a || *b),
         _ => {
-            if a.clone() >= b.clone() {
+            if a >= b {
                 a
             } else {
                 b
             }
         }
+    }
+}
+fn atan2<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    <I as FromStr>::Err: Debug,
+    F: DataType + Float,
+    <F as FromStr>::Err: Debug,
+{
+    let a = a.to_float_val();
+    let b = b.to_float_val();
+    match (a, b) {
+        (Val::Float(a), Val::Float(b)) => Val::Float(a.atan2(b)),
+        (_, Val::Error(e)) => Val::Error(e),
+        (Val::Error(e), _) => Val::Error(e),
+        _ => Val::Error(exerr!("could not apply atan2 to",)),
     }
 }
 macro_rules! unary_match_name {
@@ -562,6 +584,14 @@ where
                 },
             ),
             Operator::make_bin(
+                "atan2",
+                BinOp {
+                    apply: atan2,
+                    prio: 0,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
                 "%",
                 BinOp {
                     apply: rem,
@@ -694,10 +724,13 @@ where
             Operator::make_bin(
                 "else",
                 BinOp {
-                    apply: |res_of_if, v| {println!("debug {res_of_if:?} {v:?}");match res_of_if {
-                        Val::None => v,
-                        _ => res_of_if,
-                    }},
+                    apply: |res_of_if, v| {
+                        println!("debug {res_of_if:?} {v:?}");
+                        match res_of_if {
+                            Val::None => v,
+                            _ => res_of_if,
+                        }
+                    },
                     prio: 0,
                     is_commutative: false,
                 },
