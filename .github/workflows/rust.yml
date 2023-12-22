@@ -9,36 +9,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Build without features
-      run: cargo build --verbose
-    - name: Build with serde, value, and partial
-      run: cargo build --verbose --all-features
-    - name: Build with serde
-      run: cargo build --verbose --features serde
-    - name: Build with value
-      run: cargo build --verbose --features value
-    - name: Build with partial
-      run: cargo build --verbose --features partial
-    - name: Build with serde and partial
-      run: cargo build --verbose --features "serde, partial"
-    - name: Build with value and serde
-      run: cargo build --verbose --features "value, serde"
-    - name: Build with partial and value
-      run: cargo build --verbose --features "partial, value"
+    - name: Build and test without features
+      run: |
+        cargo build --verbose
+        cargo test --verbose
+    - name: Build and test with serde, value, and partial
+      run: |
+        cargo build --verbose --all-features
+        cargo test --verbose --all-features
+    - name: Build and test with serde
+      run: |
+        cargo build --verbose --features serde
+        cargo test --verbose --features serde
+    - name: Build and test with value
+      run: |
+        cargo build --verbose --features value
+        cargo test --verbose --features value
+    - name: Build and test with partial
+      run: |
+        cargo build --verbose --features partial
+        cargo test --verbose --features partial
+    - name: Build and test with serde and partial
+      run: |
+        cargo build --verbose --features "serde, partial"
+        cargo test --verbose --features "serde, partial"
+    - name: Build and test with value and serde
+      run: |
+        cargo build --verbose --features "value, serde"
+        cargo test --verbose --features "value, serde"
+    - name: Build and test with partial and value
+      run: |
+        cargo build --verbose --features "partial, value"
+        cargo test --verbose --features "partial, value"
     - name: Clippy
       run: cargo clippy -- -D warnings
     - name: Clippy all features
       run: cargo clippy --all-features -- -D warnings
-    - name: Run tests with no features
-      run: cargo test --verbose
-    - name: Run tests with value
-      run: cargo test --verbose --features value
-    - name: Run tests with serde
-      run: cargo test --verbose --features serde
-    - name: Run tests with partial
-      run: cargo test --verbose --features partial
-    - name: Run tests
-      run: cargo test --verbose --all-features
   fuzz:
     runs-on: ubuntu-latest
     steps:
