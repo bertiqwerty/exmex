@@ -341,14 +341,17 @@ mod operators;
 mod data_type;
 mod parser;
 mod result;
+#[doc(hidden)]
 pub mod statements;
 mod util;
 
 #[cfg(feature = "partial")]
 pub use data_type::DiffDataType;
 
+#[doc(hidden)]
 #[cfg(feature = "value")]
 pub use statements::{line_2_statement_val, StatementsVal};
+#[doc(hidden)]
 pub use statements::{Statement, Statements};
 pub use {
     data_type::{DataType, NeutralElts},

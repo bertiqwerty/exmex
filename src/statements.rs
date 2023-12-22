@@ -1,4 +1,4 @@
-// This is work in progress.
+//! Work in progress
 
 use std::fmt::Debug;
 use std::str::FromStr;
@@ -99,6 +99,7 @@ where
     LM: MatchLiteral,
 {
     pub fn eval(self, statements: &Statements<T, OF, LM>) -> ExResult<T> {
+        println!("{self:?}");
         match self {
             Rhs::Val(v) => Ok(v.clone()),
             Rhs::Expr(expr) => statements.eval(expr),
@@ -206,15 +207,20 @@ where
             var: Some(var),
             rhs,
         }),
+        ParsedLhs::None => Ok(Statement { var: None, rhs }),
         _ => Err(exerr!("unsuported {:?}", var)),
     }
 }
 
+#[cfg(feature = "value")]
 #[test]
 fn test_statements() {
     let s = "x = 123";
-    let Statement { var, rhs } =
-        line_2_statement::<f32, FloatOpsFactory<f32>, NumberMatcher>(s).unwrap();
+    let Statement { var, rhs } = line_2_statement_val(s).unwrap();
     assert_eq!(var, Some("x"));
-    assert_eq!(rhs, Rhs::Val(123.0));
+    assert_eq!(rhs, Rhs::Val(Val::Float(123.0)));
+    let s = StatementsVal::<i32, f64>::default();
+    let s = s.insert(var.unwrap(), rhs);
+    let Statement { var: _, rhs } = line_2_statement_val("x").unwrap();
+    assert_eq!(rhs.eval(&s).unwrap(), Val::Float(123.0));
 }
