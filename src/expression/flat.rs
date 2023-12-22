@@ -381,7 +381,14 @@ mod detail {
     where
         T: DataType,
     {
-        Ok(idx > 0 && parser::is_operator_binary(op, &parsed_tokens[idx - 1])?)
+        parser::is_operator_binary(
+            op,
+            if idx > 0 {
+                Some(&parsed_tokens[idx - 1])
+            } else {
+                None
+            },
+        )
     }
 
     type ExResultOption<T> = ExResult<Option<T>>;
@@ -467,7 +474,7 @@ mod detail {
                         match p {
                             Paren::Close => {
                                 let err_msg =
-                                    "a unary operator cannot on the left of a closing paren";
+                                    "a unary operator cannot on the left of a closing paren or comma";
                                 return Err(ExError::new(err_msg));
                             }
                             Paren::Open => unary_stack.push((idx_tkn, depth)),
@@ -531,6 +538,15 @@ mod detail {
                     }
                 }
             }
+        }
+        let n_ops = flat_ops.len();
+        let n_nodes = flat_nodes.len();
+        if n_ops + 1 != n_nodes {
+            Err(exerr!(
+                "we have {} ops and {} node. we always need one more node than op.",
+                n_ops,
+                n_nodes
+            ))?
         }
         let indices = prioritized_indices_flat(&flat_ops, &flat_nodes);
         Ok(FlatEx {

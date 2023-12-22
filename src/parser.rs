@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
 use std::fmt::Debug;
+use std::mem;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Paren {
@@ -13,12 +14,26 @@ pub enum Paren {
     Close,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum ParsedToken<'a, T: DataType> {
     Num(T),
     Paren(Paren),
     Op(Operator<'a, T>),
     Var(&'a str),
+}
+impl<'a, T> Debug for ParsedToken<'a, T>
+where
+    T: DataType,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Num(x) => f.write_str(format!("{x:?}").as_str()),
+            Self::Op(op) => f.write_str(op.repr()),
+            Self::Paren(Paren::Open) => f.write_str("("),
+            Self::Paren(Paren::Close) => f.write_str(")"),
+            Self::Var(v) => f.write_str(v),
+        }
+    }
 }
 
 /// Returns the index of the variable in the slice. Panics if not available!
@@ -35,12 +50,12 @@ pub fn find_var_index(name: &str, parsed_vars: &[&str]) -> usize {
 /// Disambiguates operators based on predecessor token.
 pub fn is_operator_binary<'a, T: DataType>(
     op: &Operator<'a, T>,
-    parsed_token_on_the_left: &ParsedToken<'a, T>,
+    parsed_token_on_the_left: Option<&ParsedToken<'a, T>>,
 ) -> ExResult<bool> {
     if op.has_bin() && !op.has_unary() {
         match parsed_token_on_the_left {
-            ParsedToken::Op(op_) => Err(exerr!(
-                "a binary operator cannot be on the right another operator, {:?} next to {:?}",
+            Some(ParsedToken::Op(op_)) => Err(exerr!(
+                "a binary operator cannot be on the right of another operator, {:?} next to {:?}",
                 op,
                 op_
             )),
@@ -48,9 +63,10 @@ pub fn is_operator_binary<'a, T: DataType>(
         }
     } else if op.has_bin() && op.has_unary() {
         Ok(match parsed_token_on_the_left {
-            ParsedToken::Num(_) | ParsedToken::Var(_) => true,
-            ParsedToken::Paren(p) => *p == Paren::Close,
-            ParsedToken::Op(_) => false,
+            Some(ParsedToken::Num(_)) | Some(ParsedToken::Var(_)) => true,
+            Some(ParsedToken::Paren(p)) => *p == Paren::Close,
+            Some(ParsedToken::Op(_)) => false,
+            None => false,
         })
     } else {
         Ok(false)
@@ -97,6 +113,33 @@ fn next_char_boundary(text: &str, start_idx: usize) -> usize {
     (1..text.len())
         .find(|idx| text.is_char_boundary(start_idx + idx))
         .expect("there has to be a char boundary somewhere")
+}
+
+fn find_op_of_comma<T>(parsed_tokens: &[ParsedToken<T>]) -> Option<usize>
+where
+    T: DataType,
+{
+    let paren_counter = parsed_tokens.iter().rev().scan(0, |state, pt| {
+        *state += match pt {
+            ParsedToken::Paren(Paren::Close) => -1,
+            ParsedToken::Paren(Paren::Open) => 1,
+            _ => 0,
+        };
+        Some(*state)
+    });
+
+    let rev_idx = parsed_tokens
+        .iter()
+        .rev()
+        .zip(paren_counter)
+        .enumerate()
+        .find(|(_, (pt, paren_cnt))| {
+            matches!(pt, 
+            ParsedToken::Op(_) if *paren_cnt == 1)
+        })
+        .map(|(i, _)| i);
+
+    rev_idx.map(|ridx| parsed_tokens.len() - 1 - ridx)
 }
 
 /// Parses tokens of a text with regexes and returns them as a vector
@@ -152,18 +195,41 @@ where
     };
     let mut res: SmallVec<[_; N_NODES_ON_STACK]> = SmallVec::new();
     let mut cur_byte_offset = 0usize;
+    let mut close_additional_paren = false;
+    let mut open_paren_count = 0;
     for (i, c) in text.char_indices() {
         if c == ' ' && i == cur_byte_offset {
             cur_byte_offset += 1;
         } else if i == cur_byte_offset && cur_byte_offset < text.len() {
             let text_rest = &text[cur_byte_offset..];
             let cur_byte_offset_tmp = cur_byte_offset;
-            let next_parsed_token = if c == '(' {
+            if c == '(' {
                 cur_byte_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Open)
+                res.push(ParsedToken::<T>::Paren(Paren::Open));
+                open_paren_count += 1;
             } else if c == ')' {
                 cur_byte_offset += 1;
-                ParsedToken::<T>::Paren(Paren::Close)
+                open_paren_count -= 1;
+                res.push(ParsedToken::<T>::Paren(Paren::Close));
+                if close_additional_paren && open_paren_count == 0 {
+                    res.push(ParsedToken::Paren(Paren::Close));
+                    close_additional_paren = false;
+                }
+            } else if c == ',' {
+                // this is for binary operators with function call syntax.
+                // we simply replace op(a,b) by ((a)op(b)) where the outer parens
+                // are added to increase the priority as expected from the function
+                // call syntax
+                cur_byte_offset += 1;
+                let op_idx = find_op_of_comma(&res).ok_or_else(|| {
+                    exerr!("need operator for comma, could be missing operator or paren mismatch",)
+                })?;
+                let op_at_comma = mem::replace(&mut res[op_idx], ParsedToken::Paren(Paren::Open));
+                close_additional_paren = true;
+                open_paren_count = 1;
+                res.push(ParsedToken::Paren(Paren::Close));
+                res.push(op_at_comma);
+                res.push(ParsedToken::Paren(Paren::Open));
             } else if c == '{' {
                 let n_count = text_rest
                     .chars()
@@ -172,31 +238,42 @@ where
                     .sum();
                 let var_name = &text_rest[1..n_count];
                 cur_byte_offset += n_count + 1;
-                ParsedToken::<T>::Var(var_name)
+                res.push(ParsedToken::Var(var_name));
+                if close_additional_paren && open_paren_count == 0 {
+                    res.push(ParsedToken::Paren(Paren::Close));
+                    close_additional_paren = false;
+                }
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Num(
+                res.push(ParsedToken::<T>::Num(
                     num_str
                         .parse::<T>()
                         .map_err(|e| exerr!("could not parse '{}', {:?}", num_str, e))?,
-                )
+                ));
+                if close_additional_paren && open_paren_count == 0 {
+                    res.push(ParsedToken::Paren(Paren::Close));
+                    close_additional_paren = false;
+                }
             } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
-                match op.constant() {
+                res.push(match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
                     None => ParsedToken::<T>::Op((*op).clone()),
-                }
+                });
             } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
                 let n_bytes = var_str.len();
                 cur_byte_offset += n_bytes;
-                ParsedToken::<T>::Var(var_str)
+                res.push(ParsedToken::<T>::Var(var_str));
+                if close_additional_paren && open_paren_count == 0 {
+                    res.push(ParsedToken::Paren(Paren::Close));
+                    close_additional_paren = false;
+                }
             } else {
                 return Err(exerr!("don't know how to parse {}", text_rest));
-            };
-            res.push(next_parsed_token);
+            }
         }
     }
     Ok(res)
@@ -210,23 +287,8 @@ fn make_err<T: DataType>(msg: &str, left: &ParsedToken<T>, right: &ParsedToken<T
     Err(exerr!("{}, left: {:?}; right: {:?}", msg, left, right))
 }
 
-fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
+fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
     [
-        PairPreCondition {
-            apply: |left, right| {
-                let num_var_str =
-                    "a number/variable cannot be next to a number/variable, violated by ";
-                match (left, right) {
-                    (ParsedToken::Num(_), ParsedToken::Var(_))
-                    | (ParsedToken::Var(_), ParsedToken::Num(_))
-                    | (ParsedToken::Num(_), ParsedToken::Num(_))
-                    | (ParsedToken::Var(_), ParsedToken::Var(_)) => {
-                        make_err(num_var_str, left, right)
-                    }
-                    _ => Ok(()),
-                }
-            },
-        },
         PairPreCondition {
             apply: |left, right| match (left, right) {
                 (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Num(_))
@@ -291,18 +353,6 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 9] {
                 match (left, right) {
                     (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op)) if !op.has_bin() => {
                         Err(exerr!("a unary operator cannot be on the right of a closing paren, violated by '{}'", 
-                            op.repr()))
-                    }
-                    _ => Ok(()),
-                }
-            },
-        },
-        PairPreCondition {
-            apply: |left, right| {
-                match (left, right) {
-                    (ParsedToken::Paren(_p @ Paren::Open), ParsedToken::Op(op)) if !op.has_unary() => {
-                        Err(exerr!(
-                            "a binary operator cannot be on the right of an opening paren, violated by '{}'", 
                             op.repr()))
                     }
                     _ => Ok(()),
@@ -452,11 +502,38 @@ fn test_preconditions() {
     test(r"5\6", r"don't know how to parse \");
     test(r"3.4.", r"don't know how to parse 3.4.");
     test(
-        r"3. .4",
-        r"a number/variable cannot be next to a number/variable",
-    );
-    test(
         r"2sin({x})",
         r"number/variable cannot be on the left of a unary operator",
     );
+}
+
+#[test]
+fn test_find_comma_op() {
+    let pts = [
+        ParsedToken::Paren(Paren::Close),
+        ParsedToken::Paren(Paren::Close),
+        ParsedToken::Op(Operator::make_bin(
+            "atan2",
+            crate::BinOp {
+                apply: |y: f64, x: f64| y.atan2(x),
+                prio: 1,
+                is_commutative: false,
+            },
+        )),
+        ParsedToken::Paren(Paren::Open),
+    ];
+    assert_eq!(Some(2), find_op_of_comma(&pts));
+    let pts = [
+        ParsedToken::Paren(Paren::Close),
+        ParsedToken::Op(Operator::make_bin(
+            "atan2",
+            crate::BinOp {
+                apply: |y: f64, x: f64| y.atan2(x),
+                prio: 1,
+                is_commutative: false,
+            },
+        )),
+        ParsedToken::Paren(Paren::Open),
+    ];
+    assert_eq!(Some(1), find_op_of_comma(&pts));
 }

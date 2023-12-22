@@ -150,52 +150,89 @@ fn test_to() -> ExResult<()> {
     Ok(())
 }
 #[cfg(feature = "value")]
+#[cfg(test)]
+use exmex::{DeepEx, ValMatcher, ValOpsFactory};
+#[cfg(feature = "value")]
+#[cfg(test)]
+type Fx = FlatExVal<i32, f64>;
+#[cfg(feature = "value")]
+#[cfg(test)]
+type Dx<'a> = DeepEx<'a, Val<i32, f64>, ValOpsFactory<i32, f64>, ValMatcher>;
+#[cfg(feature = "value")]
 #[test]
 fn test_no_vars() -> ExResult<()> {
     fn test_int(s: &str, reference: i32) -> ExResult<()> {
-        println!("=== testing\n{}", s);
-        let res = exmex::parse_val::<i32, f64>(s)?.eval(&[])?.to_int();
-        match res {
-            Ok(i) => {
-                assert_eq!(reference, i);
+        fn test_<'a, EX>(s: &'a str, reference: i32) -> ExResult<()>
+        where
+            EX: Express<'a, Val<i32, f64>>,
+        {
+            println!("=== testing\n{}", s);
+            let res = exmex::parse_val::<i32, f64>(s)?.eval(&[])?.to_int();
+            match res {
+                Ok(i) => {
+                    assert_eq!(reference, i);
+                }
+                Err(e) => {
+                    println!("{:?}", e);
+                    unreachable!();
+                }
             }
-            Err(e) => {
-                println!("{:?}", e);
-                unreachable!();
-            }
+            Ok(())
         }
-        Ok(())
+        test_::<Fx>(s, reference)?;
+        test_::<Dx>(s, reference)
     }
     fn test_float(s: &str, reference: f64) -> ExResult<()> {
-        println!("=== testing\n{}", s);
-        let expr = FlatExVal::<i32, f64>::parse(s)?;
-        utils::assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
-        Ok(())
+        fn test_<'a, EX>(s: &'a str, reference: f64) -> ExResult<()>
+        where
+            EX: Express<'a, Val<i32, f64>>,
+        {
+            println!("=== testing\n{}", s);
+            let expr = FlatExVal::<i32, f64>::parse(s)?;
+            utils::assert_float_eq_f64(reference, expr.eval(&[])?.to_float()?);
+            Ok(())
+        }
+        test_::<Fx>(s, reference)?;
+        test_::<Dx>(s, reference)
     }
     fn test_bool(s: &str, reference: bool) -> ExResult<()> {
         println!("=== testing\n{}", s);
-        let expr = FlatExVal::<i32, f64>::parse(s)?;
-        assert_eq!(reference, expr.eval(&[])?.to_bool()?);
-        Ok(())
+        fn test_<'a, EX>(s: &'a str, reference: bool) -> ExResult<()>
+        where
+            EX: Express<'a, Val<i32, f64>>,
+        {
+            let expr = EX::parse(s)?;
+            assert_eq!(reference, expr.eval(&[])?.to_bool()?);
+            Ok(())
+        }
+        test_::<Fx>(s, reference)?;
+        test_::<Dx>(s, reference)
     }
     fn test_error(s: &str) -> ExResult<()> {
-        let expr = FlatExVal::<i32, f64>::parse(s);
-        match expr {
-            Ok(exp) => {
-                let v = exp.eval(&[])?;
-                match v {
-                    Val::Error(e) => {
-                        println!("found expected error {:?}", e);
-                        Ok(())
+        fn test_<'a, EX>(s: &'a str) -> ExResult<()>
+        where
+            EX: Express<'a, Val<i32, f64>>,
+        {
+            let expr = EX::parse(s);
+            match expr {
+                Ok(exp) => {
+                    let v = exp.eval(&[])?;
+                    match v {
+                        Val::Error(e) => {
+                            println!("found expected error {:?}", e);
+                            Ok(())
+                        }
+                        _ => Err(exerr!("'{}' should fail but didn't", s)),
                     }
-                    _ => Err(exerr!("'{}' should fail but didn't", s)),
+                }
+                Err(e) => {
+                    println!("found expected error {:?}", e);
+                    Ok(())
                 }
             }
-            Err(e) => {
-                println!("found expected error {:?}", e);
-                Ok(())
-            }
         }
+        test_::<Fx>(&s)?;
+        test_::<Dx>(&s)
     }
     fn test_none(s: &str) -> ExResult<()> {
         let expr = FlatExVal::<i32, f64>::parse(s)?;
@@ -204,6 +241,7 @@ fn test_no_vars() -> ExResult<()> {
             _ => Err(exerr!("'{}' should return none but didn't", s)),
         }
     }
+    test_error("if true else 2")?;
     test_int("1+2 if 1 > 0 else 2+4", 3)?;
     test_int("1+2 if 1 < 0 else 2+4", 6)?;
     test_error("929<<92")?;
@@ -267,7 +305,6 @@ fn test_no_vars() -> ExResult<()> {
     test_bool("true == 1", false)?;
     test_bool("true else 2", true)?;
     test_int("1 else 2", 1)?;
-    test_error("if true else 2")?;
     test_none("2 if false")?;
     test_int("to_int(1)", 1)?;
     test_int("to_int(3.5)", 3)?;
@@ -295,7 +332,7 @@ fn test_no_vars() -> ExResult<()> {
         "atanh(0.5)/asinh(-7.5)*acosh(2.3)",
         0.5f64.atanh() / (-7.5f64).asinh() * 2.3f64.acosh(),
     )?;
-
+    test_float("sin(atan2(1, 1.0 / 2.0))", (1.0f64.atan2(0.5)).sin())?;
     Ok(())
 }
 
