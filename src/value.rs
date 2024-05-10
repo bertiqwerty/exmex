@@ -72,7 +72,7 @@ pub type ArrayType<F> = SmallVec<[F; 11]>;
 /// ```
 ///
 #[derive(Clone, Debug, Default)]
-pub enum Val<I = i32, F = f64, const N: usize = 3>
+pub enum Val<I = i32, F = f64>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
