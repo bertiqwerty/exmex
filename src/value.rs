@@ -186,10 +186,8 @@ where
 {
     type Err = ExError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        println!(" HALLO ");
         Ok(if s.contains('[') {
             let s = s.trim_start_matches('[').trim_end_matches(']');
-            println!(" {s:?} ");
             Val::Array(
                 s.split(',')
                     .map(|xi| try_parse(xi.trim()))
