@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 /// This will be thrown at you if the somehting within Exmex went wrong. Ok, obviously it is not an
@@ -40,7 +40,17 @@ pub type ExResult<U> = Result<U, ExError>;
 /// ```
 #[macro_export]
 macro_rules! exerr {
+    ($s:literal) => {
+        $crate::ExError::new(format!($s).as_str())
+    };
     ($s:literal, $( $exps:expr ),*) => {
         $crate::ExError::new(format!($s, $($exps,)*).as_str())
     }
+}
+pub fn to_ex<E: Debug>(e: E) -> ExError {
+    exerr!(
+        "original error type is '{:?}', error message is '{:?}'",
+        std::any::type_name::<E>(),
+        e
+    )
 }

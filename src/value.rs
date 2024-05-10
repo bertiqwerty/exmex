@@ -1,11 +1,14 @@
 use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 
 use num::{Float, PrimInt, Signed};
+use smallvec::{smallvec, SmallVec};
 
 use crate::{
-    data_type::DataType, exerr, expression::MatchLiteral, literal_matcher_from_pattern, BinOp,
-    ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
+    data_type::DataType, exerr, expression::MatchLiteral, literal_matcher_from_pattern,
+    result::to_ex, BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
+
+pub type ArrayType<F> = SmallVec<[F; 11]>;
 
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
@@ -69,11 +72,12 @@ use crate::{
 /// ```
 ///
 #[derive(Clone, Debug, Default)]
-pub enum Val<I = i32, F = f64>
+pub enum Val<I = i32, F = f64, const N: usize = 3>
 where
     I: DataType + PrimInt + Signed,
     F: DataType + Float,
 {
+    Array(ArrayType<F>),
     Int(I),
     Float(F),
     Bool(bool),
@@ -95,6 +99,10 @@ where
             Self::Int(n) => Ok(n != I::from(0).unwrap()),
             Self::Float(x) => Ok(x != F::from(0.0).unwrap()),
             Self::Error(e) => Err(e),
+            Self::Array(a) => Err(exerr!(
+                "array is not a scalar and hence not a bool, {:?}",
+                a
+            )),
             Self::None => Err(ExError::new(
                 "`Val` of `Val::None` cannot be converted to float",
             )),
@@ -103,9 +111,10 @@ where
     pub fn to_float(self) -> ExResult<F> {
         match self {
             Self::Bool(b) => Ok(F::from(if b { 1.0 } else { 0.0 }).unwrap()),
-            Self::Int(n) => F::from(n).ok_or_else(|| exerr!("cannot convert {:?} to float", n)),
+            Self::Int(n) => F::from(n).ok_or_else(|| exerr!("cannot convert {n:?} to float")),
             Self::Float(x) => Ok(x),
             Self::Error(e) => Err(e),
+            Self::Array(a) => Err(exerr!("array is not a scalar and hence not a float, {a:?}")),
             Self::None => Err(ExError::new(
                 "`Val` of `Val::None` cannot be converted to float",
             )),
@@ -114,9 +123,10 @@ where
     pub fn to_int(self) -> ExResult<I> {
         match self {
             Self::Bool(b) => Ok(I::from(if b { 1 } else { 0 }).unwrap()),
-            Self::Float(x) => I::from(x).ok_or_else(|| exerr!("cannot convert {:?} to int", x)),
+            Self::Float(x) => I::from(x).ok_or_else(|| exerr!("cannot convert {x:?} to int")),
             Self::Int(n) => Ok(n),
             Self::Error(e) => Err(e),
+            Self::Array(a) => Err(exerr!("array is not a scalar and hence not a int, {a:?}")),
             Self::None => Err(ExError::new(
                 "`Val` of `Val::None` cannot be converted to float",
             )),
@@ -126,6 +136,12 @@ where
         match self.to_float() {
             Ok(f) => Val::Float(f),
             Err(e) => Val::Error(e),
+        }
+    }
+    pub fn to_array(self) -> ExResult<ArrayType<F>> {
+        match self {
+            Self::Array(a) => Ok(a),
+            _ => Err(exerr!("cannot convert {self:?} to array")),
         }
     }
 }
@@ -150,8 +166,15 @@ where
     }
 }
 
-fn map_parse_err<E: Debug>(e: E) -> ExError {
-    exerr!("{:?}", e)
+fn try_parse<F>(s: &str) -> ExResult<F>
+where
+    F: DataType + Float,
+    <F as FromStr>::Err: Debug,
+{
+    match s.parse::<F>() {
+        Ok(f) => Ok(f),
+        Err(e) => Err(exerr!("could not parse '{s:?}' as float due to {e:?}")),
+    }
 }
 
 impl<I, F> FromStr for Val<I, F>
@@ -162,19 +185,23 @@ where
     <F as FromStr>::Err: Debug,
 {
     type Err = ExError;
-
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let res = Ok(if s.contains('.') {
-            Val::Float(s.parse::<F>().map_err(map_parse_err)?)
+        println!(" HALLO ");
+        Ok(if s.contains('[') {
+            let s = s.trim_start_matches('[').trim_end_matches(']');
+            println!(" {s:?} ");
+            Val::Array(
+                s.split(',')
+                    .map(|xi| try_parse(xi.trim()))
+                    .collect::<ExResult<ArrayType<F>>>()?,
+            )
+        } else if s.contains('.') {
+            Val::Float(s.parse::<F>().map_err(to_ex)?)
         } else if s == "false" || s == "true" {
-            Val::Bool(s.parse::<bool>().map_err(map_parse_err)?)
+            Val::Bool(s.parse::<bool>().map_err(to_ex)?)
         } else {
-            Val::Int(s.parse::<I>().map_err(map_parse_err)?)
-        });
-        match res {
-            Result::Ok(_) => res,
-            Result::Err(e) => Err(exerr!("could not parse {}, {:?}", s, e)),
-        }
+            Val::Int(s.parse::<I>().map_err(to_ex)?)
+        })
     }
 }
 
@@ -245,6 +272,12 @@ macro_rules! base_arith {
         {
             match (a, b) {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
+                (Val::Array(x), Val::Array(y)) => Val::Array(
+                    x.iter()
+                        .zip(y.iter())
+                        .map(|(xi, yi)| xi.$name(*yi))
+                        .collect(),
+                ),
                 (Val::Int(x), Val::Int(y)) => match x.$intname(&y) {
                     Some(res) => Val::Int(res),
                     None => Val::Error(exerr!(
@@ -470,7 +503,11 @@ unary_op!(
 unary_op!(
     minus,
     (|a: I| Val::Int(-a), Int),
-    (|a: F| Val::Float(-a), Float)
+    (|a: F| Val::Float(-a), Float),
+    (
+        |a: ArrayType<F>| Val::Array(a.iter().map(|ai| -(*ai)).collect()),
+        Array
+    )
 );
 
 macro_rules! cast {
@@ -494,6 +531,70 @@ macro_rules! cast {
 
 cast!(cast_to_float, Float, Int, F);
 cast!(cast_to_int, Int, Float, I);
+
+fn dot<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    match (a, b) {
+        (Val::Array(a), Val::Array(b)) => {
+            if a.len() != b.len() {
+                return Val::Error(exerr!(
+                    "cannot compute dot product of arrays of different lengths"
+                ));
+            }
+            Val::Float(
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(ai, bi)| *ai * *bi)
+                    .fold(F::zero(), |acc, x| acc + x),
+            )
+        }
+        (Val::Error(e), _) => Val::Error(e),
+        (_, Val::Error(e)) => Val::Error(e),
+        _ => Val::Error(exerr!("cannot compute dot product")),
+    }
+}
+
+fn length<I, F>(a: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    match dot(a.clone(), a) {
+        Val::Float(x) => Val::Float(x.sqrt()),
+        Val::Error(e) => Val::Error(e),
+        _ => Val::Error(exerr!(
+            "cannot compute length, result of dot should be float"
+        )),
+    }
+}
+
+fn cross<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    match (a, b) {
+        (Val::Array(a), Val::Array(b)) => {
+            if a.len() != 3 || b.len() != 3 {
+                return Val::Error(exerr!(
+                    "cannot compute cross product of arrays of different lengths"
+                ));
+            }
+            let x = smallvec![
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]
+            ];
+            Val::Array(x)
+        }
+        (Val::Error(e), _) => Val::Error(e),
+        (_, Val::Error(e)) => Val::Error(e),
+        _ => Val::Error(exerr!("cannot compute cross product")),
+    }
+}
 
 /// *`feature = "value"`* - Factory of default operators for the data type [`Val`](Val).
 ///
@@ -561,6 +662,22 @@ where
                     is_commutative: false,
                 },
                 minus,
+            ),
+            Operator::make_bin(
+                "cross",
+                BinOp {
+                    apply: cross,
+                    prio: 4,
+                    is_commutative: true,
+                },
+            ),
+            Operator::make_bin(
+                "dot",
+                BinOp {
+                    apply: dot,
+                    prio: 4,
+                    is_commutative: true,
+                },
             ),
             Operator::make_bin(
                 "*",
@@ -767,6 +884,7 @@ where
             Operator::make_unary("fact", fact),
             Operator::make_unary("to_int", cast_to_int),
             Operator::make_unary("to_float", cast_to_float),
+            Operator::make_unary("length", length),
             Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
             Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),

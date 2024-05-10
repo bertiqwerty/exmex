@@ -337,6 +337,65 @@ fn test_no_vars() -> ExResult<()> {
 }
 
 #[cfg(feature = "value")]
+#[test]
+fn test() {
+    use smallvec::smallvec;
+
+    fn assert_arr(arr: Val<i32, f64>, reference: &[f64]) {
+        let arr = arr.to_array().unwrap();
+        for (a, b) in arr.iter().zip(reference.iter()) {
+            utils::assert_float_eq_f64(*b, *a);
+        }
+    }
+    let s = "-[1.0, 2.0, 3.0]";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [-1.0, -2.0, -3.0];
+    assert_arr(x, &reference);
+
+    let a = Val::Array(smallvec![-1.0, -2.0, -3.0]);
+    let s = "a - a";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a]).unwrap();
+    let reference = [0.0, 0.0, 0.0];
+    assert_arr(x, &reference);
+
+    let a1 = Val::Array(smallvec![0.0, 0.0, -3.0]);
+    let a2 = Val::Array(smallvec![0.0, 3.0, 0.0]);
+    let s = "dot(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), 0.0);
+
+    let a = Val::Array(smallvec![4.0, -3.0]);
+    let s = "length(a)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), 5.0);
+
+    let a1 = Val::Array(smallvec![0.0, 0.0, 1.0]);
+    let a2 = Val::Array(smallvec![0.0, 1.0, 0.0]);
+    let s = "cross(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    let reference = [-1.0, 0.0, 0.0];
+    assert_arr(x, &reference);
+
+    let a1 = Val::Array(smallvec![0.0, 1.0, 0.0]);
+    let a2 = Val::Array(smallvec![0.0, 0.0, 1.0]);
+    let s = "cross(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    let reference = [1.0, 0.0, 0.0];
+    assert_arr(x, &reference);
+
+    let s = "length(-[1.0, 2.0, -3.0])";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), (14.0f64).sqrt());
+}
+
+#[cfg(feature = "value")]
 #[cfg(feature = "serde")]
 #[test]
 fn test_serde() {

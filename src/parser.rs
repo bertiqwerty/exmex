@@ -1,6 +1,7 @@
 use crate::data_type::DataType;
 use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::exerr;
+use crate::result::to_ex;
 use crate::{operators::Operator, ExError, ExResult};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -246,11 +247,7 @@ where
             } else if let Some(num_str) = is_numeric(text_rest) {
                 let n_bytes = num_str.len();
                 cur_byte_offset += n_bytes;
-                res.push(ParsedToken::<T>::Num(
-                    num_str
-                        .parse::<T>()
-                        .map_err(|e| exerr!("could not parse '{}', {:?}", num_str, e))?,
-                ));
+                res.push(ParsedToken::<T>::Num(num_str.parse::<T>().map_err(to_ex)?));
                 if close_additional_paren && open_paren_count == 0 {
                     res.push(ParsedToken::Paren(Paren::Close));
                     close_additional_paren = false;
