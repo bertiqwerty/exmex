@@ -313,6 +313,7 @@ macro_rules! base_arith {
                         .map(|(xi, yi)| xi.$name(*yi))
                         .collect(),
                 ),
+                #[allow(clippy::redundant_closure_call)]
                 (Val::Int(x), Val::Int(y)) => match $wrapint(x.$intname($accessint(&y))) {
                     Some(res) => Val::Int(res),
                     None => Val::Error(exerr!(
