@@ -1348,7 +1348,7 @@ fn test_deep_compile() {
     };
     let unary_op = UnaryOpWithReprs {
         reprs: smallvec::smallvec![ops[6].repr()],
-        op: UnaryOp::from_vec(smallvec::smallvec![ops[6].unary().unwrap()]),
+        op: UnaryOp::from_vec(smallvec::smallvec![ops[8].unary().unwrap()]),
     };
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
 
@@ -1358,7 +1358,7 @@ fn test_deep_compile() {
     };
     let unary_op = UnaryOpWithReprs {
         reprs: smallvec::smallvec![ops[6].repr()],
-        op: UnaryOp::from_vec(smallvec::smallvec![ops[6].unary().unwrap()]),
+        op: UnaryOp::from_vec(smallvec::smallvec![ops[8].unary().unwrap()]),
     };
     let nodes = vec![
         DeepNode::Num(4.5),

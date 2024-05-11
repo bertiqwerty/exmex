@@ -71,7 +71,7 @@ pub type ArrayType<F> = SmallVec<[F; 11]>;
 /// # }
 /// ```
 ///
-/// An example with vectors is shown in the following
+/// An example with vectors is shown in the following.
 ///
 /// ```rust
 /// # use std::error::Error;
@@ -85,13 +85,13 @@ pub type ArrayType<F> = SmallVec<[F; 11]>;
 /// let expr = exmex::parse_val::<i32, f64>("dot(v, [1, 0, 0])")?;
 /// let v = Val::Array(smallvec![3.0, 4.0, 2.0]);
 /// let res = expr.eval(&[v])?;
-/// assert!(res.to_float().unwrap() == 3.0);
+/// assert!(res.to_float()? == 3.0);
 ///
 /// // The following example shows how to get the second component of a vector
 /// let expr = exmex::parse_val::<i32, f64>("(v + [1, 0, 0]).2")?;
 /// let v = Val::Array(smallvec![3.0, 4.0, 2.0]);
 /// let res = expr.eval(&[v])?;
-/// assert!(res.to_float().unwrap() == 2.0);
+/// assert!(res.to_float()? == 2.0);
 /// #
 /// #     Ok(())
 /// # }
