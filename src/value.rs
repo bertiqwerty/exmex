@@ -8,7 +8,7 @@ use crate::{
     result::to_ex, BinOp, ExError, ExResult, Express, FlatEx, MakeOperators, Operator,
 };
 
-pub type ArrayType<F> = SmallVec<[F; 11]>;
+pub type ArrayType<F> = SmallVec<[F; 4]>;
 
 /// *`feature = "value"`* -
 /// The value type [`Val`](Val) can contain an integer, float, bool, a vector of floats, none, or error.
