@@ -576,6 +576,7 @@ fn test_custom_data() {
     FlatEx::<Arr, ArrOpsFactory, ArrMatcher>::parse("[1,1] + set0(a)").unwrap();
 }
 
+#[cfg(feature = "partial")]
 #[test]
 fn test_minmax() {
     // currently partial does not support min and max
