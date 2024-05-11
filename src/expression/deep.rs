@@ -1346,20 +1346,26 @@ fn test_deep_compile() {
         reprs: smallvec::smallvec![ops[1].repr(), ops[3].repr()],
         ops: smallvec::smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
     };
+    assert_eq!(bin_ops.reprs[0], "*");
+    assert_eq!(bin_ops.reprs[1], "+");
     let unary_op = UnaryOpWithReprs {
         reprs: smallvec::smallvec![ops[8].repr()],
         op: UnaryOp::from_vec(smallvec::smallvec![ops[8].unary().unwrap()]),
     };
+    assert_eq!(unary_op.reprs[0], "abs");
     let deep_ex = DeepEx::new(nodes, bin_ops, unary_op).unwrap();
 
     let bin_ops = BinOpsWithReprs {
         reprs: smallvec::smallvec![ops[1].repr(), ops[3].repr()],
         ops: smallvec::smallvec![ops[1].bin().unwrap(), ops[3].bin().unwrap()],
     };
+    assert_eq!(bin_ops.reprs[0], "*");
+    assert_eq!(bin_ops.reprs[1], "+");
     let unary_op = UnaryOpWithReprs {
         reprs: smallvec::smallvec![ops[8].repr()],
         op: UnaryOp::from_vec(smallvec::smallvec![ops[8].unary().unwrap()]),
     };
+    assert_eq!(unary_op.reprs[0], "abs");
     let nodes = vec![
         DeepNode::Num(4.5),
         DeepNode::Num(0.5),
