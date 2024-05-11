@@ -50,28 +50,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4    
     - name: Nightly
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly
-        override: true
+      uses: dtolnay/rust-toolchain@nightly
     - name: Install fuzz
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: cargo-fuzz 
+      uses: cargo install cargo-fuzz
     - name: Fuzz eval_str
-      uses: actions-rs/cargo@v1
-      with:
-        command: fuzz
-        args: run eval_str -- -runs=20000
+      run: cargo fuzz run eval_str -- -runs=20000
     - name: Fuzz from_str
-      uses: actions-rs/cargo@v1
-      with:
-        command: fuzz
-        args: run --all-features from_str -- -runs=20000
+      run: cargo fuzz run --all-features from_str -- -runs=20000
     - name: Fuzz parse_val
-      uses: actions-rs/cargo@v1
-      with:
-        command: fuzz
-        args: run --all-features parse_val -- -runs=20000
+      run: cargo fuzz run --all-features parse_val -- -runs=20000
