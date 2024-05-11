@@ -114,8 +114,10 @@ let res = expr.eval(&[Val::Float(34.0), Val::Int(21)])?.to_float()?;
 assert!((res - 1.2).abs() < 1e-12);
 ```
 
+The [`Val`](https://docs.rs/exmex/latest/exmex/enum.Val.html) type also supports vectors with, e.g., dot-product and cross-product.
+
 If both `partial` and `value` are activated, partial derivatives can be computed for expressions of types such 
-as `FlatExVal<i32, f64>`.
+as `FlatExVal<i32, f64>`. This is currently not supported for vectors.
 
 ```rust
 use exmex::{Differentiate, Express, Val};

@@ -11,7 +11,7 @@ use crate::{
 pub type ArrayType<F> = SmallVec<[F; 11]>;
 
 /// *`feature = "value"`* -
-/// The value type [`Val`](Val) can contain an integer, float, bool, none, or error.
+/// The value type [`Val`](Val) can contain an integer, float, bool, a vector of floats, none, or error.
 /// To use the value type, there are the is a parse function [`parse_val`](`parse_val`).
 /// In the following example, the ternary Python-style `a if condition else b` is used.
 /// This is equivalent to `if condition {a} else {b}` in Rust or `condition ? a : b` in C.
@@ -71,6 +71,31 @@ pub type ArrayType<F> = SmallVec<[F; 11]>;
 /// # }
 /// ```
 ///
+/// An example with vectors is shown in the following
+///
+/// ```rust
+/// # use std::error::Error;
+/// # fn main() -> Result<(), Box<dyn Error>> {
+/// #
+/// # use exmex::Express;
+/// use exmex::Val;
+/// use smallvec::smallvec;
+///
+/// // dot product of two vectors, one as parameter the other as literal
+/// let expr = exmex::parse_val::<i32, f64>("dot(v, [1, 0, 0])")?;
+/// let v = Val::Array(smallvec![3.0, 4.0, 2.0]);
+/// let res = expr.eval(&[v])?;
+/// assert!(res.to_float().unwrap() == 3.0);
+///
+/// // The following example shows how to get the second component of a vector
+/// let expr = exmex::parse_val::<i32, f64>("(v + [1, 0, 0]).2")?;
+/// let v = Val::Array(smallvec![3.0, 4.0, 2.0]);
+/// let res = expr.eval(&[v])?;
+/// assert!(res.to_float().unwrap() == 2.0);
+/// #
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug, Default)]
 pub enum Val<I = i32, F = f64>
 where
@@ -270,6 +295,18 @@ macro_rules! base_arith {
         {
             match (a, b) {
                 (Val::Float(x), Val::Float(y)) => Val::Float(x.$name(y)),
+                (Val::Float(y), Val::Array(x)) => {
+                    Val::Array(x.iter().map(|xi| xi.$name(y)).collect())
+                }
+                (Val::Array(x), Val::Float(y)) => {
+                    Val::Array(x.iter().map(|xi| xi.$name(y)).collect())
+                }
+                (Val::Int(y), Val::Array(x)) => {
+                    Val::Array(x.iter().map(|xi| xi.$name(F::from(y).unwrap())).collect())
+                }
+                (Val::Array(x), Val::Int(y)) => {
+                    Val::Array(x.iter().map(|xi| xi.$name(F::from(y).unwrap())).collect())
+                }
                 (Val::Array(x), Val::Array(y)) => Val::Array(
                     x.iter()
                         .zip(y.iter())
@@ -594,6 +631,28 @@ where
     }
 }
 
+fn component<I, F>(a: Val<I, F>, i: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+{
+    match (a, i) {
+        (Val::Array(a), Val::Int(i)) => {
+            let len_i = I::from(a.len());
+            if len_i.is_none() || len_i.map(|len| len <= i) == Some(true) || i < I::from(0).unwrap() {
+                return Val::Error(exerr!(
+                    "array has length {} but index {i:?} is requested",
+                    a.len()
+                ));
+            }
+            Val::Float(a[i.to_usize().unwrap()])
+        }
+        (Val::Error(e), _) => Val::Error(e),
+        (_, Val::Error(e)) => Val::Error(e),
+        _ => Val::Error(exerr!("to get the component of an array, the first argument must be an array and the second an integer")),
+    }
+}
+
 /// *`feature = "value"`* - Factory of default operators for the data type [`Val`](Val).
 ///
 /// Operators available in addition to those from [`FloatOpsFactory`](crate::FloatOpsFactory) are:
@@ -839,14 +898,19 @@ where
             Operator::make_bin(
                 "else",
                 BinOp {
-                    apply: |res_of_if, v| {
-                        println!("debug {res_of_if:?} {v:?}");
-                        match res_of_if {
-                            Val::None => v,
-                            _ => res_of_if,
-                        }
+                    apply: |res_of_if, v| match res_of_if {
+                        Val::None => v,
+                        _ => res_of_if,
                     },
                     prio: 0,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                ".",
+                BinOp {
+                    apply: |x, i| component(x, i),
+                    prio: 5,
                     is_commutative: false,
                 },
             ),

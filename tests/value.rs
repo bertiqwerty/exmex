@@ -347,10 +347,69 @@ fn test() {
             utils::assert_float_eq_f64(*b, *a);
         }
     }
+
+    // dot product
+    let s = "dot(-[1.0, 2.0, -3.0], [0, 1, 0])";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), -2.0f64);
+    let s = "dot(-[1.0, 2.0, -3.0], [0, 2, 0] - 1)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), -4.0f64);
+    let a1 = Val::Array(smallvec![0.0, 0.0, -3.0]);
+    let a2 = Val::Array(smallvec![0.0, 3.0, 0.0]);
+    let s = "dot(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), 0.0);
+
+    // access components with .0, .1, .2
+    let s = "-[1.0, 2.0, -3.0].0";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), -1.0f64);
+    let s = "-[1.0, 2.0, -3.0].1";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), -2.0f64);
+    let s = "-[1.0, 2.0, -3.0].2";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), 3.0f64);
+
+    // negate
     let s = "-[1.0, 2.0, 3.0]";
     let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
     let x = expr.eval(&[]).unwrap();
     let reference = [-1.0, -2.0, -3.0];
+    assert_arr(x, &reference);
+
+    // compute with scalars
+    let s = "-[1.0, 2.0, 3.0] * 1";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [-1.0, -2.0, -3.0];
+    assert_arr(x, &reference);
+    let s = "-[1.0, 2.0, 3.0] + 0";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [-1.0, -2.0, -3.0];
+    assert_arr(x, &reference);
+    let s = "-[1.0, 2.0, 3.0] + 1.5";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [0.5, -0.5, -1.5];
+    assert_arr(x, &reference);
+    let s = "-[1.0, 2.0, 3.0] / 2";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [-0.5, -1.0, -1.5];
+    assert_arr(x, &reference);
+    let s = "-[1.0, 2.0, 3.0] * 0";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[]).unwrap();
+    let reference = [0.0, 0.0, 0.0];
     assert_arr(x, &reference);
 
     let a = Val::Array(smallvec![-1.0, -2.0, -3.0]);
@@ -360,19 +419,18 @@ fn test() {
     let reference = [0.0, 0.0, 0.0];
     assert_arr(x, &reference);
 
-    let a1 = Val::Array(smallvec![0.0, 0.0, -3.0]);
-    let a2 = Val::Array(smallvec![0.0, 3.0, 0.0]);
-    let s = "dot(a1, a2)";
+    // length
+    let s = "length(-[1.0, 2.0, -3.0])";
     let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
-    let x = expr.eval(&[a1, a2]).unwrap();
-    utils::assert_float_eq_f64(x.to_float().unwrap(), 0.0);
-
+    let x = expr.eval(&[]).unwrap();
+    utils::assert_float_eq_f64(x.to_float().unwrap(), (14.0f64).sqrt());
     let a = Val::Array(smallvec![4.0, -3.0]);
     let s = "length(a)";
     let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
     let x = expr.eval(&[a]).unwrap();
     utils::assert_float_eq_f64(x.to_float().unwrap(), 5.0);
 
+    // cross
     let a1 = Val::Array(smallvec![0.0, 0.0, 1.0]);
     let a2 = Val::Array(smallvec![0.0, 1.0, 0.0]);
     let s = "cross(a1, a2)";
@@ -380,7 +438,6 @@ fn test() {
     let x = expr.eval(&[a1, a2]).unwrap();
     let reference = [-1.0, 0.0, 0.0];
     assert_arr(x, &reference);
-
     let a1 = Val::Array(smallvec![0.0, 1.0, 0.0]);
     let a2 = Val::Array(smallvec![0.0, 0.0, 1.0]);
     let s = "cross(a1, a2)";
@@ -388,11 +445,6 @@ fn test() {
     let x = expr.eval(&[a1, a2]).unwrap();
     let reference = [1.0, 0.0, 0.0];
     assert_arr(x, &reference);
-
-    let s = "length(-[1.0, 2.0, -3.0])";
-    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
-    let x = expr.eval(&[]).unwrap();
-    utils::assert_float_eq_f64(x.to_float().unwrap(), (14.0f64).sqrt());
 }
 
 #[cfg(feature = "value")]
