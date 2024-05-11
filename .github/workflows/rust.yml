@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Build and test without features
       run: |
         cargo build --verbose
@@ -48,7 +48,7 @@ jobs:
   fuzz:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2    
+    - uses: actions/checkout@v4    
     - name: Nightly
       uses: actions-rs/toolchain@v1
       with:
