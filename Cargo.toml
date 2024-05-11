@@ -1,6 +1,6 @@
 [package]
 name = "exmex"
-version = "0.19.0"  # check html document root in lib.rs
+version = "0.20.0"  # check html document root in lib.rs
 authors = ["Behrang Shafei <https://github.com/bertiqwerty>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
