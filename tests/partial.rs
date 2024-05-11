@@ -575,3 +575,12 @@ fn test_custom_data() {
     assert!(deri.is_err());
     FlatEx::<Arr, ArrOpsFactory, ArrMatcher>::parse("[1,1] + set0(a)").unwrap();
 }
+
+#[test]
+fn test_minmax() {
+    // currently partial does not support min and max
+    let expr = exmex::parse::<f64>("min(x, y)").unwrap();
+    assert!(expr.partial(0).is_err());
+    let expr = exmex::parse::<f64>("max(x, y)").unwrap();
+    assert!(expr.partial(1).is_err());
+}

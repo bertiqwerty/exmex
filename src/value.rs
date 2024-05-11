@@ -287,7 +287,7 @@ where
 }
 
 macro_rules! base_arith {
-    ($name:ident, $intname:ident) => {
+    ($name:ident, $intname:ident,$accessint:expr, $wrapint:expr) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
         where
             I: DataType + PrimInt + Signed,
@@ -313,7 +313,7 @@ macro_rules! base_arith {
                         .map(|(xi, yi)| xi.$name(*yi))
                         .collect(),
                 ),
-                (Val::Int(x), Val::Int(y)) => match x.$intname(&y) {
+                (Val::Int(x), Val::Int(y)) => match $wrapint(x.$intname($accessint(&y))) {
                     Some(res) => Val::Int(res),
                     None => Val::Error(exerr!(
                         "overflow in {:?}{:?}{:?}",
@@ -334,10 +334,13 @@ macro_rules! base_arith {
     };
 }
 
-base_arith!(add, checked_add);
-base_arith!(sub, checked_sub);
-base_arith!(mul, checked_mul);
-base_arith!(div, checked_div);
+base_arith!(add, checked_add, |x| x, |x| x);
+base_arith!(sub, checked_sub, |x| x, |x| x);
+base_arith!(mul, checked_mul, |x| x, |x| x);
+base_arith!(div, checked_div, |x| x, |x| x);
+base_arith!(min, min, |x: &I| *x, |x| Some(x));
+base_arith!(max, max, |x: &I| *x, |x| Some(x));
+
 macro_rules! single_type_arith {
     ($name:ident, $variant:ident, $op:expr) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
@@ -902,6 +905,22 @@ where
                         Val::None => v,
                         _ => res_of_if,
                     },
+                    prio: 0,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "min",
+                BinOp {
+                    apply: |x, y| min(x, y),
+                    prio: 0,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "max",
+                BinOp {
+                    apply: |x, y| max(x, y),
                     prio: 0,
                     is_commutative: false,
                 },

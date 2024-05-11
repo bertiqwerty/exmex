@@ -359,6 +359,22 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
                     is_commutative: false,
                 },
             ),
+            Operator::make_bin(
+                "min",
+                BinOp {
+                    apply: |y, x| y.min(x),
+                    prio: 0,
+                    is_commutative: false,
+                },
+            ),
+            Operator::make_bin(
+                "max",
+                BinOp {
+                    apply: |y, x| y.max(x),
+                    prio: 0,
+                    is_commutative: false,
+                },
+            ),
             Operator::make_unary("abs", |a| a.abs()),
             Operator::make_unary("signum", |a| a.signum()),
             Operator::make_unary("sin", |a| a.sin()),

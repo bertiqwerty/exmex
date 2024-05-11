@@ -1006,5 +1006,10 @@ fn test_binary_function_style() {
         &[1.0],
         (1.0f64.atan2(0.5)).sin() * 3.0,
     );
+    test(
+        "max(sin(atan2(1, x / 2)) * 3, x)",
+        &[1.0],
+        ((1.0f64.atan2(0.5)).sin() * 3.0).max(1.0),
+    );
     assert!(FlatEx::<f64>::parse("atan3(z, y, x").is_err());
 }

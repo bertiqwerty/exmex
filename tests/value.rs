@@ -116,22 +116,38 @@ fn test_readme() -> ExResult<()> {
 #[test]
 #[cfg(feature = "serde")]
 #[cfg(feature = "value")]
-fn test_serde_public() -> ExResult<()> {
+fn test_serde_public() {
     use exmex::FlatExVal;
 
     let s = "{x}^3.0 if z < 0 else y";
 
     // flatex
-    let flatex = FlatExVal::<i32, f64>::parse(s)?;
+    let flatex = FlatExVal::<i32, f64>::parse(s).unwrap();
     let serialized = serde_json::to_string(&flatex).unwrap();
     let deserialized = serde_json::from_str::<FlatExVal<i32, f64>>(serialized.as_str()).unwrap();
     assert_eq!(deserialized.var_names().len(), 3);
-    let res = deserialized.eval(&[Val::Float(2.0), Val::Bool(false), Val::Float(1.0)])?;
-    assert_eq!(res.to_bool()?, false);
-    let res = deserialized.eval(&[Val::Float(2.0), Val::Float(1.0), Val::Int(-1)])?;
-    utils::assert_float_eq_f64(res.to_float()?, 8.0);
+    let res = deserialized
+        .eval(&[Val::Float(2.0), Val::Bool(false), Val::Float(1.0)])
+        .unwrap();
+    assert_eq!(res.to_bool().unwrap(), false);
+    let res = deserialized
+        .eval(&[Val::Float(2.0), Val::Float(1.0), Val::Int(-1)])
+        .unwrap();
+    utils::assert_float_eq_f64(res.to_float().unwrap(), 8.0);
     assert_eq!(s, format!("{}", deserialized));
-    Ok(())
+
+    let s = "min({x}^3.0 if z < 0 else y, 1.0)";
+
+    // flatex
+    let flatex = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let serialized = serde_json::to_string(&flatex).unwrap();
+    let deserialized = serde_json::from_str::<FlatExVal<i32, f64>>(serialized.as_str()).unwrap();
+    assert_eq!(deserialized.var_names().len(), 3);
+    let res = deserialized
+        .eval(&[Val::Float(2.0), Val::Float(1.0), Val::Float(-1.0)])
+        .unwrap();
+    assert_eq!(res.to_float().unwrap(), 1.0);
+    assert_eq!(s, format!("{}", deserialized));
 }
 #[cfg(feature = "value")]
 #[test]
@@ -267,6 +283,9 @@ fn test_no_vars() -> ExResult<()> {
     test_float("ln(91.0)", 91.0f64.ln())?;
     test_float("log(91.0)", 91.0f64.ln())?;
     test_float("tan(913.0)", 913.0f64.tan())?;
+    test_float("min(tan(913.0), 1)", 913.0f64.tan())?;
+    test_float("max(tan(913.0), 1.0)", 1.0)?;
+    test_float("max(tan(913.0), 1)", 1.0)?;
     test_float("sin(-π)", 0.0)?;
     test_float("sin(π)", 0.0)?;
     test_float("τ", std::f64::consts::PI * 2.0)?;
@@ -444,6 +463,29 @@ fn test() {
     let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
     let x = expr.eval(&[a1, a2]).unwrap();
     let reference = [1.0, 0.0, 0.0];
+    assert_arr(x, &reference);
+
+    // min/max
+    let a1 = Val::Array(smallvec![0.0, 0.0, 1.0]);
+    let a2 = Val::Array(smallvec![0.0, 1.0, 0.0]);
+    let s = "min(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    let reference = [0.0, 0.0, 0.0];
+    assert_arr(x, &reference);
+    let a1 = Val::Array(smallvec![0.0, 1.0, 0.0]);
+    let a2 = Val::Float(0.5);
+    let s = "min(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    let reference = [0.0, 0.5, 0.0];
+    assert_arr(x, &reference);
+    let a1 = Val::Array(smallvec![0.0, 1.0, 0.0]);
+    let a2 = Val::Array(smallvec![0.0, 0.0, 1.0]);
+    let s = "max(a1, a2)";
+    let expr = FlatExVal::<i32, f64>::parse(s).unwrap();
+    let x = expr.eval(&[a1, a2]).unwrap();
+    let reference = [0.0, 1.0, 1.0];
     assert_arr(x, &reference);
 }
 
