@@ -104,9 +104,9 @@ let result = dddexpr_dxyx_iter.eval(&[f64::MAX, f64::MAX])?;
 assert!((result - 2.0).abs() < 1e-12);
 ```
 
-## Mixing Data Types in one Expression with the Feature `value`
+## Mixing Scalar Data Types and Float Vectors in one Expression with the Feature `value`
 
-After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/latest/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, or a float. This way, it is possible to use booleans, ints, and floats in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/latest/exmex/struct.ValOpsFactory.html)  a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
+After activating the Exmex-feature `value` one can use expressions with data of type [`Val`](https://docs.rs/exmex/latest/exmex/enum.Val.html), inspired by the type `Value` from the crate [Evalexpr](https://crates.io/crates/evalexpr). An instance of `Val` can contain a boolean, an int, a float, or a vector of floats. This way, it is possible to use booleans, ints, floats, and vectors in the same expression. Further, Exmex provides in terms of [`ValOpsFactory`](https://docs.rs/exmex/latest/exmex/struct.ValOpsFactory.html) a pre-defined set of operators for `Val`. See the following example of a Python-like `if`-`else`-operator.
 ```rust
 use exmex::{Express, Val};
 let expr = exmex::parse_val::<i32, f64>("0 if b < c else 1.2")?;
@@ -114,7 +114,7 @@ let res = expr.eval(&[Val::Float(34.0), Val::Int(21)])?.to_float()?;
 assert!((res - 1.2).abs() < 1e-12);
 ```
 
-The [`Val`](https://docs.rs/exmex/latest/exmex/enum.Val.html) type also supports vectors with, e.g., dot-product and cross-product.
+See the [`Val`-docs](https://docs.rs/exmex/latest/exmex/enum.Val.html) for an example containing vectors.
 
 If both `partial` and `value` are activated, partial derivatives can be computed for expressions of types such 
 as `FlatExVal<i32, f64>`. This is currently not supported for vectors.
