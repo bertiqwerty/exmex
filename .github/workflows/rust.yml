@@ -52,7 +52,7 @@ jobs:
     - name: Nightly
       uses: dtolnay/rust-toolchain@nightly
     - name: Install fuzz
-      uses: cargo install cargo-fuzz
+      run: cargo install cargo-fuzz
     - name: Fuzz eval_str
       run: cargo fuzz run eval_str -- -runs=20000
     - name: Fuzz from_str
