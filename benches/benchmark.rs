@@ -11,11 +11,6 @@ use exmex::{FlatExVal, Val};
 use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
-use rsc::{
-    computer::Computer,
-    lexer::tokenize,
-    parser::{parse, Expr},
-};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -331,43 +326,6 @@ fn fasteval_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "fasteval", c);
 }
 
-fn rsc_parse<'a>(strings: &[&str]) -> Vec<(Expr<f64>, Computer<'a, f64>)> {
-    let parsed_exprs = strings.iter().map(|expr_str| {
-        let tokens = tokenize(expr_str, true).unwrap();
-        parse(&tokens).unwrap()
-    });
-    let computers = repeat(Computer::<f64>::default()).take(N);
-    izip!(parsed_exprs, computers).collect_vec()
-}
-fn rsc_bench_parse(c: &mut Criterion) {
-    run_benchmark_parse(rsc_parse, "rsc_parse", c);
-}
-
-fn rsc_bench_eval(c: &mut Criterion) {
-    let mut parsed_exprs = rsc_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs
-        .iter_mut()
-        .map(|(ast, comp)| {
-            move |x: f64| {
-                let mut ast = ast.clone();
-                ast.replace(&Expr::Identifier("x".to_owned()), &Expr::Constant(x), false);
-                ast.replace(
-                    &Expr::Identifier("y".to_owned()),
-                    &Expr::Constant(BENCH_Y),
-                    false,
-                );
-                ast.replace(
-                    &Expr::Identifier("z".to_owned()),
-                    &Expr::Constant(BENCH_Z),
-                    false,
-                );
-                comp.compute(&ast).unwrap()
-            }
-        })
-        .collect::<Vec<_>>();
-    run_benchmark(funcs, "rsc", c);
-}
-
 #[cfg(feature = "serde")]
 fn run_benchmark_serialize<Ex: Serialize>(expr: &Ex, expr_name: &str, c: &mut Criterion) {
     c.bench_function(format!("exmex_serde_ser {}", expr_name).as_str(), |b| {
@@ -444,14 +402,12 @@ criterion_group!(
     exmex_bench_eval,
     exmex_bench_eval_uncompiled,
     exmex_bench_eval_val,
-    rsc_bench_eval,
     evalexpr_bench_eval,
     fasteval_bench_parse,
     exmex_bench_parse,
     exmex_bench_parse_uncompiled,
     exmex_bench_parse_val,
     exmex_bench_parse_optimized,
-    rsc_bench_parse,
     evalexpr_bench_parse,
     exmex_bench_partial,
 );
