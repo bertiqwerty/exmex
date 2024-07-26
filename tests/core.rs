@@ -1022,7 +1022,7 @@ fn test_op_reprs() {
             s: &'a str,
             uo_reference: &[&str],
             bo_reference: &[&str],
-            all_reference: &[&str],
+            ao_reference: &[&str],
         ) {
             let expr = EX::parse(s).unwrap();
             let uops = expr.unary_reprs().to_vec();
@@ -1036,7 +1036,7 @@ fn test_op_reprs() {
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
-            let mut ao_reference = all_reference
+            let mut ao_reference = ao_reference
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
