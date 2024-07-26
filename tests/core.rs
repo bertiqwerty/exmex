@@ -1054,6 +1054,14 @@ fn test_op_reprs() {
     test("sin(tan(cos(x)))", &["cos", "sin", "tan"], &[]);
     test("sin(1+tan(cos(x)))", &["cos", "sin", "tan"], &["+"]);
     test("sin(-tan(cos(x)))", &["-", "cos", "sin", "tan"], &[]);
-    test("sin(-tan(y+cos(x-z)))", &["-", "cos", "sin", "tan"], &["+", "-"]);
-    test("sin(-tan(y+sin(cos(x-z))))", &["-", "cos", "sin", "tan"], &["+", "-"]);
+    test(
+        "sin(-tan(y+cos(x-z)))",
+        &["-", "cos", "sin", "tan"],
+        &["+", "-"],
+    );
+    test(
+        "sin(-tan(y+sin(cos(x-z))))",
+        &["-", "cos", "sin", "tan"],
+        &["+", "-"],
+    );
 }

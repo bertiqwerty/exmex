@@ -72,7 +72,7 @@ pub type ArrayType<F> = SmallVec<[F; 4]>;
 /// ```
 ///
 /// Vectors can have arbitrary length and are represented as `Val::Array(SmallVec<[F; 4]>)`. That
-/// is, a vector always consists of floats. Vectors of bools or ints do not exist. Further, 
+/// is, a vector always consists of floats. Vectors of bools or ints do not exist. Further,
 /// 4 elements are stored on the stack, and if more are needed, they are stored on the heap.
 /// An example with vectors is shown in the following.
 ///
