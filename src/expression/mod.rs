@@ -1,6 +1,13 @@
 use std::{fmt::Debug, mem, str::FromStr};
 
-use crate::{data_type::DataType, operators::OperateBinary, parser, ExResult, MakeOperators};
+use smallvec::SmallVec;
+
+use crate::{
+    data_type::DataType,
+    definitions::{N_BINOPS_OF_DEEPEX_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK},
+    operators::OperateBinary,
+    parser, ExResult, MakeOperators,
+};
 
 use self::{deep::DeepEx, number_tracker::NumberTracker};
 pub mod calculate;
@@ -96,6 +103,15 @@ where
     fn parse(text: &'a str) -> ExResult<Self>
     where
         Self: Sized;
+
+    /// Returns an alphabetically sorted list of all binary operators without duplicates in the expression.
+    fn binary_reprs(&self) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>;
+    /// Returns an alphabetically sorted list of all unary operators without duplicates in the expression.
+    fn unary_reprs(&self) -> SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+    /// Returns an alphabetically sorted list of all operators without duplicates in the expression.
+    fn operator_reprs(
+        &self,
+    ) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK + N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 }
 
 pub fn eval_binary<T, O, N>(

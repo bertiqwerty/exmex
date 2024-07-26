@@ -13,6 +13,7 @@ use std::io::{self, BufRead};
 use std::iter::repeat;
 use utils::assert_float_eq_f64;
 
+use std::fmt::Debug;
 #[cfg(test)]
 use std::{
     iter::once,
@@ -976,7 +977,6 @@ fn test_string_ops() {
 
 #[test]
 fn test_binary_function_style() {
-    use std::fmt::Debug;
     fn test(s: &str, vars: &[f64], reference: f64) {
         println!("testing {s}");
         fn test_<'a, EX: Express<'a, f64> + Debug>(s: &'a str, vars: &[f64], reference: f64) {
@@ -1012,4 +1012,48 @@ fn test_binary_function_style() {
         ((1.0f64.atan2(0.5)).sin() * 3.0).max(1.0),
     );
     assert!(FlatEx::<f64>::parse("atan3(z, y, x").is_err());
+}
+
+#[test]
+fn test_op_reprs() {
+    fn test(s: &str, uo_reference: &[&str], bo_reference: &[&str]) {
+        println!("testing {s}");
+        fn test_<'a, EX: Express<'a, f64> + Debug>(
+            s: &'a str,
+            uo_reference: &[&str],
+            bo_reference: &[&str],
+        ) {
+            let expr = EX::parse(s).unwrap();
+            for r in uo_reference.iter().chain(bo_reference.iter()) {
+                assert!(expr.operator_reprs().contains(&r.to_string()));
+            }
+            let uops = expr.unary_reprs().to_vec();
+            let bops = expr.binary_reprs().to_vec();
+            let mut uo_reference = uo_reference
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            let mut bo_reference = bo_reference
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            uo_reference.sort();
+            bo_reference.sort();
+            assert_eq!(uops, uo_reference);
+            assert_eq!(bops, bo_reference);
+        }
+
+        println!("flatex...");
+        test_::<FlatEx<f64>>(s, uo_reference, bo_reference);
+        println!("deepex...");
+        test_::<DeepEx<f64>>(s, uo_reference, bo_reference);
+    }
+    test("atan2(0.2/y, x)", &[], &["atan2", "/"]);
+    test("-x", &["-"], &[]);
+    test("sin(-x)", &["-", "sin"], &[]);
+    test("sin(tan(cos(x)))", &["cos", "sin", "tan"], &[]);
+    test("sin(1+tan(cos(x)))", &["cos", "sin", "tan"], &["+"]);
+    test("sin(-tan(cos(x)))", &["-", "cos", "sin", "tan"], &[]);
+    test("sin(-tan(y+cos(x-z)))", &["-", "cos", "sin", "tan"], &["+", "-"]);
+    test("sin(-tan(y+sin(cos(x-z))))", &["-", "cos", "sin", "tan"], &["+", "-"]);
 }

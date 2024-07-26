@@ -20,6 +20,7 @@ mod detail {
 
     use crate::{exerr, DataType, ExResult, Express, FlatEx, MakeOperators, MatchLiteral};
 
+    #[allow(dead_code)]
     #[derive(Default, Debug)]
     pub enum ParsedLhs<'a> {
         Var(&'a str),

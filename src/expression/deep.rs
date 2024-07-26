@@ -1,5 +1,6 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
+    iter,
     marker::PhantomData,
     ops,
     str::FromStr,
@@ -794,7 +795,7 @@ where
     }
 
     pub(super) fn var_names_like_other(mut self, other: &Self) -> Self {
-        self.var_names = other.var_names.clone();
+        self.var_names.clone_from(&other.var_names);
         self
     }
 
@@ -1018,6 +1019,50 @@ where
         Self: Sized,
     {
         detail::parse(text, LM::is_literal)
+    }
+    fn binary_reprs(&self) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]> {
+        let mut reprs = self
+            .nodes
+            .iter()
+            .filter_map(|node| match node {
+                DeepNode::Expr(e) => Some(e.binary_reprs()),
+                _ => None,
+            })
+            .chain(iter::once(
+                self.bin_ops.reprs.iter().map(|s| s.to_string()).collect(),
+            ))
+            .flatten()
+            .collect::<SmallVec<_>>();
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
+    }
+    fn unary_reprs(&self) -> SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]> {
+        let mut reprs = self
+            .nodes
+            .iter()
+            .filter_map(|node| match node {
+                DeepNode::Expr(e) => Some(e.unary_reprs()),
+                _ => None,
+            })
+            .chain(iter::once(
+                self.unary_op.reprs.iter().map(|s| s.to_string()).collect(),
+            ))
+            .flatten()
+            .collect::<SmallVec<_>>();
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
+    }
+    fn operator_reprs(
+        &self,
+    ) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK + N_UNARYOPS_OF_DEEPEX_ON_STACK]> {
+        let mut reprs = SmallVec::new();
+        reprs.extend(self.binary_reprs());
+        reprs.extend(self.unary_reprs());
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
     }
 }
 

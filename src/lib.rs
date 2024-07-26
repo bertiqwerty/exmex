@@ -398,7 +398,7 @@ pub mod prelude {
 /// In case the parsing went wrong, e.g., due to an invalid input string, an
 /// [`ExError`] is returned.
 ///
-pub fn eval_str<T: DataType>(text: &str) -> ExResult<T>
+pub fn eval_str<T>(text: &str) -> ExResult<T>
 where
     T: DataType + Float,
     <T as FromStr>::Err: Debug,

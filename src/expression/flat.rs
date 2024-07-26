@@ -1,6 +1,8 @@
 use self::detail::{var_indices_ordered, FlatNode, FlatNodeKind, FlatNodeVec, FlatOpVec};
 use crate::data_type::DataType;
-use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
+use crate::definitions::{
+    N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK,
+};
 use crate::expression::{
     deep::{DeepEx, DeepNode},
     Express,
@@ -27,7 +29,10 @@ mod detail {
 
     use crate::{
         data_type::DataType,
-        definitions::{N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK, N_VARS_ON_STACK},
+        definitions::{
+            N_BINOPS_OF_DEEPEX_ON_STACK, N_NODES_ON_STACK, N_UNARYOPS_OF_DEEPEX_ON_STACK,
+            N_VARS_ON_STACK,
+        },
         exerr,
         expression::{eval_binary, number_tracker::NumberTracker},
         operators::{OperateBinary, UnaryOp},
@@ -40,6 +45,8 @@ mod detail {
     pub type FlatNodeVec<T> = SmallVec<[FlatNode<T>; N_NODES_ON_STACK]>;
     pub type FlatOpVec<T> = SmallVec<[FlatOp<T>; N_NODES_ON_STACK]>;
     type UnaryOpIdxDepthStack = SmallVec<[(usize, i64); N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+    const CANNOT_FIND_OP_MSG: &str =
+        "Bug! It should not be possible that I cannot find my own operator";
 
     /// A `FlatOp` contains besides a binary operation an optional unary operation that
     /// will be executed after the binary operation in case of its existence.
@@ -81,7 +88,7 @@ mod detail {
 
     use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
 
-    fn collect_reprs<'a, F, T, I>(
+    pub fn collect_reprs<'a, F, T, I>(
         funcs: I,
         ops: &[Operator<'a, T>],
         predicate: fn(&Operator<T>, F) -> bool,
@@ -101,7 +108,44 @@ mod detail {
             .collect::<ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
     }
 
-    fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
+    pub fn binary_reprs<'a, T>(
+        operators: &[Operator<'a, T>],
+        flat_ops: &'a FlatOpVec<T>,
+    ) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]>
+    where
+        T: Clone,
+    {
+        collect_reprs::<&fn(T, T) -> T, _, _>(
+            flat_ops.iter().map(|op| &op.bin_op.apply),
+            operators,
+            binary_predicate,
+        )
+        .expect(CANNOT_FIND_OP_MSG)
+        .iter()
+        .map(|op| op.repr().to_string())
+        .collect()
+    }
+
+    pub fn unary_reprs<'a, T>(
+        operators: &[Operator<'a, T>],
+        unary_ops: impl Iterator<Item = &'a UnaryOp<T>>,
+    ) -> SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]>
+    where
+        T: Clone + 'a,
+    {
+        let mut reprs = SmallVec::new();
+        let result_unary_reprs = unary_ops.map(|op| unary_reprs_of_composition(operators, op));
+        for repr in result_unary_reprs {
+            reprs.extend(
+                repr.expect(CANNOT_FIND_OP_MSG)
+                    .iter()
+                    .map(|s| s.to_string()),
+            );
+        }
+        reprs
+    }
+
+    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
         if op.has_unary() {
             op.unary().unwrap() == *func
         } else {
@@ -109,7 +153,7 @@ mod detail {
         }
     }
 
-    fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
+    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
         if op.has_bin() {
             op.bin().unwrap().apply == *func
         } else {
@@ -117,18 +161,19 @@ mod detail {
         }
     }
 
-    fn collect_unary_reprs<'a, T: Clone>(
+    pub fn unary_reprs_of_composition<'a, T: Clone>(
         ops: &[Operator<'a, T>],
         unary_op: &UnaryOp<T>,
     ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
-        Ok(collect_reprs::<&fn(T) -> T, _, _>(
+        let reprs = collect_reprs::<&fn(T) -> T, _, _>(
             unary_op.funcs_to_be_composed().iter(),
             ops,
             unary_predicate,
         )?
         .iter()
         .map(|op| op.repr())
-        .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>())
+        .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>();
+        Ok(reprs)
     }
 
     fn convert_node<'a, T, OF, LM>(
@@ -148,7 +193,7 @@ mod detail {
         };
 
         // cannot fail unless there is a bug
-        let reprs = collect_unary_reprs(ops, &node.unary_op).unwrap();
+        let reprs = unary_reprs_of_composition(ops, &node.unary_op).unwrap();
 
         let n_reprs = reprs.len();
         let unary_op = UnaryOpWithReprs {
@@ -224,7 +269,7 @@ mod detail {
                 ops: smallvec![bin_op],
             };
             let unary_op = mem::take(&mut flat_ops[idx].unary_op);
-            let unary_reprs = collect_unary_reprs(&operators, &unary_op)?;
+            let unary_reprs = unary_reprs_of_composition(&operators, &unary_op)?;
             let unary_op = UnaryOpWithReprs {
                 reprs: unary_reprs,
                 op: unary_op,
@@ -860,6 +905,51 @@ where
     {
         let ops = OF::make();
         detail::parse(text, &ops)
+    }
+
+    fn binary_reprs(&self) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK]> {
+        let operators = OF::make();
+        let mut reprs = detail::binary_reprs(&operators, &self.flat_ops);
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
+    }
+    fn unary_reprs(&self) -> SmallVec<[String; N_UNARYOPS_OF_DEEPEX_ON_STACK]> {
+        let operators = OF::make();
+        let unary_ops = self
+            .flat_ops
+            .iter()
+            .map(|op| &op.unary_op)
+            .chain(self.nodes.iter().map(|n| &n.unary_op));
+        let mut reprs = detail::unary_reprs(&operators, unary_ops);
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
+    }
+    fn operator_reprs(
+        &self,
+    ) -> SmallVec<[String; N_BINOPS_OF_DEEPEX_ON_STACK + N_UNARYOPS_OF_DEEPEX_ON_STACK]> {
+        let operators = OF::make();
+        let mut reprs = SmallVec::new();
+
+        reprs.extend(
+            detail::binary_reprs(&operators, &self.flat_ops)
+                .iter()
+                .map(|s| s.to_string()),
+        );
+        let unary_ops = self
+            .flat_ops
+            .iter()
+            .map(|op| &op.unary_op)
+            .chain(self.nodes.iter().map(|n| &n.unary_op));
+        reprs.extend(
+            detail::unary_reprs(&operators, unary_ops)
+                .iter()
+                .map(|s| s.to_string()),
+        );
+        reprs.sort_unstable();
+        reprs.dedup();
+        reprs
     }
 }
 
