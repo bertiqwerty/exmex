@@ -115,15 +115,15 @@ mod detail {
     where
         T: Clone,
     {
-        collect_reprs::<&fn(T, T) -> T, _, _>(
+        let collected = collect_reprs::<&fn(T, T) -> T, _, _>(
             flat_ops.iter().map(|op| &op.bin_op.apply),
             operators,
             binary_predicate,
-        )
-        .expect(CANNOT_FIND_OP_MSG)
-        .iter()
-        .map(|op| op.repr().to_string())
-        .collect()
+        );
+        match collected {
+            Ok(reprs) => reprs.iter().map(|op| op.repr().to_string()).collect(),
+            Err(e) => panic!("{CANNOT_FIND_OP_MSG}! {e:?}"),
+        }
     }
 
     pub fn unary_reprs<'a, T>(
@@ -146,16 +146,16 @@ mod detail {
     }
 
     pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
-        if op.has_unary() {
-            op.unary().unwrap() == *func
+        if let Ok(op) = op.unary() {
+            op == *func
         } else {
             false
         }
     }
 
     pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
-        if op.has_bin() {
-            op.bin().unwrap().apply == *func
+        if let Ok(op) = op.bin() {
+            op.apply == *func
         } else {
             false
         }

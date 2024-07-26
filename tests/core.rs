@@ -1016,19 +1016,18 @@ fn test_binary_function_style() {
 
 #[test]
 fn test_op_reprs() {
-    fn test(s: &str, uo_reference: &[&str], bo_reference: &[&str]) {
+    fn test(s: &str, uo_reference: &[&str], bo_reference: &[&str], ao_reference: &[&str]) {
         println!("testing {s}");
         fn test_<'a, EX: Express<'a, f64> + Debug>(
             s: &'a str,
             uo_reference: &[&str],
             bo_reference: &[&str],
+            all_reference: &[&str],
         ) {
             let expr = EX::parse(s).unwrap();
-            for r in uo_reference.iter().chain(bo_reference.iter()) {
-                assert!(expr.operator_reprs().contains(&r.to_string()));
-            }
             let uops = expr.unary_reprs().to_vec();
             let bops = expr.binary_reprs().to_vec();
+            let aops = expr.operator_reprs().to_vec();
             let mut uo_reference = uo_reference
                 .iter()
                 .map(|s| s.to_string())
@@ -1037,31 +1036,60 @@ fn test_op_reprs() {
                 .iter()
                 .map(|s| s.to_string())
                 .collect::<Vec<_>>();
+            let mut ao_reference = all_reference
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
             uo_reference.sort();
             bo_reference.sort();
+            ao_reference.sort();
             assert_eq!(uops, uo_reference);
             assert_eq!(bops, bo_reference);
+            assert_eq!(aops, ao_reference);
         }
 
         println!("flatex...");
-        test_::<FlatEx<f64>>(s, uo_reference, bo_reference);
+        test_::<FlatEx<f64>>(s, uo_reference, bo_reference, ao_reference);
         println!("deepex...");
-        test_::<DeepEx<f64>>(s, uo_reference, bo_reference);
+        test_::<DeepEx<f64>>(s, uo_reference, bo_reference, ao_reference);
     }
-    test("atan2(0.2/y, x)", &[], &["atan2", "/"]);
-    test("-x", &["-"], &[]);
-    test("sin(-x)", &["-", "sin"], &[]);
-    test("sin(tan(cos(x)))", &["cos", "sin", "tan"], &[]);
-    test("sin(1+tan(cos(x)))", &["cos", "sin", "tan"], &["+"]);
-    test("sin(-tan(cos(x)))", &["-", "cos", "sin", "tan"], &[]);
+    test("atan2(0.2/y, x)", &[], &["atan2", "/"], &["atan2", "/"]);
+    test("-x", &["-"], &[], &["-"]);
+    test("sin(-x)", &["-", "sin"], &[], &["-", "sin"]);
+    test(
+        "sin(tan(cos(x)))",
+        &["cos", "sin", "tan"],
+        &[],
+        &["cos", "sin", "tan"],
+    );
+    test(
+        "sin(1+tan(cos(x)))",
+        &["cos", "sin", "tan"],
+        &["+"],
+        &["+", "cos", "sin", "tan"],
+    );
+    test(
+        "sin(-tan(cos(x)))",
+        &["-", "cos", "sin", "tan"],
+        &[],
+        &["-", "cos", "sin", "tan"],
+    );
     test(
         "sin(-tan(y+cos(x-z)))",
         &["-", "cos", "sin", "tan"],
         &["+", "-"],
+        &["+", "-", "cos", "sin", "tan"],
     );
     test(
         "sin(-tan(y+sin(cos(x-z))))",
         &["-", "cos", "sin", "tan"],
         &["+", "-"],
+        &["+", "-", "cos", "sin", "tan"],
+    );
+    test(
+        "4/3 * a / b * (1.3 / 65.2 / ((18.93+c+d+e) / 111))",
+        &[],
+        &["*", "+", "/"],
+        &["*", "+", "/"],
     );
 }
