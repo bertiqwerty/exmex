@@ -17,11 +17,11 @@ include = ["**/*.rs", "Cargo.toml"]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-regex = "1.10.3"
-num = "0.4.1"
-smallvec = "1.13.1"
-lazy_static = "1.4.0"
-serde = { version="1.0.197", optional = true }
+regex = "1.10.5"
+num = "0.4.3"
+smallvec = "1.13.2"
+lazy_static = "1.5.0"
+serde = { version="1.0.204", optional = true }
 
 [profile.test]
 opt-level = 3
