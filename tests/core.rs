@@ -1053,6 +1053,8 @@ fn test_op_reprs() {
         println!("deepex...");
         test_::<DeepEx<f64>>(s, uo_reference, bo_reference, ao_reference);
     }
+    test("x*y", &[], &["*"], &["*"]);
+    test("x+y", &[], &["+"], &["+"]);
     test("atan2(0.2/y, x)", &[], &["atan2", "/"], &["atan2", "/"]);
     test("-x", &["-"], &[], &["-"]);
     test("sin(-x)", &["-", "sin"], &[], &["-", "sin"]);
