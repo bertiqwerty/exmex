@@ -1053,6 +1053,13 @@ fn test_op_reprs() {
         println!("deepex...");
         test_::<DeepEx<f64>>(s, uo_reference, bo_reference, ao_reference);
     }
+    test("ln(x)", &["ln"], &[], &["ln"]);
+    test(
+        "ln(x) + log(y)",
+        &["ln", "log"],
+        &["+"],
+        &["+", "ln", "log"],
+    );
     test("x*y", &[], &["*"], &["*"]);
     test("x+y", &[], &["+"], &["+"]);
     test("atan2(0.2/y, x)", &[], &["atan2", "/"], &["atan2", "/"]);
@@ -1087,6 +1094,12 @@ fn test_op_reprs() {
         &["-", "cos", "sin", "tan"],
         &["+", "-"],
         &["+", "-", "cos", "sin", "tan"],
+    );
+    test(
+        "4/3 * a / b * (1.3 / 65.2 / (log(18.93+c+d+e) / ln(111 + d)))",
+        &["ln", "log"],
+        &["*", "+", "/"],
+        &["*", "+", "/", "ln", "log"],
     );
     test(
         "4/3 * a / b * (1.3 / 65.2 / ((18.93+c+d+e) / 111))",
