@@ -7,7 +7,7 @@ use crate::expression::{
     deep::{DeepEx, DeepNode},
     Express,
 };
-use crate::operators::UnaryOp;
+use crate::operators::{BinOpWithIdx, OperateBinary, UnaryOp};
 #[cfg(feature = "partial")]
 use crate::DiffDataType;
 use crate::{
@@ -21,6 +21,7 @@ use std::str::FromStr;
 
 const DEPTH_PRIO_STEP: i64 = 1000;
 pub type ExprIdxVec = SmallVec<[usize; N_NODES_ON_STACK]>;
+
 mod detail {
     use std::{fmt::Debug, marker::PhantomData, str::FromStr};
 
@@ -35,7 +36,7 @@ mod detail {
         },
         exerr,
         expression::{eval_binary, number_tracker::NumberTracker},
-        operators::{OperateBinary, UnaryOp},
+        operators::{BinOpWithIdx, OperateBinary, UnaryFuncWithIdx, UnaryOp},
         parser::{self, Paren, ParsedToken},
         BinOp, ExError, ExResult, FlatEx, MakeOperators, MatchLiteral, Operator,
     };
@@ -53,12 +54,12 @@ mod detail {
     #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
     pub struct FlatOp<T: Clone> {
         pub unary_op: UnaryOp<T>,
-        pub bin_op: BinOp<T>,
+        pub bin_op: BinOpWithIdx<T>,
     }
 
     impl<T: Clone> OperateBinary<T> for FlatOp<T> {
         fn apply(&self, arg1: T, arg2: T) -> T {
-            self.unary_op.apply((self.bin_op.apply)(arg1, arg2))
+            self.unary_op.apply(self.bin_op.apply(arg1, arg2))
         }
     }
 
@@ -88,22 +89,37 @@ mod detail {
 
     use crate::expression::deep::{BinOpsWithReprs, DeepEx, DeepNode, UnaryOpWithReprs};
 
+    pub trait OperatorIdx {
+        fn idx(&self) -> usize;
+    }
+    impl<T> OperatorIdx for &UnaryFuncWithIdx<T> {
+        fn idx(&self) -> usize {
+            self.idx
+        }
+    }
+    impl<T> OperatorIdx for &BinOpWithIdx<T>
+    where
+        T: Clone,
+    {
+        fn idx(&self) -> usize {
+            self.idx
+        }
+    }
+
     pub fn collect_reprs<'a, F, T, I>(
         funcs: I,
         ops: &[Operator<'a, T>],
-        predicate: fn(&Operator<T>, F) -> bool,
     ) -> ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>
     where
         T: Clone,
         I: Iterator<Item = F>,
-        F: Clone,
+        F: Clone + OperatorIdx,
     {
         funcs
             .map(|func| {
-                ops.iter()
-                    .find(|op| predicate(op, func.clone()))
+                ops.get(func.idx())
                     .cloned()
-                    .ok_or_else(|| ExError::new("could not find operator"))
+                    .ok_or_else(|| exerr!("could not find operator with idx {}", func.idx()))
             })
             .collect::<ExResult<SmallVec<[Operator<'a, T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>>()
     }
@@ -115,11 +131,7 @@ mod detail {
     where
         T: Clone,
     {
-        let collected = collect_reprs::<&fn(T, T) -> T, _, _>(
-            flat_ops.iter().map(|op| &op.bin_op.apply),
-            operators,
-            binary_predicate,
-        );
+        let collected = collect_reprs(flat_ops.iter().map(|op| &op.bin_op), operators);
         match collected {
             Ok(reprs) => reprs.iter().map(|op| op.repr().to_string()).collect(),
             Err(e) => panic!("{CANNOT_FIND_OP_MSG}! {e:?}"),
@@ -145,34 +157,14 @@ mod detail {
         reprs
     }
 
-    pub fn unary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T) -> T) -> bool {
-        if let Ok(op) = op.unary() {
-            op == *func
-        } else {
-            false
-        }
-    }
-
-    pub fn binary_predicate<T: Clone>(op: &Operator<T>, func: &fn(T, T) -> T) -> bool {
-        if let Ok(op) = op.bin() {
-            op.apply == *func
-        } else {
-            false
-        }
-    }
-
     pub fn unary_reprs_of_composition<'a, T: Clone>(
         ops: &[Operator<'a, T>],
         unary_op: &UnaryOp<T>,
     ) -> ExResult<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>> {
-        let reprs = collect_reprs::<&fn(T) -> T, _, _>(
-            unary_op.funcs_to_be_composed().iter(),
-            ops,
-            unary_predicate,
-        )?
-        .iter()
-        .map(|op| op.repr())
-        .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>();
+        let reprs = collect_reprs(unary_op.funcs_to_be_composed().iter(), ops)?
+            .iter()
+            .map(|op| op.repr())
+            .collect::<SmallVec<[&'a str; N_UNARYOPS_OF_DEEPEX_ON_STACK]>>();
         Ok(reprs)
     }
 
@@ -222,11 +214,7 @@ mod detail {
     {
         let dummy_node = DeepNode::Var((usize::MAX, "".to_string()));
         let operators = OF::make();
-        let bin_ops = collect_reprs::<&fn(T, T) -> T, _, _>(
-            flat_ops.iter().map(|op| &op.bin_op.apply),
-            &operators,
-            binary_predicate,
-        )?;
+        let bin_ops = collect_reprs(flat_ops.iter().map(|op| &op.bin_op), &operators)?;
         type BinVecT<T> = SmallVec<[T; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
         let bin_reprs = bin_ops
             .iter()
@@ -258,15 +246,18 @@ mod detail {
                     && idx < flat_ops.len()
             );
 
-            let bin_op = flat_ops[idx].bin_op.clone();
+            let bin_op_widx = flat_ops[idx].bin_op.clone();
             let bin_op = BinOp {
-                apply: bin_op.apply,
+                apply: bin_op_widx.op.apply,
                 prio: orig_prios[idx],
-                is_commutative: bin_op.is_commutative,
+                is_commutative: bin_op_widx.op.is_commutative,
             };
             let bin_op_wr = BinOpsWithReprs {
                 reprs: smallvec![bin_reprs[idx]],
-                ops: smallvec![bin_op],
+                ops: smallvec![BinOpWithIdx {
+                    op: bin_op,
+                    idx: bin_op_widx.idx,
+                }],
             };
             let unary_op = mem::take(&mut flat_ops[idx].unary_op);
             let unary_reprs = unary_reprs_of_composition(&operators, &unary_op)?;
@@ -438,14 +429,20 @@ mod detail {
 
     type ExResultOption<T> = ExResult<Option<T>>;
 
-    fn unpack_unary<T>(idx: usize, parsed_tokens: &[ParsedToken<T>]) -> ExResultOption<fn(T) -> T>
+    fn unpack_unary<T>(
+        token_idx: usize,
+        parsed_tokens: &[ParsedToken<T>],
+    ) -> ExResultOption<UnaryFuncWithIdx<T>>
     where
         T: DataType,
     {
-        match &parsed_tokens[idx] {
-            ParsedToken::Op(op) => {
-                if !is_binary(op, idx, parsed_tokens)? {
-                    Ok(Some(op.unary()?))
+        match &parsed_tokens[token_idx] {
+            ParsedToken::Op((op_idx, op)) => {
+                if !is_binary(op, token_idx, parsed_tokens)? {
+                    Ok(Some(UnaryFuncWithIdx {
+                        f: op.unary()?,
+                        idx: *op_idx,
+                    }))
                 } else {
                     Ok(None)
                 }
@@ -472,7 +469,7 @@ mod detail {
         let mut unary_stack: UnaryOpIdxDepthStack = SmallVec::new();
 
         let iter_subsequent_unaries = |end_idx: usize| {
-            let unpack = |idx| unpack_unary(idx, parsed_tokens);
+            let unpack = |token_idx| unpack_unary(token_idx, parsed_tokens);
             let dist_from_end = (0..end_idx + 1)
                 .rev()
                 .map(unpack)
@@ -491,14 +488,14 @@ mod detail {
             Ok((start_idx..end_idx + 1).flat_map(unpack).flatten())
         };
 
-        let create_node = |idx_node, kind| {
-            if idx_node > 0 {
-                let idx_op = idx_node - 1;
-                if let ParsedToken::Op(op) = &parsed_tokens[idx_op] {
-                    if !is_binary(op, idx_op, parsed_tokens)? {
+        let create_node = |idx_node_token, kind| {
+            if idx_node_token > 0 {
+                let idx_op_token = idx_node_token - 1;
+                if let ParsedToken::Op((_, op)) = &parsed_tokens[idx_op_token] {
+                    if !is_binary(op, idx_op_token, parsed_tokens)? {
                         return Ok(FlatNode {
                             kind,
-                            unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op)?),
+                            unary_op: UnaryOp::from_iter(iter_subsequent_unaries(idx_op_token)?),
                         });
                     }
                 }
@@ -507,13 +504,16 @@ mod detail {
         };
         while idx_tkn < parsed_tokens.len() {
             match &parsed_tokens[idx_tkn] {
-                ParsedToken::Op(op) => {
+                ParsedToken::Op((op_idx, op)) => {
                     if is_binary(op, idx_tkn, parsed_tokens)? {
                         let mut bin_op = op.bin()?;
                         bin_op.prio += depth * DEPTH_PRIO_STEP;
                         flat_ops.push(FlatOp::<T> {
                             unary_op: UnaryOp::new(),
-                            bin_op,
+                            bin_op: BinOpWithIdx {
+                                op: bin_op,
+                                idx: *op_idx,
+                            },
                         });
                     } else if let ParsedToken::Paren(p) = &parsed_tokens[idx_tkn + 1] {
                         match p {
@@ -550,8 +550,8 @@ mod detail {
                             let lowest_prio_flat_op = flat_ops
                                 .iter_mut()
                                 .rev()
-                                .take_while(|op| op.bin_op.prio >= depth * DEPTH_PRIO_STEP)
-                                .min_by(|fo1, fo2| fo1.bin_op.prio.cmp(&fo2.bin_op.prio));
+                                .take_while(|op| op.bin_op.op.prio >= depth * DEPTH_PRIO_STEP)
+                                .min_by(|fo1, fo2| fo1.bin_op.op.prio.cmp(&fo2.bin_op.op.prio));
                             match lowest_prio_flat_op {
                                 None => {
                                     // no binary operators of current depth, attach to last node
@@ -640,12 +640,12 @@ mod detail {
         let prio_increase =
             |bin_op_idx: usize| match (&nodes[bin_op_idx].kind, &nodes[bin_op_idx + 1].kind) {
                 (FlatNodeKind::Num(_), FlatNodeKind::Num(_))
-                    if ops[bin_op_idx].bin_op.is_commutative =>
+                    if ops[bin_op_idx].bin_op.op.is_commutative =>
                 {
                     let prio_inc = 5;
-                    &ops[bin_op_idx].bin_op.prio * 10 + prio_inc
+                    &ops[bin_op_idx].bin_op.op.prio * 10 + prio_inc
                 }
-                _ => &ops[bin_op_idx].bin_op.prio * 10,
+                _ => &ops[bin_op_idx].bin_op.op.prio * 10,
             };
         let mut indices: ExprIdxVec = (0..ops.len()).collect();
         indices.sort_by(|i1, i2| {
@@ -743,10 +743,9 @@ where
                 (node_1.kind.clone(), node_2.kind.clone())
             {
                 if !(already_declined[num_idx] || already_declined[num_idx + 1]) {
-                    let op_result =
-                        self.flat_ops[bin_op_idx]
-                            .unary_op
-                            .apply((self.flat_ops[bin_op_idx].bin_op.apply)(num_1, num_2));
+                    let op_result = self.flat_ops[bin_op_idx]
+                        .unary_op
+                        .apply(self.flat_ops[bin_op_idx].bin_op.apply(num_1, num_2));
                     self.nodes[num_idx] = FlatNode::from_kind(FlatNodeKind::Num(op_result));
                     self.nodes.remove(num_idx + 1);
                     already_declined.remove(num_idx + 1);
@@ -1002,13 +1001,17 @@ where
             }
         };
         if node_idx < deep_expr.bin_ops().ops.len() {
+            let binop_widx = &deep_expr.bin_ops().ops[node_idx];
             let prio_adapted_bin_op = BinOp {
-                apply: deep_expr.bin_ops().ops[node_idx].apply,
-                prio: deep_expr.bin_ops().ops[node_idx].prio + prio_offset,
-                is_commutative: deep_expr.bin_ops().ops[node_idx].is_commutative,
+                apply: binop_widx.op.apply,
+                prio: binop_widx.op.prio + prio_offset,
+                is_commutative: binop_widx.op.is_commutative,
             };
             flat_ops.push(FlatOp {
-                bin_op: prio_adapted_bin_op,
+                bin_op: BinOpWithIdx {
+                    op: prio_adapted_bin_op,
+                    idx: binop_widx.idx,
+                },
                 unary_op: UnaryOp::new(),
             });
         }
@@ -1018,7 +1021,7 @@ where
         if !flat_ops.is_empty() {
             // find the last binary operator with the lowest priority of this expression,
             // since this will be executed as the last one
-            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.prio) {
+            let low_prio_op = match flat_ops.iter_mut().rev().min_by_key(|op| op.bin_op.op.prio) {
                 None => panic!("cannot have more than one flat node but no binary ops"),
                 Some(x) => x,
             };
@@ -1057,35 +1060,33 @@ where
 use crate::util::assert_float_eq_f64;
 
 #[test]
-fn test_to_deepex() -> ExResult<()> {
-    fn test(sut: &str, vars: &[f64]) -> ExResult<()> {
+fn test_to_deepex() {
+    fn test(sut: &str, vars: &[f64]) -> () {
         println!(" --- sut - {}", sut);
-        let fex = FlatEx::<f64>::parse(sut)?;
-        let dex = fex.clone().to_deepex()?;
+        let fex = FlatEx::<f64>::parse(sut).unwrap();
+        let dex = fex.clone();
+        let dex = dex.to_deepex().unwrap();
         println!("{:#?}", dex);
-        assert_float_eq_f64(fex.eval(vars)?, dex.eval(vars)?);
-        Ok(())
+        assert_float_eq_f64(fex.eval(vars).unwrap(), dex.eval(vars).unwrap());
     }
-    test("{x}+2.0*{y}", &[1.0, 0.5])?;
-    test("({x}+2.0)*{y}", &[1.0, 0.5])?;
-    test("({x}+2.0)*(2^{y})", &[1.0, 0.5])?;
-    test("(1+{x}+2.0)*(2-2^{y})", &[1.0, 0.5])?;
-    test("(1+{x}+2.0)*2", &[1.0])?;
-    test("{x}+(2.0*{y})", &[1.0, 0.5])?;
-    test("sin({y})", &[1.0])?;
-    test("sin({y}) + sin({x})", &[2.0, 1.0])?;
-    test("sin(1+{y})", &[1.0])?;
-    test("sin(cos(1+{y}))", &[1.0])?;
-    test("sin((1+{y})*z)", &[1.0, 2.0])?;
-    test("cos(sin(1+{y})*z)", &[1.0, 2.0])?;
-    test("{x}+sin(2.0*{y})", &[1.0, 2.0])?;
-    test("z+sin(x)+cos(y)", &[1.0, 2.0, 3.0])?;
-    test("sin(cos(sin(z)))", &[2.53])?;
-    test("1/(x/y)*(2*x)", &[1.3, 0.5])?;
-    test("+-+x", &[12341.234])?;
-    test("-y*(x*(-(1-y))) + 1.7", &[1.2, 1.0])?;
-
-    Ok(())
+    test("{x}+2.0*{y}", &[1.0, 0.5]);
+    test("({x}+2.0)*{y}", &[1.0, 0.5]);
+    test("({x}+2.0)*(2^{y})", &[1.0, 0.5]);
+    test("(1+{x}+2.0)*(2-2^{y})", &[1.0, 0.5]);
+    test("(1+{x}+2.0)*2", &[1.0]);
+    test("{x}+(2.0*{y})", &[1.0, 0.5]);
+    test("sin({y})", &[1.0]);
+    test("sin({y}) + sin({x})", &[2.0, 1.0]);
+    test("sin(1+{y})", &[1.0]);
+    test("sin(cos(1+{y}))", &[1.0]);
+    test("sin((1+{y})*z)", &[1.0, 2.0]);
+    test("cos(sin(1+{y})*z)", &[1.0, 2.0]);
+    test("{x}+sin(2.0*{y})", &[1.0, 2.0]);
+    test("z+sin(x)+cos(y)", &[1.0, 2.0, 3.0]);
+    test("sin(cos(sin(z)))", &[2.53]);
+    test("1/(x/y)*(2*x)", &[1.3, 0.5]);
+    test("+-+x", &[12341.234]);
+    test("-y*(x*(-(1-y))) + 1.7", &[1.2, 1.0]);
 }
 
 #[test]

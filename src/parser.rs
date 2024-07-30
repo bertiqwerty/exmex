@@ -19,7 +19,8 @@ pub enum Paren {
 pub enum ParsedToken<'a, T: DataType> {
     Num(T),
     Paren(Paren),
-    Op(Operator<'a, T>),
+    /// index in the list of operators and operator
+    Op((usize, Operator<'a, T>)),
     Var(&'a str),
 }
 impl<'a, T> Debug for ParsedToken<'a, T>
@@ -29,7 +30,7 @@ where
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Num(x) => f.write_str(format!("{x:?}").as_str()),
-            Self::Op(op) => f.write_str(op.repr()),
+            Self::Op(op) => f.write_str(op.1.repr()),
             Self::Paren(Paren::Open) => f.write_str("("),
             Self::Paren(Paren::Close) => f.write_str(")"),
             Self::Var(v) => f.write_str(v),
@@ -166,9 +167,13 @@ where
     F: Fn(&'a str) -> Option<&'a str>,
 {
     // We sort operators inverse alphabetically such that log2 has higher priority than log (wlog :D).
-    let mut ops_tmp = ops_in.iter().clone().collect::<SmallVec<[_; 64]>>();
-    ops_tmp.sort_unstable_by(|o1, o2| o2.repr().partial_cmp(o1.repr()).unwrap());
-    let ops = ops_tmp.to_vec(); // from now on const
+    let mut ops_tmp = ops_in
+        .iter()
+        .enumerate()
+        .clone()
+        .collect::<SmallVec<[_; 64]>>();
+    ops_tmp.sort_unstable_by(|(_, o1), (_, o2)| o2.repr().partial_cmp(o1.repr()).unwrap());
+    let ops_with_idx = ops_tmp; // from now on const
 
     lazy_static! {
         static ref RE_VAR_NAME: Regex =
@@ -180,7 +185,7 @@ where
     }
 
     let find_ops = |byte_offset: usize| {
-        ops.iter().find(|op| {
+        ops_with_idx.iter().find(|(_, op)| {
             let range_end = byte_offset + op.repr().len();
             if let Some(maybe_op) = text.get(byte_offset..range_end) {
                 op.repr() == maybe_op
@@ -252,12 +257,12 @@ where
                     res.push(ParsedToken::Paren(Paren::Close));
                     close_additional_paren = false;
                 }
-            } else if let Some(op) = find_ops(cur_byte_offset_tmp) {
+            } else if let Some((idx, op)) = find_ops(cur_byte_offset_tmp) {
                 let n_bytes = op.repr().len();
                 cur_byte_offset += n_bytes;
                 res.push(match op.constant() {
                     Some(constant) => ParsedToken::<T>::Num(constant),
-                    None => ParsedToken::<T>::Op((*op).clone()),
+                    None => ParsedToken::<T>::Op((*idx, (*op).clone())),
                 });
             } else if let Some(var_str) = RE_VAR_NAME.find(text_rest) {
                 let var_str = var_str.as_str();
@@ -301,8 +306,8 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Num(_), ParsedToken::Op(op))
-                | (ParsedToken::Var(_), ParsedToken::Op(op))
+                (ParsedToken::Num(_), ParsedToken::Op((_, op)))
+                | (ParsedToken::Var(_), ParsedToken::Op((_, op)))
                     // we do not ask for is_unary since operators can be both
                     if !op.has_bin() => make_err(
                         "a number/variable cannot be on the left of a unary operator",
@@ -315,7 +320,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                    (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                    (ParsedToken::Op((_, op_l)), ParsedToken::Op((_, op_r)))
                         if !op_l.has_unary() && !op_r.has_unary() => Err(exerr!(
                             "a binary operator cannot be next to the binary operator, violated by '{}' left of '{}'",
                             op_l.repr(),
@@ -327,7 +332,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                    (ParsedToken::Op(op_l), ParsedToken::Op(op_r))
+                    (ParsedToken::Op((_, op_l)), ParsedToken::Op((_, op_r)))
                         if !op_l.has_bin() && !op_r.has_unary() => Err(exerr!(
                             "a unary operator cannot be on the left of a binary one, violated by '{}' left of '{}'",
                             op_l.repr(),
@@ -338,7 +343,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
         },
         PairPreCondition {
             apply: |left, right| match (left, right) {
-                (ParsedToken::Op(op), ParsedToken::Paren(_p @ Paren::Close)) => Err(exerr!(
+                (ParsedToken::Op((_, op)), ParsedToken::Paren(_p @ Paren::Close)) => Err(exerr!(
                     "an operator cannot be on the left of a closing paren, violated by '{}'",
                     op.repr()
                 )),
@@ -348,7 +353,7 @@ fn make_pair_pre_conditions<'a, T: DataType>() -> [PairPreCondition<'a, T>; 7] {
         PairPreCondition {
             apply: |left, right| {
                 match (left, right) {
-                    (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op(op)) if !op.has_bin() => {
+                    (ParsedToken::Paren(_p @ Paren::Close), ParsedToken::Op((_, op))) if !op.has_bin() => {
                         Err(exerr!("a unary operator cannot be on the right of a closing paren, violated by '{}'", 
                             op.repr()))
                     }
@@ -509,26 +514,32 @@ fn test_find_comma_op() {
     let pts = [
         ParsedToken::Paren(Paren::Close),
         ParsedToken::Paren(Paren::Close),
-        ParsedToken::Op(Operator::make_bin(
-            "atan2",
-            crate::BinOp {
-                apply: |y: f64, x: f64| y.atan2(x),
-                prio: 1,
-                is_commutative: false,
-            },
+        ParsedToken::Op((
+            0,
+            Operator::make_bin(
+                "atan2",
+                crate::BinOp {
+                    apply: |y: f64, x: f64| y.atan2(x),
+                    prio: 1,
+                    is_commutative: false,
+                },
+            ),
         )),
         ParsedToken::Paren(Paren::Open),
     ];
     assert_eq!(Some(2), find_op_of_comma(&pts));
     let pts = [
         ParsedToken::Paren(Paren::Close),
-        ParsedToken::Op(Operator::make_bin(
-            "atan2",
-            crate::BinOp {
-                apply: |y: f64, x: f64| y.atan2(x),
-                prio: 1,
-                is_commutative: false,
-            },
+        ParsedToken::Op((
+            0,
+            Operator::make_bin(
+                "atan2",
+                crate::BinOp {
+                    apply: |y: f64, x: f64| y.atan2(x),
+                    prio: 1,
+                    is_commutative: false,
+                },
+            ),
         )),
         ParsedToken::Paren(Paren::Open),
     ];

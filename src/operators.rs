@@ -119,10 +119,50 @@ pub trait OperateBinary<T> {
     fn apply(&self, x: T, y: T) -> T;
 }
 
-pub type VecOfUnaryFuncs<T> = SmallVec<[fn(T) -> T; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
+#[derive(Clone, Eq, Ord, PartialOrd, Debug)]
+pub struct BinOpWithIdx<T>
+where
+    T: Clone,
+{
+    pub op: BinOp<T>,
+    pub idx: usize,
+}
+impl<T> OperateBinary<T> for BinOpWithIdx<T>
+where
+    T: Clone,
+{
+    fn apply(&self, arg1: T, arg2: T) -> T {
+        (self.op.apply)(arg1, arg2)
+    }
+}
+impl<T> PartialEq for BinOpWithIdx<T>
+where
+    T: Clone,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.idx == other.idx
+    }
+}
+#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug)]
+pub struct UnaryFuncWithIdx<T> {
+    pub f: fn(T) -> T,
+    pub idx: usize,
+}
+impl<T> UnaryFuncWithIdx<T> {
+    pub fn apply(&self, x: T) -> T {
+        (self.f)(x)
+    }
+}
+impl<T> PartialEq for UnaryFuncWithIdx<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.idx == other.idx
+    }
+}
+
+pub type VecOfUnaryFuncs<T> = SmallVec<[UnaryFuncWithIdx<T>; N_UNARYOPS_OF_DEEPEX_ON_STACK]>;
 
 /// Container of unary operators of one expression
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug)]
 pub struct UnaryOp<T> {
     funcs_to_be_composed: VecOfUnaryFuncs<T>,
 }
@@ -140,7 +180,7 @@ where
         let mut result = x;
         // rev, since the last uop is applied first by convention
         for uo in self.funcs_to_be_composed.iter().rev() {
-            result = uo(result);
+            result = uo.apply(result);
         }
         result
     }
@@ -161,10 +201,10 @@ where
     /// list, i.e., as latest.
     pub fn append_after_iter<I>(&mut self, other_iter: I)
     where
-        I: Iterator<Item = fn(T) -> T>,
+        I: Iterator<Item = UnaryFuncWithIdx<T>>,
     {
         self.funcs_to_be_composed = other_iter
-            .chain(self.funcs_to_be_composed.iter().copied())
+            .chain(self.funcs_to_be_composed.iter().cloned())
             .collect::<SmallVec<_>>();
     }
 
@@ -186,7 +226,7 @@ where
 
     pub fn from_iter<I>(iter: I) -> Self
     where
-        I: Iterator<Item = fn(T) -> T>,
+        I: Iterator<Item = UnaryFuncWithIdx<T>>,
     {
         Self {
             funcs_to_be_composed: iter.collect(),

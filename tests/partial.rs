@@ -375,24 +375,40 @@ fn test_partial_iter() -> ExResult<()> {
 
 #[cfg(feature = "partial")]
 #[test]
-fn test_log() -> ExResult<()> {
+fn test_log() -> () {
     let test_vals = [0.001, 5.0, 10.0, 1000.0, 12341.2345];
-    let deri_ln = exmex::parse::<f64>("ln(x)")?.partial(0)?;
-    let deri_log = exmex::parse::<f64>("log(x)")?.partial(0)?;
+    println!("testing ln");
+    let ln = exmex::parse::<f64>("ln(x)").unwrap();
+    println!("deri ln");
+    let deri_ln = ln.partial(0).unwrap();
+    println!("testing log");
+    let log = exmex::parse::<f64>("log(x)").unwrap();
+    println!("deri log");
+    let deri_log = log.partial(0).unwrap();
 
-    let expr = exmex::parse::<f64>("log10(x)")?;
-    let deri = expr.partial(0)?;
+    let expr = exmex::parse::<f64>("log10(x)").unwrap();
+    let deri = expr.partial(0).unwrap();
+    println!("after p0 for log10");
     for v in test_vals {
-        utils::assert_float_eq_f64(deri_ln.eval(&[v])? * 1.0 / 10.0f64.ln(), deri.eval(&[v])?);
-        utils::assert_float_eq_f64(deri_log.eval(&[v])? * 1.0 / 10.0f64.ln(), deri.eval(&[v])?);
+        utils::assert_float_eq_f64(
+            deri_ln.eval(&[v]).unwrap() * 1.0 / 10.0f64.ln(),
+            deri.eval(&[v]).unwrap(),
+        );
+        utils::assert_float_eq_f64(
+            deri_log.eval(&[v]).unwrap() * 1.0 / 10.0f64.ln(),
+            deri.eval(&[v]).unwrap(),
+        );
     }
 
-    let expr = exmex::parse::<f64>("log2(x)")?;
-    let deri = expr.partial(0)?;
+    let expr = exmex::parse::<f64>("log2(x)").unwrap();
+    let deri = expr.partial(0).unwrap();
+    println!("after p0 for log2");
     for v in test_vals {
-        utils::assert_float_eq_f64(deri_ln.eval(&[v])? * 1.0 / 2.0f64.ln(), deri.eval(&[v])?);
+        utils::assert_float_eq_f64(
+            deri_ln.eval(&[v]).unwrap() * 1.0 / 2.0f64.ln(),
+            deri.eval(&[v]).unwrap(),
+        );
     }
-    Ok(())
 }
 
 #[cfg(feature = "partial")]

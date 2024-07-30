@@ -202,6 +202,7 @@ type BinOpPartial<'a, T, OF, LM> = fn(
 
 type UnaryOpOuter<'a, T, OF, LM> = fn(DeepEx<'a, T, OF, LM>) -> ExResult<DeepEx<'a, T, OF, LM>>;
 
+#[derive(Debug)]
 pub struct PartialDerivative<'a, T: DataType, OF, LM>
 where
     OF: MakeOperators<T>,
@@ -593,6 +594,15 @@ where
         },
         PartialDerivative {
             repr: "ln",
+            bin_op: None,
+            unary_outer_op: Some(
+                |f: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
+                    log_deri(f, Base::Euler)
+                },
+            ),
+        },
+        PartialDerivative {
+            repr: "log",
             bin_op: None,
             unary_outer_op: Some(
                 |f: DeepEx<'a, T, OF, LM>| -> ExResult<DeepEx<'a, T, OF, LM>> {
