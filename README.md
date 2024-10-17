@@ -3,7 +3,7 @@
 [![example workflow](https://github.com/bertiqwerty/exmex/actions/workflows/rust.yml/badge.svg)](https://github.com/bertiqwerty/exmex)
 ![license](https://img.shields.io/crates/l/exmex.svg)
 [![dependency status](https://deps.rs/repo/github/bertiqwerty/exmex/status.svg)](https://deps.rs/repo/github/bertiqwerty/exmex)
-[![downloads](https://img.shields.io/crates/d/exmex.svg)](https://crates.io/crates/exmex)
+[![crates io downloads](https://img.shields.io/crates/d/exmex.svg)](https://crates.io/crates/exmex)
 
 # Exmex
 
