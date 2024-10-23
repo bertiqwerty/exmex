@@ -116,9 +116,9 @@
 //! When an operator's representation is used in a string-to-be-parsed, the following applies:
 //! * Binary operators are positioned between their operands, e.g., `4 ^ 5`.
 //! * Unary operators are positioned in front of their operands, e.g., `-1` or `sin(4)`. Note that `sin4`
-//! is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`.
+//!   is parsed as variable name, but  `sin 4` is equivalent to `sin(4)`.
 //! * Constant operators are handled as if they were numbers and are replaced by their numeric values during parsing.
-//! They can be used as in `sin(PI)` or `4 + E`. Note that the calling notation of constant operators such as `PI()` is invalid.
+//!   They can be used as in `sin(PI)` or `4 + E`. Note that the calling notation of constant operators such as `PI()` is invalid.
 //!
 //! All binary operators can be used either like `a op b` or like `op(a, b)`. Thereby, the latter will be interpreted as `((a) op (b))`. For instance
 //! `atan2(y * 2, 1 / x) * 2` and `((y * 2) atan2 (1 / x)) * 2` are equivalent. We do not support `n`-ary operators like `f(a, b, c)` for `n = 3`.
@@ -239,9 +239,9 @@
 //! ```
 //! Two examples of exmex with non-trivial data types are:
 //! * Numbers can be operators and operators can operate on operators, see, e.g.,
-//! also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
+//!   also a blog post on [ninety.de](https://www.ninety.de/log/index.php/en/2021/11/11/parsing-operators-in-rust/).
 //! * The value type implemented as part of the feature `value` allows expressions containing integers, floats, and bools.
-//! Therewith, Pythonesque expressions of the form `"x if a > b else y"` are possible.
+//!   Therewith, Pythonesque expressions of the form `"x if a > b else y"` are possible.
 //!
 //! ## Priorities and Parentheses
 //! In Exmex-land, unary operators always have higher priority than binary operators, e.g.,
