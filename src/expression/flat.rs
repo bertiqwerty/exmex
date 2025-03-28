@@ -1037,7 +1037,7 @@ where
     (flat_nodes, flat_ops)
 }
 
-impl<'a, T, OF, LM> Calculate<'a, T> for FlatEx<T, OF, LM>
+impl<T, OF, LM> Calculate<'_, T> for FlatEx<T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T> + Debug,

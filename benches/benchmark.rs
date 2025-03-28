@@ -64,11 +64,8 @@ fn assert_float_eq(f1: f64, f2: f64) {
 }
 
 fn run_benchmark<F: FnMut(f64) -> f64>(funcs: Vec<F>, eval_name: &str, c: &mut Criterion) {
-    for (mut func, exp_name, ref_vals) in izip!(
-        funcs,
-        BENCH_EXPRESSIONS_NAMES.iter(),
-        bench_ref_values().iter()
-    ) {
+    let brv = bench_ref_values();
+    for (mut func, exp_name, ref_vals) in izip!(funcs, BENCH_EXPRESSIONS_NAMES.iter(), brv.iter()) {
         c.bench_function(format!("{}_{}", eval_name, exp_name).as_str(), |b| {
             b.iter(|| {
                 for (i, ref_val) in izip!(BENCH_X_RANGE.0..BENCH_X_RANGE.1, ref_vals) {
@@ -268,9 +265,15 @@ fn evalexpr_bench_eval(c: &mut Criterion) {
         .iter_mut()
         .map(|(expr, context)| {
             move |x: f64| {
-                context.set_value("x".into(), x.into()).unwrap();
-                context.set_value("y".into(), BENCH_Y.into()).unwrap();
-                context.set_value("z".into(), BENCH_Z.into()).unwrap();
+                context
+                    .set_value("x".into(), evalexpr::Value::Float(x))
+                    .unwrap();
+                context
+                    .set_value("y".into(), evalexpr::Value::Float(BENCH_Y))
+                    .unwrap();
+                context
+                    .set_value("z".into(), evalexpr::Value::Float(BENCH_Z))
+                    .unwrap();
                 match expr.eval_with_context(context).unwrap() {
                     Value::Float(val) => val,
                     _ => panic!("What?"),

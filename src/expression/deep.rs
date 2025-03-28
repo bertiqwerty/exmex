@@ -463,7 +463,7 @@ pub struct BinOpsWithReprs<'a, T: Clone> {
     pub reprs: SmallVec<[&'a str; N_BINOPS_OF_DEEPEX_ON_STACK]>,
     pub ops: BinOpVec<T>,
 }
-impl<'a, T: Clone> BinOpsWithReprs<'a, T> {
+impl<T: Clone> BinOpsWithReprs<'_, T> {
     pub fn new() -> Self {
         BinOpsWithReprs {
             reprs: smallvec::smallvec![],
@@ -471,7 +471,7 @@ impl<'a, T: Clone> BinOpsWithReprs<'a, T> {
         }
     }
 }
-impl<'a, T: Clone> Default for BinOpsWithReprs<'a, T> {
+impl<T: Clone> Default for BinOpsWithReprs<'_, T> {
     fn default() -> Self {
         Self::new()
     }
@@ -508,7 +508,7 @@ where
         self.reprs.remove(0);
     }
 }
-impl<'a, T: Clone> Default for UnaryOpWithReprs<'a, T> {
+impl<T: Clone> Default for UnaryOpWithReprs<'_, T> {
     fn default() -> Self {
         Self::new()
     }
@@ -529,7 +529,7 @@ where
     /// The contained integer points to the index of the variable.
     Var((usize, String)),
 }
-impl<'a, T, OF, LM> DeepNode<'a, T, OF, LM>
+impl<T, OF, LM> DeepNode<'_, T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -540,7 +540,7 @@ where
         DeepNode::Num(n)
     }
 }
-impl<'a, T, OF, LM> Debug for DeepNode<'a, T, OF, LM>
+impl<T, OF, LM> Debug for DeepNode<'_, T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -582,7 +582,7 @@ where
     dummy_literal_matcher_factory: PhantomData<LM>,
 }
 
-impl<'a, T, OF, LM> Debug for DeepEx<'a, T, OF, LM>
+impl<T, OF, LM> Debug for DeepEx<'_, T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -1101,7 +1101,7 @@ where
 {
 }
 
-impl<'a, T, OF, LM> Display for DeepEx<'a, T, OF, LM>
+impl<T, OF, LM> Display for DeepEx<'_, T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,
@@ -1113,7 +1113,7 @@ where
     }
 }
 
-impl<'a, T, OF, LM> Default for DeepEx<'a, T, OF, LM>
+impl<T, OF, LM> Default for DeepEx<'_, T, OF, LM>
 where
     T: DataType,
     OF: MakeOperators<T>,

@@ -23,7 +23,7 @@ pub enum ParsedToken<'a, T: DataType> {
     Op((usize, Operator<'a, T>)),
     Var(&'a str),
 }
-impl<'a, T> Debug for ParsedToken<'a, T>
+impl<T> Debug for ParsedToken<'_, T>
 where
     T: DataType,
 {
