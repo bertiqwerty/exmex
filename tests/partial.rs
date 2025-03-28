@@ -9,7 +9,7 @@ mod utils;
 #[cfg(feature = "value")]
 use exmex::{FlatExVal, Val};
 #[cfg(feature = "partial")]
-use rand::{thread_rng, Rng};
+use rand::Rng;
 #[cfg(feature = "partial")]
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
@@ -62,7 +62,7 @@ fn test_partial() -> ExResult<()> {
         F: DiffDataType,
         <F as FromStr>::Err: Debug,
     {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         assert!(flatex.clone().partial(flatex.var_names().len()).is_err());
 
         // test flatex
@@ -70,7 +70,7 @@ fn test_partial() -> ExResult<()> {
         println!("flatex {}", flatex);
         println!("partial {}", deri);
         for _ in 0..3 {
-            let vut = to_f(rng.gen_range(random_range.clone()));
+            let vut = to_f(rng.random_range(random_range.clone()));
             let mut vars: SmallVec<[F; 10]> = smallvec![to_f(0.0); n_vars];
             vars[var_idx] = vut.clone();
             println!("value under test {}.", to_float(vut.clone()));
@@ -255,9 +255,9 @@ fn test_partial_finite() -> ExResult<()> {
         ) -> ExResult<()> {
             let n_vars = flatex.var_names().len();
             let step = 1e-5;
-            let mut rng = thread_rng();
+            let mut rng = rand::rng();
 
-            let x0s: Vec<f64> = (0..n_vars).map(|_| rng.gen_range(range.clone())).collect();
+            let x0s: Vec<f64> = (0..n_vars).map(|_| rng.random_range(range.clone())).collect();
             for var_idx in 0..flatex.var_names().len() {
                 let x1s: Vec<f64> = x0s
                     .iter()
