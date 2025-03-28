@@ -1047,7 +1047,7 @@ where
 }
 
 #[cfg(feature = "partial")]
-impl<'a, T, OF, LM> Differentiate<'a, T> for FlatEx<T, OF, LM>
+impl<T, OF, LM> Differentiate<'_, T> for FlatEx<T, OF, LM>
 where
     T: DiffDataType,
     OF: MakeOperators<T> + Debug,
