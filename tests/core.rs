@@ -114,6 +114,9 @@ fn test_expr() -> ExResult<()> {
         inner_test(&FlatEx::from_deepex(deepex)?, vars, reference, true)?;
         Ok(())
     }
+    test("-3^2", &[], 9.0)?;
+    test("-(3)^2", &[], 9.0)?;
+    test("(-3)^2", &[], 9.0)?;
     test("sin(1)", &[], 1.0f64.sin())?;
     test("2*3^2", &[], 2.0 * 3.0f64.powi(2))?;
     test("(3.7)-2.0*1.0/{x}", &[1.5], 3.7 - 2.0 / 1.5)?;
