@@ -157,12 +157,10 @@ mod detail {
                 res
             });
         let closings =
-            iter::repeat(")")
-                .take(unary_op.op.len())
-                .fold(String::new(), |mut res, closing| {
-                    res.push_str(closing);
-                    res
-                });
+            iter::repeat_n(")", unary_op.op.len()).fold(String::new(), |mut res, closing| {
+                res.push_str(closing);
+                res
+            });
         if unary_op.op.len() == 0 {
             node_with_bin_ops_string
         } else {

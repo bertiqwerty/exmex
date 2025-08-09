@@ -1,6 +1,6 @@
-use std::{collections::BTreeMap, iter::repeat};
+use std::{hint::black_box, collections::BTreeMap, iter::repeat};
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
 #[cfg(feature = "partial")]
 use exmex::Differentiate;

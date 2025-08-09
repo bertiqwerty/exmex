@@ -46,7 +46,7 @@ mod detail {
             .collect()
     }
 
-    pub fn parse<T, OF, LM>(s: &str) -> ExResult<ParsedStatement<T, OF, LM>>
+    pub fn parse<T, OF, LM>(s: &str) -> ExResult<ParsedStatement<'_, T, OF, LM>>
     where
         T: DataType,
         <T as FromStr>::Err: Debug,
@@ -180,7 +180,7 @@ where
 #[cfg(feature = "value")]
 type StatementVal<'a, I, F> = Statement<'a, Val<I, F>, ValOpsFactory<I, F>, ValMatcher>;
 #[cfg(feature = "value")]
-pub fn line_2_statement_val<I, F>(line_str: &str) -> ExResult<StatementVal<I, F>>
+pub fn line_2_statement_val<I, F>(line_str: &str) -> ExResult<StatementVal<'_, I, F>>
 where
     I: DataType + Signed + PrimInt,
     F: DataType + Float,
@@ -190,7 +190,7 @@ where
     line_2_statement::<Val<I, F>, ValOpsFactory<I, F>, ValMatcher>(line_str)
 }
 
-pub fn line_2_statement<T, OF, LM>(line_str: &str) -> ExResult<Statement<T, OF, LM>>
+pub fn line_2_statement<T, OF, LM>(line_str: &str) -> ExResult<Statement<'_, T, OF, LM>>
 where
     T: DataType,
     <T as FromStr>::Err: Debug,

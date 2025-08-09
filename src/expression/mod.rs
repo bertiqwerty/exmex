@@ -35,11 +35,11 @@ where
     /// # Arguments
     ///
     /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
-    ///            the n-th variable in alphabetical order.
-    ///            Thereby, only the first occurrence of the variable in the string is relevant.
-    ///            If an expression has been created by partial derivation, the variables always
-    ///            coincide with those of the antiderivatives even in cases where variables are
-    ///            irrelevant such as `(x)'=1`.
+    ///   the n-th variable in alphabetical order.
+    ///   Thereby, only the first occurrence of the variable in the string is relevant.
+    ///   If an expression has been created by partial derivation, the variables always
+    ///   coincide with those of the antiderivatives even in cases where variables are
+    ///   irrelevant such as `(x)'=1`.
     ///
     /// # Errors
     ///
@@ -54,11 +54,11 @@ where
     /// # Arguments
     ///
     /// * `vars` - Values of the variables of the expression; the n-th value corresponds to
-    ///            the n-th variable in alphabetical order.
-    ///            Thereby, only the first occurrence of the variable in the string is relevant.
-    ///            If an expression has been created by partial derivation, the variables always
-    ///            coincide with those of the antiderivatives even in cases where variables are
-    ///            irrelevant such as `(x)'=1`.
+    ///   the n-th variable in alphabetical order.
+    ///   Thereby, only the first occurrence of the variable in the string is relevant.
+    ///   If an expression has been created by partial derivation, the variables always
+    ///   coincide with those of the antiderivatives even in cases where variables are
+    ///   irrelevant such as `(x)'=1`.
     ///
     /// # Errors
     ///

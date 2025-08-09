@@ -112,7 +112,7 @@ where
     ///   an operator is not found or compute a wrong result if an operator is defined in an un-expected way.
     ///
     fn partial_nth(self, var_idx: usize, n: usize) -> ExResult<Self> {
-        self.partial_iter(iter::repeat(var_idx).take(n))
+        self.partial_iter(iter::repeat_n(var_idx, n))
     }
 
     /// Like [`Differentiate::partial_nth`]. The only difference is that in case there is no differentation defined for
@@ -123,7 +123,7 @@ where
         n: usize,
         missing_op_mode: MissingOpMode,
     ) -> ExResult<Self> {
-        self.partial_iter_relaxed(iter::repeat(var_idx).take(n), missing_op_mode)
+        self.partial_iter_relaxed(iter::repeat_n(var_idx, n), missing_op_mode)
     }
 
     /// *`feature = "partial"`* - Computes a chain of partial derivatives with respect to the variables passed as iterator

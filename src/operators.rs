@@ -19,7 +19,7 @@ fn make_op_not_available_error(repr: &str, op_type: OperatorType) -> ExError {
 /// Operators can be unary such as `sin`, binary such as `*`, unary and binary such as `-`,
 /// or constants such as `π`. To use custom operators, see the short-cut-macro [`ops_factory`](crate::ops_factory)
 /// implement the trait [`MakeOperators`](crate::MakeOperators) directly.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Debug)]
 pub struct Operator<'a, T: Clone> {
     /// Representation of the operator in the string to be parsed, e.g., `-` or `sin`.
     repr: &'a str,
@@ -32,6 +32,23 @@ pub struct Operator<'a, T: Clone> {
     constant: Option<T>,
 }
 
+impl<'a, T: Clone> PartialEq for Operator<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.repr.eq(other.repr)
+    }
+}
+impl<'a, T: Clone> Eq for Operator<'a, T> {}
+impl<'a, T: Clone> PartialOrd for Operator<'a, T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<'a, T: Clone> Ord for Operator<'a, T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.repr.cmp(other.repr)
+    }
+}
 fn unwrap_operator<'a, O>(
     wrapped_op: &'a Option<O>,
     repr: &str,
@@ -119,7 +136,7 @@ pub trait OperateBinary<T> {
     fn apply(&self, x: T, y: T) -> T;
 }
 
-#[derive(Clone, Eq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Debug)]
 pub struct BinOpWithIdx<T>
 where
     T: Clone,
@@ -143,7 +160,18 @@ where
         self.idx == other.idx
     }
 }
-#[derive(Clone, Copy, Eq, PartialOrd, Ord, Debug)]
+impl<T: Clone> Eq for BinOpWithIdx<T> {}
+impl<T: Clone> PartialOrd for BinOpWithIdx<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<T: Clone> Ord for BinOpWithIdx<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.idx.cmp(&other.idx)
+    }
+}
+#[derive(Clone, Copy, Debug)]
 pub struct UnaryFuncWithIdx<T> {
     pub f: fn(T) -> T,
     pub idx: usize,
@@ -156,6 +184,18 @@ impl<T> UnaryFuncWithIdx<T> {
 impl<T> PartialEq for UnaryFuncWithIdx<T> {
     fn eq(&self, other: &Self) -> bool {
         self.idx == other.idx
+    }
+}
+impl<T> Eq for UnaryFuncWithIdx<T> {}
+
+impl<T> PartialOrd for UnaryFuncWithIdx<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl<T> Ord for UnaryFuncWithIdx<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.idx.cmp(&other.idx)
     }
 }
 
@@ -249,7 +289,7 @@ impl<T: Clone> Default for UnaryOp<T> {
 }
 
 /// A binary operator that consists of a function pointer, a priority, and a commutativity-flag.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Debug)]
 pub struct BinOp<T: Clone> {
     /// Implementation of the binary operation, e.g., `|a, b| a * b` for multiplication.
     pub apply: fn(T, T) -> T,
