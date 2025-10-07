@@ -1,4 +1,4 @@
-use std::{hint::black_box, collections::BTreeMap, iter::repeat};
+use std::{hint::black_box, iter::repeat};
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use evalexpr::{build_operator_tree, ContextWithMutableVariables, HashMapContext, Node, Value};
@@ -8,7 +8,6 @@ use exmex::{ops_factory, prelude::*, BinOp, MakeOperators, Operator};
 #[cfg(feature = "value")]
 use exmex::{FlatExVal, Val};
 
-use fasteval::{Compiler, Evaler, Instruction, Slab};
 use itertools::{izip, Itertools};
 
 #[cfg(feature = "serde")]
@@ -284,51 +283,6 @@ fn evalexpr_bench_eval(c: &mut Criterion) {
     run_benchmark(funcs, "evalexpr", c);
 }
 
-fn fasteval_parse(strings: &[&str]) -> Vec<((Instruction, Slab), BTreeMap<String, f64>)> {
-    let parsed_exprs = strings.iter().map(|expr_str| {
-        let parser = fasteval::Parser::new();
-        let mut slab = fasteval::Slab::new();
-        (
-            parser
-                .parse(expr_str, &mut slab.ps)
-                .unwrap()
-                .from(&slab.ps)
-                .compile(&slab.ps, &mut slab.cs),
-            slab,
-        )
-    });
-    let contexts = repeat(BTreeMap::<String, f64>::new()).take(N);
-    izip!(parsed_exprs, contexts).collect::<Vec<_>>()
-}
-
-fn fasteval_bench_parse(c: &mut Criterion) {
-    run_benchmark_parse(fasteval_parse, "fasteval_parse", c);
-}
-fn fasteval_bench_eval(c: &mut Criterion) {
-    let mut parsed_exprs = fasteval_parse(&BENCH_EXPRESSIONS_STRS);
-    let funcs = parsed_exprs
-        .iter_mut()
-        .map(|tuple_of_tuples| {
-            let context = &mut tuple_of_tuples.1;
-            let (instr, slab) = &tuple_of_tuples.0;
-            move |x: f64| {
-                context.insert("x".to_string(), x);
-                context.insert("y".to_string(), BENCH_Y);
-                context.insert("z".to_string(), BENCH_Z);
-                || -> Result<f64, fasteval::Error> {
-                    Ok(fasteval::eval_compiled_ref!(
-                        instr,
-                        black_box(slab),
-                        context
-                    ))
-                }()
-                .unwrap()
-            }
-        })
-        .collect::<Vec<_>>();
-    run_benchmark(funcs, "fasteval", c);
-}
-
 #[cfg(feature = "serde")]
 fn run_benchmark_serialize<Ex: Serialize>(expr: &Ex, expr_name: &str, c: &mut Criterion) {
     c.bench_function(format!("exmex_serde_ser {}", expr_name).as_str(), |b| {
@@ -401,12 +355,10 @@ criterion_group!(
     exmex_bench_flatex_parseval,
     exmex_bench_flatex_val_parseval,
     exmex_bench_serde,
-    fasteval_bench_eval,
     exmex_bench_eval,
     exmex_bench_eval_uncompiled,
     exmex_bench_eval_val,
     evalexpr_bench_eval,
-    fasteval_bench_parse,
     exmex_bench_parse,
     exmex_bench_parse_uncompiled,
     exmex_bench_parse_val,

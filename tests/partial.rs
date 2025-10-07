@@ -257,7 +257,9 @@ fn test_partial_finite() -> ExResult<()> {
             let step = 1e-5;
             let mut rng = rand::rng();
 
-            let x0s: Vec<f64> = (0..n_vars).map(|_| rng.random_range(range.clone())).collect();
+            let x0s: Vec<f64> = (0..n_vars)
+                .map(|_| rng.random_range(range.clone()))
+                .collect();
             for var_idx in 0..flatex.var_names().len() {
                 let x1s: Vec<f64> = x0s
                     .iter()
