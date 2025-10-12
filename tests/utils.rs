@@ -1,4 +1,4 @@
-pub fn assert_float_eq<T: num::Float + std::fmt::Display>(
+pub fn assert_float_eq<T: num_traits::Float + std::fmt::Display>(
     f1: T,
     f2: T,
     atol: T,

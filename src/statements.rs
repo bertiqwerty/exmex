@@ -5,7 +5,7 @@ use std::str::FromStr;
 #[cfg(feature = "value")]
 use {
     crate::{Val, ValMatcher, ValOpsFactory},
-    num::{Float, PrimInt, Signed},
+    num_traits::{Float, PrimInt, Signed},
 };
 
 use crate::{

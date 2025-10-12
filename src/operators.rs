@@ -1,5 +1,5 @@
 use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, exerr, ExError, ExResult};
-use num::Float;
+use num_traits::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 

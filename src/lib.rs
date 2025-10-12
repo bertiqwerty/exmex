@@ -373,7 +373,7 @@ pub use {lazy_static, regex};
 mod value;
 #[cfg(feature = "partial")]
 pub use expression::partial::{Differentiate, MissingOpMode};
-use num::Float;
+use num_traits::Float;
 #[cfg(feature = "value")]
 pub use value::{parse_val, ArrayType, FlatExVal, Val, ValMatcher, ValOpsFactory};
 

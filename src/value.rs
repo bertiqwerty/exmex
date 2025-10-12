@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 
-use num::{Float, PrimInt, Signed};
+use num_traits::{Float, PrimInt, Signed};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -277,7 +277,7 @@ where
         (Val::Float(x), Val::Float(y)) => Val::Float(x.powf(y)),
         (Val::Float(x), Val::Int(y)) => Val::Float(x.powi(y.to_i32().unwrap())),
         (Val::Int(x), Val::Int(y)) => match y.to_usize() {
-            Some(exponent_) => match num::checked_pow(x, exponent_) {
+            Some(exponent_) => match num_traits::checked_pow(x, exponent_) {
                 Some(res) => Val::Int(res),
                 None => Val::Error(exerr!("overflow in {:?}^{:?}", x, y)),
             },
