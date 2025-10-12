@@ -93,7 +93,7 @@
 //!
 //! To use different data types within an expression, one can activate the feature `value` and
 //! use the more general type `Val`. The additional flexibility comes with higher parsing
-//! and evaluation run times, see the [benchmarks](https://github.com/bertiqwerty/exmex#benchmarks-v0130).
+//! and evaluation run times.
 //!
 //! ## Extendability
 //!

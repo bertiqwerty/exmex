@@ -132,7 +132,6 @@ assert!((res - 3.0).abs() < 1e-12);
 ## Serialization and Deserialization
 
 To use [`serde`](https://serde.rs/) activate the feature `serde`.
- 
 
 ## Documentation
 More features and examples including integer data types and boolean literals can be found for the documentation release under [docs.rs/exmex/](https://docs.rs/exmex/) or generated via
@@ -140,51 +139,9 @@ More features and examples including integer data types and boolean literals can
 cargo doc --all-features --no-deps
 ```
 
-## Benchmarks `v0.17.2`
+## Benchmarks
 
-Exmex was created with flexibility (e.g., use your own operators, literals, and types), ergonomics (e.g., just finds variables), and evaluation speed in mind. On the other hand, Exmex is slower than the other crates during parsing. However, evaluation might be more performance critical depending on the application. 
-
-The expressions used to compare Exmex with other creates are:
-```
-sin:     "sin(x)+sin(y)+sin(z)",
-power:   "x^2+y*y+z^z",
-nested:  "x*0.02*sin(-(3*(2*sin(x-1/(sin(y*5)+(5.0-1/z))))))",
-compile: "x*0.2*5/4+x*2*4*1*1*1*1*1*1*1+7*sin(y)-z/sin(3.0/2/(1-x*4*1*1*1*1))",
-```
-The following table shows mean runtimes of 5-evaluation-runs with increasing `x`-values on a Macbook Pro M1 Max in micro-seconds, i.e., smaller means better. [Criterion](https://docs.rs/criterion/latest/criterion/index.html)-based benchmarks can be executed via
-```
-cargo bench --all-features --bench benchmark -- --noplot --sample-size 10 --nresamples 10
-```
-to compute the results. Reported is the best result over multiple invocations. More about taking the minimum run-time for benchmarking can be found below.
-
-|                                                      | sin      | power    | nested  | compile | comment                                        |
-| ---------------------------------------------------- | -------- | -------- | ------- | ------- | ---------------------------------------------- |
-| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 3.9      | 3.23     | 7.84    | 11.06   | more than mathematical expressions             |
-| *[Exmex](https://docs.rs/exmex)* `f64`               | **0.14** | **0.18** | **0.5** | **0.3** | can compute partial derivatives                |
-| *[Exmex uncompiled](https://docs.rs/exmex)* `f64`    | **0.14** | **0.18** | **0.5** | 0.66    | can compute partial derivatives                |
-| *[Exmex](https://docs.rs/exmex)* `Val`               | 0.57     | 0.45     | 1.14    | 0.94    | multiple data types in one expression possible |
-| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | 0.68     | 0.78     | 1.19    | 1.03    | only `f64`, supports a faster, unsafe mode     |
-| [Meval](https://docs.rs/meval/0.2.0/meval/)          | 0.42     | 0.43     | 0.79    | 0.99    | only `f64`, no custom operators                |
-| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 4.52     | 5.0      | 10.47   | 19.8    |                                                |
-
-
-Note that we also tried the optimization flag `--emit=asm` which did not change the results qualitatively. Benchmarks for parsing all expressions again in μs on the aforementioned machine are shown in the following.
-|                                                      | all expressions |
-| ---------------------------------------------------- | --------------- |
-| [Evalexpr](https://docs.rs/evalexpr/6.3.0/evalexpr/) | 28.95           |
-| *[Exmex](https://docs.rs/exmex)* `f64`               | 23.45           |
-| *[Exmex uncompiled](https://docs.rs/exmex)* `f64`    | 20.00           |
-| *[Exmex](https://docs.rs/exmex)* `Val`               | 33.32           |
-| [Fasteval](https://docs.rs/fasteval/0.2.4/fasteval/) | **13.04**       |
-| [Meval](https://docs.rs/meval/0.2.0/meval/)          | 15.00           |
-| [Rsc](https://docs.rs/rsc/2.0.0/rsc/)                | 14.64           |
-
-Exmex parsing can be made faster by passing only the relevant operators. 
-
-The crates [Mexprp](https://docs.rs/mexprp/0.3.0/mexprp/) and [Asciimath](https://docs.rs/asciimath/0.8.8/asciimath/) did not run without errors on Win10. However, I have not tried to use them in a while. More details about the benchmarking can be found in the [source file](https://github.com/bertiqwerty/exmex/blob/main/benches/benchmark.rs). 
-
-Note that Criterion does [not provide the option to simply report the minimum runtime](https://bheisler.github.io/criterion.rs/book/analysis.html). A [talk by
-Andrei Alexandrescu](https://youtu.be/vrfYLlR8X8k?t=1024) explains why I think taking the minimum is a good idea in many cases. See also https://github.com/bheisler/criterion.rs/issues/485.
+See [a separate repo](https://github.com/bertiqwerty/exmex-benchmarks).
 
 ## License
 You as library user can select between MIT and Apache 2.0.
