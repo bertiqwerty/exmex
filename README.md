@@ -141,7 +141,9 @@ cargo doc --all-features --no-deps
 
 ## Benchmarks
 
-See [a separate repo](https://github.com/bertiqwerty/exmex-benchmarks).
+Exmex is the fastest library for evaluating mathematical expressions I am aware of. The parsing speed on the other hand is slower than the one of many other libraries.
+Benchmarks can be found in [Exmex Benchmarks](https://github.com/bertiqwerty/exmex-benchmarks).
 
 ## License
 You as library user can select between MIT and Apache 2.0.
+
