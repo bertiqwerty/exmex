@@ -367,7 +367,7 @@ pub use {
 };
 
 // Re-exported since used in macro literal_matcher_from_pattern
-pub use {lazy_static, regex};
+pub use regex;
 
 #[cfg(feature = "value")]
 mod value;

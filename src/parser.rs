@@ -3,11 +3,17 @@ use crate::definitions::{N_NODES_ON_STACK, N_VARS_ON_STACK};
 use crate::exerr;
 use crate::result::to_ex;
 use crate::{operators::Operator, ExError, ExResult};
-use lazy_static::lazy_static;
 use regex::Regex;
 use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::mem;
+
+use std::sync::LazyLock;
+
+static RE_VAR_NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap());
+static RE_VAR_NAME_EXACT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap());
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Paren {
@@ -174,15 +180,6 @@ where
         .collect::<SmallVec<[_; 64]>>();
     ops_tmp.sort_unstable_by(|(_, o1), (_, o2)| o2.repr().partial_cmp(o1.repr()).unwrap());
     let ops_with_idx = ops_tmp; // from now on const
-
-    lazy_static! {
-        static ref RE_VAR_NAME: Regex =
-            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*").unwrap();
-    }
-    lazy_static! {
-        static ref RE_VAR_NAME_EXACT: Regex =
-            Regex::new(r"^[a-zA-Zα-ωΑ-Ω_]+[a-zA-Zα-ωΑ-Ω_0-9]*$").unwrap();
-    }
 
     let find_ops = |byte_offset: usize| {
         ops_with_idx.iter().find(|(_, op)| {

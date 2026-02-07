@@ -157,7 +157,7 @@ mod detail {
                 res
             });
         let closings =
-            iter::repeat_n(")", unary_op.op.len()).fold(String::new(), |mut res, closing| {
+            iter::repeat(")").take(unary_op.op.len()).fold(String::new(), |mut res, closing| {
                 res.push_str(closing);
                 res
             });

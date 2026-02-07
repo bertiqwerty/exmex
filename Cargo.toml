@@ -12,6 +12,7 @@ readme = "README.md"
 keywords = ["math", "parser", "expression", "eval", "differentiation"]
 categories = ["parser-implementations", "science"]
 include = ["**/*.rs", "Cargo.toml"]
+rust-version = "1.80.1"
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -20,7 +21,6 @@ maintenance = { status = "actively-developed" }
 regex = "1.11.3"
 num-traits = "0.2.19"
 smallvec = "1.15.1"
-lazy_static = "1.5.0"
 serde = { version = "1.0.228", optional = true }
 
 [profile.test]

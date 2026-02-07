@@ -174,10 +174,9 @@ macro_rules! literal_matcher_from_pattern {
         pub struct $matcher_name;
         impl MatchLiteral for $matcher_name {
             fn is_literal(text: &str) -> Option<&str> {
-                $crate::lazy_static::lazy_static! {
-                    static ref RE_VAR_NAME_EXACT: $crate::regex::Regex = $crate::regex::Regex::new($regex_pattern).unwrap();
-                }
-                RE_VAR_NAME_EXACT.find(text).map(|m|m.as_str())
+                static RE_VAR_NAME_EXACT: std::sync::LazyLock<$crate::regex::Regex> =
+                    std::sync::LazyLock::new(|| $crate::regex::Regex::new($regex_pattern).unwrap());
+                RE_VAR_NAME_EXACT.find(text).map(|m| m.as_str())
             }
         }
     };
