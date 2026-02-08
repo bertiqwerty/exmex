@@ -9,7 +9,7 @@ mod utils;
 #[cfg(feature = "value")]
 use exmex::{FlatExVal, Val};
 #[cfg(feature = "partial")]
-use rand::Rng;
+use rand::RngExt;
 #[cfg(feature = "partial")]
 use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "partial")]
@@ -253,6 +253,8 @@ fn test_partial_finite() -> ExResult<()> {
             flatex: &E,
             range: Range<f64>,
         ) -> ExResult<()> {
+            use rand::RngExt;
+
             let n_vars = flatex.var_names().len();
             let step = 1e-5;
             let mut rng = rand::rng();
