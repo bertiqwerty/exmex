@@ -42,4 +42,4 @@ itertools = "0.14.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_test = "1.0.177"
 serde_json = "1.0.149"
-toml = "0.9.10"
+toml = "1.1.2"
