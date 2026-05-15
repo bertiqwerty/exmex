@@ -1,5 +1,5 @@
+use crate::num::Float;
 use crate::{definitions::N_UNARYOPS_OF_DEEPEX_ON_STACK, exerr, ExError, ExResult};
-use num_traits::Float;
 use smallvec::{smallvec, SmallVec};
 use std::{fmt::Debug, marker::PhantomData};
 
@@ -481,12 +481,12 @@ impl<T: Debug + Float> MakeOperators<T> for FloatOpsFactory<T> {
             Operator::make_unary("log2", |a| a.log2()),
             Operator::make_unary("log10", |a| a.log10()),
             Operator::make_unary("log", |a| a.ln()),
-            Operator::make_constant("PI", T::from(std::f64::consts::PI).unwrap()),
-            Operator::make_constant("π", T::from(std::f64::consts::PI).unwrap()),
-            Operator::make_constant("E", T::from(std::f64::consts::E).unwrap()),
-            Operator::make_constant("e", T::from(std::f64::consts::E).unwrap()),
-            Operator::make_constant("TAU", T::from(std::f64::consts::TAU).unwrap()),
-            Operator::make_constant("τ", T::from(std::f64::consts::TAU).unwrap()),
+            Operator::make_constant("PI", T::from_f64(std::f64::consts::PI)),
+            Operator::make_constant("π", T::from_f64(std::f64::consts::PI)),
+            Operator::make_constant("E", T::from_f64(std::f64::consts::E)),
+            Operator::make_constant("e", T::from_f64(std::f64::consts::E)),
+            Operator::make_constant("TAU", T::from_f64(std::f64::consts::TAU)),
+            Operator::make_constant("τ", T::from_f64(std::f64::consts::TAU)),
         ]
     }
 }

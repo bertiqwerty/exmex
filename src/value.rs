@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, fmt::Debug, marker::PhantomData, str::FromStr};
 
-use num_traits::{Float, PrimInt, Signed};
+use crate::num::{Float, PrimInt, Signed};
 use smallvec::{smallvec, SmallVec};
 
 use crate::{
@@ -102,8 +102,8 @@ pub type ArrayType<F> = SmallVec<[F; 4]>;
 #[derive(Clone, Debug, Default)]
 pub enum Val<I = i32, F = f64>
 where
-    I: DataType + PrimInt + Signed,
-    F: DataType + Float,
+    I: PrimInt + Signed,
+    F: Float,
 {
     Array(ArrayType<F>),
     Int(I),
@@ -124,8 +124,8 @@ where
     pub fn to_bool(self) -> ExResult<bool> {
         match self {
             Self::Bool(b) => Ok(b),
-            Self::Int(n) => Ok(n != I::from(0).unwrap()),
-            Self::Float(x) => Ok(x != F::from(0.0).unwrap()),
+            Self::Int(n) => Ok(n != I::zero()),
+            Self::Float(x) => Ok(x != F::zero()),
             Self::Error(e) => Err(e),
             Self::Array(a) => Err(exerr!(
                 "array is not a scalar and hence not a bool, {:?}",
@@ -138,8 +138,8 @@ where
     }
     pub fn to_float(self) -> ExResult<F> {
         match self {
-            Self::Bool(b) => Ok(F::from(if b { 1.0 } else { 0.0 }).unwrap()),
-            Self::Int(n) => F::from(n).ok_or_else(|| exerr!("cannot convert {n:?} to float")),
+            Self::Bool(b) => Ok(if b { F::one() } else { F::zero() }),
+            Self::Int(n) => Ok(F::from_int(n)),
             Self::Float(x) => Ok(x),
             Self::Error(e) => Err(e),
             Self::Array(a) => Err(exerr!("array is not a scalar and hence not a float, {a:?}")),
@@ -150,8 +150,8 @@ where
     }
     pub fn to_int(self) -> ExResult<I> {
         match self {
-            Self::Bool(b) => Ok(I::from(if b { 1 } else { 0 }).unwrap()),
-            Self::Float(x) => I::from(x).ok_or_else(|| exerr!("cannot convert {x:?} to int")),
+            Self::Bool(b) => Ok(if b { I::one() } else { I::zero() }),
+            Self::Float(x) => Ok(I::from_float(x)),
             Self::Int(n) => Ok(n),
             Self::Error(e) => Err(e),
             Self::Array(a) => Err(exerr!("array is not a scalar and hence not a int, {a:?}")),
@@ -180,7 +180,7 @@ where
     F: DataType + Float,
 {
     fn from(value: f32) -> Self {
-        Val::Float(F::from(value).unwrap())
+        Val::Float(F::from_f32(value))
     }
 }
 
@@ -190,7 +190,7 @@ where
     F: DataType + Float,
 {
     fn from(value: u8) -> Self {
-        Val::Int(I::from(value).unwrap())
+        Val::Int(I::from_u8(value))
     }
 }
 
@@ -243,8 +243,8 @@ where
             (Val::Float(x), Val::Float(y)) => x == y,
             (Val::Int(x), Val::Int(y)) => x == y,
             (Val::Bool(x), Val::Bool(y)) => x == y,
-            (Val::Float(x), Val::Int(y)) => *x == F::from(*y).unwrap(),
-            (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap() == *y,
+            (Val::Float(x), Val::Int(y)) => *x == F::from_int(*y),
+            (Val::Int(x), Val::Float(y)) => F::from_int(*x) == *y,
             _ => false,
         }
     }
@@ -261,8 +261,8 @@ where
         match (self, other) {
             (Val::Float(x), Val::Float(y)) => x.partial_cmp(y),
             (Val::Int(x), Val::Int(y)) => x.partial_cmp(y),
-            (Val::Float(x), Val::Int(y)) => x.partial_cmp(&F::from(*y).unwrap()),
-            (Val::Int(x), Val::Float(y)) => F::from(*x).unwrap().partial_cmp(y),
+            (Val::Float(x), Val::Int(y)) => x.partial_cmp(&F::from_int(*y)),
+            (Val::Int(x), Val::Float(y)) => F::from_int(*x).partial_cmp(y),
             _ => None,
         }
     }
@@ -275,14 +275,14 @@ where
 {
     match (a, b) {
         (Val::Float(x), Val::Float(y)) => Val::Float(x.powf(y)),
-        (Val::Float(x), Val::Int(y)) => Val::Float(x.powi(y.to_i32().unwrap())),
-        (Val::Int(x), Val::Int(y)) => match y.to_usize() {
-            Some(exponent_) => match num_traits::checked_pow(x, exponent_) {
+        (Val::Float(x), Val::Int(y)) => Val::Float(x.powi(y.to_i32())),
+        (Val::Int(x), Val::Int(y)) => {
+            let exponent_ = y.to_u64();
+            match x.checked_pow(exponent_.to_u32()) {
                 Some(res) => Val::Int(res),
                 None => Val::Error(exerr!("overflow in {:?}^{:?}", x, y)),
-            },
-            None => Val::Error(exerr!("cannot convert {:?} to exponent of an int", y)),
-        },
+            }
+        }
         (Val::Error(e), _) => Val::Error(e),
         (_, Val::Error(e)) => Val::Error(e),
         _ => Val::Error(exerr!("cannot compute power",)),
@@ -290,7 +290,7 @@ where
 }
 
 macro_rules! base_arith {
-    ($name:ident, $intname:ident,$accessint:expr, $wrapint:expr) => {
+    ($name:ident, $intname:ident, $accessint:expr, $wrapint:expr) => {
         fn $name<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
         where
             I: DataType + PrimInt + Signed,
@@ -305,10 +305,10 @@ macro_rules! base_arith {
                     Val::Array(x.iter().map(|xi| xi.$name(y)).collect())
                 }
                 (Val::Int(y), Val::Array(x)) => {
-                    Val::Array(x.iter().map(|xi| xi.$name(F::from(y).unwrap())).collect())
+                    Val::Array(x.iter().map(|xi| xi.$name(F::from_int(y))).collect())
                 }
                 (Val::Array(x), Val::Int(y)) => {
-                    Val::Array(x.iter().map(|xi| xi.$name(F::from(y).unwrap())).collect())
+                    Val::Array(x.iter().map(|xi| xi.$name(F::from_int(y))).collect())
                 }
                 (Val::Array(x), Val::Array(y)) => Val::Array(
                     x.iter()
@@ -317,7 +317,7 @@ macro_rules! base_arith {
                         .collect(),
                 ),
                 #[allow(clippy::redundant_closure_call)]
-                (Val::Int(x), Val::Int(y)) => match $wrapint(x.$intname($accessint(&y))) {
+                (Val::Int(x), Val::Int(y)) => match $wrapint(x.$intname($accessint(y))) {
                     Some(res) => Val::Int(res),
                     None => Val::Error(exerr!(
                         "overflow in {:?}{:?}{:?}",
@@ -326,8 +326,8 @@ macro_rules! base_arith {
                         y
                     )),
                 },
-                (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from(y).unwrap())),
-                (Val::Int(x), Val::Float(y)) => Val::Float(F::from(x).unwrap().$name(y)),
+                (Val::Float(x), Val::Int(y)) => Val::Float(x.$name(F::from_int(y))),
+                (Val::Int(x), Val::Float(y)) => Val::Float(F::from_int(x).$name(y)),
                 (Val::Error(e), _) => Val::Error(e),
                 (_, Val::Error(e)) => Val::Error(e),
                 _ => Val::Error(ExError::new(
@@ -342,8 +342,8 @@ base_arith!(add, checked_add, |x| x, |x| x);
 base_arith!(sub, checked_sub, |x| x, |x| x);
 base_arith!(mul, checked_mul, |x| x, |x| x);
 base_arith!(div, checked_div, |x| x, |x| x);
-base_arith!(min, min, |x: &I| *x, |x| Some(x));
-base_arith!(max, max, |x: &I| *x, |x| Some(x));
+base_arith!(min, min, |x: I| x, |x| Some(x));
+base_arith!(max, max, |x: I| x, |x| Some(x));
 
 macro_rules! single_type_arith {
     ($name:ident, $variant:ident, $op:expr) => {

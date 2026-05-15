@@ -345,6 +345,7 @@ mod operators;
 mod data_type;
 mod parser;
 mod result;
+mod num;
 #[doc(hidden)]
 pub mod statements;
 mod util;
@@ -373,7 +374,7 @@ pub use regex;
 mod value;
 #[cfg(feature = "partial")]
 pub use expression::partial::{Differentiate, MissingOpMode};
-use num_traits::Float;
+use num::Float;
 #[cfg(feature = "value")]
 pub use value::{parse_val, ArrayType, FlatExVal, Val, ValMatcher, ValOpsFactory};
 
