@@ -1,5 +1,4 @@
 use std::{fmt::Debug, str::FromStr};
-
 /// The neutral elements of addition and multiplication are zero and one, respectively.
 /// An implementation is provided for all types that implement `From<u8> + PartialEq`.
 pub trait NeutralElts: PartialEq {

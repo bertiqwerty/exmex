@@ -345,7 +345,7 @@ mod operators;
 mod data_type;
 mod parser;
 mod result;
-mod num;
+pub mod num;
 #[doc(hidden)]
 pub mod statements;
 mod util;

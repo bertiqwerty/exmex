@@ -88,7 +88,7 @@ fn test_partial() -> ExResult<()> {
         random_range: Range<f64>,
         reference: fn(f64) -> f64,
     ) -> ExResult<()> {
-        println!("testing {}...", sut);
+        println!("\n---\ntesting {}...", sut);
         let flatex = FlatEx::<f64>::parse(sut)?;
         test_expr(
             &flatex,
@@ -122,6 +122,7 @@ fn test_partial() -> ExResult<()> {
                 |x| Val::Float(x),
             )?;
         }
+        println!("{} passed.", sut);
         Ok(())
     }
 

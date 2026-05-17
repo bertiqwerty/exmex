@@ -377,19 +377,17 @@ single_type_arith!(bitwise_or, Int, |a, b| Val::Int(a | b));
 single_type_arith!(bitwise_and, Int, |a, b| Val::Int(a & b));
 single_type_arith!(bitwise_xor, Int, |a, b| Val::Int(a ^ b));
 single_type_arith!(right_shift, Int, |a: I, b: I| -> Val<I, F> {
-    match b.to_usize() {
-        Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
-            Val::Int(a >> bu)
-        }
-        _ => Val::Error(exerr!("cannot shift right {:?} by {:?}", a, b)),
+    if b.to_u32() < (a.count_ones() + a.count_zeros()) {
+        Val::Int(a >> b)
+    } else {
+        Val::Error(exerr!("cannot shift right {:?} by {:?}", a, b))
     }
 });
 single_type_arith!(left_shift, Int, |a: I, b: I| -> Val<I, F> {
-    match b.to_usize() {
-        Some(bu) if b.to_usize().unwrap() < (a.count_ones() + a.count_zeros()) as usize => {
-            Val::Int(a << bu)
-        }
-        _ => Val::Error(exerr!("cannot shift left {:?} by {:?}", a, b)),
+    if b.to_u32() < (a.count_ones() + a.count_zeros()) {
+        Val::Int(a << b)
+    } else {
+        Val::Error(exerr!("cannot shift left {:?} by {:?}", a, b))
     }
 });
 
@@ -526,15 +524,12 @@ unary_op!(
         |a: I| if a == I::zero() {
             Val::Int(I::one())
         } else {
-            let a_usize_unpacked: usize = match a.to_usize() {
-                Some(x) => x,
-                None => return Val::Error(exerr!("cannot compute factorial of {:?}", a)),
-            };
-            let res = (1usize..(a_usize_unpacked + 1usize))
-                .map(I::from)
-                .try_fold(I::one(), |a, b| b.and_then(|b| a.checked_mul(&b)));
+            let a_usize_unpacked = a.to_u64();
+            println!("computing factorial of {a:?} (unpacked to {a_usize_unpacked})...");
+            let end = a_usize_unpacked.checked_add(1u64);
+            let res = end.and_then(|end| (1u64..end).try_fold(1u64, |a, b| a.checked_mul(b)));
             match res {
-                Some(i) => Val::Int(i),
+                Some(i) => Val::Int(I::from_u64(i)),
                 None => Val::Error(exerr!("cannot compute factorial of {:?}", a)),
             }
         },
@@ -552,27 +547,34 @@ unary_op!(
     )
 );
 
-macro_rules! cast {
-    ($name:ident, $variant:ident, $other_variant:ident, $T:ident) => {
-        fn $name<I, F>(v: Val<I, F>) -> Val<I, F>
-        where
-            I: DataType + PrimInt + Signed,
-            F: DataType + Float,
-            <I as FromStr>::Err: Debug,
-            <F as FromStr>::Err: Debug,
-        {
-            match v {
-                Val::$variant(x) => Val::$variant(x),
-                Val::$other_variant(x) => Val::$variant($T::from(x).unwrap()),
-                Val::Bool(x) => Val::$variant(if x { $T::one() } else { $T::zero() }),
-                _ => Val::Error(exerr!("cannot convert '{:?}' to float", v)),
-            }
-        }
-    };
+fn cast_to_float<I, F>(v: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    match v {
+        Val::Float(x) => Val::Float(x),
+        Val::Int(x) => Val::Float(F::from_int(x)),
+        Val::Bool(x) => Val::Float(F::from_int(if x { I::one() } else { I::zero() })),
+        _ => Val::Error(exerr!("cannot convert '{:?}' to float", v)),
+    }
 }
-
-cast!(cast_to_float, Float, Int, F);
-cast!(cast_to_int, Int, Float, I);
+fn cast_to_int<I, F>(v: Val<I, F>) -> Val<I, F>
+where
+    I: DataType + PrimInt + Signed,
+    F: DataType + Float,
+    <I as FromStr>::Err: Debug,
+    <F as FromStr>::Err: Debug,
+{
+    match v {
+        Val::Int(x) => Val::Int(x),
+        Val::Float(x) => Val::Int(I::from_float(x)),
+        Val::Bool(x) => Val::Int(I::from_u64(if x { 1 } else { 0 })),
+        _ => Val::Error(exerr!("cannot convert '{:?}' to int", v)),
+    }
+}
 
 fn dot<I, F>(a: Val<I, F>, b: Val<I, F>) -> Val<I, F>
 where
@@ -645,14 +647,14 @@ where
 {
     match (a, i) {
         (Val::Array(a), Val::Int(i)) => {
-            let len_i = I::from(a.len());
-            if len_i.is_none() || len_i.map(|len| len <= i) == Some(true) || i < I::from(0).unwrap() {
+            let len_i = I::from_u64(a.len() as u64);
+            if len_i <= i || i < I::zero() {
                 return Val::Error(exerr!(
                     "array has length {} but index {i:?} is requested",
                     a.len()
                 ));
             }
-            Val::Float(a[i.to_usize().unwrap()])
+            Val::Float(a[i.to_usize()])
         }
         (Val::Error(e), _) => Val::Error(e),
         (_, Val::Error(e)) => Val::Error(e),
@@ -970,11 +972,11 @@ where
             Operator::make_unary("to_int", cast_to_int),
             Operator::make_unary("to_float", cast_to_float),
             Operator::make_unary("length", length),
-            Operator::make_constant("PI", Val::Float(F::from(std::f64::consts::PI).unwrap())),
-            Operator::make_constant("π", Val::Float(F::from(std::f64::consts::PI).unwrap())),
-            Operator::make_constant("E", Val::Float(F::from(std::f64::consts::E).unwrap())),
-            Operator::make_constant("TAU", Val::Float(F::from(std::f64::consts::TAU).unwrap())),
-            Operator::make_constant("τ", Val::Float(F::from(std::f64::consts::TAU).unwrap())),
+            Operator::make_constant("PI", Val::Float(F::from_f64(std::f64::consts::PI))),
+            Operator::make_constant("π", Val::Float(F::from_f64(std::f64::consts::PI))),
+            Operator::make_constant("E", Val::Float(F::from_f64(std::f64::consts::E))),
+            Operator::make_constant("TAU", Val::Float(F::from_f64(std::f64::consts::TAU))),
+            Operator::make_constant("τ", Val::Float(F::from_f64(std::f64::consts::TAU))),
         ]
     }
 }
